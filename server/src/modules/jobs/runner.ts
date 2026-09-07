@@ -7,9 +7,31 @@ import {
   rescheduleOrFail,
 } from './repository';
 import { shouldRetry } from './retry';
-import type { ClaimedJob, JobRegistration, RunnerOptions } from './types';
+import type {
+  ClaimedJob,
+  JobKind,
+  JobRegistration,
+  RunnerOptions,
+} from './types';
+
+export function assertJobRegistrations(
+  enabledKinds: readonly JobKind[],
+  registrations: Partial<Record<JobKind, JobRegistration>>,
+): void {
+  for (const kind of enabledKinds) {
+    const registration = registrations[kind];
+    if (
+      !registration ||
+      typeof registration.handle !== 'function' ||
+      typeof registration.onPermanentFailure !== 'function'
+    ) {
+      throw new Error(`Missing complete job registration for ${kind}`);
+    }
+  }
+}
 
 export function startJobRunner(options: RunnerOptions): { stop(): Promise<void> } {
+  assertJobRegistrations(options.enabledKinds, options.registrations);
   const controller = new AbortController();
   const done = runLoop(options, controller.signal);
   let stopPromise: Promise<void> | undefined;

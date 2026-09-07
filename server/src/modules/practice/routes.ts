@@ -1,6 +1,8 @@
 import {
   CreatePracticeAcceptedSchema,
   CreatePracticeRequestSchema,
+  PracticeDtoSchema,
+  UuidSchema,
 } from '@context-reader/contracts';
 import type { FastifyPluginAsync } from 'fastify';
 
@@ -9,6 +11,7 @@ import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
 import { requireAuth } from '../auth/routes';
 import { createPractice } from './create-service';
+import { getPracticeForUser } from './get-service';
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
@@ -47,6 +50,25 @@ export const practiceRoutes: FastifyPluginAsync<PracticeRoutesOptions> = async (
       });
       const body = CreatePracticeAcceptedSchema.parse(created);
       return reply.status(202).send(body);
+    },
+  );
+
+  app.get(
+    '/v1/practices/:id',
+    { preHandler: requireAuth(options.db) },
+    async (request, reply) => {
+      const parsedId = UuidSchema.safeParse(
+        (request.params as { id?: unknown }).id,
+      );
+      if (!parsedId.success) {
+        throw new AppError('VALIDATION_ERROR', '练习编号格式无效', 400);
+      }
+      const practice = await getPracticeForUser(options.db, {
+        userId: request.authUser.userId,
+        practiceId: parsedId.data,
+        freeLimit: options.config.freePracticeLimit,
+      });
+      return reply.send(PracticeDtoSchema.parse(practice));
     },
   );
 };
