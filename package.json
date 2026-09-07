@@ -10,6 +10,10 @@
     "server",
     "packages/*"
   ],
+  "overrides": {
+    "react": "19.1.0",
+    "test-renderer": "1.1.0"
+  },
   "scripts": {
     "dev": "npm run dev --workspace=@context-reader/server",
     "dev:app": "npm run start --workspace=app",
@@ -18,5 +22,9 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "check": "npm run typecheck && npm run test && npm run lint"
+  },
+  "devDependencies": {
+    "react": "19.1.0",
+    "test-renderer": "1.1.0"
   }
 }
