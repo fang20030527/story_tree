@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { FastifyInstance } from 'fastify';
+import type { QueryConfig } from 'pg';
 
 import { buildApp } from './app';
 import { loadConfig } from './config/env';
@@ -61,6 +62,18 @@ const registrations = {
 } satisfies Partial<Record<JobKind, JobRegistration>>;
 assertJobRegistrations(enabledKinds, registrations);
 
+const readinessTimeoutMs = 2_000;
+type TimedQueryConfig = QueryConfig & { query_timeout: number };
+
+async function checkDatabaseReadiness(): Promise<boolean> {
+  const query: TimedQueryConfig = {
+    text: 'select 1',
+    query_timeout: readinessTimeoutMs,
+  };
+  await database.pool.query(query);
+  return true;
+}
+
 let app: FastifyInstance | undefined;
 let worker: { stop(): Promise<void> } | undefined;
 let shutdownPromise: Promise<void> | undefined;
@@ -79,17 +92,15 @@ try {
   app = buildApp({
     config,
     db: database.db,
-    readiness: async () => {
-      await database.pool.query('select 1');
-      return true;
-    },
+    readiness: checkDatabaseReadiness,
+    readinessTimeoutMs,
   });
 
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
   await app.listen({ host: config.HOST, port: config.PORT });
-  await database.pool.query('select 1');
+  await checkDatabaseReadiness();
   worker = startJobRunner({
     db: database.db,
     workerId: randomUUID(),

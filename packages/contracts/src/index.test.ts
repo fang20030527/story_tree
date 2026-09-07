@@ -8,6 +8,7 @@ import {
   AssistanceResponseSchema,
   CreatePracticeAcceptedSchema,
   CreatePracticeRequestSchema,
+  DashboardDtoSchema,
   PublicErrorSchema,
   PublicQuestionSchema,
   SubmitAnswerRequestSchema,
@@ -195,6 +196,28 @@ describe('shared contracts', () => {
         questionId,
         selectedOptionId,
         elapsedMs: 1_200,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('validates the dashboard summary without accepting extra fields', () => {
+    const summary = {
+      incompletePracticeId: crypto.randomUUID(),
+      vocabularyCount: 12,
+      reviewingCount: 4,
+      completedPracticeCount: 2,
+      remainingFreePractices: 1,
+    };
+
+    expect(DashboardDtoSchema.safeParse(summary).success).toBe(true);
+    expect(
+      DashboardDtoSchema.safeParse({ ...summary, remainingFreePractices: -1 })
+        .success,
+    ).toBe(false);
+    expect(
+      DashboardDtoSchema.safeParse({
+        ...summary,
+        internalUserId: crypto.randomUUID(),
       }).success,
     ).toBe(false);
   });

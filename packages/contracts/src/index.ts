@@ -243,6 +243,16 @@ export const VocabularyPageSchema = z
   })
   .strict();
 
+export const DashboardDtoSchema = z
+  .object({
+    incompletePracticeId: UuidSchema.nullable(),
+    vocabularyCount: z.number().int().nonnegative(),
+    reviewingCount: z.number().int().nonnegative(),
+    completedPracticeCount: z.number().int().nonnegative(),
+    remainingFreePractices: z.number().int().nonnegative(),
+  })
+  .strict();
+
 export type PracticeStatus = z.infer<typeof PracticeStatusSchema>;
 export type AnonymousAuthRequest = z.infer<typeof AnonymousAuthRequestSchema>;
 export type AnonymousAuthResponse = z.infer<typeof AnonymousAuthResponseSchema>;
@@ -260,6 +270,7 @@ export type TranslationDto = z.infer<typeof TranslationDtoSchema>;
 export type AnswerResult = z.infer<typeof AnswerResultSchema>;
 export type VocabularyPage = z.infer<typeof VocabularyPageSchema>;
 export type VocabularyItemDto = z.infer<typeof VocabularyItemDtoSchema>;
+export type DashboardDto = z.infer<typeof DashboardDtoSchema>;
 export type PublicQuestion = z.infer<typeof PublicQuestionSchema>;
 export type ArticleSegment = z.infer<typeof ArticleSegmentSchema>;
 export type ArticleParagraph = z.infer<typeof ArticleParagraphSchema>;
