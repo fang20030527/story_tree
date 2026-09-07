@@ -31,6 +31,7 @@ export class EvolinkAiProvider implements AiProvider {
         messages: generationMessages(input),
         maxCompletionTokens: 12_000,
         reasoningEffort: 'low',
+        responseFormat: 'json_object',
       },
       signal,
     );
@@ -46,6 +47,7 @@ export class EvolinkAiProvider implements AiProvider {
         messages: verificationMessages(input),
         maxCompletionTokens: 2_000,
         reasoningEffort: 'low',
+        responseFormat: 'json_object',
       },
       signal,
     );

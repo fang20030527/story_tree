@@ -68,6 +68,7 @@ export interface GenerateTextInput {
   model?: string;
   maxCompletionTokens?: number;
   reasoningEffort?: 'low' | 'medium' | 'high';
+  responseFormat?: 'json_object';
 }
 
 export interface GeneratedText {
@@ -109,6 +110,9 @@ export class EvolinkClient {
         ...(input.reasoningEffort === undefined
           ? {}
           : { reasoning_effort: input.reasoningEffort }),
+        ...(input.responseFormat === undefined
+          ? {}
+          : { response_format: { type: input.responseFormat } }),
       },
       signal,
     );
