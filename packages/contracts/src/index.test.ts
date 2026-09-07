@@ -1,0 +1,78 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  AnswerResultSchema,
+  CreatePracticeRequestSchema,
+  PublicErrorSchema,
+  PublicQuestionSchema,
+} from './index';
+
+describe('shared contracts', () => {
+  it('accepts one to ten vocabulary inputs', () => {
+    expect(
+      CreatePracticeRequestSchema.safeParse({
+        items: [{ term: 'resilient', meaningZh: '有韧性的' }],
+      }).success,
+    ).toBe(true);
+    expect(CreatePracticeRequestSchema.safeParse({ items: [] }).success).toBe(false);
+    expect(
+      CreatePracticeRequestSchema.safeParse({
+        items: Array.from({ length: 11 }, (_, index) => ({
+          term: `term-${index}`,
+          meaningZh: '义项',
+        })),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('does not permit a correct answer in an unanswered question', () => {
+    const result = PublicQuestionSchema.safeParse({
+      id: crypto.randomUUID(),
+      targetId: crypto.randomUUID(),
+      term: 'resilient',
+      prompt: '在本文语境中是什么意思？',
+      options: Array.from({ length: 4 }, (_, index) => ({
+        id: crypto.randomUUID(),
+        label: `选项${index}`,
+      })),
+      submittedAnswer: null,
+      correctOptionId: crypto.randomUUID(),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('requires dont_know feedback to be incorrect with no selected option', () => {
+    const feedback = {
+      answerKind: 'dont_know',
+      selectedOptionId: null,
+      isCorrect: false,
+      wasAssisted: false,
+      correctOptionId: crypto.randomUUID(),
+      meaningEn: 'able to recover quickly',
+      explanationZh: '根据上下文可知。',
+      optionExplanations: {},
+    };
+
+    expect(AnswerResultSchema.safeParse(feedback).success).toBe(true);
+    expect(
+      AnswerResultSchema.safeParse({
+        ...feedback,
+        selectedOptionId: crypto.randomUUID(),
+      }).success,
+    ).toBe(false);
+    expect(AnswerResultSchema.safeParse({ ...feedback, isCorrect: true }).success).toBe(false);
+  });
+
+  it('uses the stable public error envelope', () => {
+    expect(
+      PublicErrorSchema.parse({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: '输入有误',
+          requestId: crypto.randomUUID(),
+          retryable: false,
+        },
+      }).error.code,
+    ).toBe('VALIDATION_ERROR');
+  });
+});
