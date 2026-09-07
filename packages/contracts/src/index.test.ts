@@ -8,6 +8,7 @@ import {
   CreatePracticeRequestSchema,
   PublicErrorSchema,
   PublicQuestionSchema,
+  TranslationRequestSchema,
 } from './index';
 
 describe('shared contracts', () => {
@@ -118,5 +119,24 @@ describe('shared contracts', () => {
         },
       }).error.code,
     ).toBe('VALIDATION_ERROR');
+  });
+
+  it('accepts only paragraph or full translation scopes', () => {
+    expect(
+      TranslationRequestSchema.safeParse({
+        scope: 'paragraph',
+        paragraphId: crypto.randomUUID(),
+      }).success,
+    ).toBe(true);
+    expect(TranslationRequestSchema.safeParse({ scope: 'full' }).success).toBe(true);
+    expect(
+      TranslationRequestSchema.safeParse({
+        scope: 'full',
+        paragraphId: crypto.randomUUID(),
+      }).success,
+    ).toBe(false);
+    expect(
+      TranslationRequestSchema.safeParse({ scope: 'paragraph' }).success,
+    ).toBe(false);
   });
 });

@@ -159,6 +159,16 @@ export const PracticeDtoSchema = z
   })
   .strict();
 
+export const TranslationRequestSchema = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('paragraph'),
+      paragraphId: UuidSchema,
+    })
+    .strict(),
+  z.object({ scope: z.literal('full') }).strict(),
+]);
+
 export const TranslationDtoSchema = z
   .object({
     id: UuidSchema,
@@ -201,6 +211,7 @@ export type CreatePracticeRequest = z.infer<typeof CreatePracticeRequestSchema>;
 export type CreatePracticeAccepted = z.infer<typeof CreatePracticeAcceptedSchema>;
 export type PublicError = z.infer<typeof PublicErrorSchema>;
 export type PracticeDto = z.infer<typeof PracticeDtoSchema>;
+export type TranslationRequest = z.infer<typeof TranslationRequestSchema>;
 export type TranslationDto = z.infer<typeof TranslationDtoSchema>;
 export type AnswerResult = z.infer<typeof AnswerResultSchema>;
 export type VocabularyPage = z.infer<typeof VocabularyPageSchema>;

@@ -8,6 +8,7 @@ import { AppError } from './core/errors';
 import type { AppDatabase } from './db/client';
 import { authPlugin } from './modules/auth/plugin';
 import { practiceRoutes } from './modules/practice/routes';
+import { translationRoutes } from './modules/translation/routes';
 
 export const redactPaths = [
   'req.headers.authorization',
@@ -58,6 +59,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   });
   app.register(authPlugin, { config: options.config, db: options.db });
   app.register(practiceRoutes, { config: options.config, db: options.db });
+  app.register(translationRoutes, { config: options.config, db: options.db });
 
   app.get('/health/live', async () => ({ status: 'ok' }));
   app.get('/health/ready', async () => {

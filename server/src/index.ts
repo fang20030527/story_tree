@@ -19,6 +19,10 @@ import {
   failPracticeGeneration,
   handlePracticeGeneration,
 } from './modules/practice/generation-handler';
+import {
+  failTranslation,
+  handleTranslation,
+} from './modules/translation/handler';
 
 const config = loadConfig(process.env);
 const database = createDatabase(config.DATABASE_URL);
@@ -36,13 +40,23 @@ const generationDependencies = {
   provider: aiProvider,
   modelName: config.EVOLINK_TEXT_MODEL,
 };
-const enabledKinds = ['practice_generation'] as const;
+const translationDependencies = {
+  db: database.db,
+  provider: aiProvider,
+};
+const enabledKinds = ['practice_generation', 'translation'] as const;
 const registrations = {
   practice_generation: {
     handle: (job, context) =>
       handlePracticeGeneration(generationDependencies, job, context),
     onPermanentFailure: (job, error, context) =>
       failPracticeGeneration(generationDependencies, job, error, context),
+  },
+  translation: {
+    handle: (job, context) =>
+      handleTranslation(translationDependencies, job, context),
+    onPermanentFailure: (job, error, context) =>
+      failTranslation(translationDependencies, job, error, context),
   },
 } satisfies Partial<Record<JobKind, JobRegistration>>;
 assertJobRegistrations(enabledKinds, registrations);
