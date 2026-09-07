@@ -172,9 +172,10 @@ Fastify 返回真实状态而不是虚假进度百分比。创建任务后返回
 `practice_targets`
 
 - `id`, `practice_session_id`, `vocabulary_item_id`
-- `paragraph_id`
-- `surface_form`
-- `start_offset`, `end_offset`
+- `position`：保留用户本次输入顺序
+- `paragraph_id`，生成完成前可空
+- `surface_form`，生成完成前可空
+- `start_offset`, `end_offset`，生成完成前可空
 - 唯一约束：一个练习中每个 `vocabulary_item_id` 只出现一次目标映射
 
 `practice_questions`
@@ -257,7 +258,7 @@ Fastify 返回真实状态而不是虚假进度百分比。创建任务后返回
 - `operation_key`
 - `created_at`
 
-匿名用户默认有三篇免费练习。创建练习时在数据库事务中预留一篇额度；练习进入 `ready` 时确认消耗；最终失败时返还。账本操作键唯一，避免并发和重试造成重复扣减。
+匿名用户默认有三篇免费练习。`reserve` 写入 `amount = -1`，`commit` 写入 `amount = 0`，`release` 写入 `amount = +1`；剩余额度等于初始额度加账本金额之和。创建练习时在数据库事务中预留一篇额度；练习进入 `ready` 时确认消耗；最终失败时返还。账本操作键唯一，避免并发和重试造成重复扣减。
 
 ## 9. API 契约
 
