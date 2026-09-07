@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ArticleParagraph as ArticleParagraphDto, PracticeDto, TranslationRequest } from '@context-reader/contracts';
-import { type Href, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -270,7 +270,7 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
             onPress={() => router.push({
               pathname: '/practice/[id]/quiz',
               params: { id: practiceId },
-            } as unknown as Href)}
+            })}
             style={[styles.quizButton, { backgroundColor: theme.accent }]}>
             <Text style={[styles.quizButtonText, { color: theme.accentText }]}>
               开始词义测验

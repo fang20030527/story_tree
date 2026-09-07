@@ -1,20 +1,124 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { DashboardDto } from '@context-reader/contracts';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApiError } from '@/api/client';
+import { InstallationCredentialUnavailableError } from '@/api/installation';
+import { getDashboard } from '@/api/practices';
 import { Card, Chip, RemoteImage, SectionHeader } from '@/components/ui';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { heroArticle, pastArticles } from '@/data/mock';
+import {
+  clearActivePracticeId,
+  loadActivePracticeId,
+  saveActivePracticeId,
+} from '@/features/practice/practiceStorage';
+import {
+  preferredResumePracticeId,
+  resolvePracticeResume,
+  type PracticeDestination,
+} from '@/features/practice/resumePractice';
 
 const TOP_TABS = ['文章', '书籍', '活动'];
+
+function dashboardErrorMessage(error: unknown): string {
+  return error instanceof ApiError
+    ? error.message
+    : '暂时无法同步练习进度';
+}
+
+function openPracticeDestination(
+  practiceId: string,
+  destination: Exclude<PracticeDestination, 'new'>,
+) {
+  router.push({
+    pathname: `/practice/[id]/${destination}`,
+    params: { id: practiceId },
+  });
+}
 
 export default function HomeScreen() {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [topTab, setTopTab] = useState('文章');
+  const [dashboard, setDashboard] = useState<DashboardDto | null>(null);
+  const [resumePracticeId, setResumePracticeId] = useState<string | null>(null);
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [cloudMessage, setCloudMessage] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      const loadDashboard = async () => {
+        setCloudMessage(null);
+        let localPracticeId: string | null = null;
+        try {
+          localPracticeId = await loadActivePracticeId();
+        } catch {
+          // Dashboard state still provides a durable fallback.
+        }
+
+        try {
+          const nextDashboard = await getDashboard();
+          if (!active) return;
+          setDashboard(nextDashboard);
+          setResumePracticeId(preferredResumePracticeId(
+            localPracticeId,
+            nextDashboard.incompletePracticeId,
+          ));
+        } catch (error) {
+          if (!active) return;
+          setResumePracticeId(localPracticeId);
+          if (!(error instanceof InstallationCredentialUnavailableError)) {
+            setCloudMessage(dashboardErrorMessage(error));
+          }
+        }
+      };
+
+      void loadDashboard();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  const openCloudPractice = async () => {
+    setCloudMessage(null);
+    if (!resumePracticeId) {
+      router.push('/practice/new');
+      return;
+    }
+
+    setResumeLoading(true);
+    try {
+      const resolved = await resolvePracticeResume(resumePracticeId);
+      if (resolved.destination === 'new') {
+        await clearActivePracticeId();
+        router.push('/practice/new');
+        return;
+      }
+      await saveActivePracticeId(resolved.practice.id);
+      openPracticeDestination(resolved.practice.id, resolved.destination);
+    } catch (error) {
+      if (!(error instanceof InstallationCredentialUnavailableError)) {
+        setCloudMessage(dashboardErrorMessage(error));
+      }
+    } finally {
+      setResumeLoading(false);
+    }
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
@@ -58,14 +162,41 @@ export default function HomeScreen() {
             <Text style={[styles.bannerSub, { color: theme.textMuted }]}>
               1–10 个具体义项
             </Text>
-            <TouchableOpacity
-              onPress={() => router.push('/practice/new')}
-              style={[styles.bannerButton, { backgroundColor: theme.accent }]}
-              activeOpacity={0.85}>
-              <Text style={[styles.bannerButtonText, { color: theme.accentText }]}>
-                录入词义
+            {dashboard ? (
+              <Text style={[styles.bannerQuota, { color: theme.textSecondary }]}>
+                剩余 {dashboard.remainingFreePractices} 次免费练习
               </Text>
-              <Ionicons name="chevron-forward" size={14} color={theme.accentText} />
+            ) : null}
+            {cloudMessage ? (
+              <Text style={[styles.bannerMessage, { color: theme.danger }]}>
+                {cloudMessage}
+              </Text>
+            ) : null}
+            <TouchableOpacity
+              disabled={resumeLoading}
+              onPress={() => void openCloudPractice()}
+              style={[
+                styles.bannerButton,
+                {
+                  backgroundColor: theme.accent,
+                  opacity: resumeLoading ? 0.65 : 1,
+                },
+              ]}
+              activeOpacity={0.85}>
+              {resumeLoading ? (
+                <ActivityIndicator color={theme.accentText} size="small" />
+              ) : (
+                <>
+                  <Text style={[styles.bannerButtonText, { color: theme.accentText }]}>
+                    {resumePracticeId ? '继续上次练习' : '录入词义'}
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={14}
+                    color={theme.accentText}
+                  />
+                </>
+              )}
             </TouchableOpacity>
           </View>
           <Ionicons
@@ -188,6 +319,8 @@ const styles = StyleSheet.create({
   },
   bannerTitle: { fontSize: 16, fontWeight: weight('semibold') },
   bannerSub: { fontSize: 12, marginTop: 2, letterSpacing: 2 },
+  bannerQuota: { fontSize: 12, marginTop: 8 },
+  bannerMessage: { fontSize: 12, lineHeight: 17, marginTop: 8 },
   bannerButton: {
     flexDirection: 'row',
     alignItems: 'center',

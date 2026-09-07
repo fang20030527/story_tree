@@ -137,6 +137,16 @@ export function saveActivePracticeId(practiceId: string): Promise<void> {
   return AsyncStorage.setItem(ACTIVE_PRACTICE_ID_KEY, parsedId);
 }
 
+export async function loadActivePracticeId(): Promise<string | null> {
+  const stored = await AsyncStorage.getItem(ACTIVE_PRACTICE_ID_KEY);
+  const parsed = UuidSchema.safeParse(stored);
+  return parsed.success ? parsed.data : null;
+}
+
+export function clearActivePracticeId(): Promise<void> {
+  return AsyncStorage.removeItem(ACTIVE_PRACTICE_ID_KEY);
+}
+
 export function clearCreatePracticeOperation(): Promise<void> {
   return AsyncStorage.removeItem(CREATE_PRACTICE_OPERATION_KEY);
 }
