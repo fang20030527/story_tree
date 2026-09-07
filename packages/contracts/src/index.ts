@@ -2,6 +2,20 @@ import { z } from 'zod';
 
 export const UuidSchema = z.uuid();
 
+export const AnonymousAuthRequestSchema = z
+  .object({
+    ageConfirmed14Plus: z.literal(true),
+  })
+  .strict();
+
+export const AnonymousAuthResponseSchema = z
+  .object({
+    userId: UuidSchema,
+    kind: z.literal('guest'),
+    remainingFreePractices: z.number().int().nonnegative(),
+  })
+  .strict();
+
 export const PracticeStatusSchema = z.enum([
   'queued',
   'generating',
@@ -170,6 +184,8 @@ export const VocabularyPageSchema = z
   .strict();
 
 export type PracticeStatus = z.infer<typeof PracticeStatusSchema>;
+export type AnonymousAuthRequest = z.infer<typeof AnonymousAuthRequestSchema>;
+export type AnonymousAuthResponse = z.infer<typeof AnonymousAuthResponseSchema>;
 export type VocabularyStatus = z.infer<typeof VocabularyStatusSchema>;
 export type VocabularyInput = z.infer<typeof VocabularyInputSchema>;
 export type CreatePracticeRequest = z.infer<typeof CreatePracticeRequestSchema>;

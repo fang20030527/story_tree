@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  AnonymousAuthRequestSchema,
+  AnonymousAuthResponseSchema,
   AnswerResultSchema,
   CreatePracticeRequestSchema,
   PublicErrorSchema,
@@ -8,6 +10,29 @@ import {
 } from './index';
 
 describe('shared contracts', () => {
+  it('requires an explicit 14+ confirmation for anonymous identity', () => {
+    expect(
+      AnonymousAuthRequestSchema.safeParse({ ageConfirmed14Plus: true }).success,
+    ).toBe(true);
+    expect(
+      AnonymousAuthRequestSchema.safeParse({ ageConfirmed14Plus: false }).success,
+    ).toBe(false);
+    expect(
+      AnonymousAuthRequestSchema.safeParse({
+        ageConfirmed14Plus: true,
+        birthDate: '2000-01-01',
+      }).success,
+    ).toBe(false);
+
+    expect(
+      AnonymousAuthResponseSchema.safeParse({
+        userId: crypto.randomUUID(),
+        kind: 'guest',
+        remainingFreePractices: 3,
+      }).success,
+    ).toBe(true);
+  });
+
   it('accepts one to ten vocabulary inputs', () => {
     expect(
       CreatePracticeRequestSchema.safeParse({
