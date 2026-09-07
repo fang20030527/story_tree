@@ -47,6 +47,15 @@ export const CreatePracticeRequestSchema = z
   })
   .strict();
 
+export const CreatePracticeAcceptedSchema = z
+  .object({
+    practiceId: UuidSchema,
+    status: PracticeStatusSchema,
+    remainingFreePractices: z.number().int().nonnegative(),
+    pollAfterMs: z.number().int().positive().optional(),
+  })
+  .strict();
+
 export const PublicErrorSchema = z
   .object({
     error: z
@@ -189,6 +198,7 @@ export type AnonymousAuthResponse = z.infer<typeof AnonymousAuthResponseSchema>;
 export type VocabularyStatus = z.infer<typeof VocabularyStatusSchema>;
 export type VocabularyInput = z.infer<typeof VocabularyInputSchema>;
 export type CreatePracticeRequest = z.infer<typeof CreatePracticeRequestSchema>;
+export type CreatePracticeAccepted = z.infer<typeof CreatePracticeAcceptedSchema>;
 export type PublicError = z.infer<typeof PublicErrorSchema>;
 export type PracticeDto = z.infer<typeof PracticeDtoSchema>;
 export type TranslationDto = z.infer<typeof TranslationDtoSchema>;

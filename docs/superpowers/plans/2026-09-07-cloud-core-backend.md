@@ -832,15 +832,15 @@ if (!/^app_test_[0-9a-f]{32}$/.test(schemaName)) {
 }
 await adminPool.query(`create schema "${schemaName}"`);
 const pool = new Pool({
-  connectionString: process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL,
+  connectionString: resolveSessionDatabaseUrl(
+    process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL,
+  ),
   max: 5,
-  onConnect: async (client) => {
-    await client.query(`set search_path to "${schemaName}", public`);
-  },
+  options: `-c search_path=${schemaName},public`,
 });
 ```
 
-Neon's pooled endpoint rejects `search_path` as a startup option, so initialize it through the pool's awaited `onConnect` hook and verify `current_schema()` before migration. Generated Drizzle SQL explicitly qualifies enum types and foreign keys with `"public".`, so `search_path` alone is not isolation. Copy `server/drizzle/` into a `mkdtemp` directory for each test, replace every `"public".` qualifier in copied `.sql` files with the already validated `"${schemaName}".`, assert the rewritten SQL contains no `"public".` qualifier, remove statement-breakpoint markers from the copy so remote test setup uses one round trip, and run Drizzle migration against that temporary folder with `{ migrationsFolder, migrationsSchema: schemaName }`; the committed migration remains unchanged. In `finally`, close the test pool, validate the same prefix again, execute only `drop schema "${schemaName}" cascade` through the admin pool, close the admin pool, and remove only the temporary migration directory so Vitest has no open handles. If neither database variable exists, fail with `Database integration tests require TEST_DATABASE_URL or DATABASE_URL`.
+Neon's transaction pooler rejects `search_path` as a startup option and does not preserve a later session-level `SET` reliably across concurrent transactions. For integration tests only, `resolveSessionDatabaseUrl` converts a recognized `*-pooler.*.neon.tech` hostname to the same branch's direct endpoint; production continues using the configured pooled URL. Set the validated random schema as a startup option on that direct connection and verify `current_schema()` before migration. Generated Drizzle SQL explicitly qualifies enum types and foreign keys with `"public".`, so `search_path` alone is not isolation. Copy `server/drizzle/` into a `mkdtemp` directory for each test, replace every `"public".` qualifier in copied `.sql` files with the already validated `"${schemaName}".`, assert the rewritten SQL contains no `"public".` qualifier, remove statement-breakpoint markers from the copy so remote test setup uses one round trip, and run Drizzle migration against that temporary folder with `{ migrationsFolder, migrationsSchema: schemaName }`; the committed migration remains unchanged. In `finally`, close the test pool, validate the same prefix again, execute only `drop schema "${schemaName}" cascade` through the admin pool, close the admin pool, and remove only the temporary migration directory so Vitest has no open handles. If neither database variable exists, fail with `Database integration tests require TEST_DATABASE_URL or DATABASE_URL`.
 
 `server/drizzle.config.ts` loads the existing development env only when the process has not already supplied a URL:
 

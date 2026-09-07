@@ -4,6 +4,7 @@ import {
   AnonymousAuthRequestSchema,
   AnonymousAuthResponseSchema,
   AnswerResultSchema,
+  CreatePracticeAcceptedSchema,
   CreatePracticeRequestSchema,
   PublicErrorSchema,
   PublicQuestionSchema,
@@ -46,6 +47,24 @@ describe('shared contracts', () => {
           term: `term-${index}`,
           meaningZh: '义项',
         })),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('validates the asynchronous practice creation response', () => {
+    expect(
+      CreatePracticeAcceptedSchema.safeParse({
+        practiceId: crypto.randomUUID(),
+        status: 'queued',
+        remainingFreePractices: 2,
+        pollAfterMs: 1_500,
+      }).success,
+    ).toBe(true);
+    expect(
+      CreatePracticeAcceptedSchema.safeParse({
+        practiceId: crypto.randomUUID(),
+        status: 'queued',
+        remainingFreePractices: -1,
       }).success,
     ).toBe(false);
   });

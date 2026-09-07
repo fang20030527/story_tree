@@ -19,11 +19,12 @@ export async function withTestDatabase<T>(
   if (!databaseUrl) {
     throw new Error('Database integration tests require TEST_DATABASE_URL or DATABASE_URL');
   }
+  const sessionDatabaseUrl = resolveSessionDatabaseUrl(databaseUrl);
 
   const schemaName = `app_test_${crypto.randomUUID().replaceAll('-', '')}`;
   if (!SAFE_SCHEMA_PATTERN.test(schemaName)) throw new Error('Unsafe test schema name');
 
-  const adminPool = new Pool({ connectionString: databaseUrl, max: 1 });
+  const adminPool = new Pool({ connectionString: sessionDatabaseUrl, max: 1 });
   let schemaCreated = false;
   let testDatabase: DatabaseHandle | undefined;
   let temporaryMigrationRoot: string | undefined;
@@ -33,11 +34,9 @@ export async function withTestDatabase<T>(
     schemaCreated = true;
 
     const pool = new Pool({
-      connectionString: databaseUrl,
+      connectionString: sessionDatabaseUrl,
       max: 5,
-      onConnect: async (client) => {
-        await client.query(`set search_path to "${schemaName}", public`);
-      },
+      options: `-c search_path=${schemaName},public`,
     });
     const searchPath = await pool.query<{ schema_name: string }>(
       'select current_schema() as schema_name',
@@ -66,6 +65,14 @@ export async function withTestDatabase<T>(
       await rm(temporaryMigrationRoot, { recursive: true, force: true });
     }
   }
+}
+
+function resolveSessionDatabaseUrl(databaseUrl: string): string {
+  const url = new URL(databaseUrl);
+  if (url.hostname.endsWith('.neon.tech') && url.hostname.includes('-pooler.')) {
+    url.hostname = url.hostname.replace('-pooler.', '.');
+  }
+  return url.toString();
 }
 
 function createDatabaseFromPool(pool: Pool): DatabaseHandle {

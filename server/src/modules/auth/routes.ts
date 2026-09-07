@@ -7,6 +7,7 @@ import type { FastifyPluginAsync, preHandlerHookHandler } from 'fastify';
 import type { ServerConfig } from '../../config/env';
 import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
+import { getRemainingQuota } from '../quota/service';
 import { authenticateInstallation, registerAnonymous } from './service';
 import { parseBearerToken } from './token';
 
@@ -38,10 +39,15 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (
       token,
       parsed.data.ageConfirmed14Plus,
     );
+    const remainingFreePractices = await getRemainingQuota(
+      options.db,
+      authUser.userId,
+      options.config.freePracticeLimit,
+    );
     const body = AnonymousAuthResponseSchema.parse({
       userId: authUser.userId,
       kind: 'guest',
-      remainingFreePractices: options.config.freePracticeLimit,
+      remainingFreePractices,
     });
 
     return reply.status(authUser.created ? 201 : 200).send(body);

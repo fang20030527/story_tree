@@ -7,6 +7,7 @@ import type { ServerConfig } from './config/env';
 import { AppError } from './core/errors';
 import type { AppDatabase } from './db/client';
 import { authPlugin } from './modules/auth/plugin';
+import { practiceRoutes } from './modules/practice/routes';
 
 export const redactPaths = [
   'req.headers.authorization',
@@ -52,11 +53,11 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   const readiness = options.readiness ?? (async () => true);
 
   app.decorateRequest('authUser');
-  app.register(authPlugin, { config: options.config, db: options.db });
-
   app.addHook('onRequest', async (request, reply) => {
     reply.header('x-request-id', request.id);
   });
+  app.register(authPlugin, { config: options.config, db: options.db });
+  app.register(practiceRoutes, { config: options.config, db: options.db });
 
   app.get('/health/live', async () => ({ status: 'ok' }));
   app.get('/health/ready', async () => {
