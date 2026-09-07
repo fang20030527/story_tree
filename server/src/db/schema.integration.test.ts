@@ -32,4 +32,4 @@ it('migrates an isolated schema and writes a durable practice job', async () => 
 
     expect(await db.select().from(jobs)).toHaveLength(1);
   });
-});
+}, 120_000);

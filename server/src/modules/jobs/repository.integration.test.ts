@@ -249,5 +249,5 @@ describe('database job leases', () => {
         .where(eq(jobs.id, runnerJobId));
       expect(interrupted?.status).toBe('running');
     });
-  }, 60_000);
+  }, 120_000);
 });

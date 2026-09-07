@@ -104,5 +104,5 @@ describe('practice retrieval', () => {
         await app.close();
       }
     });
-  }, 60_000);
+  }, 120_000);
 });

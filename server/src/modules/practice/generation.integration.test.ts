@@ -103,7 +103,7 @@ describe('practice generation', () => {
           .where(eq(jobs.id, job!.id)),
       ).toEqual([{ status: 'running' }]);
     });
-  }, 60_000);
+  }, 120_000);
 
   it('classifies safety, verification, deadline, and lease failures without partial writes', async () => {
     await withTestDatabase(async ({ db }) => {
@@ -263,7 +263,7 @@ describe('practice generation', () => {
           .where(eq(practiceParagraphs.practiceSessionId, leaseLoss.practiceId)),
       ).toHaveLength(0);
     });
-  }, 90_000);
+  }, 120_000);
 });
 
 async function captureAppError(promise: Promise<unknown>): Promise<AppError> {

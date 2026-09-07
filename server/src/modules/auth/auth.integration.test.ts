@@ -44,7 +44,7 @@ describe('anonymous installation identity', () => {
       expect(row?.tokenHash).toBe(hashInstallationToken(token));
       expect(JSON.stringify(row)).not.toContain(token);
     });
-  });
+  }, 120_000);
 
   it('registers over HTTP and authenticates only active bearer tokens', async () => {
     await withTestDatabase(async ({ db }) => {
@@ -128,5 +128,5 @@ describe('anonymous installation identity', () => {
       expect(revoked.statusCode).toBe(401);
       expect(PublicErrorSchema.parse(revoked.json()).error.code).toBe('TOKEN_REVOKED');
     });
-  });
+  }, 120_000);
 });

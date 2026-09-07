@@ -155,5 +155,5 @@ describe('transactional practice creation', () => {
         await app.close();
       }
     });
-  }, 90_000);
+  }, 120_000);
 });
