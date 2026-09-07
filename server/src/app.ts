@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { PublicErrorSchema } from '@context-reader/contracts';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 
+import type { ServerConfig } from './config/env';
 import { AppError } from './core/errors';
+import type { AppDatabase } from './db/client';
 
 export const redactPaths = [
   'req.headers.authorization',
@@ -18,8 +20,9 @@ export const redactPaths = [
 ];
 
 interface BuildAppOptions {
+  config: ServerConfig;
+  db: AppDatabase;
   logger?: boolean;
-  logLevel?: string;
   readiness?: () => Promise<boolean>;
 }
 
@@ -34,14 +37,14 @@ function toPublicError(error: unknown): AppError {
   return new AppError('INTERNAL_ERROR', '服务暂时无法完成请求', 500, true);
 }
 
-export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
+export function buildApp(options: BuildAppOptions): FastifyInstance {
   const app = Fastify({
     genReqId: () => randomUUID(),
     logger:
       options.logger === false
         ? false
         : {
-            level: options.logLevel ?? 'info',
+            level: options.config.LOG_LEVEL,
             redact: { paths: redactPaths, censor: '[REDACTED]' },
           },
   });
