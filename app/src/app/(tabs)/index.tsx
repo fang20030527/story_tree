@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,18 +49,21 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}>
-        {/* 词汇量测试 banner */}
+        {/* 生词长文练习 banner */}
         <Card theme={theme} style={styles.banner}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.bannerTitle, { color: theme.text }]}>
-              测测自己的词汇量水平
+              用你的生词生成长文练习
             </Text>
-            <Text style={[styles.bannerSub, { color: theme.textMuted }]}>VOCABULARY</Text>
+            <Text style={[styles.bannerSub, { color: theme.textMuted }]}>
+              1–10 个具体义项
+            </Text>
             <TouchableOpacity
+              onPress={() => router.push('/practice/new')}
               style={[styles.bannerButton, { backgroundColor: theme.accent }]}
               activeOpacity={0.85}>
               <Text style={[styles.bannerButtonText, { color: theme.accentText }]}>
-                去测试
+                录入词义
               </Text>
               <Ionicons name="chevron-forward" size={14} color={theme.accentText} />
             </TouchableOpacity>
