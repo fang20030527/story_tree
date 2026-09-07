@@ -169,6 +169,47 @@ export const TranslationRequestSchema = z.discriminatedUnion('scope', [
   z.object({ scope: z.literal('full') }).strict(),
 ]);
 
+export const AssistanceRequestSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('word_hint'),
+      targetId: UuidSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('paragraph_translation'),
+      paragraphId: UuidSchema,
+    })
+    .strict(),
+  z.object({ kind: z.literal('full_translation') }).strict(),
+]);
+
+export const AssistanceResponseSchema = z
+  .object({
+    recorded: z.literal(true),
+    hintMeaningZh: z.string().nullable(),
+  })
+  .strict();
+
+export const SubmitAnswerRequestSchema = z.discriminatedUnion('answerKind', [
+  z
+    .object({
+      answerKind: z.literal('option'),
+      questionId: UuidSchema,
+      selectedOptionId: UuidSchema,
+      elapsedMs: z.number().int().min(0).max(3_600_000),
+    })
+    .strict(),
+  z
+    .object({
+      answerKind: z.literal('dont_know'),
+      questionId: UuidSchema,
+      elapsedMs: z.number().int().min(0).max(3_600_000),
+    })
+    .strict(),
+]);
+
 export const TranslationDtoSchema = z
   .object({
     id: UuidSchema,
@@ -212,6 +253,9 @@ export type CreatePracticeAccepted = z.infer<typeof CreatePracticeAcceptedSchema
 export type PublicError = z.infer<typeof PublicErrorSchema>;
 export type PracticeDto = z.infer<typeof PracticeDtoSchema>;
 export type TranslationRequest = z.infer<typeof TranslationRequestSchema>;
+export type AssistanceRequest = z.infer<typeof AssistanceRequestSchema>;
+export type AssistanceResponse = z.infer<typeof AssistanceResponseSchema>;
+export type SubmitAnswerRequest = z.infer<typeof SubmitAnswerRequestSchema>;
 export type TranslationDto = z.infer<typeof TranslationDtoSchema>;
 export type AnswerResult = z.infer<typeof AnswerResultSchema>;
 export type VocabularyPage = z.infer<typeof VocabularyPageSchema>;

@@ -4,10 +4,13 @@ import {
   AnonymousAuthRequestSchema,
   AnonymousAuthResponseSchema,
   AnswerResultSchema,
+  AssistanceRequestSchema,
+  AssistanceResponseSchema,
   CreatePracticeAcceptedSchema,
   CreatePracticeRequestSchema,
   PublicErrorSchema,
   PublicQuestionSchema,
+  SubmitAnswerRequestSchema,
   TranslationRequestSchema,
 } from './index';
 
@@ -137,6 +140,62 @@ describe('shared contracts', () => {
     ).toBe(false);
     expect(
       TranslationRequestSchema.safeParse({ scope: 'paragraph' }).success,
+    ).toBe(false);
+  });
+
+  it('validates assistance evidence and explicit answer kinds', () => {
+    const targetId = crypto.randomUUID();
+    const paragraphId = crypto.randomUUID();
+    const questionId = crypto.randomUUID();
+    const selectedOptionId = crypto.randomUUID();
+
+    expect(
+      AssistanceRequestSchema.safeParse({ kind: 'word_hint', targetId }).success,
+    ).toBe(true);
+    expect(
+      AssistanceRequestSchema.safeParse({
+        kind: 'paragraph_translation',
+        paragraphId,
+      }).success,
+    ).toBe(true);
+    expect(
+      AssistanceRequestSchema.safeParse({ kind: 'full_translation' }).success,
+    ).toBe(true);
+    expect(
+      AssistanceRequestSchema.safeParse({
+        kind: 'full_translation',
+        paragraphId,
+      }).success,
+    ).toBe(false);
+    expect(
+      AssistanceResponseSchema.safeParse({
+        recorded: true,
+        hintMeaningZh: '有韧性的',
+      }).success,
+    ).toBe(true);
+
+    expect(
+      SubmitAnswerRequestSchema.safeParse({
+        answerKind: 'option',
+        questionId,
+        selectedOptionId,
+        elapsedMs: 1_200,
+      }).success,
+    ).toBe(true);
+    expect(
+      SubmitAnswerRequestSchema.safeParse({
+        answerKind: 'dont_know',
+        questionId,
+        elapsedMs: 1_200,
+      }).success,
+    ).toBe(true);
+    expect(
+      SubmitAnswerRequestSchema.safeParse({
+        answerKind: 'dont_know',
+        questionId,
+        selectedOptionId,
+        elapsedMs: 1_200,
+      }).success,
     ).toBe(false);
   });
 });
