@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { type Href, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -41,7 +41,7 @@ function GeneratingPractice({ practiceId }: { practiceId: string }) {
       router.replace({
         pathname: '/practice/[id]/read',
         params: { id: practiceId },
-      } as unknown as Href);
+      });
     } catch {
       finishingReady.current = false;
       setStorageError('练习已生成，但本地状态清理失败，请重试');

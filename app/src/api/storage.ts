@@ -9,3 +9,5 @@ export const CREATE_PRACTICE_OPERATION_KEY =
   'context_reader_create_practice_operation_v1';
 export const ACTIVE_PRACTICE_ID_KEY =
   'context_reader_active_practice_id_v1';
+export const READING_POSITION_KEY_PREFIX =
+  'context_reader_reading_position_';

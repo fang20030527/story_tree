@@ -12,6 +12,7 @@ import {
   AGE_CONFIRMED_KEY,
   CREATE_PRACTICE_OPERATION_KEY,
   PRACTICE_DRAFT_KEY,
+  READING_POSITION_KEY_PREFIX,
 } from '@/api/storage';
 
 import type { VocabularyDraftRow } from './practiceDraft';
@@ -145,4 +146,21 @@ export function clearReadyPracticeCreation(): Promise<void> {
     PRACTICE_DRAFT_KEY,
     CREATE_PRACTICE_OPERATION_KEY,
   ]);
+}
+
+function readingPositionKey(practiceId: string): string {
+  return `${READING_POSITION_KEY_PREFIX}${UuidSchema.parse(practiceId)}`;
+}
+
+export function saveReadingPosition(
+  practiceId: string,
+  paragraphIndex: number,
+): Promise<void> {
+  if (!Number.isInteger(paragraphIndex) || paragraphIndex < 0) {
+    return Promise.reject(new Error('Invalid reading position'));
+  }
+  return AsyncStorage.setItem(
+    readingPositionKey(practiceId),
+    String(paragraphIndex),
+  );
 }
