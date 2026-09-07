@@ -44,7 +44,6 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test:evolink": "node --env-file=.env ./scripts/test-evolink.mjs",
     "typecheck": "tsc --noEmit"
   },
   "private": true
