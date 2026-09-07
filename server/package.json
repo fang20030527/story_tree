@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --env-file=../app/.env --import tsx src/db/migrate.ts"
+    "db:migrate": "node --env-file=../app/.env --import tsx src/db/migrate.ts",
+    "smoke:live": "node --env-file=../app/.env --import tsx scripts/live-smoke.ts"
   },
   "dependencies": {
     "@context-reader/contracts": "*",
