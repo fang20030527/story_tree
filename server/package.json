@@ -43,6 +43,8 @@
     "@types/pg": "8.23.1",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.5",
+    "fflate": "0.8.2",
+    "pdf-lib": "1.17.1",
     "tsx": "4.23.13",
     "tsup": "8.5.1",
     "typescript": "5.9.2",

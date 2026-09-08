@@ -19,10 +19,13 @@ import {
   cancelArticleImport,
   confirmArticleImport,
   createArticleImport,
+  getExpectedAssetUpload,
   getArticleImportForUser,
   putPastedSource,
   retryArticleImport,
+  startArticleImport,
   updateImportPreview,
+  uploadImportAsset,
 } from './service';
 
 const EmptyRequestSchema = z.object({}).strict();
@@ -85,6 +88,7 @@ export const importsRoutes: FastifyPluginAsync<ImportsRoutesOptions> = async (
       const { content } = await readBoundedStream(request.body as Readable, {
         contentLength,
         maxBytes: options.config.IMPORT_MAX_TEXT_BYTES,
+        signal: requestAbortSignal(request.raw),
       });
       const updated = await putPastedSource(options.db, {
         userId: request.authUser.userId,
@@ -110,6 +114,75 @@ export const importsRoutes: FastifyPluginAsync<ImportsRoutesOptions> = async (
         importId,
       });
       return reply.send(ArticleImportDtoSchema.parse(articleImport));
+    },
+  );
+
+  app.put(
+    '/v1/imports/:id/assets/:position',
+    { preHandler: requireAuth(options.db) },
+    async (request, reply) => {
+      const importId = parseUuidParam(
+        request.params,
+        'id',
+        '导入任务编号格式无效',
+      );
+      const position = parseAssetPosition(request.params);
+      const expected = await getExpectedAssetUpload(options.db, {
+        userId: request.authUser.userId,
+        importId,
+        position,
+      });
+      const mediaType = parseMediaType(request.headers['content-type']);
+      if (mediaType !== expected.mediaType) {
+        throw new AppError('IMPORT_UNSUPPORTED_TYPE', '上传文件类型不匹配', 422);
+      }
+      const contentLength = parseContentLength(
+        request.headers['content-length'],
+      );
+      if (contentLength !== expected.byteSize) {
+        throw new AppError('STATE_CONFLICT', '上传文件大小与导入清单不一致', 409);
+      }
+      const signal = requestAbortSignal(request.raw);
+      const streamed = await readBoundedStream(request.body as Readable, {
+        contentLength,
+        maxBytes: options.config.IMPORT_MAX_FILE_BYTES,
+        signal,
+      });
+      const articleImport = await uploadImportAsset(options.db, {
+        userId: request.authUser.userId,
+        importId,
+        position,
+        mediaType,
+        ...streamed,
+        maxTotalBytes: options.config.IMPORT_MAX_TOTAL_BYTES,
+      });
+      return reply.send(ArticleImportDtoSchema.parse(articleImport));
+    },
+  );
+
+  app.post(
+    '/v1/imports/:id/process',
+    { preHandler: requireAuth(options.db) },
+    async (request, reply) => {
+      const importId = parseUuidParam(
+        request.params,
+        'id',
+        '导入任务编号格式无效',
+      );
+      const idempotencyKey = requireIdempotencyKey(
+        request.headers['idempotency-key'],
+      );
+      if (!EmptyRequestSchema.safeParse(request.body ?? {}).success) {
+        throw new AppError('VALIDATION_ERROR', '处理请求格式无效', 400);
+      }
+      const started = await startArticleImport(options.db, {
+        userId: request.authUser.userId,
+        importId,
+        idempotencyKey,
+        jobDeadlineMs: options.config.IMPORT_JOB_DEADLINE_MS,
+        maxTotalBytes: options.config.IMPORT_MAX_TOTAL_BYTES,
+      });
+      return reply.status(202).send(ArticleImportDtoSchema.parse(started));
     },
   );
 
@@ -247,4 +320,35 @@ function assertPlainText(value: unknown): void {
       415,
     );
   }
+}
+
+function parseAssetPosition(params: unknown): number {
+  const value =
+    typeof params === 'object' && params !== null
+      ? (params as Record<string, unknown>).position
+      : undefined;
+  if (typeof value !== 'string' || !/^(?:0|[1-9]\d*)$/u.test(value)) {
+    throw new AppError('VALIDATION_ERROR', '文件位置格式无效', 400);
+  }
+  const position = Number(value);
+  if (!Number.isSafeInteger(position)) {
+    throw new AppError('VALIDATION_ERROR', '文件位置格式无效', 400);
+  }
+  return position;
+}
+
+function parseMediaType(value: unknown): string {
+  if (typeof value !== 'string') {
+    throw new AppError('IMPORT_UNSUPPORTED_TYPE', '上传文件类型不匹配', 422);
+  }
+  return value.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+}
+
+function requestAbortSignal(
+  raw: { aborted: boolean; once(event: 'aborted', listener: () => void): unknown },
+): AbortSignal {
+  const controller = new AbortController();
+  if (raw.aborted) controller.abort();
+  else raw.once('aborted', () => controller.abort());
+  return controller.signal;
 }

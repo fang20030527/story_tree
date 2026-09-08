@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { eq, sql } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -378,6 +380,255 @@ describe('pasted article imports', () => {
   }, 120_000);
 });
 
+describe('manifest-backed article assets', () => {
+  it('uploads by immutable position and starts one atomic local-file job', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '56'.repeat(32);
+      await registerAnonymous(db, token, true);
+      const otherToken = '57'.repeat(32);
+      await registerAnonymous(db, otherToken, true);
+      const app = buildApp({ config, db, logger: false });
+      apps.push(app);
+      const bytes = Buffer.from(SYNTHETIC_PROSE, 'utf8');
+
+      const created = await app.inject({
+        method: 'POST',
+        url: '/v1/imports',
+        headers: authHeaders(token, 'local-create-000001'),
+        payload: {
+          sourceKind: 'local_file',
+          assets: [
+            {
+              position: 0,
+              mediaType: 'text/plain',
+              byteSize: bytes.byteLength,
+            },
+          ],
+        },
+      });
+      expect(created.statusCode).toBe(201);
+      const importId = ArticleImportDtoSchema.parse(created.json()).id;
+
+      const foreignUpload = await uploadAsset(
+        app,
+        otherToken,
+        importId,
+        0,
+        'text/plain',
+        bytes,
+      );
+      expect(foreignUpload.statusCode).toBe(404);
+      const wrongPosition = await uploadAsset(
+        app,
+        token,
+        importId,
+        1,
+        'text/plain',
+        bytes,
+      );
+      expect(wrongPosition.statusCode).toBe(409);
+      const wrongLength = await app.inject({
+        method: 'PUT',
+        url: `/v1/imports/${importId}/assets/0`,
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'text/plain',
+          'content-length': String(bytes.byteLength + 1),
+        },
+        payload: bytes,
+      });
+      expect(wrongLength.statusCode).toBe(409);
+      const wrongMedia = await uploadAsset(
+        app,
+        token,
+        importId,
+        0,
+        'text/html',
+        bytes,
+      );
+      expect(wrongMedia.statusCode).toBe(422);
+
+      const uploaded = await app.inject({
+        method: 'PUT',
+        url: `/v1/imports/${importId}/assets/0`,
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'text/plain',
+          'content-length': String(bytes.byteLength),
+          'x-client-sha256': '0'.repeat(64),
+        },
+        payload: bytes,
+      });
+      expect(uploaded.statusCode).toBe(200);
+      expect(uploaded.body).not.toContain(bytes.toString('base64'));
+      expect(uploaded.body).not.toContain('sha256');
+      expect(uploaded.body).not.toContain(FIRST_PARAGRAPH);
+      expect(uploaded.body).not.toContain('"content"');
+      const [stored] = await db.select().from(importAssets);
+      expect(stored?.sha256).toBe(
+        createHash('sha256').update(bytes).digest('hex'),
+      );
+
+      const replay = await uploadAsset(
+        app,
+        token,
+        importId,
+        0,
+        'text/plain',
+        bytes,
+      );
+      expect(replay.statusCode).toBe(200);
+      const changed = Buffer.from(
+        SYNTHETIC_PROSE.replace('Careful', 'Mindful'),
+        'utf8',
+      );
+      expect(changed.byteLength).toBe(bytes.byteLength);
+      const conflict = await uploadAsset(
+        app,
+        token,
+        importId,
+        0,
+        'text/plain',
+        changed,
+      );
+      expect(conflict.statusCode).toBe(409);
+
+      const [started, concurrent] = await Promise.all([
+        app.inject({
+          method: 'POST',
+          url: `/v1/imports/${importId}/process`,
+          headers: authHeaders(token, 'local-process-0001'),
+          payload: {},
+        }),
+        app.inject({
+          method: 'POST',
+          url: `/v1/imports/${importId}/process`,
+          headers: authHeaders(token, 'local-process-0001'),
+          payload: {},
+        }),
+      ]);
+      expect(started.statusCode).toBe(202);
+      expect(concurrent.statusCode).toBe(202);
+      expect(ArticleImportDtoSchema.parse(started.json()).status).toBe(
+        'queued',
+      );
+      expect(await db.select().from(jobs)).toHaveLength(1);
+
+      const foreignProcess = await app.inject({
+        method: 'POST',
+        url: `/v1/imports/${importId}/process`,
+        headers: authHeaders(otherToken, 'local-process-foreign'),
+        payload: {},
+      });
+      expect(foreignProcess.statusCode).toBe(404);
+    });
+  }, 120_000);
+
+  it('refuses processing until every declared asset exists', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '58'.repeat(32);
+      await registerAnonymous(db, token, true);
+      const app = buildApp({ config, db, logger: false });
+      apps.push(app);
+      const bytes = Buffer.from(SYNTHETIC_PROSE, 'utf8');
+      const created = await app.inject({
+        method: 'POST',
+        url: '/v1/imports',
+        headers: authHeaders(token, 'local-missing-create'),
+        payload: {
+          sourceKind: 'local_file',
+          assets: [
+            {
+              position: 0,
+              mediaType: 'text/plain',
+              byteSize: bytes.byteLength,
+            },
+          ],
+        },
+      });
+      const importId = ArticleImportDtoSchema.parse(created.json()).id;
+      const response = await app.inject({
+        method: 'POST',
+        url: `/v1/imports/${importId}/process`,
+        headers: authHeaders(token, 'local-missing-process'),
+        payload: {},
+      });
+      expect(response.statusCode).toBe(409);
+      expect(await db.select().from(jobs)).toHaveLength(0);
+
+      const oversized = await app.inject({
+        method: 'POST',
+        url: '/v1/imports',
+        headers: authHeaders(token, 'local-oversized-create'),
+        payload: {
+          sourceKind: 'local_file',
+          assets: [
+            {
+              position: 0,
+              mediaType: 'text/plain',
+              byteSize: 10_485_761,
+            },
+          ],
+        },
+      });
+      expect(oversized.statusCode).toBe(400);
+
+      const aggregate = await app.inject({
+        method: 'POST',
+        url: '/v1/imports',
+        headers: authHeaders(token, 'album-aggregate-create'),
+        payload: {
+          sourceKind: 'album',
+          assets: [10_485_760, 10_485_760, 10_485_760, 1].map(
+            (byteSize, position) => ({
+              position,
+              mediaType: 'image/png',
+              byteSize,
+            }),
+          ),
+        },
+      });
+      expect(aggregate.statusCode).toBe(400);
+
+      const albumCreated = await app.inject({
+        method: 'POST',
+        url: '/v1/imports',
+        headers: authHeaders(token, 'album-digest-create-01'),
+        payload: {
+          sourceKind: 'album',
+          assets: [0, 1].map((position) => ({
+            position,
+            mediaType: 'image/png',
+            byteSize: bytes.byteLength,
+          })),
+        },
+      });
+      const albumId = ArticleImportDtoSchema.parse(albumCreated.json()).id;
+      expect(
+        (
+          await uploadAsset(
+            app,
+            token,
+            albumId,
+            0,
+            'image/png',
+            bytes,
+          )
+        ).statusCode,
+      ).toBe(200);
+      const repeatedDigest = await uploadAsset(
+        app,
+        token,
+        albumId,
+        1,
+        'image/png',
+        bytes,
+      );
+      expect(repeatedDigest.statusCode).toBe(409);
+    });
+  }, 120_000);
+});
+
 function authHeaders(token: string, idempotencyKey?: string) {
   return {
     authorization: `Bearer ${token}`,
@@ -464,5 +715,25 @@ function confirm(
     url: `/v1/imports/${importId}/confirm`,
     headers: authHeaders(token, `paste-confirm-${suffix}-0001`),
     payload,
+  });
+}
+
+function uploadAsset(
+  app: ReturnType<typeof buildApp>,
+  token: string,
+  importId: string,
+  position: number,
+  mediaType: string,
+  bytes: Buffer,
+) {
+  return app.inject({
+    method: 'PUT',
+    url: `/v1/imports/${importId}/assets/${position}`,
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': mediaType,
+      'content-length': String(bytes.byteLength),
+    },
+    payload: bytes,
   });
 }

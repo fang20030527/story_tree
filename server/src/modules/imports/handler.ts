@@ -6,8 +6,10 @@ import { articleImports, importAssets, jobs } from '../../db/schema';
 import type { ClaimedJob } from '../jobs/types';
 import { shouldRetry } from '../jobs/retry';
 import { normalizeImportContent, type NormalizedImportContent } from './content';
+import { extractDocumentAsset } from './extractors/document';
 import { extractReadableHtml } from './extractors/html';
 import { safeFetchHtml } from './extractors/safe-fetch';
+import type { ExtractedArticle, ImportAssetInput } from './extractors/types';
 import type { ArticleImportRow } from './repository';
 import { assertImportTransition } from './state';
 
@@ -16,6 +18,7 @@ export interface ArticleImportHandlerDependencies {
   fetchMaxBytes: number;
   fetchTimeoutMs: number;
   fetchHtml?: typeof safeFetchHtml;
+  extractDocument?: typeof extractDocumentAsset;
 }
 
 export async function handleArticleImport(
@@ -29,24 +32,12 @@ export async function handleArticleImport(
     context.signal,
   );
   try {
-    if (current.sourceKind !== 'url' || !current.sourceUrl) {
-      throw new AppError(
-        'IMPORT_UNSUPPORTED_TYPE',
-        '该导入来源暂不支持处理',
-        422,
-      );
-    }
     assertWithinDeadline(job, context.signal);
-    const fetched = await (dependencies.fetchHtml ?? safeFetchHtml)(
-      current.sourceUrl,
-      {
-        maxBytes: dependencies.fetchMaxBytes,
-        timeoutMs: dependencies.fetchTimeoutMs,
-        signal: context.signal,
-      },
+    const extracted = await extractImportSource(
+      dependencies,
+      current,
+      context.signal,
     );
-    assertWithinDeadline(job, context.signal);
-    const extracted = extractReadableHtml(fetched.html, fetched.finalUrl);
     const normalized = normalizeImportContent(extracted);
     assertWithinDeadline(job, context.signal);
     await persistImportPreview(
@@ -280,12 +271,81 @@ function publicImportFailure(
     IMPORT_FETCH_FAILED: '网页暂时无法读取',
     IMPORT_UNSUPPORTED_TYPE: '该内容类型不支持',
     IMPORT_PARSE_FAILED: '未能提取可导入的正文',
+    IMPORT_OCR_FAILED: '图片文字暂时无法识别',
     IMPORT_CONTENT_INVALID: '导入内容无效',
     IMPORT_NOT_ENGLISH: '只能导入英文文章',
     IMPORT_TOO_LARGE: '导入内容过大',
   };
   const code = error.code in safeMessages ? error.code : 'IMPORT_PARSE_FAILED';
   return { code, message: safeMessages[code] ?? '导入暂时无法完成' };
+}
+
+async function extractImportSource(
+  dependencies: ArticleImportHandlerDependencies,
+  current: ArticleImportRow,
+  signal: AbortSignal,
+): Promise<ExtractedArticle> {
+  if (current.sourceKind === 'url' && current.sourceUrl) {
+    const fetched = await (dependencies.fetchHtml ?? safeFetchHtml)(
+      current.sourceUrl,
+      {
+        maxBytes: dependencies.fetchMaxBytes,
+        timeoutMs: dependencies.fetchTimeoutMs,
+        signal,
+      },
+    );
+    signal.throwIfAborted();
+    return extractReadableHtml(fetched.html, fetched.finalUrl);
+  }
+  if (current.sourceKind === 'local_file') {
+    const assets = await loadImportAssets(dependencies.db, current.id);
+    if (assets.length !== 1 || assets[0]?.position !== 0) {
+      throw new AppError('IMPORT_CONTENT_INVALID', '导入文件不完整', 422);
+    }
+    try {
+      return await (dependencies.extractDocument ?? extractDocumentAsset)(
+        assets[0],
+      );
+    } catch (error) {
+      if (
+        error instanceof AppError &&
+        error.code === 'IMPORT_UNSUPPORTED_TYPE'
+      ) {
+        throw new AppError(
+          'IMPORT_OCR_FAILED',
+          '图片文字识别尚未准备完成',
+          503,
+          true,
+        );
+      }
+      throw error;
+    }
+  }
+  if (current.sourceKind === 'album') {
+    throw new AppError(
+      'IMPORT_OCR_FAILED',
+      '图片文字识别尚未准备完成',
+      503,
+      true,
+    );
+  }
+  throw new AppError('IMPORT_UNSUPPORTED_TYPE', '该导入来源暂不支持处理', 422);
+}
+
+async function loadImportAssets(
+  db: AppDatabase,
+  importId: string,
+): Promise<ImportAssetInput[]> {
+  const assets = await db
+    .select({
+      position: importAssets.position,
+      mediaType: importAssets.mediaType,
+      content: importAssets.content,
+    })
+    .from(importAssets)
+    .where(eq(importAssets.articleImportId, importId))
+    .orderBy(importAssets.position);
+  return assets;
 }
 
 function stateConflict(): AppError {

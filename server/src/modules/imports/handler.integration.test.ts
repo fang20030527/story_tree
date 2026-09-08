@@ -79,6 +79,61 @@ describe('article import worker', () => {
     });
   }, 120_000);
 
+  it('extracts a bounded local text asset and removes its source bytes', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '70'.repeat(32);
+      const owner = await registerAnonymous(db, token, true);
+      const importId = crypto.randomUUID();
+      const content = Buffer.from(
+        [
+          'Careful readers compare evidence before accepting a broad public claim.',
+          'They preserve context, inspect uncertainty, and revise conclusions when reliable facts change.',
+        ].join('\n\n'),
+      );
+      await db.insert(articleImports).values({
+        id: importId,
+        userId: owner.userId,
+        sourceKind: 'local_file',
+        sourceUrl: null,
+        assetManifestJson: [
+          { position: 0, mediaType: 'text/plain', byteSize: content.byteLength },
+        ],
+        status: 'queued',
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      await db.insert(importAssets).values({
+        articleImportId: importId,
+        position: 0,
+        mediaType: 'text/plain',
+        byteSize: content.byteLength,
+        sha256: 'a'.repeat(64),
+        content,
+      });
+      await db.insert(jobs).values({
+        kind: 'article_import',
+        resourceId: importId,
+        status: 'queued',
+        deadlineAt: new Date(Date.now() + 120_000),
+      });
+      const job = await claimNextJob(db, 'local-document-worker', 60_000, [
+        'article_import',
+      ]);
+      await handleArticleImport(
+        { db, fetchMaxBytes: 100, fetchTimeoutMs: 100 },
+        job!,
+        { signal: new AbortController().signal },
+      );
+      expect(await markSucceeded(db, job!.id, job!.lockedBy)).toBe(true);
+      const [preview] = await db
+        .select()
+        .from(articleImports)
+        .where(eq(articleImports.id, importId));
+      expect(preview?.status).toBe('preview_ready');
+      expect(preview?.previewText).toContain('Careful readers compare evidence');
+      expect(await db.select().from(importAssets)).toHaveLength(0);
+    });
+  }, 120_000);
+
   it('returns retryable work to queued and requires an active lease', async () => {
     await withTestDatabase(async ({ db }) => {
       const token = '67'.repeat(32);

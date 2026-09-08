@@ -6,7 +6,7 @@ import type {
   CreateArticleImportRequest,
   UpdateImportPreviewRequest,
 } from '@context-reader/contracts';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 import { AppError } from '../../core/errors';
 import type { AppDatabase, AppTransaction } from '../../db/client';
@@ -140,6 +140,170 @@ export async function putPastedSource(
       current.id,
     );
     return serializeWithDuplicate(tx, input.userId, updated);
+  });
+}
+
+export async function getExpectedAssetUpload(
+  db: AppDatabase,
+  input: { userId: string; importId: string; position: number },
+): Promise<{ mediaType: string; byteSize: number }> {
+  if (!Number.isInteger(input.position) || input.position < 0) {
+    throw new AppError('VALIDATION_ERROR', '文件位置格式无效', 400);
+  }
+  const current = await findOwnedImport(db, input.userId, input.importId);
+  if (current.status !== 'awaiting_upload') {
+    throw new AppError('STATE_CONFLICT', '当前导入状态不能上传文件', 409);
+  }
+  const expected = expectedManifestEntry(current, input.position);
+  if (!expected) {
+    throw new AppError('STATE_CONFLICT', '该文件位置未在导入清单中', 409);
+  }
+  return { mediaType: expected.mediaType, byteSize: expected.byteSize };
+}
+
+export async function uploadImportAsset(
+  db: AppDatabase,
+  input: {
+    userId: string;
+    importId: string;
+    position: number;
+    mediaType: string;
+    content: Buffer;
+    byteSize: number;
+    sha256: string;
+    maxTotalBytes: number;
+  },
+): Promise<ArticleImportDto> {
+  return db.transaction(async (tx) => {
+    const current = await lockOwnedImport(tx, input.userId, input.importId);
+    if (current.status !== 'awaiting_upload') {
+      throw new AppError('STATE_CONFLICT', '当前导入状态不能上传文件', 409);
+    }
+    const expected = expectedManifestEntry(current, input.position);
+    if (!expected) {
+      throw new AppError('STATE_CONFLICT', '该文件位置未在导入清单中', 409);
+    }
+    if (
+      input.mediaType !== expected.mediaType ||
+      input.byteSize !== expected.byteSize ||
+      input.content.byteLength !== input.byteSize ||
+      !/^[0-9a-f]{64}$/u.test(input.sha256)
+    ) {
+      throw new AppError('STATE_CONFLICT', '上传文件与导入清单不一致', 409);
+    }
+
+    const stored = await tx
+      .select()
+      .from(importAssets)
+      .where(eq(importAssets.articleImportId, current.id))
+      .orderBy(asc(importAssets.position))
+      .for('update');
+    const occupied = stored.find(({ position }) => position === input.position);
+    if (occupied) {
+      if (
+        occupied.sha256 === input.sha256 &&
+        occupied.byteSize === input.byteSize &&
+        occupied.mediaType === input.mediaType
+      ) {
+        return serializeArticleImport(current);
+      }
+      throw new AppError('STATE_CONFLICT', '该文件位置已被占用', 409);
+    }
+    if (stored.some(({ sha256 }) => sha256 === input.sha256)) {
+      throw new AppError('STATE_CONFLICT', '相同文件不能重复上传', 409);
+    }
+    const totalBytes =
+      stored.reduce((sum, asset) => sum + asset.byteSize, 0) + input.byteSize;
+    if (totalBytes > input.maxTotalBytes) {
+      throw new AppError('IMPORT_TOO_LARGE', '上传文件总大小过大', 413);
+    }
+    await tx.insert(importAssets).values({
+      articleImportId: current.id,
+      position: input.position,
+      mediaType: input.mediaType,
+      byteSize: input.byteSize,
+      sha256: input.sha256,
+      content: input.content,
+    });
+    return serializeArticleImport(current);
+  });
+}
+
+export async function startArticleImport(
+  db: AppDatabase,
+  input: {
+    userId: string;
+    importId: string;
+    idempotencyKey: string;
+    jobDeadlineMs: number;
+    maxTotalBytes: number;
+  },
+): Promise<ArticleImportDto> {
+  return db.transaction(async (tx) => {
+    const replay = await beginIdempotentOperation(
+      tx,
+      input.userId,
+      'start_article_import',
+      input.idempotencyKey,
+      { importId: input.importId },
+    );
+    if (replay) {
+      return serializeOwnedImport(tx, input.userId, replay);
+    }
+    const current = await lockOwnedImport(tx, input.userId, input.importId);
+    if (
+      current.status !== 'awaiting_upload' ||
+      (current.sourceKind !== 'album' && current.sourceKind !== 'local_file')
+    ) {
+      throw new AppError('STATE_CONFLICT', '当前导入状态不能开始处理', 409);
+    }
+    const manifest = current.assetManifestJson ?? [];
+    const stored = await tx
+      .select()
+      .from(importAssets)
+      .where(eq(importAssets.articleImportId, current.id))
+      .orderBy(asc(importAssets.position))
+      .for('update');
+    if (
+      manifest.length === 0 ||
+      stored.length !== manifest.length ||
+      manifest.some((expected, index) => {
+        const asset = stored[index];
+        return (
+          !asset ||
+          asset.position !== expected.position ||
+          asset.mediaType !== expected.mediaType ||
+          asset.byteSize !== expected.byteSize
+        );
+      })
+    ) {
+      throw new AppError('STATE_CONFLICT', '请先完成所有文件上传', 409);
+    }
+    if (
+      stored.reduce((sum, asset) => sum + asset.byteSize, 0) >
+      input.maxTotalBytes
+    ) {
+      throw new AppError('IMPORT_TOO_LARGE', '上传文件总大小过大', 413);
+    }
+
+    assertImportTransition('awaiting_upload', 'queued', 'upload_complete');
+    const [queued] = await tx
+      .update(articleImports)
+      .set({ status: 'queued', updatedAt: new Date() })
+      .where(eq(articleImports.id, current.id))
+      .returning();
+    if (!queued) {
+      throw new AppError('NOT_FOUND', '导入任务不存在', 404);
+    }
+    await createImportJob(tx, current.id, input.jobDeadlineMs);
+    await finishIdempotentOperation(
+      tx,
+      input.userId,
+      'start_article_import',
+      input.idempotencyKey,
+      current.id,
+    );
+    return serializeArticleImport(queued);
   });
 }
 
@@ -429,6 +593,12 @@ function validateSourceUrl(request: CreateArticleImportRequest): string | null {
   }
   url.hash = '';
   return url.toString();
+}
+
+function expectedManifestEntry(current: ArticleImportRow, position: number) {
+  return current.assetManifestJson?.find(
+    (entry) => entry.position === position,
+  );
 }
 
 function decodePastedText(content: Buffer): string {
