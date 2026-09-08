@@ -11,6 +11,17 @@ import type { AppDatabase, DatabaseHandle } from '../src/db/client';
 import * as schema from '../src/db/schema';
 
 const SAFE_SCHEMA_PATTERN = /^app_test_[0-9a-f]{32}$/;
+const TRANSIENT_DATABASE_CODES = new Set([
+  '08000',
+  '08003',
+  '08006',
+  '57P01',
+  '57P02',
+  '57P03',
+  'ECONNRESET',
+  'EPIPE',
+  'ETIMEDOUT',
+]);
 
 export async function withTestDatabase<T>(
   run: (context: { db: AppDatabase; pool: Pool; schemaName: string }) => Promise<T>,
@@ -24,13 +35,15 @@ export async function withTestDatabase<T>(
   const schemaName = `app_test_${crypto.randomUUID().replaceAll('-', '')}`;
   if (!SAFE_SCHEMA_PATTERN.test(schemaName)) throw new Error('Unsafe test schema name');
 
-  const adminPool = new Pool({ connectionString: sessionDatabaseUrl, max: 1 });
   let schemaCreated = false;
   let testDatabase: DatabaseHandle | undefined;
   let temporaryMigrationRoot: string | undefined;
 
   try {
-    await adminPool.query(`create schema "${schemaName}"`);
+    await runAdminQuery(
+      sessionDatabaseUrl,
+      `create schema "${schemaName}"`,
+    );
     schemaCreated = true;
 
     const pool = new Pool({
@@ -56,15 +69,49 @@ export async function withTestDatabase<T>(
 
     return await run({ db: database.db, pool, schemaName });
   } finally {
-    await testDatabase?.close();
-    if (schemaCreated && SAFE_SCHEMA_PATTERN.test(schemaName)) {
-      await adminPool.query(`drop schema "${schemaName}" cascade`);
-    }
-    await adminPool.end();
-    if (temporaryMigrationRoot) {
-      await rm(temporaryMigrationRoot, { recursive: true, force: true });
+    try {
+      await testDatabase?.close();
+    } finally {
+      try {
+        if (schemaCreated && SAFE_SCHEMA_PATTERN.test(schemaName)) {
+          await runAdminQuery(
+            sessionDatabaseUrl,
+            `drop schema "${schemaName}" cascade`,
+          );
+        }
+      } finally {
+        if (temporaryMigrationRoot) {
+          await rm(temporaryMigrationRoot, { recursive: true, force: true });
+        }
+      }
     }
   }
+}
+
+async function runAdminQuery(
+  connectionString: string,
+  statement: string,
+): Promise<void> {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const pool = new Pool({ connectionString, max: 1 });
+    try {
+      await pool.query(statement);
+      return;
+    } catch (error) {
+      if (attempt === 3 || !isTransientDatabaseError(error)) throw error;
+    } finally {
+      await pool.end();
+    }
+  }
+}
+
+function isTransientDatabaseError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = (error as Error & { code?: unknown }).code;
+  return (
+    (typeof code === 'string' && TRANSIENT_DATABASE_CODES.has(code)) ||
+    /^Connection terminated(?: unexpectedly)?$/u.test(error.message)
+  );
 }
 
 function resolveSessionDatabaseUrl(databaseUrl: string): string {
