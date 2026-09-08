@@ -16,10 +16,15 @@ import {
   assertJobRegistrations,
   startJobRunner,
 } from './modules/jobs/runner';
+import { jobKinds } from './modules/jobs/types';
 import type {
   JobKind,
   JobRegistration,
 } from './modules/jobs/types';
+import {
+  failArticleImport,
+  handleArticleImport,
+} from './modules/imports/handler';
 import {
   failPracticeGeneration,
   handlePracticeGeneration,
@@ -53,11 +58,12 @@ const articleTranslationDependencies = {
   db: database.db,
   provider: aiProvider,
 };
-const enabledKinds = [
-  'practice_generation',
-  'translation',
-  'article_translation',
-] as const;
+const articleImportDependencies = {
+  db: database.db,
+  fetchMaxBytes: config.IMPORT_FETCH_MAX_BYTES,
+  fetchTimeoutMs: config.IMPORT_FETCH_TIMEOUT_MS,
+};
+const enabledKinds = jobKinds;
 const registrations = {
   practice_generation: {
     handle: (job, context) =>
@@ -82,7 +88,13 @@ const registrations = {
         context,
       ),
   },
-} satisfies Partial<Record<JobKind, JobRegistration>>;
+  article_import: {
+    handle: (job, context) =>
+      handleArticleImport(articleImportDependencies, job, context),
+    onPermanentFailure: (job, error, context) =>
+      failArticleImport(articleImportDependencies, job, error, context),
+  },
+} satisfies Record<JobKind, JobRegistration>;
 assertJobRegistrations(enabledKinds, registrations);
 
 const readinessTimeoutMs = 2_000;

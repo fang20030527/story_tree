@@ -21,6 +21,7 @@ import {
   createArticleImport,
   getArticleImportForUser,
   putPastedSource,
+  retryArticleImport,
   updateImportPreview,
 } from './service';
 
@@ -161,6 +162,32 @@ export const importsRoutes: FastifyPluginAsync<ImportsRoutesOptions> = async (
         request: parsed.data,
       });
       return reply.send(ArticleImportDtoSchema.parse(confirmed));
+    },
+  );
+
+  app.post(
+    '/v1/imports/:id/retry',
+    { preHandler: requireAuth(options.db) },
+    async (request, reply) => {
+      const importId = parseUuidParam(
+        request.params,
+        'id',
+        '导入任务编号格式无效',
+      );
+      const idempotencyKey = requireIdempotencyKey(
+        request.headers['idempotency-key'],
+      );
+      if (!EmptyRequestSchema.safeParse(request.body ?? {}).success) {
+        throw new AppError('VALIDATION_ERROR', '重试请求格式无效', 400);
+      }
+      const retried = await retryArticleImport(options.db, {
+        userId: request.authUser.userId,
+        importId,
+        idempotencyKey,
+        jobDeadlineMs: options.config.IMPORT_JOB_DEADLINE_MS,
+        assetTtlMs: options.config.IMPORT_ASSET_TTL_MS,
+      });
+      return reply.status(202).send(ArticleImportDtoSchema.parse(retried));
     },
   );
 

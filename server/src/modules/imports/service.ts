@@ -327,6 +327,90 @@ export async function cancelArticleImport(
   });
 }
 
+export async function retryArticleImport(
+  db: AppDatabase,
+  input: {
+    userId: string;
+    importId: string;
+    idempotencyKey: string;
+    jobDeadlineMs: number;
+    assetTtlMs: number;
+  },
+): Promise<ArticleImportDto> {
+  return db.transaction(async (tx) => {
+    const replay = await beginIdempotentOperation(
+      tx,
+      input.userId,
+      'retry_article_import',
+      input.idempotencyKey,
+      { importId: input.importId },
+    );
+    if (replay) {
+      return serializeOwnedImport(tx, input.userId, replay);
+    }
+
+    const current = await lockOwnedImport(tx, input.userId, input.importId);
+    if (current.status !== 'retryable') {
+      throw new AppError('STATE_CONFLICT', '当前导入状态不能重试', 409);
+    }
+    const now = new Date();
+    if (current.expiresAt.getTime() <= now.getTime()) {
+      throw new AppError('STATE_CONFLICT', '导入内容已过期', 409);
+    }
+    const assets = await tx
+      .select({ createdAt: importAssets.createdAt })
+      .from(importAssets)
+      .where(eq(importAssets.articleImportId, current.id));
+    if (
+      assets.some(
+        ({ createdAt }) =>
+          createdAt.getTime() + input.assetTtlMs <= now.getTime(),
+      )
+    ) {
+      throw new AppError('STATE_CONFLICT', '导入源文件已过期', 409);
+    }
+    const [activeJob] = await tx
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(
+        and(
+          eq(jobs.kind, 'article_import'),
+          eq(jobs.resourceId, current.id),
+          sql`${jobs.status} in ('queued', 'running')`,
+        ),
+      )
+      .limit(1);
+    if (activeJob) {
+      throw new AppError('STATE_CONFLICT', '导入任务正在处理', 409, true);
+    }
+
+    assertImportTransition('retryable', 'queued', 'user_retry');
+    const [queued] = await tx
+      .update(articleImports)
+      .set({
+        status: 'queued',
+        failureCode: null,
+        failureMessagePublic: null,
+        processingStartedAt: null,
+        updatedAt: now,
+      })
+      .where(eq(articleImports.id, current.id))
+      .returning();
+    if (!queued) {
+      throw new AppError('NOT_FOUND', '导入任务不存在', 404);
+    }
+    await createImportJob(tx, current.id, input.jobDeadlineMs);
+    await finishIdempotentOperation(
+      tx,
+      input.userId,
+      'retry_article_import',
+      input.idempotencyKey,
+      current.id,
+    );
+    return serializeArticleImport(queued);
+  });
+}
+
 function validateSourceUrl(request: CreateArticleImportRequest): string | null {
   if (request.sourceKind !== 'url') {
     return null;
