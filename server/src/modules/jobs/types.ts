@@ -1,7 +1,12 @@
 import type { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
 
-export const jobKinds = ['practice_generation', 'translation'] as const;
+export const jobKinds = [
+  'practice_generation',
+  'translation',
+  'article_import',
+  'article_translation',
+] as const;
 
 export type JobKind = (typeof jobKinds)[number];
 

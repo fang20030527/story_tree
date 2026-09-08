@@ -1,7 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
+  bigint as pgBigint,
   boolean,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -16,6 +19,12 @@ import {
 
 const utcTimestamp = (name: string) =>
   timestamp(name, { withTimezone: true, mode: 'date' });
+
+const bytea = customType<{ data: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 export const userKind = pgEnum('user_kind', ['guest', 'registered']);
 export const vocabularyStatus = pgEnum('vocabulary_status', [
@@ -41,7 +50,36 @@ export const translationStatus = pgEnum('translation_status', [
   'ready',
   'failed',
 ]);
-export const jobKind = pgEnum('job_kind', ['practice_generation', 'translation']);
+export const articleImportSourceKind = pgEnum('article_import_source_kind', [
+  'url',
+  'paste',
+  'album',
+  'local_file',
+  'computer',
+]);
+export const articleImportStatus = pgEnum('article_import_status', [
+  'awaiting_upload',
+  'queued',
+  'processing',
+  'retryable',
+  'preview_ready',
+  'confirmed',
+  'failed',
+  'expired',
+  'cancelled',
+]);
+export const computerUploadStatus = pgEnum('computer_upload_status', [
+  'awaiting_code',
+  'claimed',
+  'uploaded',
+  'expired',
+]);
+export const jobKind = pgEnum('job_kind', [
+  'practice_generation',
+  'translation',
+  'article_import',
+  'article_translation',
+]);
 export const jobStatus = pgEnum('job_status', [
   'queued',
   'running',
@@ -258,6 +296,316 @@ export const translations = pgTable(
     check(
       'translation_scope_shape_check',
       sql`(${table.scope} = 'full' and ${table.paragraphId} is null) or (${table.scope} = 'paragraph' and ${table.paragraphId} is not null)`,
+    ),
+  ],
+);
+
+export const importedArticles = pgTable(
+  'imported_articles',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sourceKind: articleImportSourceKind('source_kind').notNull(),
+    sourceUrl: text('source_url'),
+    title: text('title').notNull(),
+    wordCount: integer('word_count').notNull(),
+    contentHash: text('content_hash').notNull(),
+    similarityFingerprint: pgBigint('similarity_fingerprint', {
+      mode: 'bigint',
+    }).notNull(),
+    previousVersionId: uuid('previous_version_id').references(
+      (): AnyPgColumn => importedArticles.id,
+    ),
+    importedAt: utcTimestamp('imported_at').notNull(),
+    createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('imported_article_user_hash_unique').on(
+      table.userId,
+      table.contentHash,
+    ),
+    index('imported_article_user_created_idx').on(
+      table.userId,
+      table.createdAt,
+      table.id,
+    ),
+    check(
+      'imported_article_word_count_check',
+      sql`${table.wordCount} between 20 and 5000`,
+    ),
+    check(
+      'imported_article_source_url_check',
+      sql`(${table.sourceKind} = 'url' and ${table.sourceUrl} is not null) or (${table.sourceKind} <> 'url' and ${table.sourceUrl} is null)`,
+    ),
+  ],
+);
+
+export const articleParagraphs = pgTable(
+  'article_paragraphs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    articleId: uuid('article_id')
+      .notNull()
+      .references(() => importedArticles.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    plainText: text('plain_text').notNull(),
+  },
+  (table) => [
+    unique('article_paragraph_position_unique').on(
+      table.articleId,
+      table.position,
+    ),
+    check('article_paragraph_position_check', sql`${table.position} >= 0`),
+    check(
+      'article_paragraph_text_check',
+      sql`length(${table.plainText}) > 0`,
+    ),
+  ],
+);
+
+export const articleTranslations = pgTable(
+  'article_translations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    articleId: uuid('article_id')
+      .notNull()
+      .references(() => importedArticles.id, { onDelete: 'cascade' }),
+    scope: translationScope('scope').notNull(),
+    paragraphId: uuid('paragraph_id').references(() => articleParagraphs.id),
+    sourceHash: text('source_hash').notNull(),
+    status: translationStatus('status').default('queued').notNull(),
+    translatedTextZh: text('translated_text_zh'),
+    failureCode: text('failure_code'),
+    failureMessagePublic: text('failure_message_public'),
+    createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+    readyAt: utcTimestamp('ready_at'),
+  },
+  (table) => [
+    unique('article_translation_cache_unique')
+      .on(table.articleId, table.scope, table.paragraphId, table.sourceHash)
+      .nullsNotDistinct(),
+    check(
+      'article_translation_scope_shape_check',
+      sql`(${table.scope} = 'full' and ${table.paragraphId} is null) or (${table.scope} = 'paragraph' and ${table.paragraphId} is not null)`,
+    ),
+    check(
+      'article_translation_result_shape_check',
+      sql`(
+        ${table.status} in ('queued', 'generating') and
+        ${table.translatedTextZh} is null and
+        ${table.failureCode} is null and
+        ${table.failureMessagePublic} is null and
+        ${table.readyAt} is null
+      ) or (
+        ${table.status} = 'ready' and
+        ${table.translatedTextZh} is not null and
+        ${table.failureCode} is null and
+        ${table.failureMessagePublic} is null and
+        ${table.readyAt} is not null
+      ) or (
+        ${table.status} = 'failed' and
+        ${table.translatedTextZh} is null and
+        ${table.failureCode} is not null and
+        ${table.failureMessagePublic} is not null and
+        ${table.readyAt} is null
+      )`,
+    ),
+  ],
+);
+
+export interface ImportAssetManifestEntry {
+  position: number;
+  mediaType: string;
+  byteSize: number;
+}
+
+export const articleImports = pgTable(
+  'article_imports',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sourceKind: articleImportSourceKind('source_kind').notNull(),
+    status: articleImportStatus('status').notNull(),
+    sourceUrl: text('source_url'),
+    assetManifestJson: jsonb('asset_manifest_json').$type<
+      ImportAssetManifestEntry[]
+    >(),
+    previewTitle: text('preview_title'),
+    previewText: text('preview_text'),
+    wordCount: integer('word_count'),
+    contentHash: text('content_hash'),
+    similarityFingerprint: pgBigint('similarity_fingerprint', {
+      mode: 'bigint',
+    }),
+    failureCode: text('failure_code'),
+    failureMessagePublic: text('failure_message_public'),
+    articleId: uuid('article_id').references(() => importedArticles.id),
+    attemptCount: integer('attempt_count').default(0).notNull(),
+    createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+    updatedAt: utcTimestamp('updated_at').defaultNow().notNull(),
+    processingStartedAt: utcTimestamp('processing_started_at'),
+    previewReadyAt: utcTimestamp('preview_ready_at'),
+    confirmedAt: utcTimestamp('confirmed_at'),
+    expiresAt: utcTimestamp('expires_at').notNull(),
+  },
+  (table) => [
+    index('article_import_user_created_idx').on(
+      table.userId,
+      table.createdAt,
+      table.id,
+    ),
+    index('article_import_status_expiry_idx').on(
+      table.status,
+      table.expiresAt,
+    ),
+    index('article_import_user_hash_idx').on(
+      table.userId,
+      table.contentHash,
+    ),
+    check(
+      'article_import_attempt_count_check',
+      sql`${table.attemptCount} >= 0`,
+    ),
+    check(
+      'article_import_preview_shape_check',
+      sql`(
+        ${table.status} in ('preview_ready', 'confirmed') and
+        ${table.previewTitle} is not null and
+        ${table.previewText} is not null and
+        ${table.wordCount} between 20 and 5000 and
+        ${table.contentHash} is not null and
+        ${table.similarityFingerprint} is not null and
+        ${table.previewReadyAt} is not null
+      ) or (
+        ${table.status} not in ('preview_ready', 'confirmed') and
+        ${table.previewTitle} is null and
+        ${table.previewText} is null and
+        ${table.wordCount} is null and
+        ${table.contentHash} is null and
+        ${table.similarityFingerprint} is null and
+        ${table.previewReadyAt} is null
+      )`,
+    ),
+    check(
+      'article_import_failure_shape_check',
+      sql`(
+        ${table.status} in ('retryable', 'failed') and
+        ${table.failureCode} is not null and
+        ${table.failureMessagePublic} is not null
+      ) or (
+        ${table.status} not in ('retryable', 'failed') and
+        ${table.failureCode} is null and
+        ${table.failureMessagePublic} is null
+      )`,
+    ),
+    check(
+      'article_import_article_shape_check',
+      sql`(${table.status} = 'confirmed' and ${table.articleId} is not null and ${table.confirmedAt} is not null) or (${table.status} <> 'confirmed' and ${table.articleId} is null and ${table.confirmedAt} is null)`,
+    ),
+    check(
+      'article_import_source_url_check',
+      sql`(${table.sourceKind} = 'url' and ${table.sourceUrl} is not null) or (${table.sourceKind} <> 'url' and ${table.sourceUrl} is null)`,
+    ),
+    check(
+      'article_import_manifest_check',
+      sql`case
+        when ${table.sourceKind} = 'album' then
+          ${table.assetManifestJson} is not null and
+          jsonb_typeof(${table.assetManifestJson}) = 'array' and
+          jsonb_array_length(${table.assetManifestJson}) between 1 and 10
+        when ${table.sourceKind} = 'local_file' then
+          ${table.assetManifestJson} is not null and
+          jsonb_typeof(${table.assetManifestJson}) = 'array' and
+          jsonb_array_length(${table.assetManifestJson}) = 1
+        else ${table.assetManifestJson} is null
+      end`,
+    ),
+  ],
+);
+
+export const importAssets = pgTable(
+  'import_assets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    articleImportId: uuid('article_import_id')
+      .notNull()
+      .references(() => articleImports.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    mediaType: text('media_type').notNull(),
+    byteSize: integer('byte_size').notNull(),
+    sha256: text('sha256').notNull(),
+    content: bytea('content').notNull(),
+    createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('import_asset_position_unique').on(
+      table.articleImportId,
+      table.position,
+    ),
+    unique('import_asset_digest_unique').on(
+      table.articleImportId,
+      table.sha256,
+    ),
+    index('import_asset_created_idx').on(table.createdAt),
+    check(
+      'import_asset_position_check',
+      sql`${table.position} between 0 and 9`,
+    ),
+    check(
+      'import_asset_size_check',
+      sql`${table.byteSize} between 1 and 10485760`,
+    ),
+    check('import_asset_digest_check', sql`length(${table.sha256}) = 64`),
+  ],
+);
+
+export const computerUploadSessions = pgTable(
+  'computer_upload_sessions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    articleImportId: uuid('article_import_id')
+      .notNull()
+      .unique()
+      .references(() => articleImports.id, { onDelete: 'cascade' }),
+    codeHash: text('code_hash').notNull().unique(),
+    capabilityTokenHash: text('capability_token_hash').unique(),
+    status: computerUploadStatus('status').default('awaiting_code').notNull(),
+    expiresAt: utcTimestamp('expires_at').notNull(),
+    claimedAt: utcTimestamp('claimed_at'),
+    uploadedAt: utcTimestamp('uploaded_at'),
+    createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('computer_upload_expiry_idx').on(table.status, table.expiresAt),
+    check(
+      'computer_upload_state_shape_check',
+      sql`(
+        ${table.status} = 'awaiting_code' and
+        ${table.capabilityTokenHash} is null and
+        ${table.claimedAt} is null and
+        ${table.uploadedAt} is null
+      ) or (
+        ${table.status} = 'claimed' and
+        ${table.capabilityTokenHash} is not null and
+        ${table.claimedAt} is not null and
+        ${table.uploadedAt} is null
+      ) or (
+        ${table.status} = 'uploaded' and
+        ${table.capabilityTokenHash} is null and
+        ${table.claimedAt} is not null and
+        ${table.uploadedAt} is not null
+      ) or (
+        ${table.status} = 'expired' and
+        ${table.capabilityTokenHash} is null and
+        ${table.uploadedAt} is null
+      )`,
     ),
   ],
 );
