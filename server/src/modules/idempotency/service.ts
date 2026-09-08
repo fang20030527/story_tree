@@ -10,13 +10,31 @@ export type IdempotencyOperation =
   | 'create_practice'
   | 'request_translation'
   | 'record_assistance'
-  | 'submit_answer';
+  | 'submit_answer'
+  | 'create_article_import'
+  | 'upload_import_text'
+  | 'start_article_import'
+  | 'edit_import_preview'
+  | 'confirm_article_import'
+  | 'retry_article_import'
+  | 'cancel_article_import'
+  | 'request_article_translation'
+  | 'create_computer_upload_session';
 
 const resourceTypes: Record<IdempotencyOperation, string> = {
   create_practice: 'practice',
   request_translation: 'translation',
   record_assistance: 'assistance',
   submit_answer: 'answer',
+  create_article_import: 'article_import',
+  upload_import_text: 'article_import',
+  start_article_import: 'article_import',
+  edit_import_preview: 'article_import',
+  confirm_article_import: 'article_import',
+  retry_article_import: 'article_import',
+  cancel_article_import: 'article_import',
+  request_article_translation: 'article_translation',
+  create_computer_upload_session: 'computer_upload_session',
 };
 
 const pendingRequestHashes = new WeakMap<object, Map<string, string>>();

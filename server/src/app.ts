@@ -9,6 +9,7 @@ import { AppError } from './core/errors';
 import type { AppDatabase } from './db/client';
 import { authPlugin } from './modules/auth/plugin';
 import { dashboardRoutes } from './modules/dashboard/routes';
+import { importsRoutes } from './modules/imports/routes';
 import { practiceRoutes } from './modules/practice/routes';
 import { translationRoutes } from './modules/translation/routes';
 import { vocabularyRoutes } from './modules/vocabulary/routes';
@@ -80,6 +81,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   });
   registerSecurity(app, options.config, options.securityLimits);
   app.register(authPlugin, { config: options.config, db: options.db });
+  app.register(importsRoutes, { config: options.config, db: options.db });
   app.register(practiceRoutes, { config: options.config, db: options.db });
   app.register(translationRoutes, { config: options.config, db: options.db });
   app.register(vocabularyRoutes, { db: options.db });
