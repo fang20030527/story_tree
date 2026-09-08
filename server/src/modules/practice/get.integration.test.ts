@@ -14,6 +14,7 @@ import { handlePracticeGeneration } from './generation-handler';
 const config = loadConfig({
   DATABASE_URL: 'postgresql://example.invalid/db',
   EVOLINK_API_KEY: 'test-key',
+  PUBLIC_SERVER_ORIGIN: 'http://localhost:3000',
   FREE_PRACTICE_LIMIT: '3',
 });
 

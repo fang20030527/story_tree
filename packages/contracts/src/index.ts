@@ -222,6 +222,254 @@ export const TranslationDtoSchema = z
   })
   .strict();
 
+export const ArticleImportSourceKindSchema = z.enum([
+  'url',
+  'paste',
+  'album',
+  'local_file',
+  'computer',
+]);
+
+export const ArticleImportStatusSchema = z.enum([
+  'awaiting_upload',
+  'queued',
+  'processing',
+  'retryable',
+  'preview_ready',
+  'confirmed',
+  'failed',
+  'expired',
+  'cancelled',
+]);
+
+export const ImportAssetMediaTypeSchema = z.enum([
+  'text/plain',
+  'text/markdown',
+  'text/html',
+  'application/xhtml+xml',
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  'application/octet-stream',
+]);
+
+export const ImportAssetDescriptorSchema = z
+  .object({
+    position: z.number().int().min(0).max(9),
+    mediaType: ImportAssetMediaTypeSchema,
+    byteSize: z.number().int().positive().max(10_485_760),
+  })
+  .strict();
+
+const OrderedAlbumAssetsSchema = z
+  .array(ImportAssetDescriptorSchema)
+  .min(1)
+  .max(10)
+  .superRefine((assets, context) => {
+    assets.forEach((entry, index) => {
+      if (entry.position !== index) {
+        context.addIssue({
+          code: 'custom',
+          path: [index, 'position'],
+          message: '图片位置必须从 0 连续排列',
+        });
+      }
+    });
+    if (
+      assets.reduce((sum, entry) => sum + entry.byteSize, 0) > 31_457_280
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: '文件总大小不能超过 30 MB',
+      });
+    }
+  });
+
+const LocalFileAssetsSchema = z
+  .array(ImportAssetDescriptorSchema)
+  .length(1)
+  .superRefine((assets, context) => {
+    if (assets[0]?.position !== 0) {
+      context.addIssue({
+        code: 'custom',
+        path: [0, 'position'],
+        message: '本地文件位置必须是 0',
+      });
+    }
+  });
+
+export const CreateArticleImportRequestSchema = z.discriminatedUnion(
+  'sourceKind',
+  [
+    z
+      .object({
+        sourceKind: z.literal('url'),
+        url: z.url().max(2_048),
+      })
+      .strict(),
+    z.object({ sourceKind: z.literal('paste') }).strict(),
+    z
+      .object({
+        sourceKind: z.literal('album'),
+        assets: OrderedAlbumAssetsSchema,
+      })
+      .strict(),
+    z
+      .object({
+        sourceKind: z.literal('local_file'),
+        assets: LocalFileAssetsSchema,
+      })
+      .strict(),
+  ],
+);
+
+export const UpdateImportPreviewRequestSchema = z
+  .object({
+    title: z.string().trim().min(1).max(160),
+    text: z.string().min(1),
+  })
+  .strict();
+
+export const ConfirmArticleImportRequestSchema = z
+  .object({
+    similarityDecision: z
+      .enum(['open_existing', 'save_new_version'])
+      .optional(),
+  })
+  .strict();
+
+export const DuplicateArticleSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('none') }).strict(),
+  z
+    .object({
+      kind: z.literal('exact'),
+      article: z
+        .object({
+          id: UuidSchema,
+          title: z.string(),
+          wordCount: z.number().int().positive(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('similar'),
+      article: z
+        .object({
+          id: UuidSchema,
+          title: z.string(),
+          wordCount: z.number().int().positive(),
+          hammingDistance: z.number().int().min(0).max(3),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
+
+export const ArticleImportDtoSchema = z
+  .object({
+    id: UuidSchema,
+    sourceKind: ArticleImportSourceKindSchema,
+    status: ArticleImportStatusSchema,
+    createdAt: z.iso.datetime(),
+    expiresAt: z.iso.datetime(),
+    pollAfterMs: z.number().int().positive().optional(),
+    failure: PublicFailureSchema.nullable(),
+    preview: z
+      .object({
+        title: z.string().min(1).max(160),
+        text: z.string().min(1),
+        wordCount: z.number().int().min(20).max(5_000),
+        duplicate: DuplicateArticleSchema,
+      })
+      .strict()
+      .nullable(),
+    articleId: UuidSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const polling = new Set(['awaiting_upload', 'queued', 'processing']);
+    if (polling.has(value.status) !== (value.pollAfterMs !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['pollAfterMs'],
+        message: '轮询字段与状态不匹配',
+      });
+    }
+    if ((value.status === 'preview_ready') !== (value.preview !== null)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['preview'],
+        message: '预览字段与状态不匹配',
+      });
+    }
+    if ((value.status === 'confirmed') !== (value.articleId !== null)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['articleId'],
+        message: '文章字段与状态不匹配',
+      });
+    }
+    const failed = value.status === 'retryable' || value.status === 'failed';
+    if (failed !== (value.failure !== null)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['failure'],
+        message: '失败字段与状态不匹配',
+      });
+    }
+  });
+
+export const ImportedArticleDtoSchema = z
+  .object({
+    id: UuidSchema,
+    sourceKind: ArticleImportSourceKindSchema,
+    sourceUrl: z.url().nullable(),
+    title: z.string().min(1).max(160),
+    wordCount: z.number().int().min(20).max(5_000),
+    importedAt: z.iso.datetime(),
+    paragraphs: z
+      .array(
+        z
+          .object({
+            id: UuidSchema,
+            position: z.number().int().nonnegative(),
+            text: z.string().min(1),
+          })
+          .strict(),
+      )
+      .min(1),
+  })
+  .strict();
+
+export const CreatedComputerUploadSessionSchema = z
+  .object({
+    sessionId: UuidSchema,
+    importId: UuidSchema,
+    uploadUrl: z.url(),
+    uploadCode: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{10}$/u),
+    expiresAt: z.iso.datetime(),
+  })
+  .strict();
+
+export const ComputerUploadSessionDtoSchema = z
+  .object({
+    id: UuidSchema,
+    importId: UuidSchema,
+    status: z.enum(['awaiting_code', 'claimed', 'uploaded', 'expired']),
+    expiresAt: z.iso.datetime(),
+    articleImport: ArticleImportDtoSchema,
+  })
+  .strict();
+
+export const ArticleTranslationDtoSchema = TranslationDtoSchema;
+
 export const VocabularyItemDtoSchema = z
   .object({
     id: UuidSchema,
@@ -267,6 +515,33 @@ export type AssistanceRequest = z.infer<typeof AssistanceRequestSchema>;
 export type AssistanceResponse = z.infer<typeof AssistanceResponseSchema>;
 export type SubmitAnswerRequest = z.infer<typeof SubmitAnswerRequestSchema>;
 export type TranslationDto = z.infer<typeof TranslationDtoSchema>;
+export type ArticleImportSourceKind = z.infer<
+  typeof ArticleImportSourceKindSchema
+>;
+export type ArticleImportStatus = z.infer<typeof ArticleImportStatusSchema>;
+export type ImportAssetDescriptor = z.infer<
+  typeof ImportAssetDescriptorSchema
+>;
+export type CreateArticleImportRequest = z.infer<
+  typeof CreateArticleImportRequestSchema
+>;
+export type UpdateImportPreviewRequest = z.infer<
+  typeof UpdateImportPreviewRequestSchema
+>;
+export type ConfirmArticleImportRequest = z.infer<
+  typeof ConfirmArticleImportRequestSchema
+>;
+export type ArticleImportDto = z.infer<typeof ArticleImportDtoSchema>;
+export type ImportedArticleDto = z.infer<typeof ImportedArticleDtoSchema>;
+export type CreatedComputerUploadSession = z.infer<
+  typeof CreatedComputerUploadSessionSchema
+>;
+export type ComputerUploadSessionDto = z.infer<
+  typeof ComputerUploadSessionDtoSchema
+>;
+export type ArticleTranslationDto = z.infer<
+  typeof ArticleTranslationDtoSchema
+>;
 export type AnswerResult = z.infer<typeof AnswerResultSchema>;
 export type VocabularyPage = z.infer<typeof VocabularyPageSchema>;
 export type VocabularyItemDto = z.infer<typeof VocabularyItemDtoSchema>;

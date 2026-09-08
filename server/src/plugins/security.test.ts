@@ -11,6 +11,7 @@ import type { AppDatabase } from '../db/client';
 const config = loadConfig({
   DATABASE_URL: 'postgresql://example.invalid/db',
   EVOLINK_API_KEY: 'test-key',
+  PUBLIC_SERVER_ORIGIN: 'http://localhost:3000',
   CORS_ORIGINS: 'https://reader.example.com',
 });
 const unusedDatabase = {} as AppDatabase;
@@ -46,6 +47,26 @@ describe('HTTP security', () => {
     expect(PublicErrorSchema.parse(rejected.json()).error.code).toBe(
       'UNAUTHORIZED',
     );
+  });
+
+  it('allows import upload and preview methods in CORS preflight', async () => {
+    const app = buildApp({ config, db: unusedDatabase, logger: false });
+    apps.push(app);
+
+    for (const method of ['PUT', 'PATCH']) {
+      const response = await app.inject({
+        method: 'OPTIONS',
+        url: '/v1/imports/example',
+        headers: {
+          origin: 'https://reader.example.com',
+          'access-control-request-method': method,
+        },
+      });
+
+      expect(response.statusCode).toBe(204);
+      const allowed = response.headers['access-control-allow-methods'] ?? '';
+      expect(allowed.split(',').map((value) => value.trim())).toContain(method);
+    }
   });
 
   it('rejects JSON request bodies larger than 32 KiB', async () => {

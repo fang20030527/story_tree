@@ -6,20 +6,18 @@ import {
   CreatePracticeRequestSchema,
   PracticeDtoSchema,
   SubmitAnswerRequestSchema,
-  UuidSchema,
 } from '@context-reader/contracts';
 import type { FastifyPluginAsync } from 'fastify';
 
 import type { ServerConfig } from '../../config/env';
 import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
+import { parseUuidParam, requireIdempotencyKey } from '../../http/validation';
 import { requireAuth } from '../auth/routes';
 import { submitFirstAnswer } from './answer-service';
 import { recordAssistance } from './assistance-service';
 import { createPractice } from './create-service';
 import { getPracticeForUser } from './get-service';
-
-const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
 export interface PracticeRoutesOptions {
   config: ServerConfig;
@@ -59,7 +57,11 @@ export const practiceRoutes: FastifyPluginAsync<PracticeRoutesOptions> = async (
     '/v1/practices/:id/assistance',
     { preHandler: requireAuth(options.db) },
     async (request, reply) => {
-      const practiceId = parsePracticeId(request.params);
+      const practiceId = parseUuidParam(
+        request.params,
+        'id',
+        '练习编号格式无效',
+      );
       const idempotencyKey = requireIdempotencyKey(
         request.headers['idempotency-key'],
       );
@@ -82,7 +84,11 @@ export const practiceRoutes: FastifyPluginAsync<PracticeRoutesOptions> = async (
     '/v1/practices/:id/answers',
     { preHandler: requireAuth(options.db) },
     async (request, reply) => {
-      const practiceId = parsePracticeId(request.params);
+      const practiceId = parseUuidParam(
+        request.params,
+        'id',
+        '练习编号格式无效',
+      );
       const idempotencyKey = requireIdempotencyKey(
         request.headers['idempotency-key'],
       );
@@ -105,7 +111,11 @@ export const practiceRoutes: FastifyPluginAsync<PracticeRoutesOptions> = async (
     '/v1/practices/:id',
     { preHandler: requireAuth(options.db) },
     async (request, reply) => {
-      const practiceId = parsePracticeId(request.params);
+      const practiceId = parseUuidParam(
+        request.params,
+        'id',
+        '练习编号格式无效',
+      );
       const practice = await getPracticeForUser(options.db, {
         userId: request.authUser.userId,
         practiceId,
@@ -115,18 +125,3 @@ export const practiceRoutes: FastifyPluginAsync<PracticeRoutesOptions> = async (
     },
   );
 };
-
-function requireIdempotencyKey(value: unknown): string {
-  if (typeof value !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(value)) {
-    throw new AppError('VALIDATION_ERROR', '幂等键格式无效', 400);
-  }
-  return value;
-}
-
-function parsePracticeId(params: unknown): string {
-  const parsed = UuidSchema.safeParse((params as { id?: unknown }).id);
-  if (!parsed.success) {
-    throw new AppError('VALIDATION_ERROR', '练习编号格式无效', 400);
-  }
-  return parsed.data;
-}

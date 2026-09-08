@@ -23,6 +23,16 @@ const tokenLimitedRoutes = new Set([
   'POST /v1/auth/anonymous',
   'POST /v1/practices',
   'POST /v1/practices/:id/translations',
+  'POST /v1/imports',
+  'PUT /v1/imports/:id/source-text',
+  'PUT /v1/imports/:id/assets/:position',
+  'POST /v1/imports/:id/process',
+  'PATCH /v1/imports/:id/preview',
+  'POST /v1/imports/:id/confirm',
+  'POST /v1/imports/:id/retry',
+  'POST /v1/imports/:id/cancel',
+  'POST /v1/articles/:id/translations',
+  'POST /v1/computer-upload-sessions',
 ]);
 
 export function registerSecurity(
@@ -44,7 +54,7 @@ export function registerSecurity(
       );
     },
     credentials: false,
-    methods: ['GET', 'HEAD', 'POST', 'OPTIONS'],
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'],
     exposedHeaders: ['Retry-After', 'X-Request-Id'],
   });
