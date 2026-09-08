@@ -19,7 +19,7 @@ describe('EvoLink AI provider', () => {
         choices: [{ message: { content: JSON.stringify(generatedPractice()) } }],
       }),
     );
-    const provider = new EvolinkAiProvider(new EvolinkClient(config, fetchImpl));
+    const provider = createProvider(fetchImpl);
 
     await provider.generatePractice(
       {
@@ -55,7 +55,98 @@ describe('EvoLink AI provider', () => {
       'The combined article must contain 735-945 English words.',
     );
   });
+
+  it('uses the dedicated vision model, timeout, and strict multimodal JSON request', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        model: 'test-vision-model',
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                title: 'Synthetic OCR title',
+                text: 'Original visible article text.',
+              }),
+            },
+          },
+        ],
+      }),
+    );
+    const client = new EvolinkClient(config, fetchImpl);
+    const generateText = vi.spyOn(client, 'generateText');
+    const provider = new EvolinkAiProvider(client, {
+      visionModel: 'test-vision-model',
+      visionTimeoutMs: 120_000,
+    });
+    await expect(
+      provider.extractArticleText(
+        [
+          {
+            position: 0,
+            mediaType: 'image/jpeg',
+            base64: 'dGVzdA==',
+          },
+        ],
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual({
+      title: 'Synthetic OCR title',
+      text: 'Original visible article text.',
+    });
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'test-vision-model',
+        timeoutMs: 120_000,
+        responseFormat: 'json_object',
+      }),
+      expect.any(AbortSignal),
+    );
+    const requestBody = requestJson(fetchImpl);
+    expect(requestBody).toMatchObject({
+      model: 'test-vision-model',
+      stream: false,
+      response_format: { type: 'json_object' },
+    });
+    const content = (
+      requestBody.messages as Array<{ content: Array<Record<string, unknown>> }>
+    )[0]?.content;
+    expect(content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'text', text: expect.stringMatching(/strict JSON/iu) }),
+        { type: 'text', text: 'Image position: 0' },
+        {
+          type: 'image_url',
+          image_url: { url: 'data:image/jpeg;base64,dGVzdA==' },
+        },
+      ]),
+    );
+  });
+
+  it.each([
+    '',
+    'not-json',
+    JSON.stringify({ title: null }),
+    JSON.stringify({ title: null, text: 'visible', extra: true }),
+    JSON.stringify({ title: '', text: 'visible' }),
+  ])('rejects invalid OCR output %j', async (output) => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({ choices: [{ message: { content: output } }] }),
+    );
+    await expect(
+      createProvider(fetchImpl).extractArticleText(
+        [{ position: 0, mediaType: 'image/png', base64: 'dGVzdA==' }],
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+  });
 });
+
+function createProvider(fetchImpl: typeof fetch) {
+  return new EvolinkAiProvider(new EvolinkClient(config, fetchImpl), {
+    visionModel: 'test-vision-model',
+    visionTimeoutMs: 120_000,
+  });
+}
 
 function requestJson(fetchImpl: ReturnType<typeof vi.fn<typeof fetch>>) {
   const init = fetchImpl.mock.calls[0]?.[1];

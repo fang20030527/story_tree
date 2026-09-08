@@ -58,9 +58,13 @@ export interface EvolinkClientConfig {
   timeoutMs: number;
 }
 
+export type ChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
 export type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  content: string | ChatContentPart[];
 };
 
 export interface GenerateTextInput {
@@ -69,6 +73,7 @@ export interface GenerateTextInput {
   maxCompletionTokens?: number;
   reasoningEffort?: 'low' | 'medium' | 'high';
   responseFormat?: 'json_object';
+  timeoutMs?: number;
 }
 
 export interface GeneratedText {
@@ -115,6 +120,7 @@ export class EvolinkClient {
           : { response_format: { type: input.responseFormat } }),
       },
       signal,
+      input.timeoutMs,
     );
     const parsed = ChatCompletionSchema.safeParse(data);
     if (!parsed.success) throw invalidOutput();
@@ -158,10 +164,11 @@ export class EvolinkClient {
     path: string,
     body: unknown,
     signal: AbortSignal,
+    timeoutMs = this.config.timeoutMs,
   ): Promise<unknown> {
     if (signal.aborted) throw abortError();
 
-    const timeoutSignal = AbortSignal.timeout(this.config.timeoutMs);
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
     const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
     let response: Response;
     try {

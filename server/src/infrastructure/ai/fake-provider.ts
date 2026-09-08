@@ -7,6 +7,8 @@ import type {
   AiProvider,
   GeneratePracticeInput,
   ModerationResult,
+  OcrArticleText,
+  OcrImage,
   VerifyPracticeInput,
 } from './types';
 
@@ -105,6 +107,22 @@ export class FakeAiProvider implements AiProvider {
   async moderate(_text: string, signal: AbortSignal): Promise<ModerationResult> {
     signal.throwIfAborted();
     return { riskLevel: 'low', flagged: false };
+  }
+
+  async extractArticleText(
+    images: readonly OcrImage[],
+    signal: AbortSignal,
+  ): Promise<OcrArticleText> {
+    signal.throwIfAborted();
+    return {
+      title: 'Synthetic imported article',
+      text: images
+        .map(
+          ({ position }) =>
+            `Image position ${position} contains original synthetic article words for careful readers who compare evidence, preserve context, inspect uncertainty, and revise measured conclusions when reliable facts change.`,
+        )
+        .join('\n\n'),
+    };
   }
 }
 

@@ -57,5 +57,17 @@ describe('Fake AI provider', () => {
       riskLevel: 'low',
       flagged: false,
     });
+    await expect(
+      provider.extractArticleText(
+        [
+          { position: 0, mediaType: 'image/jpeg', base64: 'dGVzdA==' },
+          { position: 1, mediaType: 'image/png', base64: 'dGVzdA==' },
+        ],
+        signal,
+      ),
+    ).resolves.toMatchObject({
+      title: 'Synthetic imported article',
+      text: expect.stringMatching(/position 0[\s\S]+position 1/iu),
+    });
   });
 });

@@ -19,6 +19,17 @@ export interface ModerationResult {
   flagged: boolean;
 }
 
+export interface OcrImage {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+  base64: string;
+  position: number;
+}
+
+export interface OcrArticleText {
+  title: string | null;
+  text: string;
+}
+
 export interface AiProvider {
   generatePractice(
     input: GeneratePracticeInput,
@@ -30,4 +41,8 @@ export interface AiProvider {
   ): Promise<Verification>;
   translate(text: string, signal: AbortSignal): Promise<string>;
   moderate(text: string, signal: AbortSignal): Promise<ModerationResult>;
+  extractArticleText(
+    images: readonly OcrImage[],
+    signal: AbortSignal,
+  ): Promise<OcrArticleText>;
 }

@@ -3,11 +3,17 @@ import { and, eq, sql } from 'drizzle-orm';
 import { AppError, type ErrorCode } from '../../core/errors';
 import type { AppDatabase, AppTransaction } from '../../db/client';
 import { articleImports, importAssets, jobs } from '../../db/schema';
+import type { AiProvider, OcrImage } from '../../infrastructure/ai/types';
 import type { ClaimedJob } from '../jobs/types';
 import { shouldRetry } from '../jobs/retry';
 import { normalizeImportContent, type NormalizedImportContent } from './content';
-import { extractDocumentAsset } from './extractors/document';
+import {
+  detectImportFile,
+  extractDocumentAsset,
+} from './extractors/document';
 import { extractReadableHtml } from './extractors/html';
+import { normalizeImageAsset } from './extractors/image';
+import { extractOrderedImageText } from './extractors/ocr';
 import { safeFetchHtml } from './extractors/safe-fetch';
 import type { ExtractedArticle, ImportAssetInput } from './extractors/types';
 import type { ArticleImportRow } from './repository';
@@ -19,6 +25,9 @@ export interface ArticleImportHandlerDependencies {
   fetchTimeoutMs: number;
   fetchHtml?: typeof safeFetchHtml;
   extractDocument?: typeof extractDocumentAsset;
+  provider?: Pick<AiProvider, 'extractArticleText'>;
+  normalizeImage?: typeof normalizeImageAsset;
+  extractImages?: typeof extractOrderedImageText;
 }
 
 export async function handleArticleImport(
@@ -298,54 +307,123 @@ async function extractImportSource(
     return extractReadableHtml(fetched.html, fetched.finalUrl);
   }
   if (current.sourceKind === 'local_file') {
-    const assets = await loadImportAssets(dependencies.db, current.id);
-    if (assets.length !== 1 || assets[0]?.position !== 0) {
+    const manifest = await loadImportAssetManifest(dependencies.db, current.id);
+    if (manifest.length !== 1 || manifest[0]?.position !== 0) {
       throw new AppError('IMPORT_CONTENT_INVALID', '导入文件不完整', 422);
     }
-    try {
-      return await (dependencies.extractDocument ?? extractDocumentAsset)(
-        assets[0],
+    const asset = await loadImportAssetContent(
+      dependencies.db,
+      current.id,
+      0,
+    );
+    const detected = await detectImportFile(
+      asset.content,
+      asset.mediaType,
+    );
+    if (detected.kind === 'image') {
+      return extractImageAssets(
+        dependencies,
+        current.id,
+        [0],
+        signal,
       );
-    } catch (error) {
-      if (
-        error instanceof AppError &&
-        error.code === 'IMPORT_UNSUPPORTED_TYPE'
-      ) {
-        throw new AppError(
-          'IMPORT_OCR_FAILED',
-          '图片文字识别尚未准备完成',
-          503,
-          true,
-        );
-      }
-      throw error;
     }
+    return (dependencies.extractDocument ?? extractDocumentAsset)(asset);
   }
   if (current.sourceKind === 'album') {
-    throw new AppError(
-      'IMPORT_OCR_FAILED',
-      '图片文字识别尚未准备完成',
-      503,
-      true,
+    const manifest = await loadImportAssetManifest(dependencies.db, current.id);
+    if (
+      manifest.length < 1 ||
+      manifest.length > 10 ||
+      manifest.some((asset, index) => asset.position !== index)
+    ) {
+      throw new AppError('IMPORT_CONTENT_INVALID', '图片顺序无效', 422);
+    }
+    return extractImageAssets(
+      dependencies,
+      current.id,
+      manifest.map(({ position }) => position),
+      signal,
     );
   }
   throw new AppError('IMPORT_UNSUPPORTED_TYPE', '该导入来源暂不支持处理', 422);
 }
 
-async function loadImportAssets(
+async function extractImageAssets(
+  dependencies: ArticleImportHandlerDependencies,
+  importId: string,
+  positions: readonly number[],
+  signal: AbortSignal,
+): Promise<ExtractedArticle> {
+  const provider = dependencies.provider;
+  if (!provider) {
+    throw new AppError(
+      'IMPORT_OCR_FAILED',
+      '图片文字暂时无法识别',
+      503,
+      true,
+    );
+  }
+  const normalize = dependencies.normalizeImage ?? normalizeImageAsset;
+  const extract = dependencies.extractImages ?? extractOrderedImageText;
+  const normalized: OcrImage[] = [];
+  for (const position of positions) {
+    signal.throwIfAborted();
+    const asset = await loadImportAssetContent(
+      dependencies.db,
+      importId,
+      position,
+    );
+    const detected = await detectImportFile(asset.content, asset.mediaType);
+    if (detected.kind !== 'image') {
+      throw new AppError(
+        'IMPORT_UNSUPPORTED_TYPE',
+        '该内容类型不支持',
+        422,
+      );
+    }
+    normalized.push(await normalize({ ...asset, mediaType: detected.mediaType }));
+  }
+  return extract(normalized, provider, signal);
+}
+
+async function loadImportAssetManifest(
   db: AppDatabase,
   importId: string,
-): Promise<ImportAssetInput[]> {
-  const assets = await db
+): Promise<Array<{ position: number; mediaType: string }>> {
+  return db
+    .select({
+      position: importAssets.position,
+      mediaType: importAssets.mediaType,
+    })
+    .from(importAssets)
+    .where(eq(importAssets.articleImportId, importId))
+    .orderBy(importAssets.position);
+}
+
+async function loadImportAssetContent(
+  db: AppDatabase,
+  importId: string,
+  position: number,
+): Promise<ImportAssetInput> {
+  const [asset] = await db
     .select({
       position: importAssets.position,
       mediaType: importAssets.mediaType,
       content: importAssets.content,
     })
     .from(importAssets)
-    .where(eq(importAssets.articleImportId, importId))
-    .orderBy(importAssets.position);
-  return assets;
+    .where(
+      and(
+        eq(importAssets.articleImportId, importId),
+        eq(importAssets.position, position),
+      ),
+    )
+    .limit(1);
+  if (!asset) {
+    throw new AppError('IMPORT_CONTENT_INVALID', '导入文件不完整', 422);
+  }
+  return asset;
 }
 
 function stateConflict(): AppError {

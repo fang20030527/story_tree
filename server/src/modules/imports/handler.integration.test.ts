@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
+import sharp from 'sharp';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ArticleImportDtoSchema } from '@context-reader/contracts';
 
@@ -14,7 +15,9 @@ import {
   rescheduleOrFail,
 } from '../jobs/repository';
 import { AppError } from '../../core/errors';
+import type { OcrImage } from '../../infrastructure/ai/types';
 import { failArticleImport, handleArticleImport } from './handler';
+import type { ImportAssetInput } from './extractors/types';
 
 const config = loadConfig({
   DATABASE_URL: 'postgresql://example.invalid/db',
@@ -180,7 +183,12 @@ describe('article import worker', () => {
         .from(articleImports)
         .where(eq(articleImports.id, importId));
       expect(queued?.status).toBe('queued');
-      expect(await rescheduleOrFail(db, job!, failure)).toBe('rescheduled');
+      expect(
+        await rescheduleOrFail(db, job!, failure, {
+          now: new Date(Date.now() - 2_000),
+          random: () => 0,
+        }),
+      ).toBe('rescheduled');
 
       const second = await claimNextJob(db, 'lost-worker', 60_000, [
         'article_import',
@@ -267,6 +275,321 @@ describe('article import worker', () => {
       }
     });
   }, 120_000);
+
+  it.each([1, 4, 5, 10])(
+    'normalizes and OCRs %i ordered album images into one preview',
+    async (count) => {
+      await withTestDatabase(async ({ db }) => {
+        const token = '71'.repeat(32);
+        const owner = await registerAnonymous(db, token, true);
+        const importId = crypto.randomUUID();
+        const content = await syntheticJpeg();
+        await db.insert(articleImports).values({
+          id: importId,
+          userId: owner.userId,
+          sourceKind: 'album',
+          sourceUrl: null,
+          assetManifestJson: Array.from({ length: count }, (_, position) => ({
+            position,
+            mediaType: 'image/jpeg',
+            byteSize: content.byteLength,
+          })),
+          status: 'queued',
+          expiresAt: new Date(Date.now() + 60_000),
+        });
+        for (let position = 0; position < count; position += 1) {
+          await db.insert(importAssets).values({
+            articleImportId: importId,
+            position,
+            mediaType: 'application/octet-stream',
+            byteSize: content.byteLength,
+            sha256: `${position}`.padStart(64, '0'),
+            content,
+          });
+        }
+        await db.insert(jobs).values({
+          kind: 'article_import',
+          resourceId: importId,
+          status: 'queued',
+          deadlineAt: new Date(Date.now() + 120_000),
+        });
+        const job = await claimNextJob(db, `album-worker-${count}`, 60_000, [
+          'article_import',
+        ]);
+        const captured: string[] = [];
+        const extractArticleText = vi.fn(
+          async (images: readonly OcrImage[], signal: AbortSignal) => {
+            signal.throwIfAborted();
+            for (const image of images) captured.push(image.mediaType);
+            return {
+              title: images[0]?.position === 0 ? 'Synthetic album article' : null,
+              text: images
+                .map(
+                  ({ position }) =>
+                    `Careful readers compare evidence on image ${position} before accepting broad public claims, preserve surrounding context, inspect remaining uncertainty, and revise measured conclusions whenever reliable facts change.`,
+                )
+                .join(' '),
+            };
+          },
+        );
+        const normalizedInputs: ImportAssetInput[] = [];
+        await handleArticleImport(
+          {
+            db,
+            fetchMaxBytes: 100,
+            fetchTimeoutMs: 100,
+            provider: { extractArticleText },
+            normalizeImage: async (asset) => {
+              normalizedInputs.push(asset);
+              return {
+                position: asset.position,
+                mediaType: 'image/jpeg',
+                base64: asset.content.toString('base64'),
+              };
+            },
+          },
+          job!,
+          { signal: new AbortController().signal },
+        );
+        expect(normalizedInputs).toHaveLength(count);
+        expect(normalizedInputs.map(({ position }) => position)).toEqual(
+          Array.from({ length: count }, (_, position) => position),
+        );
+        for (const input of normalizedInputs) {
+          expect(input.mediaType).toBe('image/jpeg');
+        }
+        expect(extractArticleText).toHaveBeenCalledTimes(
+          Math.ceil(count / 4),
+        );
+        expect(captured.every((mediaType) => mediaType === 'image/jpeg')).toBe(
+          true,
+        );
+        expect(await markSucceeded(db, job!.id, job!.lockedBy)).toBe(true);
+        const [preview] = await db
+          .select()
+          .from(articleImports)
+          .where(eq(articleImports.id, importId));
+        expect(preview?.status).toBe('preview_ready');
+        expect(preview?.previewTitle).toBe('Synthetic album article');
+        expect(preview?.previewText).toContain('image 0');
+        expect(preview?.previewText).toContain(`image ${count - 1}`);
+        expect(await db.select().from(importAssets)).toHaveLength(0);
+      });
+    },
+    120_000,
+  );
+
+  it('routes a local image file through magic detection and OCR', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '72'.repeat(32);
+      const owner = await registerAnonymous(db, token, true);
+      const importId = crypto.randomUUID();
+      const content = await syntheticJpeg();
+      await db.insert(articleImports).values({
+        id: importId,
+        userId: owner.userId,
+        sourceKind: 'local_file',
+        sourceUrl: null,
+        assetManifestJson: [
+          {
+            position: 0,
+            mediaType: 'application/octet-stream',
+            byteSize: content.byteLength,
+          },
+        ],
+        status: 'queued',
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      await db.insert(importAssets).values({
+        articleImportId: importId,
+        position: 0,
+        mediaType: 'application/octet-stream',
+        byteSize: content.byteLength,
+        sha256: 'b'.repeat(64),
+        content,
+      });
+      await db.insert(jobs).values({
+        kind: 'article_import',
+        resourceId: importId,
+        status: 'queued',
+        deadlineAt: new Date(Date.now() + 120_000),
+      });
+      const job = await claimNextJob(db, 'local-image-worker', 60_000, [
+        'article_import',
+      ]);
+      const normalizeImage = vi.fn(async (asset: ImportAssetInput) => ({
+        position: asset.position,
+        mediaType: 'image/jpeg' as const,
+        base64: asset.content.toString('base64'),
+      }));
+      const extractArticleText = vi.fn(async () => ({
+        title: null,
+        text: 'Careful readers compare evidence from local images before accepting broad public claims, preserve surrounding context, inspect remaining uncertainty, and revise measured conclusions whenever reliable facts change.',
+      }));
+      await handleArticleImport(
+        {
+          db,
+          fetchMaxBytes: 100,
+          fetchTimeoutMs: 100,
+          provider: { extractArticleText },
+          normalizeImage,
+        },
+        job!,
+        { signal: new AbortController().signal },
+      );
+      expect(normalizeImage).toHaveBeenCalledOnce();
+      expect(normalizeImage.mock.calls[0]?.[0]?.mediaType).toBe('image/jpeg');
+      expect(extractArticleText).toHaveBeenCalledOnce();
+      const [preview] = await db
+        .select()
+        .from(articleImports)
+        .where(eq(articleImports.id, importId));
+      expect(preview?.status).toBe('preview_ready');
+      expect(preview?.previewText).toContain('local images');
+      expect(await db.select().from(importAssets)).toHaveLength(0);
+    });
+  }, 120_000);
+
+  it('keeps album source assets when OCR is retryable', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '73'.repeat(32);
+      const owner = await registerAnonymous(db, token, true);
+      const importId = crypto.randomUUID();
+      const content = await syntheticJpeg();
+      await db.insert(articleImports).values({
+        id: importId,
+        userId: owner.userId,
+        sourceKind: 'album',
+        sourceUrl: null,
+        assetManifestJson: [
+          { position: 0, mediaType: 'image/jpeg', byteSize: content.byteLength },
+        ],
+        status: 'queued',
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      await db.insert(importAssets).values({
+        articleImportId: importId,
+        position: 0,
+        mediaType: 'image/jpeg',
+        byteSize: content.byteLength,
+        sha256: 'c'.repeat(64),
+        content,
+      });
+      await db.insert(jobs).values({
+        kind: 'article_import',
+        resourceId: importId,
+        status: 'queued',
+        maxAttempts: 3,
+        deadlineAt: new Date(Date.now() + 120_000),
+      });
+      const job = await claimNextJob(db, 'ocr-retry-worker', 60_000, [
+        'article_import',
+      ]);
+      const extractArticleText = vi.fn(async () => {
+        throw new AppError('AI_UNAVAILABLE', 'upstream timeout', 503, true);
+      });
+      await expect(
+        handleArticleImport(
+          {
+            db,
+            fetchMaxBytes: 100,
+            fetchTimeoutMs: 100,
+            provider: { extractArticleText },
+            normalizeImage: async (asset) => ({
+              position: asset.position,
+              mediaType: 'image/jpeg',
+              base64: asset.content.toString('base64'),
+            }),
+          },
+          job!,
+          { signal: new AbortController().signal },
+        ),
+      ).rejects.toMatchObject({ code: 'IMPORT_OCR_FAILED', retryable: true });
+      const [queued] = await db
+        .select()
+        .from(articleImports)
+        .where(eq(articleImports.id, importId));
+      expect(queued?.status).toBe('queued');
+      const remaining = await db
+        .select()
+        .from(importAssets)
+        .where(eq(importAssets.articleImportId, importId));
+      expect(remaining).toHaveLength(1);
+    });
+  }, 120_000);
+
+  it('treats undecodable album images as terminal and deletes their assets', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '74'.repeat(32);
+      const owner = await registerAnonymous(db, token, true);
+      const importId = crypto.randomUUID();
+      const corrupt = Buffer.from('not-an-image');
+      await db.insert(articleImports).values({
+        id: importId,
+        userId: owner.userId,
+        sourceKind: 'album',
+        sourceUrl: null,
+        assetManifestJson: [
+          { position: 0, mediaType: 'image/jpeg', byteSize: corrupt.byteLength },
+        ],
+        status: 'queued',
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      await db.insert(importAssets).values({
+        articleImportId: importId,
+        position: 0,
+        mediaType: 'image/jpeg',
+        byteSize: corrupt.byteLength,
+        sha256: 'd'.repeat(64),
+        content: corrupt,
+      });
+      await db.insert(jobs).values({
+        kind: 'article_import',
+        resourceId: importId,
+        status: 'queued',
+        maxAttempts: 3,
+        deadlineAt: new Date(Date.now() + 120_000),
+      });
+      const job = await claimNextJob(db, 'ocr-terminal-worker', 60_000, [
+        'article_import',
+      ]);
+      const extractArticleText = vi.fn();
+      await expect(
+        handleArticleImport(
+          {
+            db,
+            fetchMaxBytes: 100,
+            fetchTimeoutMs: 100,
+            provider: { extractArticleText },
+          },
+          job!,
+          { signal: new AbortController().signal },
+        ),
+      ).rejects.toMatchObject({
+        code: 'IMPORT_UNSUPPORTED_TYPE',
+        retryable: false,
+      });
+      const failure = new AppError(
+        'IMPORT_UNSUPPORTED_TYPE',
+        '该内容类型不支持',
+        422,
+      );
+      await failArticleImport(
+        { db },
+        job!,
+        failure,
+        { signal: new AbortController().signal },
+      );
+      const [failed] = await db
+        .select()
+        .from(articleImports)
+        .where(eq(articleImports.id, importId));
+      expect(failed?.status).toBe('failed');
+      expect(failed?.failureCode).toBe('IMPORT_UNSUPPORTED_TYPE');
+      expect(extractArticleText).not.toHaveBeenCalled();
+      expect(await db.select().from(importAssets)).toHaveLength(0);
+    });
+  }, 120_000);
 });
 
 function authHeaders(token: string, idempotencyKey: string) {
@@ -274,4 +597,17 @@ function authHeaders(token: string, idempotencyKey: string) {
     authorization: `Bearer ${token}`,
     'idempotency-key': idempotencyKey,
   };
+}
+
+async function syntheticJpeg(): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: 24,
+      height: 12,
+      channels: 3,
+      background: '#234567',
+    },
+  })
+    .jpeg()
+    .toBuffer();
 }

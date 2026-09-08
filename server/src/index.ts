@@ -44,6 +44,10 @@ const aiProvider = new EvolinkAiProvider(
     moderationModel: config.EVOLINK_MODERATION_MODEL,
     timeoutMs: config.EVOLINK_TIMEOUT_MS,
   }),
+  {
+    visionModel: config.EVOLINK_VISION_MODEL,
+    visionTimeoutMs: config.EVOLINK_VISION_TIMEOUT_MS,
+  },
 );
 const generationDependencies = {
   db: database.db,
@@ -62,6 +66,7 @@ const articleImportDependencies = {
   db: database.db,
   fetchMaxBytes: config.IMPORT_FETCH_MAX_BYTES,
   fetchTimeoutMs: config.IMPORT_FETCH_TIMEOUT_MS,
+  provider: aiProvider,
 };
 const enabledKinds = jobKinds;
 const registrations = {
