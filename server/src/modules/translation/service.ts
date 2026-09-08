@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 import {
   TranslationDtoSchema,
@@ -19,6 +19,7 @@ import {
   beginIdempotentOperation,
   finishIdempotentOperation,
 } from '../idempotency/service';
+import { createTranslationSourceHash } from './validation';
 
 type TranslationRow = typeof translations.$inferSelect;
 
@@ -49,9 +50,10 @@ export async function requestTranslation(
     }
 
     const source = await loadOwnedSource(tx, input);
-    const sourceHash = translationSourceHash(
+    const sourceHash = createTranslationSourceHash(
       input.practiceId,
-      input.request,
+      input.request.scope,
+      input.request.scope === 'paragraph' ? input.request.paragraphId : null,
       source,
     );
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${sourceHash}))`);
@@ -259,21 +261,6 @@ async function createTranslationJob(
     availableAt: new Date(),
     deadlineAt: new Date(Date.now() + deadlineMs),
   });
-}
-
-function translationSourceHash(
-  practiceId: string,
-  request: TranslationRequest,
-  sourceText: string,
-): string {
-  const paragraphId =
-    request.scope === 'paragraph' ? request.paragraphId : '';
-  return createHash('sha256')
-    .update(
-      `${practiceId}\u0000${request.scope}\u0000${paragraphId}\u0000${sourceText}`,
-      'utf8',
-    )
-    .digest('hex');
 }
 
 function serializeTranslation(translation: TranslationRow): TranslationDto {

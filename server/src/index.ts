@@ -9,6 +9,10 @@ import { createDatabase } from './db/client';
 import { EvolinkClient } from './infrastructure/ai/evolink-client';
 import { EvolinkAiProvider } from './infrastructure/ai/evolink-provider';
 import {
+  failArticleTranslation,
+  handleArticleTranslation,
+} from './modules/article-translation/handler';
+import {
   assertJobRegistrations,
   startJobRunner,
 } from './modules/jobs/runner';
@@ -45,7 +49,15 @@ const translationDependencies = {
   db: database.db,
   provider: aiProvider,
 };
-const enabledKinds = ['practice_generation', 'translation'] as const;
+const articleTranslationDependencies = {
+  db: database.db,
+  provider: aiProvider,
+};
+const enabledKinds = [
+  'practice_generation',
+  'translation',
+  'article_translation',
+] as const;
 const registrations = {
   practice_generation: {
     handle: (job, context) =>
@@ -58,6 +70,17 @@ const registrations = {
       handleTranslation(translationDependencies, job, context),
     onPermanentFailure: (job, error, context) =>
       failTranslation(translationDependencies, job, error, context),
+  },
+  article_translation: {
+    handle: (job, context) =>
+      handleArticleTranslation(articleTranslationDependencies, job, context),
+    onPermanentFailure: (job, error, context) =>
+      failArticleTranslation(
+        articleTranslationDependencies,
+        job,
+        error,
+        context,
+      ),
   },
 } satisfies Partial<Record<JobKind, JobRegistration>>;
 assertJobRegistrations(enabledKinds, registrations);
