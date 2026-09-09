@@ -482,6 +482,12 @@ describe('computer upload flow', () => {
           .from(articleImports)
           .where(eq(articleImports.id, awaitingDto.importId));
         expect(expiredImport?.status).toBe('expired');
+        expect(
+          await db
+            .select()
+            .from(importAssets)
+            .where(eq(importAssets.articleImportId, awaitingDto.importId)),
+        ).toHaveLength(0);
       } finally {
         await app.close();
       }

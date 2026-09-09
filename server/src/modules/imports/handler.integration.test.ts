@@ -16,6 +16,7 @@ import {
 } from '../jobs/repository';
 import { AppError } from '../../core/errors';
 import type { OcrImage } from '../../infrastructure/ai/types';
+import { sweepImportCleanup } from './cleanup';
 import { failArticleImport, handleArticleImport } from './handler';
 import type { ImportAssetInput } from './extractors/types';
 
@@ -515,6 +516,101 @@ describe('article import worker', () => {
         .from(importAssets)
         .where(eq(importAssets.articleImportId, importId));
       expect(remaining).toHaveLength(1);
+    });
+  }, 120_000);
+
+  it('retains retryable source bytes before TTL and expires them exactly at TTL', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '75'.repeat(32);
+      const owner = await registerAnonymous(db, token, true);
+      const importId = crypto.randomUUID();
+      const content = await syntheticJpeg();
+      const assetCreatedAt = new Date(Date.now() - 10_000);
+      const assetTtlMs = 60_000;
+      await db.insert(articleImports).values({
+        id: importId,
+        userId: owner.userId,
+        sourceKind: 'album',
+        sourceUrl: null,
+        assetManifestJson: [
+          { position: 0, mediaType: 'image/jpeg', byteSize: content.byteLength },
+        ],
+        status: 'processing',
+        attemptCount: 3,
+        processingStartedAt: assetCreatedAt,
+        expiresAt: new Date(Date.now() + 300_000),
+      });
+      await db.insert(importAssets).values({
+        articleImportId: importId,
+        position: 0,
+        mediaType: 'image/jpeg',
+        byteSize: content.byteLength,
+        sha256: 'e'.repeat(64),
+        content,
+        createdAt: assetCreatedAt,
+      });
+      await db.insert(jobs).values({
+        kind: 'article_import',
+        resourceId: importId,
+        status: 'queued',
+        attemptCount: 2,
+        maxAttempts: 3,
+        deadlineAt: new Date(Date.now() + 240_000),
+      });
+      const job = await claimNextJob(db, 'retryable-ttl-worker', 60_000, [
+        'article_import',
+      ]);
+      const failure = new AppError(
+        'IMPORT_OCR_FAILED',
+        'private provider response',
+        503,
+        true,
+      );
+      await failArticleImport(
+        { db },
+        job!,
+        failure,
+        { signal: new AbortController().signal },
+      );
+      expect(await rescheduleOrFail(db, job!, failure)).toBe('failed');
+
+      const beforeTtl = await sweepImportCleanup(db, {
+        now: new Date(assetCreatedAt.getTime() + assetTtlMs - 1),
+        assetTtlMs,
+      });
+      expect(beforeTtl).toEqual({
+        expiredImports: 0,
+        expiredSessions: 0,
+        deletedAssets: 0,
+        failedOrphanedWork: 0,
+      });
+      expect(
+        await db
+          .select()
+          .from(importAssets)
+          .where(eq(importAssets.articleImportId, importId)),
+      ).toHaveLength(1);
+
+      const atTtl = await sweepImportCleanup(db, {
+        now: new Date(assetCreatedAt.getTime() + assetTtlMs),
+        assetTtlMs,
+      });
+      expect(atTtl).toMatchObject({ expiredImports: 1, deletedAssets: 1 });
+      const [expired] = await db
+        .select()
+        .from(articleImports)
+        .where(eq(articleImports.id, importId));
+      expect(expired).toMatchObject({
+        status: 'expired',
+        failureCode: null,
+        failureMessagePublic: null,
+      });
+      expect(
+        await db
+          .select()
+          .from(importAssets)
+          .where(eq(importAssets.articleImportId, importId)),
+      ).toHaveLength(0);
     });
   }, 120_000);
 

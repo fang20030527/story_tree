@@ -1,11 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
 import { PublicErrorSchema } from '@context-reader/contracts';
-import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
+import Fastify, {
+  type FastifyError,
+  type FastifyInstance,
+  type FastifyRequest,
+} from 'fastify';
 import type { DestinationStream } from 'pino';
 
 import type { ServerConfig } from './config/env';
-import { AppError } from './core/errors';
+import { AppError, errorCodes } from './core/errors';
 import type { AppDatabase } from './db/client';
 import { articleTranslationRoutes } from './modules/article-translation/routes';
 import { articlesRoutes } from './modules/articles/routes';
@@ -30,6 +34,17 @@ export const redactPaths = [
   'request.body',
   'DATABASE_URL',
   'EVOLINK_API_KEY',
+  '*.sourceUrl',
+  '*.previewText',
+  '*.previewTitle',
+  '*.filename',
+  '*.uploadCode',
+  '*.capabilityToken',
+  '*.codeHash',
+  '*.capabilityTokenHash',
+  '*.content',
+  '*.base64',
+  '*.text',
   '*.article',
   '*.plainText',
   '*.sourceSentence',
@@ -47,14 +62,40 @@ interface BuildAppOptions {
   securityLimits?: Partial<SecurityLimits>;
 }
 
-function toPublicError(error: unknown): AppError {
+const knownErrorCodes = new Set<string>(errorCodes);
+const parserLimitCodes = new Set([
+  'FST_ERR_CTP_BODY_TOO_LARGE',
+  'FST_REQ_FILE_TOO_LARGE',
+  'FST_FILES_LIMIT',
+  'FST_FIELDS_LIMIT',
+  'FST_PARTS_LIMIT',
+]);
+
+function toPublicError(error: unknown, request: FastifyRequest): AppError {
   if (error instanceof AppError) return error;
 
   const fastifyError = error as FastifyError;
+  if (
+    isImportUploadRequest(request) &&
+    typeof fastifyError.code === 'string' &&
+    parserLimitCodes.has(fastifyError.code)
+  ) {
+    return new AppError('IMPORT_TOO_LARGE', '上传内容过大', 413);
+  }
+  if (
+    isImportUploadRequest(request) &&
+    fastifyError.code === 'FST_ERR_CTP_INVALID_MEDIA_TYPE'
+  ) {
+    return new AppError('IMPORT_UNSUPPORTED_TYPE', '上传文件类型不支持', 415);
+  }
   if (fastifyError.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
     return new AppError('VALIDATION_ERROR', '请求内容过大', 413);
   }
-  if (fastifyError.validation || fastifyError.code === 'FST_ERR_CTP_INVALID_JSON_BODY') {
+  if (
+    fastifyError.validation ||
+    fastifyError.code === 'FST_ERR_CTP_INVALID_JSON_BODY' ||
+    fastifyError.code === 'FST_ERR_CTP_INVALID_MEDIA_TYPE'
+  ) {
     return new AppError('VALIDATION_ERROR', '请检查输入内容', 400);
   }
 
@@ -124,9 +165,15 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   );
 
   app.setErrorHandler((error, request, reply) => {
-    const publicError = toPublicError(error);
+    const publicError = toPublicError(error, request);
     if (!(error instanceof AppError)) {
-      request.log.error({ err: error }, 'Unhandled request error');
+      request.log.error(
+        {
+          errorType: 'UnexpectedError',
+          errorCode: safeLogErrorCode(error),
+        },
+        'Unhandled request error',
+      );
     }
     const body = PublicErrorSchema.parse({
       error: {
@@ -140,6 +187,20 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   });
 
   return app;
+}
+
+function isImportUploadRequest(request: FastifyRequest): boolean {
+  const route = request.routeOptions.url ?? '';
+  return route.startsWith('/v1/imports') || route === '/computer-upload/file';
+}
+
+function safeLogErrorCode(error: unknown): string {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (typeof code !== 'string') return 'UNCLASSIFIED';
+  if (knownErrorCodes.has(code) || /^(?:ERR|FST)_[A-Z0-9_]+$/u.test(code)) {
+    return code;
+  }
+  return 'UNCLASSIFIED';
 }
 
 async function runWithDeadline<T>(

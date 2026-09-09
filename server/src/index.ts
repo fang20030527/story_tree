@@ -25,6 +25,8 @@ import {
   failArticleImport,
   handleArticleImport,
 } from './modules/imports/handler';
+import { sweepImportCleanup } from './modules/imports/cleanup';
+import { startImportCleanupRunner } from './modules/imports/cleanup-runner';
 import {
   failPracticeGeneration,
   handlePracticeGeneration,
@@ -115,11 +117,13 @@ async function checkDatabaseReadiness(): Promise<boolean> {
 }
 
 let app: FastifyInstance | undefined;
+let cleanup: { stop(): Promise<void> } | undefined;
 let worker: { stop(): Promise<void> } | undefined;
 let shutdownPromise: Promise<void> | undefined;
 
 function shutdown(): Promise<void> {
   shutdownPromise ??= (async () => {
+    await cleanup?.stop();
     await worker?.stop();
     await app?.close();
     await database.close();
@@ -141,6 +145,13 @@ try {
 
   await app.listen({ host: config.HOST, port: config.PORT });
   await checkDatabaseReadiness();
+  cleanup = startImportCleanupRunner({
+    sweep: () =>
+      sweepImportCleanup(database.db, {
+        now: new Date(),
+        assetTtlMs: config.IMPORT_ASSET_TTL_MS,
+      }),
+  });
   worker = startJobRunner({
     db: database.db,
     workerId: randomUUID(),
@@ -149,8 +160,8 @@ try {
     enabledKinds,
     registrations,
   });
-} catch (error) {
-  if (app) app.log.error({ err: error }, 'Server startup failed');
+} catch {
+  if (app) app.log.error({ errorType: 'StartupError' }, 'Server startup failed');
   else console.error('Server startup failed');
   await shutdown();
   process.exitCode = 1;
