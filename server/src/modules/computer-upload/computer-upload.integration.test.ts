@@ -230,6 +230,13 @@ describe('computer upload flow', () => {
         expect(foreignOrigin.headers['content-type']).toContain('text/html');
         expect(foreignOrigin.body).not.toContain(dto.uploadCode);
 
+        const opaqueOrigin = await claimCode(app, dto.uploadCode, {
+          origin: 'null',
+        });
+        expect(opaqueOrigin.statusCode).toBe(403);
+        expect(opaqueOrigin.headers['content-type']).toContain('text/html');
+        expect(opaqueOrigin.body).not.toContain(dto.uploadCode);
+
         const fetchSite = await claimCode(app, dto.uploadCode, {
           'sec-fetch-site': 'cross-site',
         });

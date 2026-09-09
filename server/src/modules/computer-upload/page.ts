@@ -46,6 +46,7 @@ function document(title: string, body: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="same-origin">
 <title>${title}</title>
 <style>${baseStyles}</style>
 </head>

@@ -18,6 +18,12 @@ function allPages(): string[] {
 }
 
 describe('scriptless computer upload pages', () => {
+  it('preserves a concrete origin for same-origin form submissions', () => {
+    for (const page of allPages()) {
+      expect(page).toContain('<meta name="referrer" content="same-origin">');
+    }
+  });
+
   it('renders complete HTML documents without scripts or external references', () => {
     for (const page of allPages()) {
       expect(page).toMatch(/^<!doctype html>/iu);
