@@ -306,7 +306,10 @@ async function extractImportSource(
     signal.throwIfAborted();
     return extractReadableHtml(fetched.html, fetched.finalUrl);
   }
-  if (current.sourceKind === 'local_file') {
+  if (
+    current.sourceKind === 'local_file' ||
+    current.sourceKind === 'computer'
+  ) {
     const manifest = await loadImportAssetManifest(dependencies.db, current.id);
     if (manifest.length !== 1 || manifest[0]?.position !== 0) {
       throw new AppError('IMPORT_CONTENT_INVALID', '导入文件不完整', 422);

@@ -10,6 +10,7 @@ import type { AppDatabase } from './db/client';
 import { articleTranslationRoutes } from './modules/article-translation/routes';
 import { articlesRoutes } from './modules/articles/routes';
 import { authPlugin } from './modules/auth/plugin';
+import { computerUploadRoutes } from './modules/computer-upload/routes';
 import { dashboardRoutes } from './modules/dashboard/routes';
 import { importsRoutes } from './modules/imports/routes';
 import { practiceRoutes } from './modules/practice/routes';
@@ -93,6 +94,10 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   app.register(translationRoutes, { config: options.config, db: options.db });
   app.register(vocabularyRoutes, { db: options.db });
   app.register(dashboardRoutes, { config: options.config, db: options.db });
+  app.register(computerUploadRoutes, {
+    config: options.config,
+    db: options.db,
+  });
 
   app.get(
     '/health/live',
