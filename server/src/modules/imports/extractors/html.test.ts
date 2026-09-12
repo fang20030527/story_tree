@@ -22,12 +22,43 @@ describe('static readable HTML extraction', () => {
     );
 
     expect(extracted.title).toMatch(/measured public study/iu);
-    expect(extracted.text).toContain('Careful readers compare evidence');
-    expect(extracted.text).toContain('revise conclusions');
+    expect(extracted.text).toBe(
+      [
+        'Careful readers compare evidence before accepting broad public claims.',
+        'They preserve context, inspect uncertainty, and revise conclusions when reliable facts change.',
+      ].join('\n\n'),
+    );
     expect(extracted.text).not.toContain('Private navigation');
     expect(extracted.text).not.toContain('sidebar promotion');
     expect(extracted.text).not.toContain('__unsafeImportScript');
     expect((globalThis as { __unsafeImportScript?: boolean }).__unsafeImportScript)
       .toBeUndefined();
+  });
+
+  it('keeps headings, quotes, and list items as ordered text blocks', () => {
+    const extracted = extractReadableHtml(
+      `<!doctype html>
+      <html><head><title>Field report</title></head><body><article>
+      <h1>Field report</h1>
+      <p>Opening evidence gives readers enough context to understand the measured public report.</p>
+      <h2>What changed</h2>
+      <blockquote><p>Quoted witnesses described the change carefully and avoided unsupported conclusions.</p></blockquote>
+      <ul>
+        <li>First verified observation from the field team.</li>
+        <li>Second verified observation from the field team.</li>
+      </ul>
+      <p>The closing paragraph explains why these details matter for future reporting.</p>
+      </article></body></html>`,
+      'https://example.com/field-report',
+    );
+
+    expect(extracted.text.split('\n\n')).toEqual([
+      'Opening evidence gives readers enough context to understand the measured public report.',
+      'What changed',
+      'Quoted witnesses described the change carefully and avoided unsupported conclusions.',
+      'First verified observation from the field team.',
+      'Second verified observation from the field team.',
+      'The closing paragraph explains why these details matter for future reporting.',
+    ]);
   });
 });

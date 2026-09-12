@@ -4,6 +4,22 @@ import { parseHTML } from 'linkedom';
 import { AppError } from '../../../core/errors';
 import type { ExtractedArticle } from './types';
 
+const READABLE_BLOCK_SELECTOR = [
+  'article',
+  'section',
+  'div',
+  'p',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'blockquote',
+  'pre',
+  'li',
+  'figcaption',
+].join(',');
+
 export function extractReadableHtml(
   html: string,
   sourceUrl: string,
@@ -24,7 +40,9 @@ export function extractReadableHtml(
     maxElemsToParse: 50_000,
     disableJSONLD: false,
   }).parse();
-  const text = parsed?.textContent?.trim() ?? '';
+  const text = parsed
+    ? extractReadableText(parsed.content, parsed.textContent)
+    : '';
   if (!text) {
     throw new AppError(
       'IMPORT_PARSE_FAILED',
@@ -33,4 +51,25 @@ export function extractReadableHtml(
     );
   }
   return { title: parsed?.title?.trim() || null, text };
+}
+
+function extractReadableText(
+  content: string | null | undefined,
+  fallback: string | null | undefined,
+): string {
+  const { document } = parseHTML(content ?? '');
+  const blocks = Array.from(
+    document.querySelectorAll(READABLE_BLOCK_SELECTOR),
+  )
+    .filter((element) => !element.querySelector(READABLE_BLOCK_SELECTOR))
+    .map((element) => normalizeBlockText(element.textContent))
+    .filter(Boolean);
+
+  return blocks.length > 0
+    ? blocks.join('\n\n')
+    : normalizeBlockText(fallback ?? '');
+}
+
+function normalizeBlockText(value: string): string {
+  return value.replace(/\s+/gu, ' ').trim();
 }
