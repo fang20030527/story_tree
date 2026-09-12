@@ -11,12 +11,16 @@ import {
   CreatePracticeAcceptedSchema,
   CreatePracticeRequestSchema,
   DashboardDtoSchema,
+  EmailAuthRequestSchema,
+  EmailAuthResponseSchema,
   ImportedArticleDtoSchema,
   PublicErrorSchema,
   PublicQuestionSchema,
   SubmitAnswerRequestSchema,
   TranslationRequestSchema,
   UpdateImportPreviewRequestSchema,
+  WechatAuthRequestSchema,
+  WechatAuthResponseSchema,
 } from './index';
 
 describe('shared contracts', () => {
@@ -38,6 +42,57 @@ describe('shared contracts', () => {
       AnonymousAuthResponseSchema.safeParse({
         userId: crypto.randomUUID(),
         kind: 'guest',
+        remainingFreePractices: 3,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('validates the WeChat authorization-code exchange contract', () => {
+    expect(
+      WechatAuthRequestSchema.safeParse({ code: 'wechat-code' }).success,
+    ).toBe(true);
+    expect(WechatAuthRequestSchema.safeParse({ code: '' }).success).toBe(false);
+    expect(
+      WechatAuthRequestSchema.safeParse({ code: 'wechat-code', state: 'state' })
+        .success,
+    ).toBe(false);
+
+    expect(
+      WechatAuthResponseSchema.safeParse({
+        userId: crypto.randomUUID(),
+        kind: 'registered',
+        remainingFreePractices: 3,
+      }).success,
+    ).toBe(true);
+    expect(
+      WechatAuthResponseSchema.safeParse({
+        userId: crypto.randomUUID(),
+        kind: 'guest',
+        remainingFreePractices: 3,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('normalizes and validates email password authentication', () => {
+    expect(
+      EmailAuthRequestSchema.parse({
+        email: '  Reader@Example.com ',
+        password: 'correct-horse-battery-staple',
+      }),
+    ).toEqual({
+      email: 'reader@example.com',
+      password: 'correct-horse-battery-staple',
+    });
+    expect(
+      EmailAuthRequestSchema.safeParse({
+        email: 'not-an-email',
+        password: 'short',
+      }).success,
+    ).toBe(false);
+    expect(
+      EmailAuthResponseSchema.safeParse({
+        userId: crypto.randomUUID(),
+        kind: 'registered',
         remainingFreePractices: 3,
       }).success,
     ).toBe(true);

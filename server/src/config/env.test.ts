@@ -20,6 +20,10 @@ describe('loadConfig', () => {
       'deepseek-v4-flash-vision-exp',
     );
     expect(config.EVOLINK_VISION_TIMEOUT_MS).toBe(120_000);
+    expect(config.WECHAT_APP_ID).toBe('');
+    expect(config.WECHAT_APP_SECRET).toBe('');
+    expect(config.WECHAT_API_BASE_URL).toBe('https://api.weixin.qq.com');
+    expect(config.WECHAT_TIMEOUT_MS).toBe(10_000);
     expect(config.IMPORT_MAX_TEXT_BYTES).toBe(131_072);
     expect(config.IMPORT_MAX_FILE_BYTES).toBe(10_485_760);
     expect(config.IMPORT_MAX_TOTAL_BYTES).toBe(31_457_280);
@@ -30,6 +34,29 @@ describe('loadConfig', () => {
       'http://localhost:8081',
       'http://localhost:19006',
     ]);
+  });
+
+  it('uses the Render public URL when no explicit public origin is set', () => {
+    const config = loadConfig({
+      DATABASE_URL: 'postgresql://example.invalid/db',
+      EVOLINK_API_KEY: 'secret',
+      RENDER_EXTERNAL_URL: 'https://waikan-api.onrender.com',
+    });
+
+    expect(config.publicServerOrigin).toBe(
+      'https://waikan-api.onrender.com',
+    );
+  });
+
+  it('prefers an explicit public origin over the Render public URL', () => {
+    const config = loadConfig({
+      DATABASE_URL: 'postgresql://example.invalid/db',
+      EVOLINK_API_KEY: 'secret',
+      PUBLIC_SERVER_ORIGIN: 'https://api.example.com',
+      RENDER_EXTERNAL_URL: 'https://waikan-api.onrender.com',
+    });
+
+    expect(config.publicServerOrigin).toBe('https://api.example.com');
   });
 
   it('requires a pathless HTTP(S) public server origin', () => {

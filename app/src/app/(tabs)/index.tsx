@@ -18,7 +18,14 @@ import { getDashboard } from '@/api/practices';
 import { Card, Chip, RemoteImage, SectionHeader } from '@/components/ui';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import { heroArticle, pastArticles } from '@/data/mock';
+import {
+  events,
+  heroArticle,
+  pastArticles,
+  readingBooks,
+  recommendedBooks,
+  type ReadingEvent,
+} from '@/data/mock';
 import {
   clearActivePracticeId,
   loadActivePracticeId,
@@ -31,6 +38,19 @@ import {
 } from '@/features/practice/resumePractice';
 
 const TOP_TABS = ['文章', '书籍', '活动'];
+
+function formatWordCount(count: number): string {
+  return count >= 10000 ? `${(count / 10000).toFixed(1)}万` : `${count}`;
+}
+
+const EVENT_STATUS_STYLE: Record<
+  ReadingEvent['status'],
+  { cta: string; primary: boolean }
+> = {
+  报名中: { cta: '立即报名', primary: true },
+  进行中: { cta: '进入活动', primary: true },
+  已结束: { cta: '查看回放', primary: false },
+};
 
 function dashboardErrorMessage(error: unknown): string {
   return error instanceof ApiError
@@ -153,8 +173,10 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}>
-        {/* 生词长文练习 banner */}
-        <Card theme={theme} style={styles.banner}>
+        {topTab === '文章' ? (
+          <>
+            {/* 生词长文练习 banner */}
+            <Card theme={theme} style={styles.banner}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.bannerTitle, { color: theme.text }]}>
               用你的生词生成长文练习
@@ -256,40 +278,231 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {pastArticles.map((a) => (
-          <TouchableOpacity key={a.id} activeOpacity={0.8}>
-            <Card theme={theme} style={styles.articleRow}>
-              <RemoteImage uri={a.image} style={styles.articleThumb} />
-              <View style={styles.articleInfo}>
-                <View style={styles.articleMetaRow}>
-                  <Ionicons name="bookmark-outline" size={12} color={theme.textMuted} />
-                  <Text style={[styles.articleMeta, { color: theme.textMuted }]}>
-                    {a.category}
-                  </Text>
-                  <Text style={[styles.articleMeta, { color: theme.textMuted }]}>
-                    {a.dateLabel}
-                  </Text>
-                </View>
-                <Text
-                  style={[styles.articleTitle, { color: theme.text }]}
-                  numberOfLines={2}>
-                  {a.title}
-                </Text>
-                <Text
-                  style={[styles.articleExcerpt, { color: theme.textSecondary }]}
-                  numberOfLines={2}>
-                  {a.excerpt}
-                </Text>
-                <View style={styles.articleFooter}>
-                  <Chip label={a.level} color={theme.blue} bg={theme.accentSoft} />
-                  <Text style={[styles.articleMeta, { color: theme.textMuted }]}>
-                    {a.wordCount}词 · {a.minutes}分钟
-                  </Text>
-                </View>
-              </View>
-            </Card>
-          </TouchableOpacity>
-        ))}
+            {pastArticles.map((a) => (
+              <TouchableOpacity key={a.id} activeOpacity={0.8}>
+                <Card theme={theme} style={styles.articleRow}>
+                  <RemoteImage uri={a.image} style={styles.articleThumb} />
+                  <View style={styles.articleInfo}>
+                    <View style={styles.articleMetaRow}>
+                      <Ionicons name="bookmark-outline" size={12} color={theme.textMuted} />
+                      <Text style={[styles.articleMeta, { color: theme.textMuted }]}>
+                        {a.category}
+                      </Text>
+                      <Text style={[styles.articleMeta, { color: theme.textMuted }]}>
+                        {a.dateLabel}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[styles.articleTitle, { color: theme.text }]}
+                      numberOfLines={2}>
+                      {a.title}
+                    </Text>
+                    <Text
+                      style={[styles.articleExcerpt, { color: theme.textSecondary }]}
+                      numberOfLines={2}>
+                      {a.excerpt}
+                    </Text>
+                    <View style={styles.articleFooter}>
+                      <Chip label={a.level} color={theme.blue} bg={theme.accentSoft} />
+                      <Text style={[styles.articleMeta, { color: theme.textMuted }]}>
+                        {a.wordCount}词 · {a.minutes}分钟
+                      </Text>
+                    </View>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            ))}
+          </>
+        ) : null}
+
+        {topTab === '书籍' ? (
+          <>
+            <View style={styles.sectionSpacer}>
+              <SectionHeader title="在读" theme={theme} />
+            </View>
+            {readingBooks.map((b) => (
+              <TouchableOpacity key={b.id} activeOpacity={0.8}>
+                <Card theme={theme} style={styles.bookRow}>
+                  <RemoteImage uri={b.cover} style={styles.bookCover} />
+                  <View style={styles.bookInfo}>
+                    <Text
+                      style={[styles.bookTitle, { color: theme.text }]}
+                      numberOfLines={1}>
+                      {b.title}
+                    </Text>
+                    <Text
+                      style={[styles.bookMeta, { color: theme.textMuted }]}
+                      numberOfLines={1}>
+                      {b.author}
+                    </Text>
+                    <Text
+                      style={[styles.bookMeta, { color: theme.textSecondary }]}
+                      numberOfLines={1}>
+                      读至 {b.currentChapter}
+                    </Text>
+                    <View style={styles.progressRow}>
+                      <View
+                        style={[
+                          styles.progressTrack,
+                          { backgroundColor: theme.surfaceAlt },
+                        ]}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            {
+                              backgroundColor: theme.accent,
+                              width: `${Math.round(b.progress * 100)}%`,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={[styles.bookMeta, { color: theme.textMuted }]}>
+                        {Math.round(b.progress * 100)}%
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color={theme.textMuted}
+                    style={styles.rowChevron}
+                  />
+                </Card>
+              </TouchableOpacity>
+            ))}
+
+            <View style={styles.sectionSpacer}>
+              <SectionHeader title="推荐书目" theme={theme} moreLabel="全部" />
+            </View>
+            {recommendedBooks.map((b) => (
+              <TouchableOpacity key={b.id} activeOpacity={0.8}>
+                <Card theme={theme} style={styles.bookRow}>
+                  <RemoteImage uri={b.cover} style={styles.bookCover} />
+                  <View style={styles.bookInfo}>
+                    <Text
+                      style={[styles.bookTitle, { color: theme.text }]}
+                      numberOfLines={1}>
+                      {b.title}
+                    </Text>
+                    <Text
+                      style={[styles.bookMeta, { color: theme.textMuted }]}
+                      numberOfLines={1}>
+                      {b.author}
+                    </Text>
+                    <View style={styles.bookChipRow}>
+                      <Chip label={b.category} color={theme.blue} bg={theme.accentSoft} />
+                      <Chip label={b.level} color={theme.accentText} bg={theme.accent} />
+                    </View>
+                    <Text
+                      style={[styles.bookMeta, { color: theme.textMuted }]}
+                      numberOfLines={1}>
+                      {b.chapters}章 · {formatWordCount(b.wordCount)}词 ·{' '}
+                      {b.readers}人在读
+                    </Text>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            ))}
+          </>
+        ) : null}
+
+        {topTab === '活动' ? (
+          <>
+            <View style={styles.sectionSpacer}>
+              <SectionHeader title="近期活动" theme={theme} />
+            </View>
+            {events.map((e) => {
+              const status = EVENT_STATUS_STYLE[e.status];
+              return (
+                <Card key={e.id} theme={theme} style={styles.eventCard}>
+                  <RemoteImage uri={e.image} style={styles.eventImage}>
+                    <View style={styles.eventBadgeRow}>
+                      {e.hot ? (
+                        <View
+                          style={[
+                            styles.eventBadge,
+                            { backgroundColor: theme.danger },
+                          ]}>
+                          <Text style={styles.eventBadgeText}>HOT</Text>
+                        </View>
+                      ) : null}
+                      <View
+                        style={[
+                          styles.eventBadge,
+                          { backgroundColor: 'rgba(0,0,0,0.45)' },
+                        ]}>
+                        <Text style={styles.eventBadgeText}>{e.status}</Text>
+                      </View>
+                    </View>
+                  </RemoteImage>
+                  <View style={styles.eventBody}>
+                    <Text
+                      style={[styles.eventTitle, { color: theme.text }]}
+                      numberOfLines={1}>
+                      {e.title}
+                    </Text>
+                    <Text
+                      style={[styles.eventDesc, { color: theme.textSecondary }]}
+                      numberOfLines={2}>
+                      {e.description}
+                    </Text>
+                    <View style={styles.eventMetaRow}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={12}
+                        color={theme.textMuted}
+                      />
+                      <Text style={[styles.eventMeta, { color: theme.textMuted }]}>
+                        {e.dateLabel}
+                      </Text>
+                    </View>
+                    <View style={styles.eventMetaRow}>
+                      <Ionicons
+                        name={
+                          e.format === '线上' ? 'videocam-outline' : 'location-outline'
+                        }
+                        size={12}
+                        color={theme.textMuted}
+                      />
+                      <Text style={[styles.eventMeta, { color: theme.textMuted }]}>
+                        {e.format} · {e.location}
+                      </Text>
+                    </View>
+                    <View style={styles.eventFooter}>
+                      <Text style={[styles.eventMeta, { color: theme.textMuted }]}>
+                        {e.participants}/{e.quota} 人已报名
+                      </Text>
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        style={[
+                          styles.eventButton,
+                          status.primary
+                            ? { backgroundColor: theme.accent }
+                            : {
+                                backgroundColor: theme.surfaceAlt,
+                                borderWidth: StyleSheet.hairlineWidth,
+                                borderColor: theme.border,
+                              },
+                        ]}>
+                        <Text
+                          style={[
+                            styles.eventButtonText,
+                            {
+                              color: status.primary
+                                ? theme.accentText
+                                : theme.textSecondary,
+                            },
+                          ]}>
+                          {status.cta}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Card>
+              );
+            })}
+          </>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -400,4 +613,65 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
   },
+  sectionSpacer: { marginTop: 20 },
+  bookRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    marginBottom: 12,
+  },
+  bookCover: { width: 64, height: 84 },
+  bookInfo: { flex: 1, marginLeft: 12 },
+  bookTitle: { fontSize: 15, fontWeight: weight('semibold') },
+  bookMeta: { fontSize: 12, marginTop: 3 },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: { height: 4, borderRadius: 2 },
+  rowChevron: { marginLeft: 8 },
+  bookChipRow: { flexDirection: 'row', gap: 6, marginTop: 6 },
+  eventCard: { marginBottom: 12, overflow: 'hidden' },
+  eventImage: { height: 140, justifyContent: 'flex-start' },
+  eventBadgeRow: { flexDirection: 'row', gap: 6, padding: 10 },
+  eventBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  eventBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: weight('bold'),
+  },
+  eventBody: { padding: 12 },
+  eventTitle: { fontSize: 15, fontWeight: weight('semibold') },
+  eventDesc: { fontSize: 12, lineHeight: 17, marginTop: 4 },
+  eventMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  eventMeta: { fontSize: 12 },
+  eventFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  eventButton: {
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+  },
+  eventButtonText: { fontSize: 12, fontWeight: weight('semibold') },
 });

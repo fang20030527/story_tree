@@ -16,6 +16,41 @@ export const AnonymousAuthResponseSchema = z
   })
   .strict();
 
+export const WechatAuthRequestSchema = z
+  .object({
+    code: z.string().trim().min(1).max(512),
+  })
+  .strict();
+
+export const RegisteredAuthResponseSchema = z
+  .object({
+    userId: UuidSchema,
+    kind: z.literal('registered'),
+    remainingFreePractices: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export type WechatAuthRequest = z.infer<typeof WechatAuthRequestSchema>;
+export const WechatAuthResponseSchema = RegisteredAuthResponseSchema;
+export type RegisteredAuthResponse = z.infer<
+  typeof RegisteredAuthResponseSchema
+>;
+export type WechatAuthResponse = RegisteredAuthResponse;
+
+const EmailAddressSchema = z.string().trim().toLowerCase().email().max(320);
+
+export const EmailAuthRequestSchema = z
+  .object({
+    email: EmailAddressSchema,
+    password: z.string().min(8).max(128),
+  })
+  .strict();
+
+export const EmailAuthResponseSchema = RegisteredAuthResponseSchema;
+
+export type EmailAuthRequest = z.infer<typeof EmailAuthRequestSchema>;
+export type EmailAuthResponse = z.infer<typeof EmailAuthResponseSchema>;
+
 export const PracticeStatusSchema = z.enum([
   'queued',
   'generating',

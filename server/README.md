@@ -23,6 +23,8 @@ Expo Go 真机调试要求手机和 API 主机可在同一局域网互访。`EXP
 | 路由 | 成功状态 | 用途 |
 | --- | --- | --- |
 | `POST /v1/auth/anonymous` | `201` 或 `200` | 创建或恢复 14+ 匿名身份 |
+| `POST /v1/auth/email` | `201` 或 `200` | 用邮箱和密码创建或恢复注册身份 |
+| `POST /v1/auth/wechat` | `201` 或 `200` | 用原生微信授权 code 绑定或恢复注册身份 |
 | `POST /v1/practices` | `202` | 预留额度并创建生成任务 |
 | `GET /v1/practices/:id` | `200` | 读取持久练习状态与建议轮询间隔 |
 | `POST /v1/practices/:id/translations` | `200` 或 `202` | 读取缓存译文或创建翻译任务 |
@@ -57,7 +59,7 @@ Expo Go 真机调试要求手机和 API 主机可在同一局域网互访。`EXP
 
 JSON 变更接口、粘贴正文 PUT 和电脑会话创建要求 `Idempotency-Key`。原始资产 PUT 不使用该请求头，而是按 `(导入 ID，位置，服务端 SHA-256)` 实现安全重放；同一位置不得被不同内容替换。
 
-错误响应始终包含稳定的 `error.code`、可展示的中文 `message`、`requestId` 和 `retryable`。常见 HTTP 状态包括 `400` 输入错误、`401` 安装令牌无效、`403` 年龄/额度/来源限制、`404` 资源不存在、`409` 状态或幂等冲突、`413` 请求过大、`429` 限流、`502/503` AI 或数据库暂时不可用，以及 `500` 已脱敏的内部错误。
+错误响应始终包含稳定的 `error.code`、可展示的中文 `message`、`requestId` 和 `retryable`。常见 HTTP 状态包括 `400` 输入错误、`401` 安装令牌、邮箱密码或微信授权 code 无效、`403` 年龄/额度/来源限制、`404` 资源不存在、`409` 状态、幂等或账号合并冲突、`413` 请求过大、`429` 限流、`502/503` AI、微信或数据库暂时不可用，以及 `500` 已脱敏的内部错误。认证相关错误码为 `EMAIL_AUTH_FAILED`、`WECHAT_NOT_CONFIGURED`、`WECHAT_AUTH_FAILED` 和 `AUTH_ACCOUNT_CONFLICT`。
 
 导入相关公开错误码为 `IMPORT_UNSUPPORTED_TYPE`、`IMPORT_TOO_LARGE`、`IMPORT_CONTENT_INVALID`、`IMPORT_NOT_ENGLISH`、`IMPORT_FETCH_BLOCKED`、`IMPORT_FETCH_FAILED`、`IMPORT_PARSE_FAILED`、`IMPORT_OCR_FAILED`、`IMPORT_DEADLINE_EXCEEDED`、`UPLOAD_SESSION_EXPIRED`、`UPLOAD_SESSION_USED` 和 `SIMILAR_ARTICLE_REQUIRES_DECISION`。响应和日志不会包含源 URL、文件名、上传码/Cookie、正文、OCR Base64、数据库 URL 或 API key。
 
@@ -83,6 +85,10 @@ npm run check:client-secrets --workspace=@context-reader/server
 
 集成测试优先读取 `TEST_DATABASE_URL`，否则使用 `DATABASE_URL`。每个测试只会创建随机命名且强制匹配 `app_test_*` 的 Schema，所有连接的 `search_path` 均指向该 Schema；清理前会再次校验名称前缀。测试不会删除、截断或重建 `public` Schema。
 
+微信登录的 provider HTTP client 和假 provider 集成路径可以在没有凭证时测试；数据库身份绑定测试需要可连接的 PostgreSQL。真实微信联调还需要运行 `npm install` 后用 `EXPO_PUBLIC_WECHAT_APP_ID` 配置自定义开发构建，并在服务端配置对应的 `WECHAT_APP_ID`/`WECHAT_APP_SECRET`。
+
+邮箱登录不依赖外部邮件服务：首次使用 `POST /v1/auth/email` 会创建邮箱账号，之后用同一邮箱和密码恢复身份。服务端只保存 scrypt 密码哈希；邮箱验证码、找回密码和邮箱所有权验证尚未接入。
+
 ## 真实服务冒烟验收
 
 先启动已迁移的本地服务，再在另一终端运行：
@@ -98,6 +104,12 @@ RUN_IMPORT_LIVE_SMOKE=1 npm run smoke:imports --workspace=@context-reader/server
 该冒烟流程会在配置的真实数据库中留下一组带随机安装令牌的验收数据，并会调用真实 EvoLink API。
 
 ## Verified locally
+
+2026-09-09 已完成邮箱登录，并完成微信接入基础的静态验证：
+
+- 新增 WeChat OAuth code exchange client、`auth_identities` 数据表/迁移、安装令牌绑定和显式账号冲突保护；客户端保留微信原生适配入口，但当前登录页使用邮箱登录。
+- 共享契约、服务端类型检查、服务端 lint、WeChat provider 单元测试和客户端 Jest 测试通过。
+- 未配置真实 AppID/AppSecret，未完成真实微信客户端和可连接数据库上的端到端验收；不能把当前状态视为已上线。
 
 2026-09-09 在 macOS 开发机完成文章导入后端验收：
 

@@ -1,15 +1,22 @@
 import { eq } from 'drizzle-orm';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PublicErrorSchema } from '@context-reader/contracts';
 
 import { withTestDatabase } from '../../../test/database';
 import { buildApp } from '../../app';
 import { loadConfig } from '../../config/env';
-import { installations, users } from '../../db/schema';
+import {
+  authIdentities,
+  emailAccounts,
+  installations,
+  practiceSessions,
+  users,
+} from '../../db/schema';
 import { requireAuth } from './routes';
 import { registerAnonymous } from './service';
 import { hashInstallationToken } from './token';
+import { AppError } from '../../core/errors';
 
 const config = loadConfig({
   DATABASE_URL: 'postgresql://example.invalid/db',
@@ -128,6 +135,235 @@ describe('anonymous installation identity', () => {
       });
       expect(revoked.statusCode).toBe(401);
       expect(PublicErrorSchema.parse(revoked.json()).error.code).toBe('TOKEN_REVOKED');
+    });
+  }, 120_000);
+
+  it('creates and reuses an email account without storing the password', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '78'.repeat(32);
+      const app = buildApp({ config, db, logger: false });
+      apps.push(app);
+
+      const first = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/email',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          email: 'Reader@Example.com',
+          password: 'correct-horse-battery-staple',
+        },
+      });
+      expect(first.statusCode).toBe(401);
+
+      const anonymous = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/anonymous',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { ageConfirmed14Plus: true },
+      });
+      expect(anonymous.statusCode).toBe(201);
+
+      const registered = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/email',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          email: 'Reader@Example.com',
+          password: 'correct-horse-battery-staple',
+        },
+      });
+      expect(registered.statusCode).toBe(201);
+      expect(registered.json()).toMatchObject({ kind: 'registered' });
+
+      const repeated = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/email',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          email: 'reader@example.com',
+          password: 'correct-horse-battery-staple',
+        },
+      });
+      expect(repeated.statusCode).toBe(200);
+      expect(repeated.json()).toEqual(registered.json());
+
+      const wrongPassword = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/email',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { email: 'reader@example.com', password: 'wrong-password' },
+      });
+      expect(wrongPassword.statusCode).toBe(401);
+      expect(PublicErrorSchema.parse(wrongPassword.json()).error.code).toBe(
+        'EMAIL_AUTH_FAILED',
+      );
+
+      const [account] = await db.select().from(emailAccounts);
+      expect(account?.email).toBe('reader@example.com');
+      expect(account?.passwordHash).not.toContain('correct-horse-battery-staple');
+      expect(await db.select().from(emailAccounts)).toHaveLength(1);
+
+      const dataToken = '89'.repeat(32);
+      const dataRegistration = await registerAnonymous(db, dataToken, true);
+      await db.insert(practiceSessions).values({
+        userId: dataRegistration.userId,
+        examPath: 'ielts',
+        status: 'queued',
+      });
+      const conflict = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/email',
+        headers: { authorization: `Bearer ${dataToken}` },
+        payload: {
+          email: 'reader@example.com',
+          password: 'correct-horse-battery-staple',
+        },
+      });
+      expect(conflict.statusCode).toBe(409);
+      expect(PublicErrorSchema.parse(conflict.json()).error.code).toBe(
+        'AUTH_ACCOUNT_CONFLICT',
+      );
+    });
+  }, 120_000);
+
+  it('exchanges a WeChat code and upgrades the current installation', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '12'.repeat(32);
+      await registerAnonymous(db, token, true);
+      const exchangeCode = vi.fn().mockResolvedValue({
+        openid: 'wechat-openid-1',
+        unionid: 'wechat-unionid-1',
+      });
+      const app = buildApp({
+        config,
+        db,
+        logger: false,
+        wechatClient: { exchangeCode },
+      });
+      apps.push(app);
+
+      const first = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/wechat',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { code: 'native-code-1' },
+      });
+      expect(first.statusCode).toBe(201);
+      expect(first.json()).toMatchObject({
+        kind: 'registered',
+        remainingFreePractices: 3,
+      });
+      expect(exchangeCode).toHaveBeenCalledWith('native-code-1');
+
+      const second = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/wechat',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { code: 'native-code-2' },
+      });
+      expect(second.statusCode).toBe(200);
+      expect(second.json()).toEqual(first.json());
+
+      const [user] = await db.select().from(users);
+      expect(user?.kind).toBe('registered');
+      expect(await db.select().from(authIdentities)).toHaveLength(1);
+    });
+  }, 120_000);
+
+  it('rebinds an empty guest installation but refuses to hide guest data', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const ownerToken = '23'.repeat(32);
+      const guestToken = '34'.repeat(32);
+      const dataToken = '45'.repeat(32);
+      await registerAnonymous(db, ownerToken, true);
+      await registerAnonymous(db, guestToken, true);
+      const dataGuest = await registerAnonymous(db, dataToken, true);
+      await db.insert(practiceSessions).values({
+        userId: dataGuest.userId,
+        examPath: 'ielts',
+        status: 'queued',
+      });
+
+      const exchangeCode = vi.fn().mockResolvedValue({
+        openid: 'wechat-openid-2',
+        unionid: 'wechat-unionid-2',
+      });
+      const app = buildApp({
+        config,
+        db,
+        logger: false,
+        wechatClient: { exchangeCode },
+      });
+      apps.push(app);
+
+      const ownerLogin = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/wechat',
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { code: 'owner-code' },
+      });
+      expect(ownerLogin.statusCode).toBe(201);
+      const ownerId = ownerLogin.json().userId;
+
+      const rebound = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/wechat',
+        headers: { authorization: `Bearer ${guestToken}` },
+        payload: { code: 'guest-code' },
+      });
+      expect(rebound.statusCode).toBe(200);
+      expect(rebound.json().userId).toBe(ownerId);
+
+      const conflict = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/wechat',
+        headers: { authorization: `Bearer ${dataToken}` },
+        payload: { code: 'data-code' },
+      });
+      expect(conflict.statusCode).toBe(409);
+      expect(PublicErrorSchema.parse(conflict.json()).error.code).toBe(
+        'AUTH_ACCOUNT_CONFLICT',
+      );
+    });
+  }, 120_000);
+
+  it('maps malformed input and provider failures to stable public errors', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '56'.repeat(32);
+      await registerAnonymous(db, token, true);
+      const app = buildApp({
+        config,
+        db,
+        logger: false,
+        wechatClient: {
+          exchangeCode: vi.fn().mockRejectedValue(
+            new AppError('WECHAT_AUTH_FAILED', '微信授权失败', 401),
+          ),
+        },
+      });
+      apps.push(app);
+
+      const malformed = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/wechat',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { code: '' },
+      });
+      expect(malformed.statusCode).toBe(400);
+      expect(PublicErrorSchema.parse(malformed.json()).error.code).toBe(
+        'VALIDATION_ERROR',
+      );
+
+      const failed = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/wechat',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { code: 'bad-code' },
+      });
+      expect(failed.statusCode).toBe(401);
+      expect(PublicErrorSchema.parse(failed.json()).error.code).toBe(
+        'WECHAT_AUTH_FAILED',
+      );
     });
   }, 120_000);
 });

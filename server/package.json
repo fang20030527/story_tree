@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file=../app/.env --import tsx src/db/migrate.ts",
+    "db:migrate:production": "node dist/db/migrate.js",
     "smoke:live": "node --env-file=../app/.env --import tsx scripts/live-smoke.ts",
     "smoke:imports": "node --env-file=../app/.env --import tsx scripts/import-live-smoke.ts",
     "check:client-secrets": "node --env-file=../app/.env --import tsx scripts/check-client-secrets.ts"

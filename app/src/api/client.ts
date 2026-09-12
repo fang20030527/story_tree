@@ -29,7 +29,7 @@ export class ApiError extends Error {
   }
 }
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
   if (!baseUrl) {
     throw new ApiError('API_NOT_CONFIGURED', '尚未配置服务地址', false);

@@ -195,8 +195,173 @@ export const importSources = [
   { id: 'paste', label: '粘贴正文', icon: 'clipboard' },
   { id: 'album', label: '相册', icon: 'image' },
   { id: 'local', label: '本地', icon: 'folder' },
-  { id: 'computer', label: '电脑', icon: 'desktop-outline' },
+  { id: 'computer', label: '电脑', icon: 'laptop-outline' },
 ] as const;
+
+export interface ReadingBook {
+  id: string;
+  title: string;
+  author: string;
+  cover: string;
+  /** 0-1 progress through the book. */
+  progress: number;
+  currentChapter: string;
+}
+
+export const readingBooks: ReadingBook[] = [
+  {
+    id: 'b1',
+    title: "Charlotte's Web",
+    author: 'E.B. White',
+    cover: img('1544947950-fa07c98d237f'),
+    progress: 0.64,
+    currentChapter: 'Chapter 14 · The Egg Sac',
+  },
+  {
+    id: 'b2',
+    title: 'The Little Prince',
+    author: 'Antoine de Saint-Exupéry',
+    cover: img('1512820790803-83ca734da794'),
+    progress: 0.31,
+    currentChapter: 'Chapter 7 · The Flower',
+  },
+];
+
+export interface RecommendedBook {
+  id: string;
+  title: string;
+  author: string;
+  category: string;
+  level: string;
+  chapters: number;
+  wordCount: number;
+  readers: number;
+  cover: string;
+}
+
+export const recommendedBooks: RecommendedBook[] = [
+  {
+    id: 'r1',
+    title: 'Wonder',
+    author: 'R.J. Palacio',
+    category: '小说',
+    level: '四级',
+    chapters: 32,
+    wordCount: 73000,
+    readers: 5210,
+    cover: img('1481627834876-b7833e8f5570'),
+  },
+  {
+    id: 'r2',
+    title: 'Flipped',
+    author: 'Wendelin Van Draanen',
+    category: '成长',
+    level: '六级',
+    chapters: 14,
+    wordCount: 54000,
+    readers: 3120,
+    cover: img('1476275466078-4007374efbbe'),
+  },
+  {
+    id: 'r3',
+    title: 'Animal Farm',
+    author: 'George Orwell',
+    category: '经典',
+    level: '考研',
+    chapters: 10,
+    wordCount: 30000,
+    readers: 4480,
+    cover: img('1516979187457-637abb4f9353'),
+  },
+  {
+    id: 'r4',
+    title: 'The Old Man and the Sea',
+    author: 'Ernest Hemingway',
+    category: '经典',
+    level: '雅思 6.5',
+    chapters: 6,
+    wordCount: 27000,
+    readers: 2870,
+    cover: img('1509266272358-7701da638078'),
+  },
+  {
+    id: 'r5',
+    title: 'Educated',
+    author: 'Tara Westover',
+    category: '传记',
+    level: '托福',
+    chapters: 40,
+    wordCount: 105000,
+    readers: 1960,
+    cover: img('1524578271613-d550eacf6090'),
+  },
+];
+
+export interface ReadingEvent {
+  id: string;
+  title: string;
+  description: string;
+  dateLabel: string;
+  format: '线上' | '线下';
+  location: string;
+  participants: number;
+  quota: number;
+  status: '报名中' | '进行中' | '已结束';
+  image: string;
+  hot?: boolean;
+}
+
+export const events: ReadingEvent[] = [
+  {
+    id: 'e1',
+    title: '21 天精读挑战 · 经济学人专栏',
+    description: '每天一篇专栏精读，配套讲义与打卡社群，结营直播答疑。',
+    dateLabel: '9月15日 – 10月5日',
+    format: '线上',
+    location: '微信群 + 直播',
+    participants: 486,
+    quota: 500,
+    status: '报名中',
+    image: img('1457369804613-52c61a468e7d'),
+    hot: true,
+  },
+  {
+    id: 'e2',
+    title: '周六晨读会：短篇小说共读',
+    description: '本周共读 Flipped 第 3 章，主持人带读，轮流分享段落理解。',
+    dateLabel: '本周六 08:00 – 09:30',
+    format: '线上',
+    location: '腾讯会议',
+    participants: 128,
+    quota: 200,
+    status: '进行中',
+    image: img('1456513080510-7bf3a84b82f8'),
+  },
+  {
+    id: 'e3',
+    title: '上海线下英语角 · 外刊主题夜',
+    description: '围绕本周精选外刊自由讨论，母语者现场带话题，提供饮品。',
+    dateLabel: '9月20日 19:00',
+    format: '线下',
+    location: '静安寺 · 共享空间',
+    participants: 36,
+    quota: 50,
+    status: '报名中',
+    image: img('1529156069898-49953e39b3ac'),
+  },
+  {
+    id: 'e4',
+    title: '《Harry Potter》全书共读 · 第一期',
+    description: '第一季共读已完结，可回看全部讲义与讨论记录。',
+    dateLabel: '已结束 · 可回看',
+    format: '线上',
+    location: '站内回放',
+    participants: 1024,
+    quota: 1024,
+    status: '已结束',
+    image: img('1519682337058-a94d519337bc'),
+  },
+];
 
 export const communityPosts = [
   {

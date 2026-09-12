@@ -14,6 +14,7 @@ import type { AppDatabase } from './db/client';
 import { articleTranslationRoutes } from './modules/article-translation/routes';
 import { articlesRoutes } from './modules/articles/routes';
 import { authPlugin } from './modules/auth/plugin';
+import type { WechatClient } from './modules/auth/wechat-client';
 import { computerUploadRoutes } from './modules/computer-upload/routes';
 import { dashboardRoutes } from './modules/dashboard/routes';
 import { importsRoutes } from './modules/imports/routes';
@@ -34,6 +35,7 @@ export const redactPaths = [
   'request.body',
   'DATABASE_URL',
   'EVOLINK_API_KEY',
+  'WECHAT_APP_SECRET',
   '*.sourceUrl',
   '*.previewText',
   '*.previewTitle',
@@ -60,6 +62,7 @@ interface BuildAppOptions {
   readiness?: () => Promise<boolean>;
   readinessTimeoutMs?: number;
   securityLimits?: Partial<SecurityLimits>;
+  wechatClient?: WechatClient;
 }
 
 const knownErrorCodes = new Set<string>(errorCodes);
@@ -124,7 +127,11 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     reply.header('x-request-id', request.id);
   });
   registerSecurity(app, options.config, options.securityLimits);
-  app.register(authPlugin, { config: options.config, db: options.db });
+  app.register(authPlugin, {
+    config: options.config,
+    db: options.db,
+    ...(options.wechatClient ? { wechatClient: options.wechatClient } : {}),
+  });
   app.register(importsRoutes, { config: options.config, db: options.db });
   app.register(articlesRoutes, { db: options.db });
   app.register(articleTranslationRoutes, {

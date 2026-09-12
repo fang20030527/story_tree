@@ -1,26 +1,42 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui';
 import { ThemeMode, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { loadAuthUser } from '@/features/auth/authStorage';
+import { loadFavorites, loadRecentViews } from '@/features/library/libraryStorage';
 
-const STATS = [
-  { label: '生词', value: 6 },
-  { label: '笔记', value: 0 },
-  { label: '学习篇数', value: 0 },
-  { label: '打卡天数', value: 0 },
+const MENU: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  sub: string;
+  route: '/recent' | '/favorites' | '/feature-guide' | '/settings' | null;
+}[] = [
+  { icon: 'time-outline', label: '最近观看', sub: '', route: '/recent' },
+  { icon: 'star-outline', label: '我的收藏', sub: '', route: '/favorites' },
+  { icon: 'cube-outline', label: '功能概览', sub: '基础功能操作指引', route: '/feature-guide' },
+  { icon: 'thumbs-up-outline', label: '给我评分', sub: '', route: null },
+  { icon: 'settings-outline', label: '设置', sub: '', route: '/settings' },
 ];
 
-const MENU = [
-  { icon: 'time-outline', label: '最近观看', sub: '' },
-  { icon: 'star-outline', label: '我的收藏', sub: '' },
-  { icon: 'cube-outline', label: '功能概览', sub: '基础功能操作指引' },
-  { icon: 'thumbs-up-outline', label: '给我评分', sub: '' },
-  { icon: 'settings-outline', label: '设置', sub: '' },
-] as const;
+async function openAppReview() {
+  // 应用尚未上架，评分链接打不开时给出友好提示
+  const url = 'itms-apps://itunes.apple.com/app/id0000000000?action=write-review';
+  try {
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+      return;
+    }
+  } catch {
+    // fall through to the friendly alert
+  }
+  Alert.alert('感谢支持', '应用尚未上架应用商店，先收下这份鼓励吧！');
+}
 
 // 2026-09 的日历（9月1日是周二），周日开头
 const CAL_DAYS: (number | null)[] = [
@@ -41,6 +57,38 @@ const APPEARANCE_OPTIONS: { key: 'system' | ThemeMode; label: string; icon: keyo
 export default function ProfileScreen() {
   const { theme, preference, setPreference } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [recentCount, setRecentCount] = useState(0);
+  const [favoriteCount, setFavoriteCount] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      void Promise.all([loadAuthUser(), loadRecentViews(), loadFavorites()])
+        .then(([user, recents, favorites]) => {
+          if (!mounted) return;
+          setIsRegistered(Boolean(user));
+          setRecentCount(recents.length);
+          setFavoriteCount(favorites.length);
+        })
+        .catch(() => {
+          if (!mounted) return;
+          setIsRegistered(false);
+          setRecentCount(0);
+          setFavoriteCount(0);
+        });
+      return () => {
+        mounted = false;
+      };
+    }, []),
+  );
+
+  const stats = [
+    { label: '生词', value: 6 },
+    { label: '收藏', value: favoriteCount },
+    { label: '学习篇数', value: recentCount },
+    { label: '打卡天数', value: 0 },
+  ];
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
@@ -50,16 +98,25 @@ export default function ProfileScreen() {
         {/* 用户信息区 */}
         <View style={[styles.userArea, { paddingTop: insets.top + 16, backgroundColor: theme.surfaceAlt }]}>
           <View style={styles.userRow}>
-            <View style={[styles.avatar, { backgroundColor: theme.accentSoft }]}>
-              <Ionicons name="person" size={30} color={theme.accent} />
-            </View>
-            <Text style={[styles.username, { color: theme.text }]}>注册 / 登录</Text>
-            <TouchableOpacity hitSlop={8}>
+            <TouchableOpacity
+              onPress={() => router.push('/login')}
+              activeOpacity={0.85}
+              style={styles.userIdentity}>
+              <View style={[styles.avatar, { backgroundColor: theme.accentSoft }]}>
+                <Ionicons name="person" size={30} color={theme.accent} />
+              </View>
+              <Text style={[styles.username, { color: theme.text }]}>
+                {isRegistered ? '已登录用户' : '注册 / 登录'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity hitSlop={8} onPress={() => router.push('/settings')}>
               <Ionicons name="settings-outline" size={22} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity activeOpacity={0.85}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => Alert.alert('敬请期待', 'Pro 版即将上线，敬请期待更多高级功能。')}>
             <Card theme={theme} style={styles.vipCard}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.vipTitle, { color: theme.accent }]}>
@@ -77,7 +134,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <View style={styles.statsRow}>
-            {STATS.map((s) => (
+            {stats.map((s) => (
               <View key={s.label} style={styles.statItem}>
                 <Text style={[styles.statValue, { color: theme.text }]}>{s.value}</Text>
                 <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
@@ -183,6 +240,13 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 key={m.label}
                 activeOpacity={0.7}
+                onPress={() => {
+                  if (m.route) {
+                    router.push(m.route);
+                  } else {
+                    void openAppReview();
+                  }
+                }}
                 style={[
                   styles.menuRow,
                   i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
@@ -212,6 +276,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   userArea: { paddingHorizontal: 16, paddingBottom: 20 },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  userIdentity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: {
     width: 56,
     height: 56,

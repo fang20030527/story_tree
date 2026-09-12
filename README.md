@@ -4,7 +4,7 @@
 
 ## 工作区
 
-- `app/`：Expo SDK 54，支持 iOS、Android 和 Web 编译。云端身份使用原生 SecureStore，因此完整业务流程需在 iOS 或 Android 上运行。
+- `app/`：Expo SDK 57，支持 iOS、Android 和 Web 编译。云端身份使用原生 SecureStore，因此完整业务流程需在 iOS 或 Android 上运行。
 - `server/`：Fastify API、PostgreSQL 任务队列和同进程 worker。
 - `packages/contracts/`：客户端与服务端共用的 Zod API 契约。
 - `server/drizzle/`：显式执行的数据库迁移。
@@ -14,7 +14,8 @@
 1. 安装 Node.js 22.13 或更高版本和 npm。
 2. 复制 `app/.env.example` 为 `app/.env`。
 3. 填写 `DATABASE_URL`、`EVOLINK_API_KEY` 和 `PUBLIC_SERVER_ORIGIN`，并按需要调整其他服务端变量。不要提交 `app/.env`。
-4. 客户端只会读取 `EXPO_PUBLIC_API_BASE_URL`，不应包含数据库或 EvoLink 密钥。
+4. 当前登录入口使用邮箱和密码，首次成功登录会自动创建账号，不需要邮件服务 API key。若启用微信登录，在服务端填写已审核移动应用的 `WECHAT_APP_ID`、`WECHAT_APP_SECRET`；客户端只填写 `EXPO_PUBLIC_WECHAT_APP_ID`、`EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK` 和正式的包标识。`WECHAT_APP_SECRET` 只能存在于服务端环境。
+5. 客户端只会读取 `EXPO_PUBLIC_API_BASE_URL` 及明确标记为 `EXPO_PUBLIC_` 的配置，不应包含数据库、EvoLink 或微信 AppSecret。
 
 真机调试时，手机和开发电脑必须在可互相访问的同一局域网。`EXPO_PUBLIC_API_BASE_URL` 和 `PUBLIC_SERVER_ORIGIN` 都应使用开发电脑当前的局域网 IP，不能使用手机视角下的 `localhost`。例如两者都设为 `http://192.168.1.20:3000`。切换 Wi-Fi 后 IP 可能改变，需同时更新两个变量，然后重启 API 和 Expo。
 
@@ -41,6 +42,16 @@ RUN_IMPORT_LIVE_SMOKE=1 npm run smoke:imports --workspace=@context-reader/server
 ```
 
 迁移不会随 API 启动自动执行；新环境在启动服务前必须显式运行 `db:migrate`。该命令可安全重跑，不会删除或重建 `public` Schema。`npm run dev` 同时启动 HTTP API、任务 worker 和导入清理器。
+
+## 微信登录
+
+服务端的 `POST /v1/auth/wechat` 接收原生微信 SDK 返回的一次性授权 code，并通过微信开放平台换取身份后绑定当前安装令牌。首次登录会把当前访客身份升级为注册身份；已有数据的访客与另一个微信账号冲突时返回明确的账号合并错误，不会静默丢数据。
+
+微信登录需要微信开放平台审核通过的移动应用 AppID/AppSecret、iOS Bundle ID、Android 包名/签名和 iOS Universal Link。客户端已接入 `expo-native-wechat` 适配入口，但必须用配置了 AppID 的 Expo Development Build；Expo Go 不包含这个原生模块。没有真实凭证时，后端和客户端测试使用假 provider，真实设备联调不会通过。
+
+## 邮箱登录
+
+当前登录页使用邮箱 + 密码，首次成功登录会自动创建邮箱账号。服务端只保存 scrypt 密码哈希，不保存明文密码，也不依赖 SMTP、Resend 等外部邮件 API。邮箱验证码、找回密码和邮箱所有权验证可在后续单独补充。
 
 ## 验证与测试安全
 

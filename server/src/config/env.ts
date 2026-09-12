@@ -27,6 +27,10 @@ const RawEnvSchema = z.object({
     .int()
     .positive()
     .default(120_000),
+  WECHAT_APP_ID: z.string().trim().optional().default(''),
+  WECHAT_APP_SECRET: z.string().trim().optional().default(''),
+  WECHAT_API_BASE_URL: z.url().default('https://api.weixin.qq.com'),
+  WECHAT_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   IMPORT_MAX_TEXT_BYTES: z.coerce.number().int().positive().default(131_072),
   IMPORT_MAX_FILE_BYTES: z.coerce
     .number()
@@ -79,7 +83,7 @@ const RawEnvSchema = z.object({
 });
 
 export function loadConfig(source: Record<string, string | undefined>) {
-  const result = RawEnvSchema.safeParse(source);
+  const result = RawEnvSchema.safeParse(withPlatformDefaults(source));
 
   if (!result.success) {
     const names = [
@@ -100,3 +104,15 @@ export function loadConfig(source: Record<string, string | undefined>) {
 }
 
 export type ServerConfig = ReturnType<typeof loadConfig>;
+
+function withPlatformDefaults(
+  source: Record<string, string | undefined>,
+): Record<string, string | undefined> {
+  const explicitOrigin = source.PUBLIC_SERVER_ORIGIN?.trim();
+  if (explicitOrigin) return source;
+
+  const renderOrigin = source.RENDER_EXTERNAL_URL?.trim();
+  if (!renderOrigin) return source;
+
+  return { ...source, PUBLIC_SERVER_ORIGIN: renderOrigin };
+}

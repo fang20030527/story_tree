@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +14,15 @@ export default function FeedScreen() {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
 
+  const handleImportPress = (source: (typeof importSources)[number]) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (source.id === 'computer') {
+      router.push('/import-computer');
+      return;
+    }
+    router.push({ pathname: '/import', params: { source: source.id } });
+  };
+
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
@@ -23,7 +34,10 @@ export default function FeedScreen() {
         <Text style={[styles.headerTitle, { color: theme.text }]}>外刊</Text>
         <TouchableOpacity
           style={[styles.headerImport, { borderColor: theme.border }]}
-          hitSlop={8}>
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="导入外部资源"
+          onPress={() => router.push({ pathname: '/import', params: { source: 'select' } })}>
           <Text style={[styles.headerImportText, { color: theme.text }]}>导入</Text>
         </TouchableOpacity>
       </View>
@@ -47,7 +61,13 @@ export default function FeedScreen() {
         <Card theme={theme} style={styles.importCard}>
           <View style={styles.importRow}>
             {importSources.map((s) => (
-              <TouchableOpacity key={s.id} style={styles.importItem} activeOpacity={0.75}>
+              <TouchableOpacity
+                key={s.id}
+                style={styles.importItem}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={s.label}
+                onPress={() => handleImportPress(s)}>
                 <View style={[styles.importIconBox, { backgroundColor: theme.accentSoft }]}>
                   <Ionicons
                     name={s.icon as keyof typeof Ionicons.glyphMap}
@@ -195,13 +215,13 @@ const styles = StyleSheet.create({
   importRow: { flexDirection: 'row', justifyContent: 'space-around' },
   importItem: { alignItems: 'center', width: 56 },
   importIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  importLabel: { fontSize: 12, marginTop: 6 },
+  importLabel: { fontSize: 12, fontWeight: weight('medium'), marginTop: 8 },
   newsGrid: { flexDirection: 'row', gap: 12 },
   newsItem: { flex: 1 },
   newsImage: { height: 110, justifyContent: 'space-between', padding: 8 },

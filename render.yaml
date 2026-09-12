@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: waikan-api
+    runtime: node
+    repo: https://github.com/fang20030527/story_tree
+    region: singapore
+    plan: free
+    branch: codex/cloud-core-backend
+    numInstances: 1
+    autoDeployTrigger: commit
+    buildCommand: npm ci && npm run build --workspace=@context-reader/server
+    startCommand: npm run db:migrate:production --workspace=@context-reader/server && npm run start --workspace=@context-reader/server
+    healthCheckPath: /health/ready
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.2
+      - key: HOST
+        value: 0.0.0.0
+      - key: LOG_LEVEL
+        value: info
+      - key: EVOLINK_VISION_MODEL
+        value: gemini-3.8-flash
+      - key: DATABASE_URL
+        sync: false
+      - key: EVOLINK_API_KEY
+        sync: false

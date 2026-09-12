@@ -7,7 +7,9 @@ import {
   articleImports,
   articleParagraphs,
   articleTranslations,
+  authIdentities,
   computerUploadSessions,
+  emailAccounts,
   importedArticles,
   importAssets,
   jobs,
@@ -43,6 +45,73 @@ it('migrates an isolated schema and writes a durable practice job', async () => 
     });
 
     expect(await db.select().from(jobs)).toHaveLength(1);
+  });
+}, 120_000);
+
+it('persists a unique WeChat identity for a user', async () => {
+  await withTestDatabase(async ({ db }) => {
+    const userId = crypto.randomUUID();
+    await db.insert(users).values({
+      id: userId,
+      kind: 'registered',
+      ageConfirmedAt: new Date(),
+    });
+
+    const [identity] = await db
+      .insert(authIdentities)
+      .values({
+        userId,
+        provider: 'wechat',
+        subject: 'union-id-1',
+        openid: 'open-id-1',
+      })
+      .returning();
+
+    expect(identity).toMatchObject({
+      userId,
+      provider: 'wechat',
+      subject: 'union-id-1',
+      openid: 'open-id-1',
+    });
+    await expect(
+      db.insert(authIdentities).values({
+        userId,
+        provider: 'wechat',
+        subject: 'union-id-1',
+        openid: 'open-id-2',
+      }),
+    ).rejects.toThrow();
+  });
+}, 120_000);
+
+it('persists a unique email account for a user', async () => {
+  await withTestDatabase(async ({ db }) => {
+    const userId = crypto.randomUUID();
+    await db.insert(users).values({
+      id: userId,
+      kind: 'registered',
+      ageConfirmedAt: new Date(),
+    });
+
+    const [account] = await db
+      .insert(emailAccounts)
+      .values({
+        userId,
+        email: 'reader@example.com',
+        passwordHash: 'scrypt-v1$test$test',
+      })
+      .returning();
+    expect(account).toMatchObject({
+      userId,
+      email: 'reader@example.com',
+    });
+    await expect(
+      db.insert(emailAccounts).values({
+        userId,
+        email: 'reader@example.com',
+        passwordHash: 'scrypt-v1$test$test',
+      }),
+    ).rejects.toThrow();
   });
 }, 120_000);
 

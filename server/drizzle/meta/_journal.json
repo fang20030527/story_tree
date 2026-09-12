@@ -15,6 +15,20 @@
       "when": 1788848898094,
       "tag": "0001_article_imports",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788955936302,
+      "tag": "0002_wechat_identities",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788957859510,
+      "tag": "0003_acoustic_silver_surfer",
+      "breakpoints": true
     }
   ]
 }

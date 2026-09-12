@@ -21,6 +21,8 @@ const defaultLimits: SecurityLimits = {
 
 const tokenLimitedRoutes = new Set([
   'POST /v1/auth/anonymous',
+  'POST /v1/auth/email',
+  'POST /v1/auth/wechat',
   'POST /v1/practices',
   'POST /v1/practices/:id/translations',
   'POST /v1/imports',

@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 const serverOnlyNames = [
   'DATABASE_URL',
   'EVOLINK_API_KEY',
+  'WECHAT_APP_SECRET',
+  'WECHAT_API_BASE_URL',
   'EVOLINK_BASE_URL',
   'EVOLINK_TEXT_MODEL',
   'EVOLINK_MODERATION_MODEL',
@@ -38,7 +40,7 @@ const scanDirectories = [
   fileURLToPath(new URL('../../app/src/', import.meta.url)),
   fileURLToPath(new URL('../../app/dist-smoke/', import.meta.url)),
 ];
-const secrets = ['EVOLINK_API_KEY', 'DATABASE_URL']
+const secrets = ['EVOLINK_API_KEY', 'DATABASE_URL', 'WECHAT_APP_SECRET']
   .map((name) => ({ name, value: process.env[name] }))
   .filter(
     (entry): entry is { name: string; value: string } => Boolean(entry.value),

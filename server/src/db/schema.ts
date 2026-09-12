@@ -27,6 +27,7 @@ const bytea = customType<{ data: Buffer }>({
 });
 
 export const userKind = pgEnum('user_kind', ['guest', 'registered']);
+export const authIdentityProvider = pgEnum('auth_identity_provider', ['wechat']);
 export const vocabularyStatus = pgEnum('vocabulary_status', [
   'pending',
   'reviewing',
@@ -101,6 +102,47 @@ export const users = pgTable('users', {
   createdAt: utcTimestamp('created_at').defaultNow().notNull(),
   deletedAt: utcTimestamp('deleted_at'),
 });
+
+export const authIdentities = pgTable(
+  'auth_identities',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    provider: authIdentityProvider('provider').notNull(),
+    subject: text('subject').notNull(),
+    openid: text('openid').notNull(),
+    unionid: text('unionid'),
+    createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+    lastLoginAt: utcTimestamp('last_login_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('auth_identities_provider_subject_unique').on(
+      table.provider,
+      table.subject,
+    ),
+    index('auth_identities_user_idx').on(table.userId),
+  ],
+);
+
+export const emailAccounts = pgTable(
+  'email_accounts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    passwordHash: text('password_hash').notNull(),
+    createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+    lastLoginAt: utcTimestamp('last_login_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('email_accounts_email_unique').on(table.email),
+    index('email_accounts_user_idx').on(table.userId),
+  ],
+);
 
 export const installations = pgTable(
   'installations',
