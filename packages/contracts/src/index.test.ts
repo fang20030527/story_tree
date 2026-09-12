@@ -13,7 +13,9 @@ import {
   DashboardDtoSchema,
   EmailAuthRequestSchema,
   EmailAuthResponseSchema,
+  ImportedArticlePageSchema,
   ImportedArticleDtoSchema,
+  ImportedArticleSummaryDtoSchema,
   PublicErrorSchema,
   PublicQuestionSchema,
   SubmitAnswerRequestSchema,
@@ -382,5 +384,30 @@ describe('shared contracts', () => {
         internalHash: 'secret',
       }).success,
     ).toBe(false);
+  });
+
+  it('validates strict private article summaries and bounded pages', () => {
+    const item = {
+      id: '11111111-1111-4111-8111-111111111111',
+      sourceKind: 'url',
+      sourceUrl: 'https://example.com/article',
+      title: 'A private article',
+      wordCount: 820,
+      importedAt: '2026-09-12T08:00:00.000Z',
+    };
+
+    expect(ImportedArticleSummaryDtoSchema.parse(item)).toEqual(item);
+    expect(ImportedArticleSummaryDtoSchema.safeParse({
+      ...item,
+      paragraphs: [],
+    }).success).toBe(false);
+    expect(ImportedArticlePageSchema.parse({
+      items: [item],
+      nextCursor: 'eyJjcmVhdGVkQXQiOiIyMDI2LTA5LTEyVDA4OjAwOjAwLjAwMFoiLCJpZCI6IjExMTExMTExLTExMTEtNDExMS04MTExLTExMTExMTExMTExMSJ9',
+    }).items).toHaveLength(1);
+    expect(ImportedArticlePageSchema.safeParse({
+      items: Array.from({ length: 101 }, () => item),
+      nextCursor: null,
+    }).success).toBe(false);
   });
 });

@@ -461,6 +461,24 @@ export const ArticleImportDtoSchema = z
     }
   });
 
+export const ImportedArticleSummaryDtoSchema = z
+  .object({
+    id: UuidSchema,
+    sourceKind: ArticleImportSourceKindSchema,
+    sourceUrl: z.url().nullable(),
+    title: z.string().min(1).max(160),
+    wordCount: z.number().int().min(20).max(5_000),
+    importedAt: z.iso.datetime(),
+  })
+  .strict();
+
+export const ImportedArticlePageSchema = z
+  .object({
+    items: z.array(ImportedArticleSummaryDtoSchema).max(100),
+    nextCursor: z.string().min(1).max(512).nullable(),
+  })
+  .strict();
+
 export const ImportedArticleDtoSchema = z
   .object({
     id: UuidSchema,
@@ -567,6 +585,10 @@ export type ConfirmArticleImportRequest = z.infer<
   typeof ConfirmArticleImportRequestSchema
 >;
 export type ArticleImportDto = z.infer<typeof ArticleImportDtoSchema>;
+export type ImportedArticleSummaryDto = z.infer<
+  typeof ImportedArticleSummaryDtoSchema
+>;
+export type ImportedArticlePage = z.infer<typeof ImportedArticlePageSchema>;
 export type ImportedArticleDto = z.infer<typeof ImportedArticleDtoSchema>;
 export type CreatedComputerUploadSession = z.infer<
   typeof CreatedComputerUploadSessionSchema
