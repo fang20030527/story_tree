@@ -1,6 +1,6 @@
 import { lookup as nodeLookup } from 'node:dns/promises';
 
-import * as ipaddr from 'ipaddr.js';
+import ipaddr from 'ipaddr.js';
 
 import { AppError } from '../../../core/errors';
 

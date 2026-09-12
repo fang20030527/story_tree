@@ -104,10 +104,12 @@ export async function safeFetchHtml(
   }
 }
 
-const requestPinnedPage: RequestPinnedPage = async (target, signal) => {
+export const requestPinnedPage: RequestPinnedPage = async (target, signal) => {
   const dispatcher = new Agent({
     connections: 1,
     connect: {
+      autoSelectFamily: false,
+      family: target.family,
       lookup(_hostname, _options, callback) {
         callback(null, target.address, target.family);
       },

@@ -45,7 +45,7 @@ const SOURCE_TEXT = {
 } as const;
 
 const sourceCases = [
-  { kind: 'url' as const, url: 'https://www.rfc-editor.org/rfc/rfc2606.html' },
+  { kind: 'url' as const, url: 'https://www.iana.org/help/example-domains' },
   { kind: 'paste' as const },
   { kind: 'album' as const },
   { kind: 'local_file' as const },

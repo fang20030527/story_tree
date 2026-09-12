@@ -1,6 +1,10 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  requestPinnedPage,
   safeFetchHtml,
   type PageResponse,
   type RequestPinnedPage,
@@ -8,6 +12,39 @@ import {
 import type { ResolveHost } from './url-policy';
 
 describe('safe bounded HTML fetching', () => {
+  it('connects to the single pinned address on auto-family runtimes', async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/html' });
+      response.end('<html><body>Pinned page</body></html>');
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+
+    try {
+      const address = server.address() as AddressInfo;
+      const page = await requestPinnedPage(
+        {
+          url: new URL(`http://publisher.example:${address.port}/story`),
+          address: '127.0.0.1',
+          family: 4,
+        },
+        AbortSignal.timeout(1_000),
+      );
+      try {
+        expect(page.statusCode).toBe(200);
+        await expect(readBody(page.body)).resolves.toContain('Pinned page');
+      } finally {
+        await page.close();
+      }
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
   it('resolves and pins every redirect hop with fixed request boundaries', async () => {
     const resolveHost: ResolveHost = vi
       .fn()
@@ -158,4 +195,10 @@ function response(
     },
     close: vi.fn().mockResolvedValue(undefined),
   };
+}
+
+async function readBody(body: AsyncIterable<Uint8Array>): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of body) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString('utf8');
 }
