@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { sql } from 'drizzle-orm';
 
 import {
   ImportedArticleDtoSchema,
@@ -214,6 +215,12 @@ describe('private imported articles', () => {
         );
         expect(otherPage.items.map(({ id }) => id)).toEqual([otherId]);
 
+        const unauthenticated = await app.inject({
+          method: 'GET',
+          url: '/v1/articles',
+        });
+        expect(unauthenticated.statusCode).toBe(401);
+
         for (const url of [
           '/v1/articles?cursor=',
           '/v1/articles?cursor=e30%3D',
@@ -229,6 +236,71 @@ describe('private imported articles', () => {
           });
           expect(invalid.statusCode).toBe(400);
         }
+      } finally {
+        await app.close();
+      }
+    });
+  }, 120_000);
+
+  it('paginates articles that share a millisecond without skipping rows', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const ownerToken = '65'.repeat(32);
+      const owner = await registerAnonymous(db, ownerToken, true);
+
+      const earlierId = '55555555-5555-4555-8555-555555555555';
+      const laterId = '66666666-6666-4666-8666-666666666666';
+      const importedAt = new Date('2026-01-01T00:00:00.000Z');
+
+      await seedArticle(db, {
+        id: earlierId,
+        userId: owner.userId,
+        title: 'Earlier microsecond article',
+        hashByte: 'ee',
+        importedAt,
+      });
+      await seedArticle(db, {
+        id: laterId,
+        userId: owner.userId,
+        title: 'Later microsecond article',
+        hashByte: 'ff',
+        importedAt,
+      });
+      // JS Dates truncate to milliseconds, so force distinct microsecond
+      // created_at values directly in Postgres.
+      await db.execute(
+        sql`UPDATE imported_articles SET created_at = '2026-01-01T00:00:05.000123Z'::timestamptz WHERE id = ${earlierId}`,
+      );
+      await db.execute(
+        sql`UPDATE imported_articles SET created_at = '2026-01-01T00:00:05.000456Z'::timestamptz WHERE id = ${laterId}`,
+      );
+
+      const app = buildApp({ config, db, logger: false });
+      try {
+        const firstPageResponse = await app.inject({
+          method: 'GET',
+          url: '/v1/articles?limit=1',
+          headers: { authorization: `Bearer ${ownerToken}` },
+        });
+        expect(firstPageResponse.statusCode).toBe(200);
+        const firstPage = ImportedArticlePageSchema.parse(
+          firstPageResponse.json(),
+        );
+        expect(firstPage.items.map(({ id }) => id)).toEqual([laterId]);
+        expect(firstPage.nextCursor).not.toBeNull();
+
+        const secondPageResponse = await app.inject({
+          method: 'GET',
+          url: `/v1/articles?limit=1&cursor=${encodeURIComponent(
+            firstPage.nextCursor ?? '',
+          )}`,
+          headers: { authorization: `Bearer ${ownerToken}` },
+        });
+        expect(secondPageResponse.statusCode).toBe(200);
+        const secondPage = ImportedArticlePageSchema.parse(
+          secondPageResponse.json(),
+        );
+        expect(secondPage.items.map(({ id }) => id)).toEqual([earlierId]);
+        expect(secondPage.nextCursor).toBeNull();
       } finally {
         await app.close();
       }

@@ -104,9 +104,9 @@ export async function listArticlesForUser(
     const cursor = decodeArticleCursor(input.cursor);
     filters.push(
       or(
-        lt(importedArticles.createdAt, new Date(cursor.createdAt)),
+        sql`${importedArticles.createdAt} < ${cursor.createdAt}::timestamptz`,
         and(
-          sql`${importedArticles.createdAt} = to_char(${cursor.createdAt}::timestamptz at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')::timestamptz`,
+          sql`${importedArticles.createdAt} = ${cursor.createdAt}::timestamptz`,
           lt(importedArticles.id, cursor.id),
         ),
       ) ?? sql`false`,
@@ -114,7 +114,15 @@ export async function listArticlesForUser(
   }
 
   const rows = await db
-    .select()
+    .select({
+      id: importedArticles.id,
+      sourceKind: importedArticles.sourceKind,
+      sourceUrl: importedArticles.sourceUrl,
+      title: importedArticles.title,
+      wordCount: importedArticles.wordCount,
+      importedAt: importedArticles.importedAt,
+      createdAtCursor: sql<string>`to_char(${importedArticles.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+    })
     .from(importedArticles)
     .where(and(...filters))
     .orderBy(desc(importedArticles.createdAt), desc(importedArticles.id))
@@ -125,7 +133,7 @@ export async function listArticlesForUser(
   const nextCursor =
     rows.length > input.limit && lastRow
       ? encodeArticleCursor({
-          createdAt: lastRow.createdAt.toISOString(),
+          createdAt: lastRow.createdAtCursor,
           id: lastRow.id,
         })
       : null;
