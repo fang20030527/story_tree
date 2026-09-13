@@ -18,6 +18,25 @@ const unusedDatabase = {} as AppDatabase;
 describe('health routes', () => {
   const apps: Array<ReturnType<typeof buildApp>> = [];
 
+  it('keeps the imported article listing route registered', async () => {
+    const app = buildApp({
+      config,
+      db: unusedDatabase,
+      logger: false,
+    });
+    apps.push(app);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/articles?limit=30',
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(PublicErrorSchema.parse(response.json()).error.code).toBe(
+      'UNAUTHORIZED',
+    );
+  });
+
   afterEach(async () => Promise.all(apps.splice(0).map((app) => app.close())));
 
   it('returns a request id from liveness', async () => {
