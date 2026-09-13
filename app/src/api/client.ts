@@ -61,6 +61,30 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+async function sendAuthenticatedRequest(
+  path: string,
+  init: RequestInit,
+): Promise<{ response: Response; token: string }> {
+  const baseUrl = getApiBaseUrl();
+  const token = await getInstallationToken();
+  const headers = new Headers(init.headers);
+  headers.set('Content-Type', 'application/json');
+  headers.set('Authorization', `Bearer ${token}`);
+
+  const response = await sendRequest(`${baseUrl}${path}`, {
+    ...init,
+    headers,
+  });
+  return { response, token };
+}
+
+async function throwPublicResponseError(
+  response: Response,
+  token: string,
+): Promise<never> {
+  throw redactApiError(ApiError.fromUnknown(await readJson(response)), token);
+}
+
 function redactApiError(error: ApiError, secret: string): ApiError {
   if (!secret || !error.message.includes(secret)) return error;
   return new ApiError(
@@ -76,21 +100,19 @@ export async function apiRequest<T>(
   schema: ZodType<T>,
   init: RequestInit = {},
 ): Promise<T> {
-  const baseUrl = getApiBaseUrl();
-  const token = await getInstallationToken();
-  const headers = new Headers(init.headers);
-  headers.set('Content-Type', 'application/json');
-  headers.set('Authorization', `Bearer ${token}`);
-
-  const response = await sendRequest(`${baseUrl}${path}`, {
-    ...init,
-    headers,
-  });
+  const { response, token } = await sendAuthenticatedRequest(path, init);
+  if (!response.ok) return throwPublicResponseError(response, token);
   const json = await readJson(response);
-  if (!response.ok) {
-    throw redactApiError(ApiError.fromUnknown(json), token);
-  }
   const parsed = schema.safeParse(json);
   if (!parsed.success) throw invalidServerResponse();
   return parsed.data;
+}
+
+export async function apiRequestNoContent(
+  path: string,
+  init: RequestInit = {},
+): Promise<void> {
+  const { response, token } = await sendAuthenticatedRequest(path, init);
+  if (!response.ok) return throwPublicResponseError(response, token);
+  if (response.status !== 204) throw invalidServerResponse();
 }

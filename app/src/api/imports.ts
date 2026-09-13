@@ -3,14 +3,12 @@ import {
   ArticleTranslationDtoSchema,
   ComputerUploadSessionDtoSchema,
   CreatedComputerUploadSessionSchema,
-  ImportedArticleDtoSchema,
   type ArticleImportDto,
   type ArticleTranslationDto,
   type ComputerUploadSessionDto,
   type ConfirmArticleImportRequest,
   type CreateArticleImportRequest,
   type CreatedComputerUploadSession,
-  type ImportedArticleDto,
   type TranslationRequest,
 } from '@context-reader/contracts';
 import { File, Paths, UploadType } from 'expo-file-system';
@@ -154,13 +152,6 @@ export function getComputerUploadSession(
   return apiRequest(
     `/v1/computer-upload-sessions/${encodeURIComponent(sessionId)}`,
     ComputerUploadSessionDtoSchema,
-  );
-}
-
-export function getImportedArticle(articleId: string): Promise<ImportedArticleDto> {
-  return apiRequest(
-    `/v1/articles/${encodeURIComponent(articleId)}`,
-    ImportedArticleDtoSchema,
   );
 }
 

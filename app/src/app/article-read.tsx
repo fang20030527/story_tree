@@ -13,9 +13,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ImportedArticleDto, TranslationRequest } from '@context-reader/contracts';
 
 import { ApiError } from '@/api/client';
+import { getImportedArticle } from '@/api/articles';
 import {
   getArticleTranslation,
-  getImportedArticle,
   requestArticleTranslation,
 } from '@/api/imports';
 import { createIdempotencyKey } from '@/api/installation';

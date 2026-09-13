@@ -1,5 +1,5 @@
 import { getInstallationToken } from './installation';
-import { ApiError } from './client';
+import { apiRequestNoContent, ApiError } from './client';
 import {
   createPractice,
   getDashboard,
@@ -90,6 +90,19 @@ describe('API client', () => {
       requestId: '22222222-2222-4222-8222-222222222222',
       retryable: true,
     });
+  });
+
+  it('accepts an authenticated 204 response without parsing JSON', async () => {
+    mockedGetInstallationToken.mockResolvedValue('ab'.repeat(32));
+    const json = jest.fn();
+    fetchMock.mockResolvedValue({ ok: true, status: 204, json });
+
+    await expect(
+      apiRequestNoContent('/v1/articles/id', {
+        method: 'DELETE',
+      }),
+    ).resolves.toBeUndefined();
+    expect(json).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed success body with a stable public client error', async () => {
