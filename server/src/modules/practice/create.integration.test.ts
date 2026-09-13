@@ -12,10 +12,12 @@ import { loadConfig } from '../../config/env';
 import {
   jobs,
   practiceSessions,
+  practiceTargets,
   usageLedger,
   vocabularyItems,
 } from '../../db/schema';
 import { registerAnonymous } from '../auth/service';
+import { upsertExactVocabularyItems } from '../vocabulary/repository';
 import { createPractice } from './create-service';
 
 const config = loadConfig({
@@ -152,6 +154,114 @@ describe('transactional practice creation', () => {
           payload: { ageConfirmed14Plus: true },
         });
         expect(auth.json()).toMatchObject({ remainingFreePractices: 2 });
+      } finally {
+        await app.close();
+      }
+    });
+  }, 120_000);
+
+  it('selects the requested number of random review targets from vocabulary', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = '78'.repeat(32);
+      const user = await registerAnonymous(db, token, true);
+      const itemIds = await db.transaction((tx) =>
+        upsertExactVocabularyItems(
+          tx,
+          user.userId,
+          Array.from({ length: 19 }, (_, index) => ({
+            term: `review-term-${index + 1}`,
+            meaningZh: `待复习义项 ${index + 1}`,
+          })),
+        ),
+      );
+      const eligibleIds = new Set(itemIds.slice(0, 16));
+      await db
+        .update(vocabularyItems)
+        .set({ status: 'mastered' })
+        .where(eq(vocabularyItems.id, itemIds[16]!));
+      await db
+        .update(vocabularyItems)
+        .set({ status: 'self_reported' })
+        .where(eq(vocabularyItems.id, itemIds[17]!));
+      await db
+        .update(vocabularyItems)
+        .set({ deletedAt: new Date() })
+        .where(eq(vocabularyItems.id, itemIds[18]!));
+
+      const app = buildApp({ config, db, logger: false });
+      try {
+        const defaultResponse = await app.inject({
+          method: 'POST',
+          url: '/v1/practices',
+          headers: {
+            authorization: `Bearer ${token}`,
+            'idempotency-key': 'random-default-0001',
+          },
+          payload: { source: 'vocabulary' },
+        });
+        expect(defaultResponse.statusCode).toBe(202);
+        const defaultPractice = CreatePracticeAcceptedSchema.parse(
+          defaultResponse.json(),
+        );
+        const defaultTargets = await db
+          .select({ vocabularyItemId: practiceTargets.vocabularyItemId })
+          .from(practiceTargets)
+          .where(eq(practiceTargets.practiceSessionId, defaultPractice.practiceId));
+        expect(defaultTargets).toHaveLength(10);
+        expect(
+          defaultTargets.every(({ vocabularyItemId }) =>
+            eligibleIds.has(vocabularyItemId),
+          ),
+        ).toBe(true);
+
+        const adjustedResponse = await app.inject({
+          method: 'POST',
+          url: '/v1/practices',
+          headers: {
+            authorization: `Bearer ${token}`,
+            'idempotency-key': 'random-adjusted-001',
+          },
+          payload: { source: 'vocabulary', targetCount: 16 },
+        });
+        expect(adjustedResponse.statusCode).toBe(202);
+        const adjustedPractice = CreatePracticeAcceptedSchema.parse(
+          adjustedResponse.json(),
+        );
+        const adjustedTargets = await db
+          .select({ vocabularyItemId: practiceTargets.vocabularyItemId })
+          .from(practiceTargets)
+          .where(eq(practiceTargets.practiceSessionId, adjustedPractice.practiceId));
+        expect(adjustedTargets).toHaveLength(16);
+        expect(new Set(adjustedTargets.map(({ vocabularyItemId }) => vocabularyItemId)))
+          .toEqual(eligibleIds);
+
+        const insufficientResponse = await app.inject({
+          method: 'POST',
+          url: '/v1/practices',
+          headers: {
+            authorization: `Bearer ${token}`,
+            'idempotency-key': 'random-too-many-001',
+          },
+          payload: { source: 'vocabulary', targetCount: 17 },
+        });
+        expect(insufficientResponse.statusCode).toBe(422);
+        expect(PublicErrorSchema.parse(insufficientResponse.json()).error)
+          .toMatchObject({
+            code: 'INSUFFICIENT_VOCABULARY',
+            message: '词库中只有 16 个待复习义项，请调低练习数量',
+          });
+        expect(
+          await db
+            .select()
+            .from(practiceSessions)
+            .where(eq(practiceSessions.userId, user.userId)),
+        ).toHaveLength(2);
+        expect(
+          await db
+            .select()
+            .from(usageLedger)
+            .where(eq(usageLedger.userId, user.userId)),
+        ).toHaveLength(2);
       } finally {
         await app.close();
       }

@@ -4,7 +4,7 @@ import type { PracticeStatus, VocabularyInput } from '@context-reader/contracts'
 import { and, eq } from 'drizzle-orm';
 
 import { AppError } from '../../core/errors';
-import type { AppDatabase } from '../../db/client';
+import type { AppDatabase, AppTransaction } from '../../db/client';
 import { jobs, practiceSessions, practiceTargets } from '../../db/schema';
 import {
   beginIdempotentOperation,
@@ -12,7 +12,10 @@ import {
 } from '../idempotency/service';
 import { getRemainingQuota, reserveQuota } from '../quota/service';
 import { rejectDuplicateInputs } from '../vocabulary/normalize';
-import { upsertExactVocabularyItems } from '../vocabulary/repository';
+import {
+  selectRandomReviewVocabularyItemIds,
+  upsertExactVocabularyItems,
+} from '../vocabulary/repository';
 
 export interface CreatedPractice {
   practiceId: string;
@@ -31,13 +34,79 @@ export async function createPractice(
     generationDeadlineMs: number;
   },
 ): Promise<CreatedPractice> {
+  rejectDuplicateInputs(input.items);
+  return createPracticeWithTargetResolver(db, {
+    userId: input.userId,
+    idempotencyKey: input.idempotencyKey,
+    requestMaterial: input.items,
+    freeLimit: input.freeLimit,
+    generationDeadlineMs: input.generationDeadlineMs,
+    resolveTargetIds: (tx) =>
+      upsertExactVocabularyItems(tx, input.userId, input.items),
+  });
+}
+
+export async function createPracticeFromVocabulary(
+  db: AppDatabase,
+  input: {
+    userId: string;
+    idempotencyKey: string;
+    targetCount: number;
+    freeLimit: number;
+    generationDeadlineMs: number;
+  },
+): Promise<CreatedPractice> {
+  if (!Number.isSafeInteger(input.targetCount) || input.targetCount < 1) {
+    throw new AppError('VALIDATION_ERROR', '练习数量必须是正整数', 400);
+  }
+
+  return createPracticeWithTargetResolver(db, {
+    userId: input.userId,
+    idempotencyKey: input.idempotencyKey,
+    requestMaterial: {
+      source: 'vocabulary',
+      targetCount: input.targetCount,
+    },
+    freeLimit: input.freeLimit,
+    generationDeadlineMs: input.generationDeadlineMs,
+    resolveTargetIds: async (tx) => {
+      const itemIds = await selectRandomReviewVocabularyItemIds(
+        tx,
+        input.userId,
+        input.targetCount,
+      );
+      if (itemIds.length < input.targetCount) {
+        throw new AppError(
+          'INSUFFICIENT_VOCABULARY',
+          `词库中只有 ${itemIds.length} 个待复习义项，请调低练习数量`,
+          422,
+        );
+      }
+      return itemIds;
+    },
+  });
+}
+
+interface TargetResolverInput {
+  userId: string;
+  idempotencyKey: string;
+  requestMaterial: unknown;
+  freeLimit: number;
+  generationDeadlineMs: number;
+  resolveTargetIds: (tx: AppTransaction) => Promise<string[]>;
+}
+
+async function createPracticeWithTargetResolver(
+  db: AppDatabase,
+  input: TargetResolverInput,
+): Promise<CreatedPractice> {
   return db.transaction(async (tx) => {
     const replay = await beginIdempotentOperation(
       tx,
       input.userId,
       'create_practice',
       input.idempotencyKey,
-      input.items,
+      input.requestMaterial,
     );
     if (replay) {
       const [practice] = await tx
@@ -65,7 +134,6 @@ export async function createPractice(
       };
     }
 
-    rejectDuplicateInputs(input.items);
     const practiceId = randomUUID();
     await tx.insert(practiceSessions).values({
       id: practiceId,
@@ -79,8 +147,7 @@ export async function createPractice(
       practiceId,
       input.freeLimit,
     );
-    const itemIds = await upsertExactVocabularyItems(tx, input.userId, input.items);
-
+    const itemIds = await input.resolveTargetIds(tx);
     await tx.insert(practiceTargets).values(
       itemIds.map((vocabularyItemId, position) => ({
         id: randomUUID(),

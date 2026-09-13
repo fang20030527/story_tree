@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import type { VocabularyInput } from '@context-reader/contracts';
 
@@ -70,4 +70,26 @@ export async function upsertExactVocabularyItems(
     }
     return id;
   });
+}
+
+/** Pick active review targets on the server without exposing the selection. */
+export async function selectRandomReviewVocabularyItemIds(
+  tx: AppTransaction,
+  userId: string,
+  targetCount: number,
+): Promise<string[]> {
+  const rows = await tx
+    .select({ id: vocabularyItems.id })
+    .from(vocabularyItems)
+    .where(
+      and(
+        eq(vocabularyItems.userId, userId),
+        inArray(vocabularyItems.status, ['pending', 'reviewing']),
+        isNull(vocabularyItems.deletedAt),
+      ),
+    )
+    .orderBy(sql`random()`)
+    .limit(targetCount);
+
+  return rows.map(({ id }) => id);
 }

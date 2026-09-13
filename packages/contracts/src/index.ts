@@ -76,11 +76,23 @@ export const VocabularyInputSchema = z
   })
   .strict();
 
-export const CreatePracticeRequestSchema = z
+export const CreatePracticeWithItemsRequestSchema = z
   .object({
     items: z.array(VocabularyInputSchema).min(1).max(10),
   })
   .strict();
+
+export const CreatePracticeFromVocabularyRequestSchema = z
+  .object({
+    source: z.literal('vocabulary'),
+    targetCount: z.number().int().positive().default(10),
+  })
+  .strict();
+
+export const CreatePracticeRequestSchema = z.union([
+  CreatePracticeWithItemsRequestSchema,
+  CreatePracticeFromVocabularyRequestSchema,
+]);
 
 export const CreatePracticeAcceptedSchema = z
   .object({
@@ -587,6 +599,12 @@ export type AnonymousAuthRequest = z.infer<typeof AnonymousAuthRequestSchema>;
 export type AnonymousAuthResponse = z.infer<typeof AnonymousAuthResponseSchema>;
 export type VocabularyStatus = z.infer<typeof VocabularyStatusSchema>;
 export type VocabularyInput = z.infer<typeof VocabularyInputSchema>;
+export type CreatePracticeWithItemsRequest = z.infer<
+  typeof CreatePracticeWithItemsRequestSchema
+>;
+export type CreatePracticeFromVocabularyRequest = z.infer<
+  typeof CreatePracticeFromVocabularyRequestSchema
+>;
 export type CreatePracticeRequest = z.infer<typeof CreatePracticeRequestSchema>;
 export type CreatePracticeAccepted = z.infer<typeof CreatePracticeAcceptedSchema>;
 export type PublicError = z.infer<typeof PublicErrorSchema>;

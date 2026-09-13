@@ -56,6 +56,30 @@ describe('EvoLink AI provider', () => {
     );
   });
 
+  it('scales the output budget instead of imposing a fixed target-count ceiling', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        model: config.textModel,
+        choices: [{ message: { content: JSON.stringify(generatedPractice()) } }],
+      }),
+    );
+    const provider = createProvider(fetchImpl);
+
+    await provider.generatePractice(
+      {
+        examPath: 'ielts',
+        targets: Array.from({ length: 100 }, (_, index) => ({
+          alias: `t${index + 1}`,
+          term: `term-${index + 1}`,
+          meaningZh: `义项 ${index + 1}`,
+        })),
+      },
+      new AbortController().signal,
+    );
+
+    expect(requestJson(fetchImpl).max_completion_tokens).toBe(25_000);
+  });
+
   it('uses the dedicated vision model, timeout, and strict multimodal JSON request', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({

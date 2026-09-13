@@ -25,7 +25,7 @@ Expo Go 真机调试要求手机和 API 主机可在同一局域网互访。`EXP
 | `POST /v1/auth/anonymous` | `201` 或 `200` | 创建或恢复 14+ 匿名身份 |
 | `POST /v1/auth/email` | `201` 或 `200` | 用邮箱和密码创建或恢复注册身份 |
 | `POST /v1/auth/wechat` | `201` 或 `200` | 用原生微信授权 code 绑定或恢复注册身份 |
-| `POST /v1/practices` | `202` | 预留额度并创建生成任务 |
+| `POST /v1/practices` | `202` | 根据手动义项，或按用户设置的数量从词库随机抽词，预留额度并创建生成任务 |
 | `GET /v1/practices/:id` | `200` | 读取持久练习状态与建议轮询间隔 |
 | `POST /v1/practices/:id/translations` | `200` 或 `202` | 读取缓存译文或创建翻译任务 |
 | `GET /v1/translations/:id` | `200` | 读取翻译状态 |
@@ -54,6 +54,11 @@ Expo Go 真机调试要求手机和 API 主机可在同一局域网互访。`EXP
 | `POST /computer-upload/file` | `200` | 单次 multipart 文件上传 |
 | `GET /health/live` | `200` | 进程存活，不调用数据库或 AI |
 | `GET /health/ready` | `200` 或 `503` | 带超时的数据库就绪检查 |
+
+从词库创建长文练习时，`POST /v1/practices` 接收
+`{ "source": "vocabulary", "targetCount": 10 }`。`targetCount` 省略时默认为 10，
+只要求为正整数，不设固定硬上限；实际可选数量由该用户当前的
+`待复习` 和 `复习中` 义项数量决定。
 
 练习状态为 `queued → generating → validating → ready → in_progress → completed`，任何生成终态错误进入 `failed`。翻译状态为 `queued → generating → ready`，终态错误进入 `failed`。
 

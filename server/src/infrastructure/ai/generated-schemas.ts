@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const TargetAliasSchema = z.string().regex(/^t[1-9][0-9]?$/);
+const TargetAliasSchema = z.string().regex(/^t[1-9][0-9]*$/);
 
 export const GeneratedPracticeSchema = z
   .object({

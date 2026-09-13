@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   CreatePracticeRequestSchema,
   UuidSchema,
+  type CreatePracticeWithItemsRequest,
   type CreatePracticeRequest,
 } from '@context-reader/contracts';
 import { z } from 'zod';
@@ -69,7 +70,7 @@ function parseStoredJson<T>(
 }
 
 export function requestToVocabularyDraft(
-  request: CreatePracticeRequest,
+  request: CreatePracticeWithItemsRequest,
 ): VocabularyDraftRow[] {
   return request.items.map((item) => ({
     term: item.term,
@@ -125,10 +126,17 @@ export async function prepareCreatePracticeOperation(
     request,
     idempotencyKey: await createIdempotencyKey(),
   };
-  await AsyncStorage.multiSet([
-    [PRACTICE_DRAFT_KEY, JSON.stringify(requestToVocabularyDraft(request))],
-    [CREATE_PRACTICE_OPERATION_KEY, JSON.stringify(operation)],
-  ]);
+  if ('items' in request) {
+    await AsyncStorage.multiSet([
+      [PRACTICE_DRAFT_KEY, JSON.stringify(requestToVocabularyDraft(request))],
+      [CREATE_PRACTICE_OPERATION_KEY, JSON.stringify(operation)],
+    ]);
+  } else {
+    await AsyncStorage.setItem(
+      CREATE_PRACTICE_OPERATION_KEY,
+      JSON.stringify(operation),
+    );
+  }
   return operation;
 }
 
@@ -151,8 +159,13 @@ export function clearCreatePracticeOperation(): Promise<void> {
   return AsyncStorage.removeItem(CREATE_PRACTICE_OPERATION_KEY);
 }
 
-export function clearReadyPracticeCreation(): Promise<void> {
-  return AsyncStorage.multiRemove([
+export async function clearReadyPracticeCreation(): Promise<void> {
+  const operation = await loadCreatePracticeOperation();
+  if (!operation || 'source' in operation.request) {
+    await AsyncStorage.removeItem(CREATE_PRACTICE_OPERATION_KEY);
+    return;
+  }
+  await AsyncStorage.multiRemove([
     PRACTICE_DRAFT_KEY,
     CREATE_PRACTICE_OPERATION_KEY,
   ]);

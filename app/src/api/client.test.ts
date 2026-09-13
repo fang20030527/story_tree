@@ -232,6 +232,33 @@ describe('API client', () => {
     expect(sentKeys).toEqual([idempotencyKey, idempotencyKey]);
   });
 
+  it('requests a server-side random vocabulary selection with an adjustable count', async () => {
+    mockedGetInstallationToken.mockResolvedValue('fb'.repeat(32));
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 202,
+      json: jest.fn().mockResolvedValue({
+        practiceId: '34343434-3434-4434-8434-343434343434',
+        status: 'queued',
+        remainingFreePractices: 2,
+        pollAfterMs: 1_500,
+      }),
+    });
+    const request = { source: 'vocabulary' as const, targetCount: 16 };
+
+    await expect(
+      createPractice(request, 'random_vocabulary_key_123'),
+    ).resolves.toMatchObject({ status: 'queued' });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.test/v1/practices',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
+    );
+  });
+
   it('loads a practice through its validated durable resource route', async () => {
     mockedGetInstallationToken.mockResolvedValue('0b'.repeat(32));
     const practiceId = '44444444-4444-4444-8444-444444444444';

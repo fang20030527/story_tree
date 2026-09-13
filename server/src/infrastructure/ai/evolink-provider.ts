@@ -49,7 +49,7 @@ export class EvolinkAiProvider implements AiProvider {
     const response = await this.client.generateText(
       {
         messages: generationMessages(input),
-        maxCompletionTokens: 12_000,
+        maxCompletionTokens: Math.max(12_000, input.targets.length * 250),
         reasoningEffort: 'low',
         responseFormat: 'json_object',
       },

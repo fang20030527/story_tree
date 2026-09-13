@@ -96,6 +96,9 @@ export default function NewPracticeScreen() {
   const restorePendingOperation = async () => {
     const operation = await loadCreatePracticeOperation();
     if (!operation) return;
+    if (!('items' in operation.request)) {
+      throw new PendingCreateOperationError();
+    }
     const submittedRows = requestToVocabularyDraft(operation.request);
     setRows(submittedRows);
     await saveVocabularyDraft(submittedRows);

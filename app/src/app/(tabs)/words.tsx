@@ -164,7 +164,7 @@ export default function WordsScreen() {
           </View>
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => router.push('/practice/new')}
+            onPress={() => router.push('/practice/from-vocabulary')}
             style={[styles.reviewButton, { backgroundColor: theme.accent }]}>
             <Ionicons name="sparkles" size={14} color={theme.accentText} />
             <Text style={[styles.reviewButtonText, { color: theme.accentText }]}>

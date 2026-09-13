@@ -1,6 +1,6 @@
 import {
-  CreatePracticeRequestSchema,
-  type CreatePracticeRequest,
+  CreatePracticeWithItemsRequestSchema,
+  type CreatePracticeWithItemsRequest,
 } from '@context-reader/contracts';
 
 export interface VocabularyDraftRow {
@@ -17,7 +17,7 @@ export type VocabularyDraftRowErrors = Partial<
 export type VocabularyDraftValidation =
   | {
       success: true;
-      request: CreatePracticeRequest;
+      request: CreatePracticeWithItemsRequest;
       rowErrors: VocabularyDraftRowErrors[];
       formError: null;
     }
@@ -86,7 +86,7 @@ export function validateVocabularyDraft(
   rows: VocabularyDraftRow[],
 ): VocabularyDraftValidation {
   const rowErrors: VocabularyDraftRowErrors[] = rows.map(() => ({}));
-  const parsed = CreatePracticeRequestSchema.safeParse(
+  const parsed = CreatePracticeWithItemsRequestSchema.safeParse(
     toRequestCandidate(rows),
   );
   const hasDuplicate = markDuplicateRows(rows, rowErrors);

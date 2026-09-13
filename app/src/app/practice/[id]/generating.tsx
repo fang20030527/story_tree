@@ -24,7 +24,13 @@ const statusText = {
   validating: '正在检查',
 } as const;
 
-function GeneratingPractice({ practiceId }: { practiceId: string }) {
+function GeneratingPractice({
+  practiceId,
+  vocabularyOrigin,
+}: {
+  practiceId: string;
+  vocabularyOrigin: boolean;
+}) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { practice, error, retry } = usePracticePolling(practiceId);
@@ -35,7 +41,6 @@ function GeneratingPractice({ practiceId }: { practiceId: string }) {
   const openReader = useCallback(async () => {
     if (finishingReady.current) return;
     finishingReady.current = true;
-    setStorageError(null);
     try {
       await clearReadyPracticeCreation();
       router.replace({
@@ -54,8 +59,10 @@ function GeneratingPractice({ practiceId }: { practiceId: string }) {
       || practice?.status === 'in_progress'
       || practice?.status === 'completed'
     ) {
-      void openReader();
+      const openTimer = setTimeout(() => void openReader(), 0);
+      return () => clearTimeout(openTimer);
     }
+    return undefined;
   }, [openReader, practice?.status]);
 
   useEffect(() => {
@@ -71,7 +78,9 @@ function GeneratingPractice({ practiceId }: { practiceId: string }) {
     setStorageError(null);
     try {
       await clearCreatePracticeOperation();
-      router.replace('/practice/new');
+      router.replace(
+        vocabularyOrigin ? '/practice/from-vocabulary' : '/practice/new',
+      );
     } catch {
       setStorageError('无法清理失败的创建记录，请重试');
     }
@@ -114,7 +123,7 @@ function GeneratingPractice({ practiceId }: { practiceId: string }) {
               onPress={() => void returnToForm()}
               style={[styles.primaryButton, { backgroundColor: theme.accent }]}>
               <Text style={[styles.primaryText, { color: theme.accentText }]}>
-                返回修改词义
+                {vocabularyOrigin ? '返回调整数量' : '返回修改词义'}
               </Text>
             </TouchableOpacity>
           </>
@@ -163,23 +172,38 @@ function GeneratingPractice({ practiceId }: { practiceId: string }) {
 
 export default function GeneratingPracticeScreen() {
   const { theme } = useAppTheme();
-  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const { id, origin } = useLocalSearchParams<{
+    id?: string | string[];
+    origin?: string | string[];
+  }>();
   const practiceId = typeof id === 'string' ? id : null;
+  const vocabularyOrigin = origin === 'vocabulary';
 
   if (!practiceId) {
     return (
       <View style={[styles.content, { backgroundColor: theme.bg }]}>
         <Text style={[styles.title, { color: theme.text }]}>练习地址无效</Text>
         <TouchableOpacity
-          onPress={() => router.replace('/practice/new')}
+          onPress={() =>
+            router.replace(
+              vocabularyOrigin ? '/practice/from-vocabulary' : '/practice/new',
+            )
+          }
           style={[styles.secondaryButton, { borderColor: theme.border }]}>
-          <Text style={[styles.secondaryText, { color: theme.text }]}>返回录入</Text>
+          <Text style={[styles.secondaryText, { color: theme.text }]}>
+            {vocabularyOrigin ? '返回设置' : '返回录入'}
+          </Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  return <GeneratingPractice practiceId={practiceId} />;
+  return (
+    <GeneratingPractice
+      practiceId={practiceId}
+      vocabularyOrigin={vocabularyOrigin}
+    />
+  );
 }
 
 const styles = StyleSheet.create({

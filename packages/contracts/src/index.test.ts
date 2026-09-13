@@ -101,7 +101,7 @@ describe('shared contracts', () => {
     ).toBe(true);
   });
 
-  it('accepts one to ten vocabulary inputs', () => {
+  it('accepts manual inputs or a positive vocabulary target count', () => {
     expect(
       CreatePracticeRequestSchema.safeParse({
         items: [{ term: 'resilient', meaningZh: '有韧性的' }],
@@ -114,6 +114,21 @@ describe('shared contracts', () => {
           term: `term-${index}`,
           meaningZh: '义项',
         })),
+      }).success,
+    ).toBe(false);
+    expect(
+      CreatePracticeRequestSchema.parse({ source: 'vocabulary' }),
+    ).toEqual({ source: 'vocabulary', targetCount: 10 });
+    expect(
+      CreatePracticeRequestSchema.safeParse({
+        source: 'vocabulary',
+        targetCount: 16,
+      }).success,
+    ).toBe(true);
+    expect(
+      CreatePracticeRequestSchema.safeParse({
+        source: 'vocabulary',
+        targetCount: 0,
       }).success,
     ).toBe(false);
   });

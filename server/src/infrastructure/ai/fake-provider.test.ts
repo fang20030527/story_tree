@@ -70,4 +70,23 @@ describe('Fake AI provider', () => {
       text: expect.stringMatching(/position 0[\s\S]+position 1/iu),
     });
   });
+
+  it('does not impose the former two-digit target alias ceiling', async () => {
+    const manyTargets: GeneratePracticeInput = {
+      examPath: 'ielts',
+      targets: Array.from({ length: 100 }, (_, index) => ({
+        alias: `t${index + 1}`,
+        term: `term-${index + 1}`,
+        meaningZh: `义项 ${index + 1}`,
+      })),
+    };
+
+    const generated = await new FakeAiProvider().generatePractice(
+      manyTargets,
+      new AbortController().signal,
+    );
+
+    expect(generated.usages.at(-1)?.targetAlias).toBe('t100');
+    expect(generated.questions).toHaveLength(100);
+  });
 });
