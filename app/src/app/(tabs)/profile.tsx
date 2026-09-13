@@ -90,7 +90,10 @@ export default function ProfileScreen() {
       await authStorage.clearAuthUser();
       setIsRegistered(false);
       setAuthEmail(null);
-      router.replace('/login');
+      // Keep the profile screen underneath the login modal so the back button
+      // can dismiss it after logout instead of leaving the user on a dead-end
+      // route created by replacing the only stack entry.
+      router.push('/login');
     } catch {
       Alert.alert('退出登录失败', '请稍后重试');
     }
@@ -299,7 +302,7 @@ export default function ProfileScreen() {
           </Card>
 
           <Text style={[styles.version, { color: theme.textMuted }]}>
-            外刊精读 Version 0.1.0
+            黑洞英语 Version 0.1.0
           </Text>
         </View>
       </ScrollView>

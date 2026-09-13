@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "外刊精读",
+    "name": "黑洞英语",
     "slug": "waikan-reader",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,7 @@
     "scheme": "app",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.contextreader.waikan",
       "infoPlist": {
@@ -17,7 +17,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -44,7 +44,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "允许外刊精读读取照片，用于导入文章截图。",
+          "photosPermission": "允许黑洞英语读取照片，用于导入文章截图。",
           "microphonePermission": false
         }
       ],

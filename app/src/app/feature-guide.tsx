@@ -76,7 +76,7 @@ const SECTIONS: GuideSection[] = [
       {
         icon: 'book-outline',
         title: '我的书架',
-        desc: '平台外刊可主动加入书架，导入文章确认后会自动出现。',
+        desc: '平台外刊可主动加入书架，导入文章后会自动出现。',
       },
       {
         icon: 'school-outline',

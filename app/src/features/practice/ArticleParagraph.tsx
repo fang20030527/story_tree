@@ -1,6 +1,7 @@
 import type {
   ArticleSegment,
   VocabularyInput,
+  WordTranslationResult,
 } from '@context-reader/contracts';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -239,6 +240,8 @@ interface ClickableArticleParagraphProps {
   text: string;
   targetColor: string;
   textColor?: string;
+  addedWords?: ReadonlySet<string>;
+  addedWordColor?: string;
   onWordPress: (term: string, context: string) => void;
 }
 
@@ -250,18 +253,26 @@ interface ClickableArticleParagraphProps {
 export function ClickableArticleParagraph({
   text,
   targetColor,
-  textColor,
+  addedWords,
+  addedWordColor,
   onWordPress,
 }: ClickableArticleParagraphProps) {
+  const unaddedWordColor = '#000000';
+  const savedWordColor = addedWordColor ?? '#f3bb31';
   return (
     <Text
       selectable
-      style={[styles.paragraph, textColor ? { color: textColor } : undefined]}>
+      style={[styles.paragraph, { color: unaddedWordColor }]}>
       {tokenizeArticleText(text).map((token) => token.isWord ? (
         <Text
           key={token.key}
           onPress={() => onWordPress(token.text, text)}
-          style={{ color: targetColor, fontWeight: '600' }}>
+          style={{
+            color: addedWords?.has(normalizeWord(token.text))
+              ? savedWordColor
+              : unaddedWordColor,
+            fontWeight: '600',
+          }}>
           {token.text}
         </Text>
       ) : (
@@ -279,10 +290,13 @@ export interface InteractiveWordParagraphProps {
   borderColor?: string;
   mutedColor?: string;
   dangerColor?: string;
+  addedWords?: ReadonlySet<string>;
+  addedWordColor?: string;
   lookupWord?: (
     term: string,
     context: string,
-  ) => Promise<string>;
+  ) => Promise<string | WordTranslationResult>;
+  onWordAdded?: (term: string) => void;
   onAddToVocabulary?: (
     input: VocabularyInput,
     idempotencyKey: string,
@@ -292,6 +306,7 @@ export interface InteractiveWordParagraphProps {
 interface VisibleWordHint {
   term: string;
   context: string;
+  partOfSpeech: string | null;
   meaningZh: string | null;
   loading: boolean;
   adding: boolean;
@@ -376,17 +391,28 @@ export function InteractiveWordParagraph({
   textColor,
   surfaceColor = '#f5f5f5',
   borderColor = '#dedede',
-  mutedColor = '#666666',
   dangerColor = '#dc2626',
+  addedWords,
+  addedWordColor = '#f3bb31',
   lookupWord = (term, context) => requestWordTranslation({ term, context })
-    .then((result) => result.meaningZh),
+    .then((result) => result),
+  onWordAdded,
   onAddToVocabulary,
 }: InteractiveWordParagraphProps) {
   const [visibleHint, setVisibleHint] = useState<VisibleWordHint | null>(null);
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
-  const meaningsRef = useRef<Map<string, string>>(new Map());
+  const meaningsRef = useRef<Map<string, WordTranslationResult>>(new Map());
+  const [locallyAddedWords, setLocallyAddedWords] = useState<Set<string>>(
+    () => new Set(),
+  );
   const keyPromisesRef = useRef<Map<string, Promise<string>>>(new Map());
+
+  const isWordAdded = (term: string): boolean => {
+    const normalizedTerm = normalizeWord(term);
+    return locallyAddedWords.has(normalizedTerm)
+      || Boolean(addedWords?.has(normalizedTerm));
+  };
 
   useEffect(() => {
     mountedRef.current = true;
@@ -419,10 +445,11 @@ export function InteractiveWordParagraph({
       setVisibleHint({
         term,
         context: wordContext,
-        meaningZh: cached,
+        partOfSpeech: cached.partOfSpeech,
+        meaningZh: cached.meaningZh,
         loading: false,
         adding: false,
-        added: false,
+        added: isWordAdded(term),
         error: null,
       });
       return;
@@ -431,6 +458,7 @@ export function InteractiveWordParagraph({
     setVisibleHint({
       term,
       context: wordContext,
+      partOfSpeech: null,
       meaningZh: null,
       loading: true,
       adding: false,
@@ -438,17 +466,25 @@ export function InteractiveWordParagraph({
       error: null,
     });
     try {
-      const meaningZh = (await lookupWord(term, wordContext)).trim();
+      const rawLookup = await lookupWord(term, wordContext);
+      const lookup: WordTranslationResult = typeof rawLookup === 'string'
+        ? { partOfSpeech: '词性未知', meaningZh: rawLookup.trim() }
+        : {
+            partOfSpeech: rawLookup.partOfSpeech.trim(),
+            meaningZh: rawLookup.meaningZh.trim(),
+          };
+      const meaningZh = lookup.meaningZh;
       if (!meaningZh) throw new Error('empty word meaning');
-      meaningsRef.current.set(cacheKey, meaningZh);
+      meaningsRef.current.set(cacheKey, lookup);
       if (!mountedRef.current || requestIdRef.current !== requestId) return;
       setVisibleHint({
         term,
         context: wordContext,
+        partOfSpeech: lookup.partOfSpeech,
         meaningZh,
         loading: false,
         adding: false,
-        added: false,
+        added: isWordAdded(term),
         error: null,
       });
     } catch (error) {
@@ -456,6 +492,7 @@ export function InteractiveWordParagraph({
       setVisibleHint({
         term,
         context: wordContext,
+        partOfSpeech: null,
         meaningZh: null,
         loading: false,
         adding: false,
@@ -466,7 +503,12 @@ export function InteractiveWordParagraph({
   };
 
   const addVisibleWord = async () => {
-    if (!onAddToVocabulary || !visibleHint?.meaningZh || visibleHint.added) {
+    if (
+      !onAddToVocabulary
+      || !visibleHint?.meaningZh
+      || visibleHint.added
+      || isWordAdded(visibleHint.term)
+    ) {
       return;
     }
     const selected = visibleHint;
@@ -486,6 +528,12 @@ export function InteractiveWordParagraph({
         !mountedRef.current
         || requestIdRef.current !== selectedRequestId
       ) return;
+      setLocallyAddedWords((current) => {
+        const next = new Set(current);
+        next.add(normalizeWord(selected.term));
+        return next;
+      });
+      onWordAdded?.(selected.term);
       setVisibleHint({ ...selected, adding: false, added: true, error: null });
     } catch (error) {
       if (
@@ -505,8 +553,13 @@ export function InteractiveWordParagraph({
       <ClickableArticleParagraph
         onWordPress={(term, context) => void showWord(term, context)}
         targetColor={targetColor}
+        addedWordColor={addedWordColor}
+        addedWords={new Set([
+          ...(addedWords ?? []),
+          ...locallyAddedWords,
+        ])}
         text={text}
-        textColor={textColor}
+        textColor={textColor ?? '#000000'}
       />
       {visibleHint ? (
         <View
@@ -515,7 +568,7 @@ export function InteractiveWordParagraph({
             { backgroundColor: surfaceColor, borderColor },
           ]}>
           <View style={styles.hintHeader}>
-            <Text style={[styles.hintTerm, { color: textColor }]}>
+            <Text style={styles.hintTerm}>
               {visibleHint.term}
             </Text>
             <TouchableOpacity
@@ -525,38 +578,63 @@ export function InteractiveWordParagraph({
                 requestIdRef.current += 1;
                 setVisibleHint(null);
               }}>
-              <Text style={[styles.hintClose, { color: mutedColor }]}>×</Text>
+              <Text style={styles.hintClose}>×</Text>
             </TouchableOpacity>
           </View>
           {visibleHint.loading ? (
             <ActivityIndicator color={targetColor} size="small" />
           ) : null}
+          {visibleHint.partOfSpeech ? (
+            <Text style={styles.hintPartOfSpeech}>
+              {visibleHint.partOfSpeech}
+            </Text>
+          ) : null}
           {visibleHint.meaningZh ? (
-            <Text style={[styles.hintMeaning, { color: textColor }]}>
+            <Text style={styles.hintMeaning}>
               {visibleHint.meaningZh}
             </Text>
           ) : null}
           {visibleHint.meaningZh && onAddToVocabulary ? (
             <TouchableOpacity
-              accessibilityLabel={visibleHint.added ? '已加入生词本' : '加入生词本'}
-              disabled={visibleHint.adding || visibleHint.added}
+              accessibilityLabel={
+                isWordAdded(visibleHint.term) ? '已加入生词本' : '加入生词本'
+              }
+              disabled={visibleHint.adding || isWordAdded(visibleHint.term)}
               onPress={() => void addVisibleWord()}
               style={[
                 styles.addWordButton,
                 {
-                  borderColor: visibleHint.added ? targetColor : borderColor,
+                  borderColor: isWordAdded(visibleHint.term)
+                    ? addedWordColor
+                    : borderColor,
                   opacity: visibleHint.adding ? 0.65 : 1,
                 },
               ]}>
               {visibleHint.adding ? (
                 <ActivityIndicator color={targetColor} size="small" />
               ) : (
-                <Text style={[styles.addWordIcon, { color: targetColor }]}>
-                  {visibleHint.added ? '✓' : '+'}
+                <Text
+                  style={[
+                    styles.addWordIcon,
+                    {
+                      color: isWordAdded(visibleHint.term)
+                        ? addedWordColor
+                        : '#000000',
+                    },
+                  ]}>
+                  {isWordAdded(visibleHint.term) ? '✓' : '+'}
                 </Text>
               )}
-              <Text style={[styles.addWordText, { color: targetColor }]}>
-                {visibleHint.added ? '已加入生词本' : '加入生词本'}
+              <Text
+                style={[
+                  styles.addWordText,
+                  {
+                    color: isWordAdded(visibleHint.term)
+                      ? addedWordColor
+                      : '#000000',
+                  },
+                ]}>
+                {isWordAdded(visibleHint.term) ? '已加入生词本' : '加入生词本'}
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -588,9 +666,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  hintTerm: { fontSize: 14, fontWeight: '600' },
-  hintClose: { fontSize: 22, lineHeight: 22 },
-  hintMeaning: { fontSize: 14, lineHeight: 21, marginTop: 6 },
+  hintTerm: { color: '#000000', fontSize: 14, fontWeight: '600' },
+  hintClose: { color: '#000000', fontSize: 22, lineHeight: 22 },
+  hintPartOfSpeech: {
+    color: '#000000',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  hintMeaning: { color: '#000000', fontSize: 14, lineHeight: 21, marginTop: 6 },
   hintError: { fontSize: 13, marginTop: 6 },
   addWordButton: {
     alignItems: 'center',
@@ -603,6 +687,6 @@ const styles = StyleSheet.create({
     minHeight: 34,
     paddingHorizontal: 9,
   },
-  addWordIcon: { fontSize: 17, fontWeight: '700', lineHeight: 17 },
-  addWordText: { fontSize: 12, fontWeight: '600' },
+  addWordIcon: { color: '#000000', fontSize: 17, fontWeight: '700', lineHeight: 17 },
+  addWordText: { color: '#000000', fontSize: 12, fontWeight: '600' },
 });

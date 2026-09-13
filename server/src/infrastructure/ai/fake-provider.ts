@@ -3,6 +3,7 @@ import {
   type GeneratedPractice,
   type Verification,
 } from './generated-schemas';
+import type { WordTranslationResult } from '@context-reader/contracts';
 import type {
   AiProvider,
   GeneratePracticeInput,
@@ -108,20 +109,20 @@ export class FakeAiProvider implements AiProvider {
     term: string,
     _context: string | undefined,
     signal: AbortSignal,
-  ): Promise<string> {
+  ): Promise<WordTranslationResult> {
     signal.throwIfAborted();
-    const meanings: Record<string, string> = {
-      adaptation: '适应；改编',
-      careful: '仔细的；谨慎的',
-      context: '语境；上下文',
-      evidence: '证据；依据',
-      migration: '迁徙；移居',
-      resilient: '有韧性的；能复原的',
-      routine: '惯例；日常安排',
-      uncertain: '不确定的',
+    const meanings: Record<string, WordTranslationResult> = {
+      adaptation: { partOfSpeech: '名词；动词', meaningZh: '适应；改编' },
+      careful: { partOfSpeech: '形容词', meaningZh: '仔细的；谨慎的' },
+      context: { partOfSpeech: '名词', meaningZh: '语境；上下文' },
+      evidence: { partOfSpeech: '名词', meaningZh: '证据；依据' },
+      migration: { partOfSpeech: '名词', meaningZh: '迁徙；移居' },
+      resilient: { partOfSpeech: '形容词', meaningZh: '有韧性的；能复原的' },
+      routine: { partOfSpeech: '名词', meaningZh: '惯例；日常安排' },
+      uncertain: { partOfSpeech: '形容词', meaningZh: '不确定的' },
     };
     return meanings[term.trim().toLocaleLowerCase('en-US')]
-      ?? `与“${term.trim()}”相关的词义`;
+      ?? { partOfSpeech: '词性未知', meaningZh: `与“${term.trim()}”相关的词义` };
   }
 
   async moderate(_text: string, signal: AbortSignal): Promise<ModerationResult> {

@@ -240,10 +240,18 @@ export const WordTranslationRequestSchema = z
   })
   .strict();
 
+/** The dictionary fields returned for one contextual word lookup. */
+export const WordTranslationResultSchema = z
+  .object({
+    partOfSpeech: z.string().trim().min(1).max(40),
+    meaningZh: z.string().trim().min(1).max(200),
+  })
+  .strict();
+
 export const WordTranslationDtoSchema = z
   .object({
     term: z.string().trim().min(1).max(80),
-    meaningZh: z.string().trim().min(1).max(200),
+    ...WordTranslationResultSchema.shape,
   })
   .strict();
 
@@ -588,6 +596,9 @@ export type AssistanceRequest = z.infer<typeof AssistanceRequestSchema>;
 export type AssistanceResponse = z.infer<typeof AssistanceResponseSchema>;
 export type WordTranslationRequest = z.infer<
   typeof WordTranslationRequestSchema
+>;
+export type WordTranslationResult = z.infer<
+  typeof WordTranslationResultSchema
 >;
 export type WordTranslationDto = z.infer<typeof WordTranslationDtoSchema>;
 export type SubmitAnswerRequest = z.infer<typeof SubmitAnswerRequestSchema>;

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -37,10 +37,20 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [showFullTranslation, setShowFullTranslation] = useState(false);
+  const [addedWords, setAddedWords] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const fullTranslation = useMemo(
     () => editorialTranslation(article.id, article.paragraphs),
     [article.id, article.paragraphs],
   );
+  const handleWordAdded = useCallback((term: string) => {
+    setAddedWords((current) => {
+      const next = new Set(current);
+      next.add(term.trim().toLocaleLowerCase('en-US'));
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     void recordEditorialRecentView(article.id).catch(() => undefined);
@@ -105,10 +115,13 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           {article.paragraphs.map((paragraph, index) => (
             <InteractiveWordParagraph
               key={`${article.id}:${index}`}
+              addedWords={addedWords}
+              addedWordColor={theme.accent}
               borderColor={theme.border}
               dangerColor={theme.danger}
               lookupWord={lookupEditorialWord}
               onAddToVocabulary={addEditorialVocabulary}
+              onWordAdded={handleWordAdded}
               surfaceColor={theme.surfaceAlt}
               targetColor={theme.accent}
               text={paragraph}
@@ -121,11 +134,9 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
   );
 }
 
-async function lookupEditorialWord(term: string, context: string): Promise<string> {
-  const localMeaning = EDITORIAL_WORD_MEANINGS[term.toLocaleLowerCase('en-US')];
-  if (localMeaning) return localMeaning;
+async function lookupEditorialWord(term: string, context: string) {
   const response = await requestWordTranslation({ term, context });
-  return response.meaningZh;
+  return response;
 }
 
 async function addEditorialVocabulary(
@@ -134,27 +145,6 @@ async function addEditorialVocabulary(
 ): Promise<void> {
   await createVocabularyItem(input, idempotencyKey);
 }
-
-const EDITORIAL_WORD_MEANINGS: Record<string, string> = {
-  ancestors: '祖先；先辈',
-  cameras: '摄像机；相机',
-  context: '语境；上下文',
-  distance: '距离',
-  evidence: '证据；依据',
-  familiar: '熟悉的',
-  fungal: '真菌的',
-  journey: '旅程；行程',
-  migration: '迁徙；移居',
-  moose: '驼鹿',
-  natural: '自然的',
-  readers: '读者',
-  reliable: '可靠的',
-  routine: '惯例；日常安排',
-  scheduled: '按计划安排的',
-  threads: '线；丝状物',
-  uncertainty: '不确定性',
-  viewers: '观众',
-};
 
 const EDITORIAL_TRANSLATIONS: Record<string, readonly string[]> = {
   hero: [

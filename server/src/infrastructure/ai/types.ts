@@ -1,3 +1,7 @@
+import type {
+  WordTranslationResult,
+} from '@context-reader/contracts';
+
 import type { GeneratedPractice, Verification } from './generated-schemas';
 
 export interface GeneratePracticeInput {
@@ -40,12 +44,12 @@ export interface AiProvider {
     signal: AbortSignal,
   ): Promise<Verification>;
   translate(text: string, signal: AbortSignal): Promise<string>;
-  /** Return a concise contextual Chinese meaning for one word or phrase. */
+  /** Return a concise contextual part of speech and Chinese meaning. */
   lookupWord(
     term: string,
     context: string | undefined,
     signal: AbortSignal,
-  ): Promise<string>;
+  ): Promise<string | WordTranslationResult>;
   moderate(text: string, signal: AbortSignal): Promise<ModerationResult>;
   extractArticleText(
     images: readonly OcrImage[],

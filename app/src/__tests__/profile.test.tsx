@@ -1,7 +1,9 @@
-import { render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
-import { loadAuthUser } from '@/features/auth/authStorage';
+import { router } from 'expo-router';
+
+import { clearAuthUser, loadAuthUser } from '@/features/auth/authStorage';
 import { loadRecentViews } from '@/features/library/libraryStorage';
 
 import ProfileScreen from '@/app/(tabs)/profile';
@@ -13,7 +15,7 @@ jest.mock(
   ),
 );
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
+  router: { push: jest.fn(), replace: jest.fn() },
   useFocusEffect: (callback: () => void | (() => void)) =>
     require('react').useEffect(callback, [callback]),
 }));
@@ -27,7 +29,10 @@ jest.mock('@/context/ThemeContext', () => ({
     setPreference: jest.fn(),
   }),
 }));
-jest.mock('@/features/auth/authStorage', () => ({ loadAuthUser: jest.fn() }));
+jest.mock('@/features/auth/authStorage', () => ({
+  clearAuthUser: jest.fn(),
+  loadAuthUser: jest.fn(),
+}));
 jest.mock('@/features/library/libraryStorage', () => ({
   loadFavorites: jest.fn().mockResolvedValue([]),
   loadRecentViews: jest.fn(),
@@ -44,4 +49,23 @@ it('keeps recent learning statistics but removes favorite concepts', async () =>
   expect(view.getByText('最近观看')).toBeTruthy();
   expect(view.queryByText('我的收藏')).toBeNull();
   expect(view.queryByText('收藏')).toBeNull();
+});
+
+it('opens login on top of the profile after logout so it can be dismissed', async () => {
+  jest.mocked(loadAuthUser).mockResolvedValue({
+    userId: '11111111-1111-4111-8111-111111111111',
+    kind: 'registered',
+    remainingFreePractices: 3,
+  });
+  jest.mocked(loadRecentViews).mockResolvedValue([]);
+  jest.mocked(clearAuthUser).mockResolvedValue(undefined);
+
+  const view = await render(<ProfileScreen />);
+  await waitFor(() => expect(view.getByText('退出登录')).toBeTruthy());
+
+  await fireEvent.press(view.getByText('退出登录'));
+
+  await waitFor(() => expect(clearAuthUser).toHaveBeenCalledTimes(1));
+  expect(router.push).toHaveBeenCalledWith('/login');
+  expect(router.replace).not.toHaveBeenCalled();
 });

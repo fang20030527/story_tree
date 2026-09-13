@@ -1,4 +1,5 @@
 import { PublicErrorSchema } from '@context-reader/contracts';
+import Constants from 'expo-constants';
 import type { ZodType } from 'zod';
 
 import { getInstallationToken } from './installation';
@@ -29,12 +30,78 @@ export class ApiError extends Error {
   }
 }
 
+const DEFAULT_API_PORT = '3000';
+
 export function getApiBaseUrl(): string {
-  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
-  if (!baseUrl) {
+  const configuredBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
+  if (!configuredBaseUrl) {
     throw new ApiError('API_NOT_CONFIGURED', '尚未配置服务地址', false);
   }
-  return baseUrl;
+  return resolveDevelopmentLanBaseUrl(configuredBaseUrl) ?? configuredBaseUrl;
+}
+
+/**
+ * Expo Go exposes the packager host at runtime. When a local API URL was
+ * configured with yesterday's LAN address, use that same current host for
+ * the API port so changing Wi-Fi does not strand the bookshelf behind a
+ * stale, unreachable address. Deployed/remote API origins are left alone.
+ */
+function resolveDevelopmentLanBaseUrl(configuredBaseUrl: string): string | null {
+  let configured: URL;
+  try {
+    configured = new URL(configuredBaseUrl);
+  } catch {
+    return null;
+  }
+  if (configured.protocol !== 'http:' && configured.protocol !== 'https:') {
+    return null;
+  }
+  if (!isLocalHost(configured.hostname)) return null;
+
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (typeof hostUri !== 'string' || !hostUri.trim()) return null;
+
+  let runtimeHost: string;
+  try {
+    runtimeHost = normalizeHost(new URL(`http://${hostUri}`).hostname);
+  } catch {
+    return null;
+  }
+  if (!runtimeHost || !isLocalHost(runtimeHost)) return null;
+
+  const port = configured.port || DEFAULT_API_PORT;
+  const host = runtimeHost.includes(':') ? `[${runtimeHost}]` : runtimeHost;
+  return `${configured.protocol}//${host}:${port}`;
+}
+
+function isLocalHost(hostname: string): boolean {
+  const normalized = normalizeHost(hostname);
+  if (
+    normalized === 'localhost' ||
+    normalized === '::1' ||
+    normalized === '0.0.0.0'
+  ) {
+    return true;
+  }
+
+  const octets = normalized.split('.').map(Number);
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+  ) {
+    return false;
+  }
+  const [first, second] = octets;
+  return (
+    first === 10 ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 169 && second === 254)
+  );
+}
+
+function normalizeHost(hostname: string): string {
+  return hostname.replace(/^\[|\]$/gu, '').toLowerCase();
 }
 
 function invalidServerResponse(): ApiError {

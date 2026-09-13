@@ -367,12 +367,14 @@ describe('API client', () => {
       status: 200,
       json: jest.fn().mockResolvedValue({
         term: request.term,
+        partOfSpeech: '形容词',
         meaningZh: '有韧性的；能复原的',
       }),
     });
 
     await expect(requestWordTranslation(request)).resolves.toEqual({
       term: request.term,
+      partOfSpeech: '形容词',
       meaningZh: '有韧性的；能复原的',
     });
     expect(fetchMock).toHaveBeenCalledWith(

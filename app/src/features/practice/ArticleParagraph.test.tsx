@@ -127,4 +127,50 @@ describe('ArticleParagraph', () => {
     expect(view.getByText('已加入生词本')).toBeTruthy();
   });
 
+  it('shows the API part of speech and keeps unsaved words black', async () => {
+    const lookupWord = jest.fn().mockResolvedValue({
+      partOfSpeech: '动词',
+      meaningZh: '困住；使受困',
+    });
+    const view = await render(
+      <InteractiveWordParagraph
+        lookupWord={lookupWord}
+        onAddToVocabulary={jest.fn().mockResolvedValue(undefined)}
+        targetColor="#f0b429"
+        text="People were trapped near the frontline."
+        textColor="#ffffff"
+      />,
+    );
+
+    await fireEvent.press(view.getByText('trapped'));
+    await waitFor(() => {
+      expect(view.getByText('动词')).toBeTruthy();
+      expect(view.getByText('困住；使受困')).toBeTruthy();
+    });
+    expect(view.getAllByText('trapped')[0]).toHaveStyle({ color: '#000000' });
+  });
+
+  it('marks a word yellow after the vocabulary save succeeds', async () => {
+    const addToVocabulary = jest.fn().mockResolvedValue(undefined);
+    const lookupWord = jest.fn().mockResolvedValue({
+      partOfSpeech: '动词',
+      meaningZh: '困住；使受困',
+    });
+    mockedCreateIdempotencyKey.mockResolvedValue('word-card-key-5678');
+    const view = await render(
+      <InteractiveWordParagraph
+        lookupWord={lookupWord}
+        onAddToVocabulary={addToVocabulary}
+        targetColor="#f0b429"
+        text="People were trapped near the frontline."
+      />,
+    );
+
+    await fireEvent.press(view.getByText('trapped'));
+    await waitFor(() => expect(view.getByText('动词')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('加入生词本'));
+    await waitFor(() => expect(view.getByText('已加入生词本')).toBeTruthy());
+    expect(view.getAllByText('trapped')[0]).toHaveStyle({ color: '#f3bb31' });
+  });
+
 });

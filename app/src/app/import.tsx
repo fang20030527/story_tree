@@ -367,8 +367,7 @@ export default function ImportScreen() {
         const importId = await ensureCreated({ sourceKind });
         const key = await loadOrCreateImportOperationKey(importId, 'source-text');
         const updated = await putPastedSource(importId, text, key);
-        await saveActiveImportId(updated.id);
-        router.replace({ pathname: '/import-preview', params: { id: updated.id } });
+        await goToProcessing(updated.id);
         return;
       }
 
@@ -462,7 +461,7 @@ export default function ImportScreen() {
             </View>
             <View style={styles.sourceIntroCopy}>
               <Text style={[styles.sourceIntroTitle, { color: theme.text }]}>{source.label}导入</Text>
-              <Text style={[styles.sourceIntroText, { color: theme.textSecondary }]}>内容会先解析为可编辑预览，确认后再保存到你的私人文章库。</Text>
+              <Text style={[styles.sourceIntroText, { color: theme.textSecondary }]}>内容会自动解析并保存到你的私人文章库，完成后直接打开阅读。</Text>
             </View>
           </View>
 
@@ -578,7 +577,7 @@ function SourceChooser({
   return (
     <ScrollView contentContainerStyle={styles.chooserContent} showsVerticalScrollIndicator={false}>
       <Text style={[styles.chooserTitle, { color: theme.text }]}>选择导入方式</Text>
-      <Text style={[styles.chooserSubtitle, { color: theme.textSecondary }]}>支持网页、正文、图片、文件和电脑传输，都会进入同一套预览确认流程。</Text>
+      <Text style={[styles.chooserSubtitle, { color: theme.textSecondary }]}>支持网页、正文、图片、文件和电脑传输，导入完成后会自动加入书架并打开阅读。</Text>
       <View style={styles.sourceGrid}>
         {importSources.map((item) => (
           <TouchableOpacity
@@ -606,7 +605,7 @@ function SourceChooser({
           </View>
           <View style={styles.resumeCopy}>
             <Text style={[styles.resumeTitle, { color: theme.text }]}>继续上次导入</Text>
-            <Text style={[styles.resumeSubtitle, { color: theme.textSecondary }]}>恢复同一个任务的解析或预览</Text>
+            <Text style={[styles.resumeSubtitle, { color: theme.textSecondary }]}>恢复同一个导入任务，完成后自动打开文章</Text>
           </View>
           <Ionicons name="chevron-forward" size={17} color={theme.accent} />
         </TouchableOpacity>

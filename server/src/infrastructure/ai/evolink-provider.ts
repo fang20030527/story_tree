@@ -1,3 +1,7 @@
+import {
+  WordTranslationResultSchema,
+  type WordTranslationResult,
+} from '@context-reader/contracts';
 import { z } from 'zod';
 
 import { AppError } from '../../core/errors';
@@ -88,16 +92,28 @@ export class EvolinkAiProvider implements AiProvider {
     term: string,
     context: string | undefined,
     signal: AbortSignal,
-  ): Promise<string> {
+  ): Promise<string | WordTranslationResult> {
     const response = await this.client.generateText(
       {
         messages: wordHintMessages(term, context),
         maxCompletionTokens: 200,
         reasoningEffort: 'low',
+        responseFormat: 'json_object',
       },
       signal,
     );
-    return response.text;
+    const raw = response.text.trim();
+    // Keep accepting the legacy plain-text provider response while the
+    // structured dictionary contract rolls out. New JSON responses are
+    // validated here so malformed entries fail before reaching the route.
+    if (raw.startsWith('{') || raw.startsWith('```')) {
+      const parsed = WordTranslationResultSchema.safeParse(
+        extractJsonObject(raw),
+      );
+      if (!parsed.success) throw invalidOutput();
+      return parsed.data;
+    }
+    return raw;
   }
 
   moderate(text: string, signal: AbortSignal): Promise<ModerationResult> {

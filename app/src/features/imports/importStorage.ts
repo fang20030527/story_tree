@@ -26,6 +26,11 @@ export function clearActiveImportId(): Promise<void> {
   return AsyncStorage.removeItem(ACTIVE_IMPORT_ID_KEY);
 }
 
+export async function clearActiveImportIdIfMatches(importId: string): Promise<void> {
+  if (await loadActiveImportId() !== importId) return;
+  await clearActiveImportId();
+}
+
 export function saveActiveComputerSessionId(sessionId: string): Promise<void> {
   return AsyncStorage.setItem(
     ACTIVE_COMPUTER_SESSION_KEY,

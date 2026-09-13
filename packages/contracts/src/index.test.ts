@@ -23,6 +23,7 @@ import {
   UpdateImportPreviewRequestSchema,
   WechatAuthRequestSchema,
   WechatAuthResponseSchema,
+  WordTranslationDtoSchema,
 } from './index';
 
 describe('shared contracts', () => {
@@ -113,6 +114,21 @@ describe('shared contracts', () => {
           term: `term-${index}`,
           meaningZh: '义项',
         })),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('requires both part of speech and meaning for word lookups', () => {
+    const base = {
+      term: 'resilient',
+      partOfSpeech: '形容词',
+      meaningZh: '有韧性的；能复原的',
+    };
+    expect(WordTranslationDtoSchema.safeParse(base).success).toBe(true);
+    expect(
+      WordTranslationDtoSchema.safeParse({
+        term: base.term,
+        meaningZh: base.meaningZh,
       }).success,
     ).toBe(false);
   });

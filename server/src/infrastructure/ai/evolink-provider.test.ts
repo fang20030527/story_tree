@@ -155,6 +155,36 @@ describe('EvoLink AI provider', () => {
     });
   });
 
+  it('parses a structured part-of-speech and meaning response', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        model: config.textModel,
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              partOfSpeech: '形容词',
+              meaningZh: '有韧性的；能复原的',
+            }),
+          },
+        }],
+      }),
+    );
+
+    await expect(
+      createProvider(fetchImpl).lookupWord(
+        'resilient',
+        'A resilient reader updates context.',
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual({
+      partOfSpeech: '形容词',
+      meaningZh: '有韧性的；能复原的',
+    });
+
+    const requestBody = requestJson(fetchImpl);
+    expect(requestBody.response_format).toEqual({ type: 'json_object' });
+  });
+
   it.each([
     '',
     'not-json',

@@ -59,6 +59,17 @@ export default function ArticleReadScreen() {
   const [loading, setLoading] = useState(Boolean(articleId));
   const [message, setMessage] = useState<string | null>(articleId ? null : '找不到文章');
   const [deleted, setDeleted] = useState(false);
+  const [addedWords, setAddedWords] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  const handleWordAdded = useCallback((term: string) => {
+    setAddedWords((current) => {
+      const next = new Set(current);
+      next.add(term.trim().toLocaleLowerCase('en-US'));
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!articleId) {
@@ -140,6 +151,8 @@ export default function ArticleReadScreen() {
                 theme={theme}
                 index={index}
                 text={paragraph.text}
+                addedWords={addedWords}
+                onWordAdded={handleWordAdded}
               />
             ))}
           </View>
@@ -232,6 +245,8 @@ interface ParagraphBlockProps {
   text: string;
   theme: Theme;
   onMissingArticle: () => void;
+  addedWords: ReadonlySet<string>;
+  onWordAdded: (term: string) => void;
 }
 
 function ParagraphBlock({
@@ -241,6 +256,8 @@ function ParagraphBlock({
   text,
   theme,
   onMissingArticle,
+  addedWords,
+  onWordAdded,
 }: ParagraphBlockProps) {
   const addToVocabulary = async (
     input: VocabularyInput,
@@ -263,6 +280,8 @@ function ParagraphBlock({
         />
       </View>
       <InteractiveWordParagraph
+        addedWords={addedWords}
+        addedWordColor={theme.accent}
         borderColor={theme.border}
         dangerColor={theme.danger}
         onAddToVocabulary={addToVocabulary}
@@ -270,6 +289,7 @@ function ParagraphBlock({
         targetColor={theme.accent}
         text={text}
         textColor={theme.text}
+        onWordAdded={onWordAdded}
       />
     </View>
   );

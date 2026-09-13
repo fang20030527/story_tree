@@ -7,14 +7,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError } from '@/api/client';
 import { retryArticleImport } from '@/api/imports';
 import { useAppTheme } from '@/context/ThemeContext';
-import { clearActiveImportId, clearImportOperationKeys, loadActiveImportId, loadOrCreateImportOperationKey } from '@/features/imports/importStorage';
+import { clearActiveImportIdIfMatches, clearImportOperationKeys, loadActiveImportId, loadOrCreateImportOperationKey } from '@/features/imports/importStorage';
+import {
+  autoConfirmArticleImport,
+  importNeedsAutoConfirmation,
+} from '@/features/imports/autoConfirm';
 import { useImportPolling } from '@/features/imports/useImportPolling';
 import { weight } from '@/constants/theme';
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error && error.message) return error.message;
-  return '暂时无法获取导入状态';
+  return '导入暂时无法完成，请稍后重试';
 }
 
 export default function ImportProcessingScreen() {
@@ -25,7 +29,13 @@ export default function ImportProcessingScreen() {
   const [storedId, setStoredId] = useState<string | null>(paramId ?? null);
   const [loadingId, setLoadingId] = useState(!paramId);
   const [retrying, setRetrying] = useState(false);
+  const [autoConfirmAttempt, setAutoConfirmAttempt] = useState(0);
+  const [autoConfirmError, setAutoConfirmError] = useState<{ key: string; message: string } | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const autoConfirmOperationRef = React.useRef<{
+    key: string;
+    promise: Promise<string>;
+  } | null>(null);
 
   useEffect(() => {
     if (paramId) return;
@@ -44,23 +54,67 @@ export default function ImportProcessingScreen() {
   }, [paramId]);
 
   const importId = storedId;
-  const polling = useImportPolling(importId);
-  const articleImport = importId ? polling.articleImport : null;
+  const {
+    articleImport: polledImport,
+    error: pollingStateError,
+    retry: retryPolling,
+  } = useImportPolling(importId);
+  const articleImport = importId ? polledImport : null;
+  const autoConfirmKey = articleImport
+    ? `${articleImport.id}:${autoConfirmAttempt}`
+    : null;
+  const autoConfirmErrorForCurrentImport = autoConfirmKey && autoConfirmError?.key === autoConfirmKey
+    ? autoConfirmError.message
+    : null;
+  const autoConfirming = importNeedsAutoConfirmation(articleImport) && !autoConfirmErrorForCurrentImport;
 
   useEffect(() => {
     if (!articleImport) return;
-    if (articleImport.status === 'preview_ready') {
-      router.replace({ pathname: '/import-preview', params: { id: articleImport.id } });
-    } else if (articleImport.status === 'confirmed' && articleImport.articleId) {
+    if (articleImport.status === 'confirmed' && articleImport.articleId) {
       void Promise.all([
-        clearActiveImportId(),
+        clearActiveImportIdIfMatches(articleImport.id),
         clearImportOperationKeys(articleImport.id),
       ]).catch(() => {});
       router.replace({ pathname: '/article-read', params: { id: articleImport.articleId } });
     } else if (articleImport.status === 'failed' || articleImport.status === 'expired' || articleImport.status === 'cancelled') {
-      void clearActiveImportId().catch(() => {});
+      void clearActiveImportIdIfMatches(articleImport.id).catch(() => {});
     }
   }, [articleImport]);
+
+  useEffect(() => {
+    if (!importNeedsAutoConfirmation(articleImport) || autoConfirmErrorForCurrentImport) {
+      return;
+    }
+
+    let active = true;
+    const operationKey = `${articleImport.id}:${autoConfirmAttempt}`;
+    const existingOperation = autoConfirmOperationRef.current;
+    const operation = existingOperation?.key === operationKey
+      ? existingOperation
+      : {
+          key: operationKey,
+          promise: autoConfirmArticleImport(articleImport),
+        };
+    autoConfirmOperationRef.current = operation;
+    void operation.promise
+      .then((articleId) => {
+        if (active) {
+          router.replace({ pathname: '/article-read', params: { id: articleId } });
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setAutoConfirmError({ key: operationKey, message: messageFor(error) });
+          // The request may have reached the server even when the response
+          // was lost. Refresh once so a confirmed import still opens.
+          retryPolling();
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [articleImport, autoConfirmAttempt, autoConfirmErrorForCurrentImport, retryPolling]);
 
   const retry = async () => {
     if (!importId || retrying) return;
@@ -69,7 +123,7 @@ export default function ImportProcessingScreen() {
     try {
       const key = await loadOrCreateImportOperationKey(importId, 'retry');
       await retryArticleImport(importId, key);
-      polling.retry();
+      retryPolling();
     } catch (error) {
       setActionMessage(messageFor(error));
     } finally {
@@ -77,18 +131,25 @@ export default function ImportProcessingScreen() {
     }
   };
 
+  const retryAutoConfirm = () => {
+    if (autoConfirming) return;
+    setActionMessage(null);
+    setAutoConfirmAttempt((attempt) => attempt + 1);
+  };
+
   const statusLabel = useMemo(() => {
     switch (articleImport?.status) {
       case 'awaiting_upload': return '等待上传文件';
       case 'queued': return '已加入处理队列';
       case 'processing': return '正在解析正文';
+      case 'preview_ready': return autoConfirmErrorForCurrentImport ? '保存文章失败' : '正在保存文章';
       case 'retryable': return '这次解析没有完成';
       case 'failed': return '导入失败';
       case 'expired': return '导入已过期';
       case 'cancelled': return '导入已取消';
       default: return '正在准备导入';
     }
-  }, [articleImport?.status]);
+  }, [articleImport?.status, autoConfirmErrorForCurrentImport]);
 
   if (loadingId) {
     return <View style={[styles.centered, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} /></View>;
@@ -121,8 +182,9 @@ export default function ImportProcessingScreen() {
 
   const terminal = articleImport?.status === 'failed' || articleImport?.status === 'expired' || articleImport?.status === 'cancelled';
   const retryable = articleImport?.status === 'retryable';
-  const pollingError = polling.error ? messageFor(polling.error) : null;
-  const message = actionMessage ?? articleImport?.failure?.message ?? pollingError;
+  const autoConfirmFailed = articleImport?.status === 'preview_ready' && Boolean(autoConfirmErrorForCurrentImport) && !autoConfirming;
+  const pollingError = pollingStateError ? messageFor(pollingStateError) : null;
+  const message = autoConfirmErrorForCurrentImport ?? actionMessage ?? articleImport?.failure?.message ?? pollingError;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -135,22 +197,28 @@ export default function ImportProcessingScreen() {
       </View>
 
       <View style={styles.content}>
-        <View style={[styles.statusIcon, { backgroundColor: terminal ? theme.accentSoft : theme.accent }]}>
-          {terminal ? <Ionicons name="alert-outline" size={38} color={theme.danger} /> : <ActivityIndicator color={theme.accentText} size="large" />}
+        <View style={[styles.statusIcon, { backgroundColor: terminal || autoConfirmFailed ? theme.accentSoft : theme.accent }]}>
+          {terminal || autoConfirmFailed ? <Ionicons name="alert-outline" size={38} color={theme.danger} /> : <ActivityIndicator color={theme.accentText} size="large" />}
         </View>
         <Text style={[styles.title, { color: theme.text }]}>{statusLabel}</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>页面会在应用处于前台时自动刷新；你可以放心离开，稍后回来会继续同一个导入任务。</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>导入完成后会自动加入书架并打开文章阅读；你可以放心离开，稍后回来会继续同一个导入任务。</Text>
         {articleImport?.status === 'processing' || articleImport?.status === 'queued' ? (
           <Text style={[styles.detail, { color: theme.textMuted }]}>通常需要几秒钟，图片 OCR 可能稍久一些。</Text>
         ) : null}
         {message ? <Text style={[styles.message, { color: theme.danger }]}>{message}</Text> : null}
+        {articleImport?.status === 'preview_ready' && autoConfirmErrorForCurrentImport && !autoConfirming ? (
+          <TouchableOpacity onPress={retryAutoConfirm} style={[styles.primaryButton, { backgroundColor: theme.accent }]} activeOpacity={0.85}>
+            <Text style={[styles.primaryButtonText, { color: theme.accentText }]}>重试保存并打开</Text>
+            <Ionicons name="refresh" size={18} color={theme.accentText} />
+          </TouchableOpacity>
+        ) : null}
         {retryable ? (
           <TouchableOpacity disabled={retrying} onPress={() => void retry()} style={[styles.primaryButton, { backgroundColor: theme.accent, opacity: retrying ? 0.65 : 1 }]} activeOpacity={0.85}>
             {retrying ? <ActivityIndicator color={theme.accentText} /> : <><Text style={[styles.primaryButtonText, { color: theme.accentText }]}>重试解析</Text><Ionicons name="refresh" size={18} color={theme.accentText} /></>}
           </TouchableOpacity>
         ) : null}
         {pollingError && !terminal && !retryable ? (
-          <TouchableOpacity onPress={polling.retry} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
+          <TouchableOpacity onPress={retryPolling} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
             <Ionicons name="refresh-outline" size={17} color={theme.blue} />
             <Text style={[styles.secondaryButtonText, { color: theme.blue }]}>重新获取状态</Text>
           </TouchableOpacity>
