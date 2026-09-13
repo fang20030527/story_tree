@@ -7,15 +7,28 @@ import {
 } from './validation';
 
 describe('shared translation validation', () => {
-  it('accepts safe Han output and rejects invalid output or moderation', () => {
+  it('accepts safe Han output and rejects invalid output', () => {
     expect(validateTranslationText('  译文：这是原创测试内容。 ')).toBe(
       '译文：这是原创测试内容。',
     );
     expect(() => validateTranslationText('English only')).toThrowError(
       expect.objectContaining({ code: 'AI_INVALID_OUTPUT' }),
     );
+  });
+
+  it('allows unflagged medium-risk translations and blocks flagged or high-risk output', () => {
     expect(() =>
-      assertTranslationModerationAccepted({ riskLevel: 'high', flagged: true }),
+      assertTranslationModerationAccepted({
+        riskLevel: 'medium',
+        flagged: false,
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      assertTranslationModerationAccepted({ riskLevel: 'low', flagged: true }),
+    ).toThrowError(expect.objectContaining({ code: 'AI_CONTENT_REJECTED' }));
+    expect(() =>
+      assertTranslationModerationAccepted({ riskLevel: 'high', flagged: false }),
     ).toThrowError(expect.objectContaining({ code: 'AI_CONTENT_REJECTED' }));
   });
 

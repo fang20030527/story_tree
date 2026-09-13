@@ -14,7 +14,7 @@ export function validateTranslationText(text: string): string {
 export function assertTranslationModerationAccepted(
   result: ModerationResult,
 ): void {
-  if (result.riskLevel !== 'low' || result.flagged) {
+  if (result.riskLevel === 'high' || result.flagged) {
     throw new AppError(
       'AI_CONTENT_REJECTED',
       '翻译结果未通过安全检查',
