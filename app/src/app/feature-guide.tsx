@@ -74,14 +74,14 @@ const SECTIONS: GuideSection[] = [
         desc: '打开过的文章会自动记录，随时回到上次的内容。',
       },
       {
-        icon: 'star-outline',
-        title: '我的收藏',
-        desc: '在阅读页点右上角星标收藏文章，方便反复精读。',
+        icon: 'book-outline',
+        title: '我的书架',
+        desc: '平台外刊可主动加入书架，导入文章确认后会自动出现。',
       },
       {
         icon: 'school-outline',
         title: '词库练习',
-        desc: '在底部「练习」页对学过的词汇进行巩固练习。',
+        desc: '在底部「词库」页对学过的词汇进行巩固练习。',
       },
     ],
   },

@@ -14,10 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '@/components/ui';
 import { ThemeMode, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import {
-  clearFavorites,
-  clearRecentViews,
-} from '@/features/library/libraryStorage';
+import { clearRecentViews } from '@/features/library/libraryStorage';
 
 const APPEARANCE_OPTIONS: {
   key: 'system' | ThemeMode;
@@ -112,23 +109,6 @@ export default function SettingsScreen() {
             style={styles.dataRow}>
             <Ionicons name="time-outline" size={19} color={theme.textSecondary} />
             <Text style={[styles.dataLabel, { color: theme.text }]}>清空最近观看</Text>
-            <Ionicons name="chevron-forward" size={15} color={theme.textMuted} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() =>
-              confirmClear(
-                '清空我的收藏',
-                '确定要清空全部收藏吗？此操作不可恢复。',
-                clearFavorites,
-              )
-            }
-            style={[
-              styles.dataRow,
-              { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
-            ]}>
-            <Ionicons name="star-outline" size={19} color={theme.textSecondary} />
-            <Text style={[styles.dataLabel, { color: theme.text }]}>清空我的收藏</Text>
             <Ionicons name="chevron-forward" size={15} color={theme.textMuted} />
           </TouchableOpacity>
         </Card>

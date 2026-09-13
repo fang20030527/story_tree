@@ -22,11 +22,7 @@ import { createIdempotencyKey } from '@/api/installation';
 import { useAppTheme } from '@/context/ThemeContext';
 import type { Theme } from '@/constants/theme';
 import { weight } from '@/constants/theme';
-import {
-  isFavorite,
-  recordImportedRecentView,
-  toggleFavorite,
-} from '@/features/library/libraryStorage';
+import { recordImportedRecentView } from '@/features/library/libraryStorage';
 
 type TranslationState = {
   status: 'idle' | 'loading' | 'ready' | 'failed';
@@ -40,6 +36,10 @@ function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error && error.message) return error.message;
   return '翻译暂时无法完成';
+}
+
+function isMissingArticle(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 'NOT_FOUND';
 }
 
 function sourceLabel(sourceKind: ImportedArticleDto['sourceKind']): string {
@@ -60,9 +60,9 @@ export default function ArticleReadScreen() {
   const [article, setArticle] = useState<ImportedArticleDto | null>(null);
   const [loading, setLoading] = useState(Boolean(articleId));
   const [message, setMessage] = useState<string | null>(articleId ? null : '找不到文章');
+  const [deleted, setDeleted] = useState(false);
   const [fullTranslation, setFullTranslation] = useState<TranslationState>(INITIAL_TRANSLATION);
   const [paragraphTranslations, setParagraphTranslations] = useState<Record<string, TranslationState>>({});
-  const [favorite, setFavorite] = useState(false);
   const translationKeysRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
@@ -79,13 +79,12 @@ export default function ArticleReadScreen() {
           title: loaded.title,
           sourceKind: loaded.sourceKind,
           wordCount: loaded.wordCount,
-        });
-        void isFavorite(loaded.id).then((saved) => {
-          if (mounted) setFavorite(saved);
-        });
+        }).catch(() => undefined);
       })
       .catch((error) => {
-        if (mounted) setMessage(messageFor(error));
+        if (!mounted) return;
+        if (isMissingArticle(error)) setDeleted(true);
+        else setMessage(messageFor(error));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -94,17 +93,6 @@ export default function ArticleReadScreen() {
       mounted = false;
     };
   }, [articleId]);
-
-  const onToggleFavorite = async () => {
-    if (!article) return;
-    const next = await toggleFavorite({
-      articleId: article.id,
-      title: article.title,
-      sourceKind: article.sourceKind,
-      wordCount: article.wordCount,
-    });
-    setFavorite(next);
-  };
 
   const translate = async (request: TranslationRequest, key: string) => {
     if (!articleId) return;
@@ -129,32 +117,36 @@ export default function ArticleReadScreen() {
       }
       setState({ status: 'ready', text: translation.translatedTextZh, error: null });
     } catch (error) {
+      if (isMissingArticle(error)) {
+        setDeleted(true);
+        return;
+      }
       setState({ status: 'failed', text: null, error: messageFor(error) });
     }
   };
 
   if (loading) return <View style={[styles.centered, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} /></View>;
 
+  if (deleted) {
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.bg }]}>
+        <Ionicons name="trash-outline" size={34} color={theme.textMuted} />
+        <Text style={[styles.emptyTitle, { color: theme.text }]}>文章已删除</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => router.replace('/shelf' as never)}>
+          <Text style={{ color: theme.blue }}>返回书架</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8} accessibilityLabel="返回"><Ionicons name="chevron-back" size={26} color={theme.text} /></TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>文章阅读</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            onPress={() => void onToggleFavorite()}
-            disabled={!article}
-            hitSlop={8}
-            accessibilityLabel={favorite ? '取消收藏' : '收藏文章'}
-          >
-            <Ionicons
-              name={favorite ? 'star' : 'star-outline'}
-              size={23}
-              color={favorite ? theme.accent : theme.text}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.replace('/import')} hitSlop={8} accessibilityLabel="导入新文章"><Ionicons name="add" size={26} color={theme.text} /></TouchableOpacity>
-        </View>
+        <View style={styles.headerSpacer} />
       </View>
       {article ? (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]} showsVerticalScrollIndicator={false}>
@@ -192,7 +184,7 @@ const styles = StyleSheet.create({
   centered: { alignItems: 'center', flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
   header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 52, paddingHorizontal: 16 },
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
-  headerActions: { alignItems: 'center', flexDirection: 'row', gap: 14 },
+  headerSpacer: { width: 26 },
   content: { paddingHorizontal: 18, paddingTop: 12 },
   sourcePill: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: 12, flexDirection: 'row', gap: 5, paddingHorizontal: 9, paddingVertical: 5 },
   sourcePillText: { fontSize: 11, fontWeight: weight('medium') },

@@ -8,16 +8,15 @@ import { Card } from '@/components/ui';
 import { ThemeMode, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { loadAuthUser } from '@/features/auth/authStorage';
-import { loadFavorites, loadRecentViews } from '@/features/library/libraryStorage';
+import { loadRecentViews } from '@/features/library/libraryStorage';
 
 const MENU: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   sub: string;
-  route: '/recent' | '/favorites' | '/feature-guide' | '/settings' | null;
+  route: '/recent' | '/feature-guide' | '/settings' | null;
 }[] = [
   { icon: 'time-outline', label: '最近观看', sub: '', route: '/recent' },
-  { icon: 'star-outline', label: '我的收藏', sub: '', route: '/favorites' },
   { icon: 'cube-outline', label: '功能概览', sub: '基础功能操作指引', route: '/feature-guide' },
   { icon: 'thumbs-up-outline', label: '给我评分', sub: '', route: null },
   { icon: 'settings-outline', label: '设置', sub: '', route: '/settings' },
@@ -59,23 +58,20 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const [isRegistered, setIsRegistered] = useState(false);
   const [recentCount, setRecentCount] = useState(0);
-  const [favoriteCount, setFavoriteCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
-      void Promise.all([loadAuthUser(), loadRecentViews(), loadFavorites()])
-        .then(([user, recents, favorites]) => {
+      void Promise.all([loadAuthUser(), loadRecentViews()])
+        .then(([user, recents]) => {
           if (!mounted) return;
           setIsRegistered(Boolean(user));
           setRecentCount(recents.length);
-          setFavoriteCount(favorites.length);
         })
         .catch(() => {
           if (!mounted) return;
           setIsRegistered(false);
           setRecentCount(0);
-          setFavoriteCount(0);
         });
       return () => {
         mounted = false;
@@ -85,7 +81,6 @@ export default function ProfileScreen() {
 
   const stats = [
     { label: '生词', value: 6 },
-    { label: '收藏', value: favoriteCount },
     { label: '学习篇数', value: recentCount },
     { label: '打卡天数', value: 0 },
   ];

@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react-native';
 import React from 'react';
 
-import TabLayout from './_layout';
+import TabLayout from '@/app/(tabs)/_layout';
 
 type CapturedScreen = {
   name: string;
