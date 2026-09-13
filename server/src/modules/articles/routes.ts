@@ -8,7 +8,11 @@ import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
 import { parseUuidParam } from '../../http/validation';
 import { requireAuth } from '../auth/routes';
-import { getArticleForUser, listArticlesForUser } from './service';
+import {
+  deleteArticleForUser,
+  getArticleForUser,
+  listArticlesForUser,
+} from './service';
 
 export interface ArticlesRoutesOptions {
   db: AppDatabase;
@@ -74,6 +78,23 @@ export const articlesRoutes: FastifyPluginAsync<ArticlesRoutesOptions> = async (
         articleId,
       });
       return reply.send(ImportedArticleDtoSchema.parse(article));
+    },
+  );
+
+  app.delete(
+    '/v1/articles/:id',
+    { preHandler: requireAuth(options.db) },
+    async (request, reply) => {
+      const articleId = parseUuidParam(
+        request.params,
+        'id',
+        '文章编号格式无效',
+      );
+      await deleteArticleForUser(options.db, {
+        userId: request.authUser.userId,
+        articleId,
+      });
+      return reply.code(204).send();
     },
   );
 };

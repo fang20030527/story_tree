@@ -5,12 +5,28 @@ import {
   type ImportedArticleDto,
   type ImportedArticlePage,
 } from '@context-reader/contracts';
-import { and, asc, desc, eq, lt, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  lt,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { z } from 'zod';
 
 import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
-import { articleParagraphs, importedArticles } from '../../db/schema';
+import {
+  articleImports,
+  articleParagraphs,
+  articleTranslations,
+  importedArticles,
+  jobs,
+} from '../../db/schema';
 
 export async function getArticleForUser(
   db: AppDatabase,
@@ -148,5 +164,65 @@ export async function listArticlesForUser(
       importedAt: article.importedAt.toISOString(),
     })),
     nextCursor,
+  });
+}
+
+export async function deleteArticleForUser(
+  db: AppDatabase,
+  input: { userId: string; articleId: string },
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [article] = await tx
+      .select({ id: importedArticles.id })
+      .from(importedArticles)
+      .where(
+        and(
+          eq(importedArticles.id, input.articleId),
+          eq(importedArticles.userId, input.userId),
+        ),
+      )
+      .for('update')
+      .limit(1);
+    if (!article) return;
+
+    const imports = await tx
+      .select({ id: articleImports.id })
+      .from(articleImports)
+      .where(eq(articleImports.articleId, article.id));
+    const translations = await tx
+      .select({ id: articleTranslations.id })
+      .from(articleTranslations)
+      .where(eq(articleTranslations.articleId, article.id));
+
+    const jobFilters: SQL[] = [];
+    if (imports.length > 0) {
+      jobFilters.push(
+        and(
+          eq(jobs.kind, 'article_import'),
+          inArray(
+            jobs.resourceId,
+            imports.map(({ id }) => id),
+          ),
+        )!,
+      );
+    }
+    if (translations.length > 0) {
+      jobFilters.push(
+        and(
+          eq(jobs.kind, 'article_translation'),
+          inArray(
+            jobs.resourceId,
+            translations.map(({ id }) => id),
+          ),
+        )!,
+      );
+    }
+    if (jobFilters.length > 0) {
+      await tx.delete(jobs).where(or(...jobFilters));
+    }
+
+    await tx
+      .delete(importedArticles)
+      .where(eq(importedArticles.id, article.id));
   });
 }

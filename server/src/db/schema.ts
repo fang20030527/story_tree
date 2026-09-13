@@ -359,6 +359,7 @@ export const importedArticles = pgTable(
     }).notNull(),
     previousVersionId: uuid('previous_version_id').references(
       (): AnyPgColumn => importedArticles.id,
+      { onDelete: 'set null' },
     ),
     importedAt: utcTimestamp('imported_at').notNull(),
     createdAt: utcTimestamp('created_at').defaultNow().notNull(),
@@ -485,7 +486,9 @@ export const articleImports = pgTable(
     }),
     failureCode: text('failure_code'),
     failureMessagePublic: text('failure_message_public'),
-    articleId: uuid('article_id').references(() => importedArticles.id),
+    articleId: uuid('article_id').references(() => importedArticles.id, {
+      onDelete: 'cascade',
+    }),
     attemptCount: integer('attempt_count').default(0).notNull(),
     createdAt: utcTimestamp('created_at').defaultNow().notNull(),
     updatedAt: utcTimestamp('updated_at').defaultNow().notNull(),

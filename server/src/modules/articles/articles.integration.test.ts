@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 
 import {
   ImportedArticleDtoSchema,
@@ -10,7 +10,22 @@ import { withTestDatabase } from '../../../test/database';
 import { buildApp } from '../../app';
 import { loadConfig } from '../../config/env';
 import type { AppDatabase } from '../../db/client';
-import { articleParagraphs, importedArticles } from '../../db/schema';
+import {
+  answerAttempts,
+  articleImports,
+  articleParagraphs,
+  articleTranslations,
+  computerUploadSessions,
+  importAssets,
+  importedArticles,
+  jobs,
+  learningProgress,
+  practiceParagraphs,
+  practiceQuestions,
+  practiceSessions,
+  practiceTargets,
+  vocabularyItems,
+} from '../../db/schema';
 import { registerAnonymous } from '../auth/service';
 
 const config = loadConfig({
@@ -53,6 +68,201 @@ async function seedArticle(
     position: 0,
     plainText: FIRST_PARAGRAPH,
   });
+}
+
+async function seedDeleteGraph(
+  db: AppDatabase,
+  userId: string,
+): Promise<{
+  articleId: string;
+  importId: string;
+  paragraphIds: string[];
+  translationIds: string[];
+  vocabularyItemId: string;
+  practiceId: string;
+  answerAttemptId: string;
+}> {
+  const articleId = crypto.randomUUID();
+  const importId = crypto.randomUUID();
+  const paragraphIds = [crypto.randomUUID(), crypto.randomUUID()];
+  const translationIds = [crypto.randomUUID(), crypto.randomUUID()];
+  const vocabularyItemId = crypto.randomUUID();
+  const practiceId = crypto.randomUUID();
+  const practiceParagraphId = crypto.randomUUID();
+  const practiceTargetId = crypto.randomUUID();
+  const practiceQuestionId = crypto.randomUUID();
+  const correctOptionId = crypto.randomUUID();
+  const answerAttemptId = crypto.randomUUID();
+  const now = new Date('2026-09-12T08:00:00.000Z');
+
+  await db.insert(importedArticles).values({
+    id: articleId,
+    userId,
+    sourceKind: 'computer',
+    sourceUrl: null,
+    title: 'Delete me',
+    wordCount: 20,
+    contentHash: 'd'.repeat(64),
+    similarityFingerprint: 44n,
+    importedAt: now,
+    createdAt: now,
+  });
+  await db.insert(articleParagraphs).values([
+    { id: paragraphIds[0]!, articleId, position: 0, plainText: FIRST_PARAGRAPH },
+    { id: paragraphIds[1]!, articleId, position: 1, plainText: SECOND_PARAGRAPH },
+  ]);
+  await db.insert(articleTranslations).values([
+    {
+      id: translationIds[0]!,
+      articleId,
+      scope: 'full',
+      paragraphId: null,
+      sourceHash: 'e'.repeat(64),
+      status: 'queued',
+    },
+    {
+      id: translationIds[1]!,
+      articleId,
+      scope: 'paragraph',
+      paragraphId: paragraphIds[0]!,
+      sourceHash: 'f'.repeat(64),
+      status: 'queued',
+    },
+  ]);
+  await db.insert(articleImports).values({
+    id: importId,
+    userId,
+    sourceKind: 'computer',
+    status: 'confirmed',
+    previewTitle: 'Delete me',
+    previewText: FIRST_PARAGRAPH,
+    wordCount: 20,
+    contentHash: 'd'.repeat(64),
+    similarityFingerprint: 44n,
+    articleId,
+    previewReadyAt: now,
+    confirmedAt: now,
+    expiresAt: new Date('2026-09-19T08:00:00.000Z'),
+  });
+  await db.insert(importAssets).values({
+    articleImportId: importId,
+    position: 0,
+    mediaType: 'text/plain',
+    byteSize: 1,
+    sha256: '7'.repeat(64),
+    content: Buffer.from('x'),
+  });
+  await db.insert(computerUploadSessions).values({
+    userId,
+    articleImportId: importId,
+    codeHash: '8'.repeat(64),
+    status: 'uploaded',
+    claimedAt: now,
+    uploadedAt: now,
+    expiresAt: new Date('2026-09-19T08:00:00.000Z'),
+  });
+  await db.insert(jobs).values([
+    {
+      kind: 'article_import',
+      resourceId: importId,
+      status: 'succeeded',
+      deadlineAt: new Date('2026-09-12T08:05:00.000Z'),
+      finishedAt: now,
+    },
+    {
+      kind: 'article_translation',
+      resourceId: translationIds[0]!,
+      status: 'queued',
+      deadlineAt: new Date('2026-09-12T08:05:00.000Z'),
+    },
+    {
+      kind: 'article_translation',
+      resourceId: translationIds[1]!,
+      status: 'queued',
+      deadlineAt: new Date('2026-09-12T08:05:00.000Z'),
+    },
+  ]);
+  await db.insert(vocabularyItems).values({
+    id: vocabularyItemId,
+    userId,
+    term: 'durable',
+    normalizedTerm: 'durable',
+    meaningZh: '持久的',
+    normalizedMeaningZh: '持久的',
+    sourceSentence: FIRST_PARAGRAPH,
+    fingerprint: `delete-test-${articleId}`,
+    status: 'reviewing',
+  });
+  await db.insert(learningProgress).values({
+    vocabularyItemId,
+    practiceCount: 2,
+    firstTryCorrectCount: 1,
+    assistedCount: 1,
+    lastPracticedAt: now,
+  });
+  await db.insert(practiceSessions).values({
+    id: practiceId,
+    userId,
+    examPath: 'ielts',
+    status: 'ready',
+    articleTitle: 'Independent practice evidence',
+    articleWordCount: 320,
+    modelName: 'fake',
+    promptVersion: 'delete-preservation-v1',
+    readyAt: now,
+  });
+  await db.insert(practiceParagraphs).values({
+    id: practiceParagraphId,
+    practiceSessionId: practiceId,
+    position: 0,
+    plainText: 'Durable evidence remains available after source cleanup.',
+  });
+  await db.insert(practiceTargets).values({
+    id: practiceTargetId,
+    practiceSessionId: practiceId,
+    vocabularyItemId,
+    position: 0,
+    paragraphId: practiceParagraphId,
+    surfaceForm: 'Durable',
+    startOffset: 0,
+    endOffset: 7,
+  });
+  await db.insert(practiceQuestions).values({
+    id: practiceQuestionId,
+    practiceTargetId,
+    prompt: 'What does durable mean here?',
+    optionsJson: [
+      { id: correctOptionId, label: '持久的' },
+      { id: crypto.randomUUID(), label: '暂时的' },
+    ],
+    correctOptionId,
+    meaningEn: 'able to last',
+    explanationZh: '该词在语境中表示能长期保留。',
+    optionExplanationsJson: {
+      [correctOptionId]: '符合语境。',
+    },
+  });
+  await db.insert(answerAttempts).values({
+    id: answerAttemptId,
+    practiceSessionId: practiceId,
+    practiceQuestionId,
+    userId,
+    answerKind: 'dont_know',
+    selectedOptionId: null,
+    isCorrect: false,
+    wasAssisted: false,
+    elapsedMs: 1_000,
+    idempotencyKey: `delete-preservation-${articleId}`,
+  });
+  return {
+    articleId,
+    importId,
+    paragraphIds,
+    translationIds,
+    vocabularyItemId,
+    practiceId,
+    answerAttemptId,
+  };
 }
 
 describe('private imported articles', () => {
@@ -301,6 +511,159 @@ describe('private imported articles', () => {
         );
         expect(secondPage.items.map(({ id }) => id)).toEqual([earlierId]);
         expect(secondPage.nextCursor).toBeNull();
+      } finally {
+        await app.close();
+      }
+  });
+}, 120_000);
+
+  it('permanently deletes only an owned article graph and preserves learning evidence', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const ownerToken = '73'.repeat(32);
+      const owner = await registerAnonymous(db, ownerToken, true);
+      const otherToken = '74'.repeat(32);
+      await registerAnonymous(db, otherToken, true);
+      const graph = await seedDeleteGraph(db, owner.userId);
+      const successorId = crypto.randomUUID();
+      await db.insert(importedArticles).values({
+        id: successorId,
+        userId: owner.userId,
+        sourceKind: 'paste',
+        sourceUrl: null,
+        title: 'Successor article',
+        wordCount: 20,
+        contentHash: '9'.repeat(64),
+        similarityFingerprint: 99n,
+        previousVersionId: graph.articleId,
+        importedAt: new Date('2026-09-12T09:00:00.000Z'),
+      });
+
+      const app = buildApp({ config, db, logger: false });
+      try {
+        expect(
+          (
+            await app.inject({
+              method: 'DELETE',
+              url: `/v1/articles/${graph.articleId}`,
+            })
+          ).statusCode,
+        ).toBe(401);
+
+        const hidden = await app.inject({
+          method: 'DELETE',
+          url: `/v1/articles/${graph.articleId}`,
+          headers: { authorization: `Bearer ${otherToken}` },
+        });
+        expect(hidden.statusCode).toBe(204);
+        expect(
+          await db
+            .select()
+            .from(importedArticles)
+            .where(eq(importedArticles.id, graph.articleId)),
+        ).toHaveLength(1);
+
+        const malformed = await app.inject({
+          method: 'DELETE',
+          url: '/v1/articles/not-a-uuid',
+          headers: { authorization: `Bearer ${ownerToken}` },
+        });
+        expect(malformed.statusCode).toBe(400);
+
+        const deleted = await app.inject({
+          method: 'DELETE',
+          url: `/v1/articles/${graph.articleId}`,
+          headers: { authorization: `Bearer ${ownerToken}` },
+        });
+        expect(deleted.statusCode).toBe(204);
+        expect(deleted.body).toBe('');
+
+        const repeated = await app.inject({
+          method: 'DELETE',
+          url: `/v1/articles/${graph.articleId}`,
+          headers: { authorization: `Bearer ${ownerToken}` },
+        });
+        expect(repeated.statusCode).toBe(204);
+        const missing = await app.inject({
+          method: 'DELETE',
+          url: `/v1/articles/${crypto.randomUUID()}`,
+          headers: { authorization: `Bearer ${ownerToken}` },
+        });
+        expect(missing.statusCode).toBe(204);
+
+        expect(
+          await db
+            .select()
+            .from(importedArticles)
+            .where(eq(importedArticles.id, graph.articleId)),
+        ).toHaveLength(0);
+        expect(
+          await db
+            .select()
+            .from(articleParagraphs)
+            .where(eq(articleParagraphs.articleId, graph.articleId)),
+        ).toHaveLength(0);
+        expect(
+          await db
+            .select()
+            .from(articleTranslations)
+            .where(eq(articleTranslations.articleId, graph.articleId)),
+        ).toHaveLength(0);
+        expect(
+          await db
+            .select()
+            .from(articleImports)
+            .where(eq(articleImports.articleId, graph.articleId)),
+        ).toHaveLength(0);
+        expect(
+          await db
+            .select()
+            .from(importAssets)
+            .where(eq(importAssets.articleImportId, graph.importId)),
+        ).toHaveLength(0);
+        expect(
+          await db
+            .select()
+            .from(computerUploadSessions)
+            .where(eq(computerUploadSessions.articleImportId, graph.importId)),
+        ).toHaveLength(0);
+        expect(
+          await db
+            .select()
+            .from(jobs)
+            .where(
+              inArray(jobs.resourceId, [graph.importId, ...graph.translationIds]),
+            ),
+        ).toHaveLength(0);
+
+        const [successor] = await db
+          .select()
+          .from(importedArticles)
+          .where(eq(importedArticles.id, successorId));
+        expect(successor?.previousVersionId).toBeNull();
+        expect(
+          await db
+            .select()
+            .from(vocabularyItems)
+            .where(eq(vocabularyItems.id, graph.vocabularyItemId)),
+        ).toHaveLength(1);
+        expect(
+          await db
+            .select()
+            .from(learningProgress)
+            .where(eq(learningProgress.vocabularyItemId, graph.vocabularyItemId)),
+        ).toHaveLength(1);
+        expect(
+          await db
+            .select()
+            .from(practiceSessions)
+            .where(eq(practiceSessions.id, graph.practiceId)),
+        ).toHaveLength(1);
+        expect(
+          await db
+            .select()
+            .from(answerAttempts)
+            .where(eq(answerAttempts.id, graph.answerAttemptId)),
+        ).toHaveLength(1);
       } finally {
         await app.close();
       }

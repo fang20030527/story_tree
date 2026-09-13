@@ -1,4 +1,7 @@
-import { asc } from 'drizzle-orm';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+
+import { asc, eq } from 'drizzle-orm';
 import { expect, it } from 'vitest';
 
 import { withTestDatabase } from '../../test/database';
@@ -273,5 +276,100 @@ it('persists constrained article import resources and both worker kinds', async 
       'article_translation',
     ]);
     expect(insertedJobs.every((row) => jobKinds.includes(row.kind))).toBe(true);
+  });
+}, 120_000);
+
+it('upgrades existing confirmed imports and article version chains safely', async () => {
+  await withTestDatabase(async ({ db, pool, schemaName }) => {
+    expect(schemaName).toMatch(/^app_test_[0-9a-f]{32}$/);
+    const q = (identifier: string) => `"${identifier}"`;
+    const schema = q(schemaName);
+    await pool.query(`
+      alter table ${schema}."article_imports"
+        drop constraint "article_imports_article_id_imported_articles_id_fk";
+      alter table ${schema}."imported_articles"
+        drop constraint "imported_articles_previous_version_id_imported_articles_id_fk";
+      alter table ${schema}."article_imports"
+        add constraint "article_imports_article_id_imported_articles_id_fk"
+        foreign key ("article_id") references ${schema}."imported_articles"("id")
+        on delete no action on update no action;
+      alter table ${schema}."imported_articles"
+        add constraint "imported_articles_previous_version_id_imported_articles_id_fk"
+        foreign key ("previous_version_id") references ${schema}."imported_articles"("id")
+        on delete no action on update no action;
+    `);
+
+    const userId = crypto.randomUUID();
+    const originalId = crypto.randomUUID();
+    const successorId = crypto.randomUUID();
+    const importId = crypto.randomUUID();
+    const now = new Date('2026-09-12T08:00:00.000Z');
+    await db.insert(users).values({
+      id: userId,
+      kind: 'guest',
+      ageConfirmedAt: now,
+    });
+    await db.insert(importedArticles).values([
+      {
+        id: originalId,
+        userId,
+        sourceKind: 'paste',
+        sourceUrl: null,
+        title: 'Existing original',
+        wordCount: 20,
+        contentHash: 'a'.repeat(64),
+        similarityFingerprint: 1n,
+        importedAt: now,
+      },
+      {
+        id: successorId,
+        userId,
+        sourceKind: 'paste',
+        sourceUrl: null,
+        title: 'Existing successor',
+        wordCount: 20,
+        contentHash: 'b'.repeat(64),
+        similarityFingerprint: 2n,
+        previousVersionId: originalId,
+        importedAt: new Date('2026-09-12T09:00:00.000Z'),
+      },
+    ]);
+    await db.insert(articleImports).values({
+      id: importId,
+      userId,
+      sourceKind: 'paste',
+      status: 'confirmed',
+      previewTitle: 'Existing original',
+      previewText: 'Existing synthetic preview text remains valid during migration.',
+      wordCount: 20,
+      contentHash: 'a'.repeat(64),
+      similarityFingerprint: 1n,
+      articleId: originalId,
+      previewReadyAt: now,
+      confirmedAt: now,
+      expiresAt: new Date('2026-09-19T08:00:00.000Z'),
+    });
+    await expect(
+      db.delete(importedArticles).where(eq(importedArticles.id, originalId)),
+    ).rejects.toThrow();
+
+    const migrationPath = fileURLToPath(
+      new URL('../../drizzle/0004_bookshelf_article_delete.sql', import.meta.url),
+    );
+    const migration = (await readFile(migrationPath, 'utf8'))
+      .replaceAll('"public".', `${schema}.`)
+      .replaceAll('--> statement-breakpoint', '');
+    expect(migration).not.toContain('"public".');
+    await pool.query(migration);
+
+    await db.delete(importedArticles).where(eq(importedArticles.id, originalId));
+    expect(
+      await db.select().from(articleImports).where(eq(articleImports.id, importId)),
+    ).toHaveLength(0);
+    const [successor] = await db
+      .select()
+      .from(importedArticles)
+      .where(eq(importedArticles.id, successorId));
+    expect(successor?.previousVersionId).toBeNull();
   });
 }, 120_000);

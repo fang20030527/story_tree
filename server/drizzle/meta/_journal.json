@@ -29,6 +29,13 @@
       "when": 1788957859510,
       "tag": "0003_acoustic_silver_surfer",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789262388747,
+      "tag": "0004_bookshelf_article_delete",
+      "breakpoints": true
     }
   ]
 }

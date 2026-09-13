@@ -19,6 +19,7 @@ import {
 } from '../../db/schema';
 import { FakeAiProvider } from '../../infrastructure/ai/fake-provider';
 import { registerAnonymous } from '../auth/service';
+import { deleteArticleForUser } from '../articles/service';
 import { claimNextJob, markSucceeded } from '../jobs/repository';
 import {
   failArticleTranslation,
@@ -201,6 +202,65 @@ describe('article translation cache', () => {
         .from(articleTranslations)
         .where(eq(articleTranslations.id, translation.id));
       expect(preserved?.status).toBe('queued');
+    });
+  }, 120_000);
+
+  it('cannot persist an in-flight translation after its article is deleted', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const ownerToken = '75'.repeat(32);
+      const owner = await registerAnonymous(db, ownerToken, true);
+      const article = await seedArticle(db, owner.userId, '5');
+      const translation = await requestArticleTranslation(db, {
+        userId: owner.userId,
+        articleId: article.id,
+        request: { scope: 'full' },
+        idempotencyKey: 'delete-running-translation-01',
+        deadlineMs: 120_000,
+      });
+      const job = await claimNextJob(
+        db,
+        'delete-running-translation-worker',
+        60_000,
+        ['article_translation'],
+      );
+      expect(job?.resourceId).toBe(translation.id);
+
+      let announceStarted!: () => void;
+      let releaseTranslation!: (text: string) => void;
+      const started = new Promise<void>((resolve) => {
+        announceStarted = resolve;
+      });
+      const translated = new Promise<string>((resolve) => {
+        releaseTranslation = resolve;
+      });
+      const provider = new FakeAiProvider();
+      vi.spyOn(provider, 'translate').mockImplementation(async () => {
+        announceStarted();
+        return translated;
+      });
+
+      const handling = handleArticleTranslation(
+        { db, provider },
+        job!,
+        { signal: new AbortController().signal },
+      );
+      await started;
+      await deleteArticleForUser(db, {
+        userId: owner.userId,
+        articleId: article.id,
+      });
+      releaseTranslation('译文：已删除文章不得重新写入。');
+
+      await expect(handling).rejects.toMatchObject({ name: 'AbortError' });
+      expect(
+        await db
+          .select()
+          .from(articleTranslations)
+          .where(eq(articleTranslations.id, translation.id)),
+      ).toHaveLength(0);
+      expect(
+        await db.select().from(jobs).where(eq(jobs.id, job!.id)),
+      ).toHaveLength(0);
     });
   }, 120_000);
 });
