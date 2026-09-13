@@ -48,11 +48,11 @@ export default function TabLayout() {
         }}>
         <Tabs.Screen
           name="index"
-          options={{ title: '阅读', tabBarIcon: tabIcon('book') }}
+          options={{ title: '外刊', tabBarIcon: tabIcon('newspaper') }}
         />
         <Tabs.Screen
-          name="feed"
-          options={{ title: '外刊', tabBarIcon: tabIcon('newspaper') }}
+          name="shelf"
+          options={{ title: '书架', tabBarIcon: tabIcon('book') }}
         />
         <Tabs.Screen
           name="words"
