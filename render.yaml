@@ -5,7 +5,7 @@ services:
     repo: https://github.com/fang20030527/story_tree
     region: singapore
     plan: free
-    branch: main
+    branch: codex/cloud-core-backend
     numInstances: 1
     autoDeployTrigger: commit
     buildCommand: npm ci && npm run build --workspace=@context-reader/server
