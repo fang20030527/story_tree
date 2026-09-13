@@ -24,7 +24,7 @@ import type { Theme } from '@/constants/theme';
 import { weight } from '@/constants/theme';
 import {
   isFavorite,
-  recordRecentView,
+  recordImportedRecentView,
   toggleFavorite,
 } from '@/features/library/libraryStorage';
 
@@ -74,7 +74,7 @@ export default function ArticleReadScreen() {
       .then((loaded) => {
         if (!mounted) return;
         setArticle(loaded);
-        void recordRecentView({
+        void recordImportedRecentView({
           articleId: loaded.id,
           title: loaded.title,
           sourceKind: loaded.sourceKind,

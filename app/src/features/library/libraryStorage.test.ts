@@ -8,7 +8,8 @@ import {
   isFavorite,
   loadFavorites,
   loadRecentViews,
-  recordRecentView,
+  recordEditorialRecentView,
+  recordImportedRecentView,
   removeFavorite,
   removeRecentView,
   toggleFavorite,
@@ -33,36 +34,104 @@ const articleB = {
   sourceKind: 'paste' as const,
   wordCount: 800,
 };
+const importedA = {
+  articleId: '11111111-1111-4111-8111-111111111111',
+  title: 'Article A',
+  sourceKind: 'url' as const,
+  wordCount: 1200,
+};
 
 describe('library storage', () => {
   beforeEach(async () => {
+    jest.useRealTimers();
     await AsyncStorage.clear();
   });
 
-  it('records recent views newest-first and de-duplicates by article', async () => {
-    await recordRecentView(articleA);
-    await recordRecentView(articleB);
-    await recordRecentView(articleA);
+  afterEach(() => {
+    jest.useRealTimers();
+  });
 
-    const views = await loadRecentViews();
-    expect(views.map((item) => item.articleId)).toEqual([
-      articleA.articleId,
-      articleB.articleId,
+  it('migrates legacy entries once and persists the imported discriminator', async () => {
+    await AsyncStorage.setItem(
+      RECENT_VIEWS_KEY,
+      JSON.stringify([
+        {
+          ...importedA,
+          timestamp: '2026-09-10T08:00:00.000Z',
+        },
+      ]),
+    );
+
+    expect(await loadRecentViews()).toEqual([
+      {
+        kind: 'imported',
+        ...importedA,
+        timestamp: '2026-09-10T08:00:00.000Z',
+      },
+    ]);
+    expect(
+      JSON.parse((await AsyncStorage.getItem(RECENT_VIEWS_KEY))!),
+    ).toEqual([
+      {
+        kind: 'imported',
+        ...importedA,
+        timestamp: '2026-09-10T08:00:00.000Z',
+      },
     ]);
   });
 
-  it('removes a single recent view and clears all', async () => {
-    await recordRecentView(articleA);
-    await recordRecentView(articleB);
+  it('records both kinds newest-first and de-duplicates by stable key', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-12T08:00:00.000Z'));
+    await recordImportedRecentView(importedA);
+    jest.setSystemTime(new Date('2026-09-12T09:00:00.000Z'));
+    await recordEditorialRecentView('hero');
+    jest.setSystemTime(new Date('2026-09-12T10:00:00.000Z'));
+    await recordImportedRecentView(importedA);
 
-    await removeRecentView(articleA.articleId);
-    expect((await loadRecentViews()).map((item) => item.articleId)).toEqual([
-      articleB.articleId,
+    const views = await loadRecentViews();
+    expect(views.map(({ kind, articleId }) => `${kind}:${articleId}`)).toEqual([
+      `imported:${importedA.articleId}`,
+      'editorial:hero',
     ]);
+  });
 
-    await clearRecentViews();
+  it('removes by discriminated key and keeps same textual IDs isolated', async () => {
+    await AsyncStorage.setItem(
+      RECENT_VIEWS_KEY,
+      JSON.stringify([
+        {
+          kind: 'editorial',
+          articleId: 'hero',
+          timestamp: '2026-09-12T09:00:00.000Z',
+        },
+        {
+          kind: 'imported',
+          ...importedA,
+          timestamp: '2026-09-12T08:00:00.000Z',
+        },
+      ]),
+    );
+    await removeRecentView('editorial:hero');
+    expect((await loadRecentViews()).map(({ kind }) => kind)).toEqual([
+      'imported',
+    ]);
+  });
+
+  it('filters invalid and retired entries and safely resets broken payloads', async () => {
+    await AsyncStorage.setItem(
+      RECENT_VIEWS_KEY,
+      JSON.stringify([
+        {
+          kind: 'editorial',
+          articleId: 'missing',
+          timestamp: new Date().toISOString(),
+        },
+        { kind: 'imported', nope: true },
+      ]),
+    );
     expect(await loadRecentViews()).toEqual([]);
-    expect(await AsyncStorage.getItem(RECENT_VIEWS_KEY)).toBeNull();
+    await AsyncStorage.setItem(RECENT_VIEWS_KEY, '{broken');
+    expect(await loadRecentViews()).toEqual([]);
   });
 
   it('toggles favorites on and off', async () => {
