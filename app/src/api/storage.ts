@@ -20,3 +20,4 @@ export const READING_POSITION_KEY_PREFIX =
   'context_reader_reading_position_';
 export const RECENT_VIEWS_KEY = 'context_reader_recent_views_v1';
 export const FAVORITES_KEY = 'context_reader_favorites_v1';
+export const EDITORIAL_SHELF_KEY = 'context_reader_editorial_shelf_v1';
