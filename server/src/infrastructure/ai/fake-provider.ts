@@ -104,6 +104,26 @@ export class FakeAiProvider implements AiProvider {
     return `译文：${text}`;
   }
 
+  async lookupWord(
+    term: string,
+    _context: string | undefined,
+    signal: AbortSignal,
+  ): Promise<string> {
+    signal.throwIfAborted();
+    const meanings: Record<string, string> = {
+      adaptation: '适应；改编',
+      careful: '仔细的；谨慎的',
+      context: '语境；上下文',
+      evidence: '证据；依据',
+      migration: '迁徙；移居',
+      resilient: '有韧性的；能复原的',
+      routine: '惯例；日常安排',
+      uncertain: '不确定的',
+    };
+    return meanings[term.trim().toLocaleLowerCase('en-US')]
+      ?? `与“${term.trim()}”相关的词义`;
+  }
+
   async moderate(_text: string, signal: AbortSignal): Promise<ModerationResult> {
     signal.throwIfAborted();
     return { riskLevel: 'low', flagged: false };

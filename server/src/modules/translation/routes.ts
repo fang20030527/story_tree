@@ -1,24 +1,61 @@
 import {
   TranslationDtoSchema,
   TranslationRequestSchema,
+  WordTranslationDtoSchema,
+  WordTranslationRequestSchema,
 } from '@context-reader/contracts';
 import type { FastifyPluginAsync } from 'fastify';
 
 import type { ServerConfig } from '../../config/env';
 import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
+import type { AiProvider } from '../../infrastructure/ai/types';
 import { parseUuidParam, requireIdempotencyKey } from '../../http/validation';
 import { requireAuth } from '../auth/routes';
 import { getTranslationForUser, requestTranslation } from './service';
+import { validateTranslationText } from './validation';
 
 export interface TranslationRoutesOptions {
   config: ServerConfig;
   db: AppDatabase;
+  wordProvider?: Pick<AiProvider, 'lookupWord'>;
 }
 
 export const translationRoutes: FastifyPluginAsync<
   TranslationRoutesOptions
 > = async (app, options) => {
+  app.post(
+    '/v1/word-translations',
+    { preHandler: requireAuth(options.db) },
+    async (request, reply) => {
+      const parsed = WordTranslationRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new AppError('VALIDATION_ERROR', '词语格式无效', 400);
+      }
+      if (!options.wordProvider) {
+        throw new AppError('AI_UNAVAILABLE', '翻译服务暂时不可用', 503, true);
+      }
+      const rawMeaning = await options.wordProvider.lookupWord(
+        parsed.data.term,
+        parsed.data.context,
+        new AbortController().signal,
+      );
+      if (typeof rawMeaning !== 'string') {
+        throw new AppError('AI_INVALID_OUTPUT', '翻译结果格式无效', 502, true);
+      }
+      const meaningZh = validateTranslationText(rawMeaning);
+      if (meaningZh.length > 200) {
+        throw new AppError('AI_INVALID_OUTPUT', '翻译结果格式无效', 502, true);
+      }
+      return reply.send(
+        WordTranslationDtoSchema.parse({
+          term: parsed.data.term,
+          meaningZh,
+        }),
+      );
+    },
+  );
+
   app.post(
     '/v1/practices/:id/translations',
     { preHandler: requireAuth(options.db) },

@@ -1,4 +1,7 @@
-import type { ArticleSegment } from '@context-reader/contracts';
+import type {
+  ArticleSegment,
+  VocabularyInput,
+} from '@context-reader/contracts';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,7 +13,10 @@ import {
 
 import { ApiError } from '@/api/client';
 import { createIdempotencyKey } from '@/api/installation';
-import { recordAssistance } from '@/api/practices';
+import {
+  recordAssistance,
+  requestWordTranslation,
+} from '@/api/practices';
 
 interface ArticleParagraphProps {
   segments: ArticleSegment[];
@@ -192,6 +198,382 @@ export function InteractiveArticleParagraph({
   );
 }
 
+export interface ArticleTextToken {
+  text: string;
+  isWord: boolean;
+  key: string;
+}
+
+const ENGLISH_WORD_PATTERN = /[A-Za-z]+(?:['’][A-Za-z]+|-[A-Za-z]+)*/gu;
+
+/** Split prose without changing its whitespace or punctuation. */
+export function tokenizeArticleText(text: string): ArticleTextToken[] {
+  const tokens: ArticleTextToken[] = [];
+  let cursor = 0;
+  for (const match of text.matchAll(ENGLISH_WORD_PATTERN)) {
+    const index = match.index ?? cursor;
+    if (index > cursor) {
+      tokens.push({
+        text: text.slice(cursor, index),
+        isWord: false,
+        key: `${cursor}:plain`,
+      });
+    }
+    const word = match[0] ?? '';
+    if (word) {
+      tokens.push({ text: word, isWord: true, key: `${index}:word` });
+    }
+    cursor = index + word.length;
+  }
+  if (cursor < text.length) {
+    tokens.push({
+      text: text.slice(cursor),
+      isWord: false,
+      key: `${cursor}:plain`,
+    });
+  }
+  return tokens;
+}
+
+interface ClickableArticleParagraphProps {
+  text: string;
+  targetColor: string;
+  textColor?: string;
+  onWordPress: (term: string, context: string) => void;
+}
+
+/**
+ * Render ordinary article prose as nested Text nodes.  Only English words
+ * receive a press handler, so tapping a word never steals the ScrollView's
+ * normal scrolling gesture.
+ */
+export function ClickableArticleParagraph({
+  text,
+  targetColor,
+  textColor,
+  onWordPress,
+}: ClickableArticleParagraphProps) {
+  return (
+    <Text
+      selectable
+      style={[styles.paragraph, textColor ? { color: textColor } : undefined]}>
+      {tokenizeArticleText(text).map((token) => token.isWord ? (
+        <Text
+          key={token.key}
+          onPress={() => onWordPress(token.text, text)}
+          style={{ color: targetColor, fontWeight: '600' }}>
+          {token.text}
+        </Text>
+      ) : (
+        token.text
+      ))}
+    </Text>
+  );
+}
+
+export interface InteractiveWordParagraphProps {
+  text: string;
+  targetColor: string;
+  textColor?: string;
+  surfaceColor?: string;
+  borderColor?: string;
+  mutedColor?: string;
+  dangerColor?: string;
+  lookupWord?: (
+    term: string,
+    context: string,
+  ) => Promise<string>;
+  onAddToVocabulary?: (
+    input: VocabularyInput,
+    idempotencyKey: string,
+  ) => Promise<void>;
+}
+
+interface VisibleWordHint {
+  term: string;
+  context: string;
+  meaningZh: string | null;
+  loading: boolean;
+  adding: boolean;
+  added: boolean;
+  error: string | null;
+}
+
+function safeWordHintError(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  if (error instanceof Error && error.message) return error.message;
+  return '暂时无法显示这个词义';
+}
+
+function normalizeWord(term: string): string {
+  return term.trim().toLocaleLowerCase('en-US');
+}
+
+function wordMeaningCacheKey(term: string, context: string): string {
+  return `${normalizeWord(term)}\u0000${context.trim()}`;
+}
+
+function vocabularyItemKey(input: VocabularyInput): string {
+  return JSON.stringify([
+    normalizeWord(input.term),
+    input.meaningZh.trim(),
+    input.sourceSentence?.trim() ?? null,
+  ]);
+}
+
+const MAX_WORD_CONTEXT_LENGTH = 1_000;
+const SENTENCE_BOUNDARY_PATTERN = /[.!?。！？]/u;
+
+/** Keep lookup and vocabulary payloads within the shared context contract. */
+function contextForWord(text: string, term: string): string {
+  const normalizedText = text.trim();
+  if (normalizedText.length <= MAX_WORD_CONTEXT_LENGTH) return normalizedText;
+
+  const normalizedTerm = normalizeWord(term);
+  const termStart = normalizedText
+    .toLocaleLowerCase('en-US')
+    .indexOf(normalizedTerm);
+  if (termStart < 0) return normalizedText.slice(0, MAX_WORD_CONTEXT_LENGTH).trim();
+
+  const sentenceStart = findSentenceStart(normalizedText, termStart);
+  const sentenceEnd = findSentenceEnd(normalizedText, termStart + term.length);
+  const sentence = normalizedText
+    .slice(sentenceStart, sentenceEnd)
+    .trim();
+  if (sentence.length <= MAX_WORD_CONTEXT_LENGTH) return sentence;
+
+  const relativeTermStart = Math.max(0, termStart - sentenceStart);
+  const windowStart = Math.min(
+    relativeTermStart,
+    sentence.length - MAX_WORD_CONTEXT_LENGTH,
+  );
+  return sentence
+    .slice(windowStart, windowStart + MAX_WORD_CONTEXT_LENGTH)
+    .trim();
+}
+
+function findSentenceStart(text: string, from: number): number {
+  for (let index = from - 1; index >= 0; index -= 1) {
+    if (SENTENCE_BOUNDARY_PATTERN.test(text[index] ?? '')) return index + 1;
+  }
+  return 0;
+}
+
+function findSentenceEnd(text: string, from: number): number {
+  for (let index = from; index < text.length; index += 1) {
+    if (SENTENCE_BOUNDARY_PATTERN.test(text[index] ?? '')) return index + 1;
+  }
+  return text.length;
+}
+
+/**
+ * Article-reader variant that looks up any tapped word and can save the
+ * resulting contextual meaning through the existing vocabulary API.
+ */
+export function InteractiveWordParagraph({
+  text,
+  targetColor,
+  textColor,
+  surfaceColor = '#f5f5f5',
+  borderColor = '#dedede',
+  mutedColor = '#666666',
+  dangerColor = '#dc2626',
+  lookupWord = (term, context) => requestWordTranslation({ term, context })
+    .then((result) => result.meaningZh),
+  onAddToVocabulary,
+}: InteractiveWordParagraphProps) {
+  const [visibleHint, setVisibleHint] = useState<VisibleWordHint | null>(null);
+  const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
+  const meaningsRef = useRef<Map<string, string>>(new Map());
+  const keyPromisesRef = useRef<Map<string, Promise<string>>>(new Map());
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const keyForItem = (input: VocabularyInput): Promise<string> => {
+    const identity = vocabularyItemKey(input);
+    const existing = keyPromisesRef.current.get(identity);
+    if (existing) return existing;
+    const created = createIdempotencyKey().catch((error) => {
+      keyPromisesRef.current.delete(identity);
+      throw error;
+    });
+    keyPromisesRef.current.set(identity, created);
+    return created;
+  };
+
+  const showWord = async (term: string, context: string) => {
+    const normalized = normalizeWord(term);
+    if (!normalized) return;
+    const wordContext = contextForWord(context, term);
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    const cacheKey = wordMeaningCacheKey(term, wordContext);
+    const cached = meaningsRef.current.get(cacheKey);
+    if (cached) {
+      setVisibleHint({
+        term,
+        context: wordContext,
+        meaningZh: cached,
+        loading: false,
+        adding: false,
+        added: false,
+        error: null,
+      });
+      return;
+    }
+
+    setVisibleHint({
+      term,
+      context: wordContext,
+      meaningZh: null,
+      loading: true,
+      adding: false,
+      added: false,
+      error: null,
+    });
+    try {
+      const meaningZh = (await lookupWord(term, wordContext)).trim();
+      if (!meaningZh) throw new Error('empty word meaning');
+      meaningsRef.current.set(cacheKey, meaningZh);
+      if (!mountedRef.current || requestIdRef.current !== requestId) return;
+      setVisibleHint({
+        term,
+        context: wordContext,
+        meaningZh,
+        loading: false,
+        adding: false,
+        added: false,
+        error: null,
+      });
+    } catch (error) {
+      if (!mountedRef.current || requestIdRef.current !== requestId) return;
+      setVisibleHint({
+        term,
+        context: wordContext,
+        meaningZh: null,
+        loading: false,
+        adding: false,
+        added: false,
+        error: safeWordHintError(error),
+      });
+    }
+  };
+
+  const addVisibleWord = async () => {
+    if (!onAddToVocabulary || !visibleHint?.meaningZh || visibleHint.added) {
+      return;
+    }
+    const selected = visibleHint;
+    const selectedRequestId = requestIdRef.current;
+    const meaningZh = selected.meaningZh;
+    if (!meaningZh) return;
+    const item: VocabularyInput = {
+      term: selected.term,
+      meaningZh,
+      sourceSentence: selected.context,
+    };
+    setVisibleHint({ ...selected, adding: true, error: null });
+    try {
+      const idempotencyKey = await keyForItem(item);
+      await onAddToVocabulary(item, idempotencyKey);
+      if (
+        !mountedRef.current
+        || requestIdRef.current !== selectedRequestId
+      ) return;
+      setVisibleHint({ ...selected, adding: false, added: true, error: null });
+    } catch (error) {
+      if (
+        !mountedRef.current
+        || requestIdRef.current !== selectedRequestId
+      ) return;
+      setVisibleHint({
+        ...selected,
+        adding: false,
+        error: safeWordHintError(error),
+      });
+    }
+  };
+
+  return (
+    <View>
+      <ClickableArticleParagraph
+        onWordPress={(term, context) => void showWord(term, context)}
+        targetColor={targetColor}
+        text={text}
+        textColor={textColor}
+      />
+      {visibleHint ? (
+        <View
+          style={[
+            styles.hint,
+            { backgroundColor: surfaceColor, borderColor },
+          ]}>
+          <View style={styles.hintHeader}>
+            <Text style={[styles.hintTerm, { color: textColor }]}>
+              {visibleHint.term}
+            </Text>
+            <TouchableOpacity
+              accessibilityLabel="关闭词义提示"
+              hitSlop={8}
+              onPress={() => {
+                requestIdRef.current += 1;
+                setVisibleHint(null);
+              }}>
+              <Text style={[styles.hintClose, { color: mutedColor }]}>×</Text>
+            </TouchableOpacity>
+          </View>
+          {visibleHint.loading ? (
+            <ActivityIndicator color={targetColor} size="small" />
+          ) : null}
+          {visibleHint.meaningZh ? (
+            <Text style={[styles.hintMeaning, { color: textColor }]}>
+              {visibleHint.meaningZh}
+            </Text>
+          ) : null}
+          {visibleHint.meaningZh && onAddToVocabulary ? (
+            <TouchableOpacity
+              accessibilityLabel={visibleHint.added ? '已加入生词本' : '加入生词本'}
+              disabled={visibleHint.adding || visibleHint.added}
+              onPress={() => void addVisibleWord()}
+              style={[
+                styles.addWordButton,
+                {
+                  borderColor: visibleHint.added ? targetColor : borderColor,
+                  opacity: visibleHint.adding ? 0.65 : 1,
+                },
+              ]}>
+              {visibleHint.adding ? (
+                <ActivityIndicator color={targetColor} size="small" />
+              ) : (
+                <Text style={[styles.addWordIcon, { color: targetColor }]}>
+                  {visibleHint.added ? '✓' : '+'}
+                </Text>
+              )}
+              <Text style={[styles.addWordText, { color: targetColor }]}>
+                {visibleHint.added ? '已加入生词本' : '加入生词本'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {visibleHint.error ? (
+            <TouchableOpacity
+              onPress={() => void showWord(visibleHint.term, visibleHint.context)}>
+              <Text style={[styles.hintError, { color: dangerColor }]}>
+                {visibleHint.error} · 重试
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   paragraph: { fontSize: 17, lineHeight: 30, marginBottom: 18 },
   hint: {
@@ -210,4 +592,17 @@ const styles = StyleSheet.create({
   hintClose: { fontSize: 22, lineHeight: 22 },
   hintMeaning: { fontSize: 14, lineHeight: 21, marginTop: 6 },
   hintError: { fontSize: 13, marginTop: 6 },
+  addWordButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 10,
+    minHeight: 34,
+    paddingHorizontal: 9,
+  },
+  addWordIcon: { fontSize: 17, fontWeight: '700', lineHeight: 17 },
+  addWordText: { fontSize: 12, fontWeight: '600' },
 });

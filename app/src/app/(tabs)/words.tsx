@@ -238,7 +238,7 @@ export default function WordsScreen() {
               还没有云端生词
             </Text>
             <Text style={[styles.stateText, { color: theme.textSecondary }]}>
-              完成一次长文练习后，义项会出现在这里。
+              在文章阅读或长文练习中保存的义项会出现在这里。
             </Text>
           </Card>
         ) : null}

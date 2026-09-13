@@ -19,6 +19,7 @@ import { registerAnonymous } from '@/api/practices';
 import { Card } from '@/components/ui';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { saveAuthUserEmail } from '@/features/auth/authStorage';
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -56,6 +57,11 @@ export default function LoginScreen() {
     try {
       await registerAnonymous(true);
       await loginWithEmail(normalizedEmail, password);
+      try {
+        await saveAuthUserEmail(normalizedEmail);
+      } catch {
+        // The login response is authoritative; the display-only email is best effort.
+      }
       router.back();
     } catch (error) {
       setMessage(messageFor(error));

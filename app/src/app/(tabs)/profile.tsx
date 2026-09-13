@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '@/components/ui';
 import { ThemeMode, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import { loadAuthUser } from '@/features/auth/authStorage';
+import * as authStorage from '@/features/auth/authStorage';
 import { loadRecentViews } from '@/features/library/libraryStorage';
 
 const MENU: {
@@ -57,20 +57,26 @@ export default function ProfileScreen() {
   const { theme, preference, setPreference } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [isRegistered, setIsRegistered] = useState(false);
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [recentCount, setRecentCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
-      void Promise.all([loadAuthUser(), loadRecentViews()])
-        .then(([user, recents]) => {
+      const emailPromise = typeof authStorage.loadAuthUserEmail === 'function'
+        ? Promise.resolve(authStorage.loadAuthUserEmail()).catch(() => null)
+        : Promise.resolve(null);
+      void Promise.all([authStorage.loadAuthUser(), emailPromise, loadRecentViews()])
+        .then(([user, email, recents]) => {
           if (!mounted) return;
           setIsRegistered(Boolean(user));
+          setAuthEmail(user ? email : null);
           setRecentCount(recents.length);
         })
         .catch(() => {
           if (!mounted) return;
           setIsRegistered(false);
+          setAuthEmail(null);
           setRecentCount(0);
         });
       return () => {
@@ -78,6 +84,17 @@ export default function ProfileScreen() {
       };
     }, []),
   );
+
+  const handleLogout = async () => {
+    try {
+      await authStorage.clearAuthUser();
+      setIsRegistered(false);
+      setAuthEmail(null);
+      router.replace('/login');
+    } catch {
+      Alert.alert('退出登录失败', '请稍后重试');
+    }
+  };
 
   const stats = [
     { label: '生词', value: 6 },
@@ -94,15 +111,24 @@ export default function ProfileScreen() {
         <View style={[styles.userArea, { paddingTop: insets.top + 16, backgroundColor: theme.surfaceAlt }]}>
           <View style={styles.userRow}>
             <TouchableOpacity
-              onPress={() => router.push('/login')}
+              onPress={() => {
+                if (!isRegistered) router.push('/login');
+              }}
               activeOpacity={0.85}
               style={styles.userIdentity}>
               <View style={[styles.avatar, { backgroundColor: theme.accentSoft }]}>
                 <Ionicons name="person" size={30} color={theme.accent} />
               </View>
-              <Text style={[styles.username, { color: theme.text }]}>
-                {isRegistered ? '已登录用户' : '注册 / 登录'}
-              </Text>
+              <View style={styles.identityText}>
+                <Text style={[styles.username, { color: theme.text }]}>
+                  {isRegistered ? '已登录用户' : '注册 / 登录'}
+                </Text>
+                {isRegistered && authEmail ? (
+                  <Text style={[styles.email, { color: theme.textSecondary }]} numberOfLines={1}>
+                    {authEmail}
+                  </Text>
+                ) : null}
+              </View>
             </TouchableOpacity>
             <TouchableOpacity hitSlop={8} onPress={() => router.push('/settings')}>
               <Ionicons name="settings-outline" size={22} color={theme.textSecondary} />
@@ -256,6 +282,20 @@ export default function ProfileScreen() {
                 <Ionicons name="chevron-forward" size={15} color={theme.textMuted} />
               </TouchableOpacity>
             ))}
+            {isRegistered ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.7}
+                onPress={() => void handleLogout()}
+                style={[
+                  styles.menuRow,
+                  { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+                ]}>
+                <Ionicons name="log-out-outline" size={19} color={theme.danger} />
+                <Text style={[styles.menuLabel, styles.logoutLabel, { color: theme.danger }]}>退出登录</Text>
+                <Ionicons name="chevron-forward" size={15} color={theme.textMuted} />
+              </TouchableOpacity>
+            ) : null}
           </Card>
 
           <Text style={[styles.version, { color: theme.textMuted }]}>
@@ -272,6 +312,7 @@ const styles = StyleSheet.create({
   userArea: { paddingHorizontal: 16, paddingBottom: 20 },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   userIdentity: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  identityText: { flex: 1 },
   avatar: {
     width: 56,
     height: 56,
@@ -279,7 +320,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  username: { flex: 1, fontSize: 18, fontWeight: weight('semibold') },
+  username: { fontSize: 18, fontWeight: weight('semibold') },
+  email: { fontSize: 13, marginTop: 4 },
   vipCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -349,6 +391,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   menuLabel: { fontSize: 15 },
+  logoutLabel: { flex: 1, marginLeft: 12 },
   menuSub: { fontSize: 12, marginTop: 2 },
   version: { textAlign: 'center', fontSize: 11, marginTop: 20 },
 });

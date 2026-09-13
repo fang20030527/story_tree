@@ -13,6 +13,7 @@ import {
   generationMessages,
   ocrMessages,
   translationMessages,
+  wordHintMessages,
   verificationMessages,
 } from './prompts';
 import type {
@@ -76,6 +77,22 @@ export class EvolinkAiProvider implements AiProvider {
       {
         messages: translationMessages(text),
         maxCompletionTokens: 6_000,
+        reasoningEffort: 'low',
+      },
+      signal,
+    );
+    return response.text;
+  }
+
+  async lookupWord(
+    term: string,
+    context: string | undefined,
+    signal: AbortSignal,
+  ): Promise<string> {
+    const response = await this.client.generateText(
+      {
+        messages: wordHintMessages(term, context),
+        maxCompletionTokens: 200,
         reasoningEffort: 'low',
       },
       signal,

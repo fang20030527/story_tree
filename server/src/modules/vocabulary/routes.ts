@@ -1,10 +1,18 @@
-import { VocabularyPageSchema } from '@context-reader/contracts';
+import {
+  VocabularyInputSchema,
+  VocabularyItemDtoSchema,
+  VocabularyPageSchema,
+} from '@context-reader/contracts';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
+import { requireIdempotencyKey } from '../../http/validation';
 import { requireAuth } from '../auth/routes';
-import { getVocabularyPage } from './service';
+import {
+  createVocabularyItemForUser,
+  getVocabularyPage,
+} from './service';
 
 export interface VocabularyRoutesOptions {
   db: AppDatabase;
@@ -13,6 +21,26 @@ export interface VocabularyRoutesOptions {
 export const vocabularyRoutes: FastifyPluginAsync<
   VocabularyRoutesOptions
 > = async (app, options) => {
+  app.post(
+    '/v1/vocabulary-items',
+    { preHandler: requireAuth(options.db) },
+    async (request, reply) => {
+      const idempotencyKey = requireIdempotencyKey(
+        request.headers['idempotency-key'],
+      );
+      const parsed = VocabularyInputSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new AppError('VALIDATION_ERROR', '词义格式无效', 400);
+      }
+      const item = await createVocabularyItemForUser(options.db, {
+        userId: request.authUser.userId,
+        item: parsed.data,
+        idempotencyKey,
+      });
+      return reply.code(201).send(VocabularyItemDtoSchema.parse(item));
+    },
+  );
+
   app.get(
     '/v1/vocabulary-items',
     { preHandler: requireAuth(options.db) },

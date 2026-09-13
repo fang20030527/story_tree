@@ -1,14 +1,31 @@
 import {
+  VocabularyItemDtoSchema,
   VocabularyPageSchema,
   UuidSchema,
+  type VocabularyInput,
+  type VocabularyItemDto,
   type VocabularyPage,
 } from '@context-reader/contracts';
-import { and, desc, eq, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  isNull,
+  lt,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { z } from 'zod';
 
 import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
 import { learningProgress, vocabularyItems } from '../../db/schema';
+import {
+  beginIdempotentOperation,
+  finishIdempotentOperation,
+} from '../idempotency/service';
+import { upsertExactVocabularyItems } from './repository';
 
 const CURSOR_PATTERN = /^[A-Za-z0-9_-]+$/;
 const CURSOR_MAX_LENGTH = 512;
@@ -22,6 +39,91 @@ const CursorPayloadSchema = z
 interface VocabularyCursor {
   createdAt: string;
   id: string;
+}
+
+export interface CreateVocabularyItemInput {
+  userId: string;
+  item: VocabularyInput;
+  idempotencyKey: string;
+}
+
+/**
+ * Save one contextual word to the same durable vocabulary used by practice
+ * creation.  The fingerprint constraint makes repeated taps safe, while the
+ * idempotency record also makes a retried network request return the same row.
+ */
+export async function createVocabularyItemForUser(
+  db: AppDatabase,
+  input: CreateVocabularyItemInput,
+): Promise<VocabularyItemDto> {
+  return db.transaction(async (tx) => {
+    const replay = await beginIdempotentOperation(
+      tx,
+      input.userId,
+      'create_vocabulary_item',
+      input.idempotencyKey,
+      input.item,
+    );
+    const itemId = replay
+      ?? (await upsertExactVocabularyItems(tx, input.userId, [input.item]))[0];
+    if (!itemId) {
+      throw new AppError('INTERNAL_ERROR', '词义保存失败', 500, true);
+    }
+    if (!replay) {
+      await finishIdempotentOperation(
+        tx,
+        input.userId,
+        'create_vocabulary_item',
+        input.idempotencyKey,
+        itemId,
+      );
+    }
+    return loadVocabularyItem(tx, input.userId, itemId);
+  });
+}
+
+async function loadVocabularyItem(
+  db: Pick<AppDatabase, 'select'>,
+  userId: string,
+  itemId: string,
+): Promise<VocabularyItemDto> {
+  const [row] = await db
+    .select({
+      id: vocabularyItems.id,
+      term: vocabularyItems.term,
+      meaningZh: vocabularyItems.meaningZh,
+      sourceSentence: vocabularyItems.sourceSentence,
+      status: vocabularyItems.status,
+      practiceCount: sql<number>`coalesce(${learningProgress.practiceCount}, 0)::int`,
+      firstTryCorrectCount: sql<number>`coalesce(${learningProgress.firstTryCorrectCount}, 0)::int`,
+      assistedCount: sql<number>`coalesce(${learningProgress.assistedCount}, 0)::int`,
+      lastPracticedAt: learningProgress.lastPracticedAt,
+    })
+    .from(vocabularyItems)
+    .leftJoin(
+      learningProgress,
+      eq(learningProgress.vocabularyItemId, vocabularyItems.id),
+    )
+    .where(
+      and(
+        eq(vocabularyItems.id, itemId),
+        eq(vocabularyItems.userId, userId),
+        isNull(vocabularyItems.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (!row) throw new AppError('NOT_FOUND', '词义不存在', 404);
+  return VocabularyItemDtoSchema.parse({
+    id: row.id,
+    term: row.term,
+    meaningZh: row.meaningZh,
+    sourceSentence: row.sourceSentence,
+    status: row.status,
+    practiceCount: row.practiceCount,
+    firstTryCorrectCount: row.firstTryCorrectCount,
+    assistedCount: row.assistedCount,
+    lastPracticedAt: row.lastPracticedAt?.toISOString() ?? null,
+  });
 }
 
 export async function getVocabularyPage(

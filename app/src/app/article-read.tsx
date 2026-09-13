@@ -1,6 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import type {
+  ImportedArticleDto,
+  TranslationRequest,
+  VocabularyInput,
+} from '@context-reader/contracts';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -10,32 +15,25 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { ImportedArticleDto, TranslationRequest } from '@context-reader/contracts';
 
 import { ApiError } from '@/api/client';
 import { getImportedArticle } from '@/api/articles';
 import {
-  getArticleTranslation,
-  requestArticleTranslation,
-} from '@/api/imports';
-import { createIdempotencyKey } from '@/api/installation';
+  createVocabularyItem,
+} from '@/api/practices';
 import { useAppTheme } from '@/context/ThemeContext';
 import type { Theme } from '@/constants/theme';
 import { weight } from '@/constants/theme';
 import { recordImportedRecentView } from '@/features/library/libraryStorage';
-
-type TranslationState = {
-  status: 'idle' | 'loading' | 'ready' | 'failed';
-  text: string | null;
-  error: string | null;
-};
-
-const INITIAL_TRANSLATION: TranslationState = { status: 'idle', text: null, error: null };
+import {
+  InteractiveWordParagraph,
+} from '@/features/practice/ArticleParagraph';
+import { useTranslation } from '@/features/practice/useTranslation';
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error && error.message) return error.message;
-  return '翻译暂时无法完成';
+  return '文章暂时无法读取';
 }
 
 function isMissingArticle(error: unknown): boolean {
@@ -61,9 +59,6 @@ export default function ArticleReadScreen() {
   const [loading, setLoading] = useState(Boolean(articleId));
   const [message, setMessage] = useState<string | null>(articleId ? null : '找不到文章');
   const [deleted, setDeleted] = useState(false);
-  const [fullTranslation, setFullTranslation] = useState<TranslationState>(INITIAL_TRANSLATION);
-  const [paragraphTranslations, setParagraphTranslations] = useState<Record<string, TranslationState>>({});
-  const translationKeysRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     if (!articleId) {
@@ -94,36 +89,7 @@ export default function ArticleReadScreen() {
     };
   }, [articleId]);
 
-  const translate = async (request: TranslationRequest, key: string) => {
-    if (!articleId) return;
-    const setState = (next: TranslationState) => {
-      if (request.scope === 'full') setFullTranslation(next);
-      else setParagraphTranslations((current) => ({ ...current, [request.paragraphId]: next }));
-    };
-    setState({ status: 'loading', text: null, error: null });
-    try {
-      const idempotencyKey = translationKeysRef.current[key] ?? (translationKeysRef.current[key] = await createIdempotencyKey());
-      let translation = await requestArticleTranslation(articleId, request, idempotencyKey);
-      while (translation.status === 'queued' || translation.status === 'generating') {
-        await new Promise<void>((resolve) => setTimeout(resolve, translation.pollAfterMs ?? 1_000));
-        translation = await getArticleTranslation(translation.id);
-      }
-      if (translation.status === 'failed' || !translation.translatedTextZh?.trim()) {
-        // A terminal provider failure is reset by the next request. Do not
-        // replay the old idempotency key, otherwise the server would return
-        // the same failed translation forever instead of creating a retry.
-        delete translationKeysRef.current[key];
-        throw new ApiError(translation.failure?.code ?? 'TRANSLATION_FAILED', translation.failure?.message ?? '翻译暂时无法完成', translation.failure?.retryable ?? true);
-      }
-      setState({ status: 'ready', text: translation.translatedTextZh, error: null });
-    } catch (error) {
-      if (isMissingArticle(error)) {
-        setDeleted(true);
-        return;
-      }
-      setState({ status: 'failed', text: null, error: messageFor(error) });
-    }
-  };
+  const markDeleted = useCallback(() => setDeleted(true), []);
 
   if (loading) return <View style={[styles.centered, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} /></View>;
 
@@ -155,17 +121,27 @@ export default function ArticleReadScreen() {
           <Text style={[styles.meta, { color: theme.textMuted }]}>{article.wordCount} 词 · {new Date(article.importedAt).toLocaleDateString('zh-CN')}</Text>
 
           <View style={[styles.fullTranslationBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.translationHeader}><View style={styles.translationHeading}><Ionicons name="language-outline" size={18} color={theme.blue} /><Text style={[styles.translationTitle, { color: theme.text }]}>全文翻译</Text></View><TouchableOpacity disabled={fullTranslation.status === 'loading'} onPress={() => void translate({ scope: 'full' }, 'full')} hitSlop={8}><Text style={[styles.translationAction, { color: theme.blue }]}>{fullTranslation.status === 'ready' ? '重新请求' : '查看译文'}</Text></TouchableOpacity></View>
-            {fullTranslation.status === 'loading' ? <ActivityIndicator color={theme.blue} style={styles.translationSpinner} /> : null}
-            {fullTranslation.status === 'ready' && fullTranslation.text ? <Text style={[styles.translationText, { color: theme.textSecondary }]}>{fullTranslation.text}</Text> : null}
-            {fullTranslation.status === 'failed' ? <Text style={[styles.translationError, { color: theme.danger }]}>{fullTranslation.error}</Text> : null}
+            <ArticleTranslationControl
+              articleId={article.id}
+              actionLabel="查看译文"
+              label="全文翻译"
+              onMissingArticle={markDeleted}
+              request={{ scope: 'full' }}
+            />
           </View>
 
           <View style={styles.articleBody}>
-            {article.paragraphs.map((paragraph, index) => {
-              const state = paragraphTranslations[paragraph.id] ?? INITIAL_TRANSLATION;
-              return <ParagraphBlock key={paragraph.id} theme={theme} index={index} text={paragraph.text} translation={state} onTranslate={() => void translate({ scope: 'paragraph', paragraphId: paragraph.id }, `paragraph:${paragraph.id}`)} />;
-            })}
+            {article.paragraphs.map((paragraph, index) => (
+              <ParagraphBlock
+                articleId={article.id}
+                key={paragraph.id}
+                onMissingArticle={markDeleted}
+                paragraphId={paragraph.id}
+                theme={theme}
+                index={index}
+                text={paragraph.text}
+              />
+            ))}
           </View>
         </ScrollView>
       ) : (
@@ -175,8 +151,128 @@ export default function ArticleReadScreen() {
   );
 }
 
-function ParagraphBlock({ theme, index, text, translation, onTranslate }: { theme: Theme; index: number; text: string; translation: TranslationState; onTranslate: () => void }) {
-  return <View style={styles.paragraphBlock}><View style={styles.paragraphHeader}><Text style={[styles.paragraphIndex, { color: theme.accent }]}>{String(index + 1).padStart(2, '0')}</Text><TouchableOpacity disabled={translation.status === 'loading'} onPress={onTranslate} hitSlop={8} style={styles.paragraphTranslationButton}><Ionicons name="language-outline" size={14} color={theme.blue} /><Text style={[styles.paragraphTranslationAction, { color: theme.blue }]}>{translation.status === 'ready' ? '刷新翻译' : '翻译本段'}</Text></TouchableOpacity></View><Text style={[styles.paragraphText, { color: theme.text }]}>{text}</Text>{translation.status === 'loading' ? <ActivityIndicator color={theme.blue} size="small" style={styles.paragraphSpinner} /> : null}{translation.status === 'ready' && translation.text ? <Text style={[styles.paragraphTranslation, { color: theme.textSecondary }]}>{translation.text}</Text> : null}{translation.status === 'failed' ? <Text style={[styles.translationError, { color: theme.danger }]}>{translation.error}</Text> : null}</View>;
+interface ArticleTranslationControlProps {
+  articleId: string;
+  request: TranslationRequest;
+  label: string;
+  actionLabel?: string;
+  onMissingArticle: () => void;
+}
+
+function ArticleTranslationControl({
+  articleId,
+  request,
+  label,
+  actionLabel = label,
+  onMissingArticle,
+}: ArticleTranslationControlProps) {
+  const { theme } = useAppTheme();
+  const translation = useTranslation(articleId, request, 'article');
+  const loading = translation.status === 'loading';
+
+  useEffect(() => {
+    if (translation.error?.code === 'NOT_FOUND') onMissingArticle();
+  }, [onMissingArticle, translation.error]);
+
+  const buttonLabel = loading
+    ? '翻译中…'
+    : translation.visible
+        ? '隐藏译文'
+        : translation.error
+          ? '重试翻译'
+        : actionLabel;
+
+  const handlePress = () => {
+    if (translation.visible) translation.hide();
+    else if (translation.error) void translation.retry();
+    else void translation.show();
+  };
+
+  return (
+    <View>
+      <View style={styles.translationHeader}>
+        <View style={styles.translationHeading}>
+          <Ionicons name="language-outline" size={18} color={theme.blue} />
+          <Text style={[styles.translationTitle, { color: theme.text }]}>{label}</Text>
+        </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          disabled={loading}
+          hitSlop={8}
+          onPress={handlePress}>
+          {loading ? (
+            <ActivityIndicator color={theme.blue} size="small" />
+          ) : (
+            <Text style={[styles.translationAction, { color: theme.blue }]}>
+              {buttonLabel}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+      {translation.visible && translation.translatedTextZh ? (
+        <Text style={[styles.translationText, { color: theme.textSecondary }]}>
+          {translation.translatedTextZh}
+        </Text>
+      ) : null}
+      {translation.error && translation.error.code !== 'NOT_FOUND' ? (
+        <TouchableOpacity onPress={() => void translation.retry()}>
+          <Text style={[styles.translationError, { color: theme.danger }]}>
+            {translation.error.message} · 重试
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+interface ParagraphBlockProps {
+  articleId: string;
+  paragraphId: string;
+  index: number;
+  text: string;
+  theme: Theme;
+  onMissingArticle: () => void;
+}
+
+function ParagraphBlock({
+  articleId,
+  paragraphId,
+  index,
+  text,
+  theme,
+  onMissingArticle,
+}: ParagraphBlockProps) {
+  const addToVocabulary = async (
+    input: VocabularyInput,
+    idempotencyKey: string,
+  ) => {
+    await createVocabularyItem(input, idempotencyKey);
+  };
+
+  return (
+    <View style={styles.paragraphBlock}>
+      <View style={styles.paragraphHeader}>
+        <Text style={[styles.paragraphIndex, { color: theme.accent }]}>
+          {String(index + 1).padStart(2, '0')}
+        </Text>
+        <ArticleTranslationControl
+          articleId={articleId}
+          label="翻译本段"
+          onMissingArticle={onMissingArticle}
+          request={{ scope: 'paragraph', paragraphId }}
+        />
+      </View>
+      <InteractiveWordParagraph
+        borderColor={theme.border}
+        dangerColor={theme.danger}
+        onAddToVocabulary={addToVocabulary}
+        surfaceColor={theme.surfaceAlt}
+        targetColor={theme.accent}
+        text={text}
+        textColor={theme.text}
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -195,18 +291,12 @@ const styles = StyleSheet.create({
   translationHeading: { alignItems: 'center', flexDirection: 'row', gap: 7 },
   translationTitle: { fontSize: 14, fontWeight: weight('semibold') },
   translationAction: { fontSize: 12, fontWeight: weight('semibold') },
-  translationSpinner: { marginTop: 13 },
   translationText: { fontSize: 14, lineHeight: 23, marginTop: 12 },
   translationError: { fontSize: 12, lineHeight: 18, marginTop: 10 },
   articleBody: { marginTop: 24 },
   paragraphBlock: { marginBottom: 24 },
   paragraphHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 7 },
   paragraphIndex: { fontSize: 12, fontWeight: weight('bold'), letterSpacing: 1 },
-  paragraphTranslationButton: { alignItems: 'center', flexDirection: 'row', gap: 5 },
-  paragraphTranslationAction: { fontSize: 12, fontWeight: weight('medium') },
-  paragraphText: { fontSize: 17, lineHeight: 29 },
-  paragraphSpinner: { alignSelf: 'flex-start', marginTop: 9 },
-  paragraphTranslation: { borderLeftWidth: 2, borderLeftColor: '#3B6FE0', fontSize: 14, lineHeight: 22, marginTop: 11, paddingLeft: 10 },
   emptyTitle: { fontSize: 18, fontWeight: weight('semibold'), marginTop: 12 },
   emptyMessage: { fontSize: 13, lineHeight: 20, marginTop: 8, textAlign: 'center' },
 });

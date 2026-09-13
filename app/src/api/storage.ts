@@ -1,6 +1,7 @@
 export const INSTALLATION_TOKEN_KEY =
   'context_reader_installation_token_v1';
 export const AUTH_USER_KEY = 'context_reader_auth_user_v1';
+export const AUTH_USER_EMAIL_KEY = 'context_reader_auth_user_email_v1';
 
 export const AGE_CONFIRMED_KEY =
   'context_reader_age_confirmed_v1';

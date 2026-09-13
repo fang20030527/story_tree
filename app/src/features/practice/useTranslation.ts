@@ -3,10 +3,14 @@ import type {
   TranslationDto,
   TranslationRequest,
 } from '@context-reader/contracts';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 
 import { ApiError } from '@/api/client';
 import { createIdempotencyKey } from '@/api/installation';
+import {
+  getArticleTranslation,
+  requestArticleTranslation,
+} from '@/api/imports';
 import {
   getTranslation,
   recordAssistance,
@@ -14,6 +18,7 @@ import {
 } from '@/api/practices';
 
 export type TranslationViewStatus = 'idle' | 'loading' | 'ready' | 'failed';
+export type TranslationResource = 'practice' | 'article';
 
 export interface TranslationViewState {
   status: TranslationViewStatus;
@@ -23,6 +28,57 @@ export interface TranslationViewState {
   show: () => Promise<void>;
   hide: () => void;
   retry: () => Promise<void>;
+}
+
+interface TranslationState {
+  status: TranslationViewStatus;
+  translatedTextZh: string | null;
+  visible: boolean;
+  error: ApiError | null;
+}
+
+type TranslationAction =
+  | { type: 'reset' }
+  | { type: 'clear-error' }
+  | { type: 'loading' }
+  | { type: 'ready'; text: string }
+  | { type: 'failed'; error: ApiError }
+  | { type: 'assistance-failed'; error: ApiError }
+  | { type: 'hide' };
+
+const INITIAL_TRANSLATION_STATE: TranslationState = {
+  status: 'idle',
+  translatedTextZh: null,
+  visible: false,
+  error: null,
+};
+
+function translationReducer(
+  state: TranslationState,
+  action: TranslationAction,
+): TranslationState {
+  switch (action.type) {
+    case 'reset':
+      return INITIAL_TRANSLATION_STATE;
+    case 'clear-error':
+      return { ...state, error: null };
+    case 'loading':
+      return { ...state, status: 'loading', error: null };
+    case 'ready':
+      return {
+        ...state,
+        status: 'ready',
+        translatedTextZh: action.text,
+        visible: true,
+        error: null,
+      };
+    case 'failed':
+      return { ...state, status: 'failed', error: action.error };
+    case 'assistance-failed':
+      return { ...state, error: action.error };
+    case 'hide':
+      return { ...state, visible: false };
+  }
 }
 
 function toTranslationError(error: unknown): ApiError {
@@ -58,15 +114,15 @@ function scopeIdentity(request: TranslationRequest): string {
 }
 
 export function useTranslation(
-  practiceId: string,
+  resourceId: string,
   request: TranslationRequest,
+  resource: TranslationResource = 'practice',
 ): TranslationViewState {
-  const [status, setStatus] = useState<TranslationViewStatus>('idle');
-  const [translatedTextZh, setTranslatedTextZh] = useState<string | null>(null);
-  const [visible, setVisible] = useState(false);
-  const [error, setError] = useState<ApiError | null>(null);
+  const [state, dispatch] = useReducer(
+    translationReducer,
+    INITIAL_TRANSLATION_STATE,
+  );
   const requestRef = useRef(request);
-  requestRef.current = request;
   const mountedRef = useRef(true);
   const visibleRef = useRef(false);
   const textRef = useRef<string | null>(null);
@@ -76,7 +132,16 @@ export function useTranslation(
   const terminalFailureRef = useRef(false);
   const inFlightRef = useRef<Promise<void> | null>(null);
   const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
-  const identity = `${practiceId}:${scopeIdentity(request)}`;
+  const requestTranslationResource = resource === 'article'
+    ? requestArticleTranslation
+    : requestTranslation;
+  const getTranslationResource = resource === 'article'
+    ? getArticleTranslation
+    : getTranslation;
+  const recordAssistanceResource = resource === 'article'
+    ? null
+    : recordAssistance;
+  const identity = `${resource}:${resourceId}:${scopeIdentity(request)}`;
 
   const waitForPoll = useCallback((delayMs: number) => (
     new Promise<void>((resolve) => {
@@ -99,16 +164,17 @@ export function useTranslation(
   }, []);
 
   useEffect(() => {
+    requestRef.current = request;
+  }, [request]);
+
+  useEffect(() => {
     requestKeyRef.current = null;
     assistanceKeyRef.current = null;
     translationIdRef.current = null;
     terminalFailureRef.current = false;
     textRef.current = null;
     visibleRef.current = false;
-    setStatus('idle');
-    setTranslatedTextZh(null);
-    setVisible(false);
-    setError(null);
+    dispatch({ type: 'reset' });
   }, [identity]);
 
   const getRequestKey = useCallback(async () => {
@@ -132,20 +198,20 @@ export function useTranslation(
     while (current.status === 'queued' || current.status === 'generating') {
       await waitForPoll(current.pollAfterMs ?? 1_000);
       if (!mountedRef.current) return current;
-      current = await getTranslation(current.id);
+      current = await getTranslationResource(current.id);
       translationIdRef.current = current.id;
     }
     return current;
-  }, [waitForPoll]);
+  }, [getTranslationResource, waitForPoll]);
 
   const loadReadyTranslation = useCallback(async (): Promise<string> => {
     let translation: TranslationDto;
     if (translationIdRef.current) {
-      translation = await getTranslation(translationIdRef.current);
+      translation = await getTranslationResource(translationIdRef.current);
     } else {
       const idempotencyKey = await getRequestKey();
-      translation = await requestTranslation(
-        practiceId,
+      translation = await requestTranslationResource(
+        resourceId,
         requestRef.current,
         idempotencyKey,
       );
@@ -166,55 +232,57 @@ export function useTranslation(
     }
     terminalFailureRef.current = false;
     return translation.translatedTextZh;
-  }, [getRequestKey, pollToTerminalState, practiceId]);
+  }, [getRequestKey, getTranslationResource, pollToTerminalState, requestTranslationResource, resourceId]);
 
   const recordVisibleAssistance = useCallback(async () => {
+    if (!recordAssistanceResource) return;
     const idempotencyKey = await getAssistanceKey();
-    await recordAssistance(
-      practiceId,
+    await recordAssistanceResource(
+      resourceId,
       assistanceFor(requestRef.current),
       idempotencyKey,
     );
-  }, [getAssistanceKey, practiceId]);
+  }, [getAssistanceKey, recordAssistanceResource, resourceId]);
 
   const runShow = useCallback(async () => {
     try {
-      setError(null);
+      dispatch({ type: 'clear-error' });
       let text = textRef.current;
       if (!text) {
-        setStatus('loading');
+        dispatch({ type: 'loading' });
         text = await loadReadyTranslation();
       }
       if (!mountedRef.current) return;
 
       textRef.current = text;
       visibleRef.current = true;
-      setTranslatedTextZh(text);
-      setVisible(true);
-      setStatus('ready');
+      dispatch({ type: 'ready', text });
       await Promise.resolve();
       if (!mountedRef.current) return;
       await recordVisibleAssistance();
     } catch (nextError) {
       if (!mountedRef.current) return;
-      setError(toTranslationError(nextError));
-      if (!textRef.current) setStatus('failed');
+      const error = toTranslationError(nextError);
+      dispatch({
+        type: textRef.current ? 'assistance-failed' : 'failed',
+        error,
+      });
     }
   }, [loadReadyTranslation, recordVisibleAssistance]);
 
   const startShow = useCallback((): Promise<void> => {
-    if (visibleRef.current && !error) return Promise.resolve();
+    if (visibleRef.current && !state.error) return Promise.resolve();
     if (inFlightRef.current) return inFlightRef.current;
     const operation = runShow().finally(() => {
       if (inFlightRef.current === operation) inFlightRef.current = null;
     });
     inFlightRef.current = operation;
     return operation;
-  }, [error, runShow]);
+  }, [runShow, state.error]);
 
   const hide = useCallback(() => {
     visibleRef.current = false;
-    setVisible(false);
+    dispatch({ type: 'hide' });
   }, []);
 
   const retry = useCallback(() => {
@@ -227,10 +295,10 @@ export function useTranslation(
   }, [startShow]);
 
   return {
-    status,
-    translatedTextZh,
-    visible,
-    error,
+    status: state.status,
+    translatedTextZh: state.translatedTextZh,
+    visible: state.visible,
+    error: state.error,
     show: startShow,
     hide,
     retry,

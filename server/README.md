@@ -31,6 +31,8 @@ Expo Go 真机调试要求手机和 API 主机可在同一局域网互访。`EXP
 | `GET /v1/translations/:id` | `200` | 读取翻译状态 |
 | `POST /v1/practices/:id/assistance` | `200` | 在内容实际展示后记录辅助 |
 | `POST /v1/practices/:id/answers` | `200` | 保存且只保存首次作答 |
+| `POST /v1/word-translations` | `200` | 按语境查询一个单词或短语的中文义项 |
+| `POST /v1/vocabulary-items` | `201` | 幂等保存一个阅读中选定的词义 |
 | `GET /v1/vocabulary-items` | `200` | 游标分页的词义与进度 |
 | `GET /v1/dashboard` | `200` | 未完成练习、统计和剩余额度 |
 | `POST /v1/imports` | `201` | 创建 URL、粘贴、相册或本地文件导入 |

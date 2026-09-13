@@ -122,6 +122,39 @@ describe('EvoLink AI provider', () => {
     );
   });
 
+  it('sends a selected word and context to the concise lookup prompt', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        model: config.textModel,
+        choices: [{ message: { content: '有韧性的；能复原的' } }],
+      }),
+    );
+    const provider = createProvider(fetchImpl);
+
+    await expect(
+      provider.lookupWord(
+        'resilient',
+        'A resilient reader updates context.',
+        new AbortController().signal,
+      ),
+    ).resolves.toBe('有韧性的；能复原的');
+
+    const requestBody = requestJson(fetchImpl);
+    expect(requestBody).toMatchObject({
+      model: config.textModel,
+      stream: false,
+      max_completion_tokens: 200,
+      reasoning_effort: 'low',
+    });
+    const messages = requestBody.messages as Array<{ role: string; content: string }>;
+    expect(messages[0]?.role).toBe('system');
+    expect(messages[0]?.content).toContain('contextual meaning');
+    expect(JSON.parse(messages[1]?.content ?? '')).toEqual({
+      term: 'resilient',
+      context: 'A resilient reader updates context.',
+    });
+  });
+
   it.each([
     '',
     'not-json',

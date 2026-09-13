@@ -15,6 +15,7 @@ import { articleTranslationRoutes } from './modules/article-translation/routes';
 import { articlesRoutes } from './modules/articles/routes';
 import { authPlugin } from './modules/auth/plugin';
 import type { WechatClient } from './modules/auth/wechat-client';
+import type { AiProvider } from './infrastructure/ai/types';
 import { computerUploadRoutes } from './modules/computer-upload/routes';
 import { dashboardRoutes } from './modules/dashboard/routes';
 import { importsRoutes } from './modules/imports/routes';
@@ -63,6 +64,7 @@ interface BuildAppOptions {
   readinessTimeoutMs?: number;
   securityLimits?: Partial<SecurityLimits>;
   wechatClient?: WechatClient;
+  wordTranslationProvider?: Pick<AiProvider, 'lookupWord'>;
 }
 
 const knownErrorCodes = new Set<string>(errorCodes);
@@ -139,7 +141,13 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     db: options.db,
   });
   app.register(practiceRoutes, { config: options.config, db: options.db });
-  app.register(translationRoutes, { config: options.config, db: options.db });
+  app.register(translationRoutes, {
+    config: options.config,
+    db: options.db,
+    ...(options.wordTranslationProvider
+      ? { wordProvider: options.wordTranslationProvider }
+      : {}),
+  });
   app.register(vocabularyRoutes, { db: options.db });
   app.register(dashboardRoutes, { config: options.config, db: options.db });
   app.register(computerUploadRoutes, {

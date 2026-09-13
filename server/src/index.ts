@@ -136,6 +136,7 @@ try {
   app = buildApp({
     config,
     db: database.db,
+    wordTranslationProvider: aiProvider,
     readiness: checkDatabaseReadiness,
     readinessTimeoutMs,
   });

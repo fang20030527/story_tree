@@ -40,6 +40,12 @@ export interface AiProvider {
     signal: AbortSignal,
   ): Promise<Verification>;
   translate(text: string, signal: AbortSignal): Promise<string>;
+  /** Return a concise contextual Chinese meaning for one word or phrase. */
+  lookupWord(
+    term: string,
+    context: string | undefined,
+    signal: AbortSignal,
+  ): Promise<string>;
   moderate(text: string, signal: AbortSignal): Promise<ModerationResult>;
   extractArticleText(
     images: readonly OcrImage[],

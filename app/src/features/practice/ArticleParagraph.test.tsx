@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { createIdempotencyKey } from '@/api/installation';
 import { recordAssistance } from '@/api/practices';
@@ -6,6 +6,8 @@ import { recordAssistance } from '@/api/practices';
 import {
   ArticleParagraph,
   InteractiveArticleParagraph,
+  InteractiveWordParagraph,
+  tokenizeArticleText,
 } from './ArticleParagraph';
 
 jest.mock('@/api/installation', () => ({
@@ -83,4 +85,46 @@ describe('ArticleParagraph', () => {
     });
     expect(view.getByText('有韧性的')).toBeTruthy();
   });
+
+  it('keeps article text intact while exposing tapped words and saving a card', async () => {
+    const lookupWord = jest.fn().mockResolvedValue('有韧性的');
+    const addToVocabulary = jest.fn().mockResolvedValue(undefined);
+    mockedCreateIdempotencyKey.mockResolvedValue('word-card-key-1234');
+    const view = await render(
+      <InteractiveWordParagraph
+        lookupWord={lookupWord}
+        onAddToVocabulary={addToVocabulary}
+        targetColor="#f0b429"
+        text="A resilient reader updates context."
+      />,
+    );
+
+    expect(tokenizeArticleText('A resilient reader updates context.')
+      .map((token) => token.text)
+      .join('')).toBe('A resilient reader updates context.');
+    expect(tokenizeArticleText('A long-term plan.')
+      .filter((token) => token.isWord)
+      .map((token) => token.text)).toEqual(['A', 'long-term', 'plan']);
+    await fireEvent.press(view.getByText('resilient'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(lookupWord).toHaveBeenCalledWith(
+      'resilient',
+      'A resilient reader updates context.',
+    );
+    expect(view.getByText('有韧性的')).toBeTruthy();
+
+    await fireEvent.press(view.getByLabelText('加入生词本'));
+    await waitFor(() => expect(addToVocabulary).toHaveBeenCalledWith(
+      {
+        term: 'resilient',
+        meaningZh: '有韧性的',
+        sourceSentence: 'A resilient reader updates context.',
+      },
+      'word-card-key-1234',
+    ));
+    expect(view.getByText('已加入生词本')).toBeTruthy();
+  });
+
 });

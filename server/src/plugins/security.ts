@@ -25,6 +25,8 @@ const tokenLimitedRoutes = new Set([
   'POST /v1/auth/wechat',
   'POST /v1/practices',
   'POST /v1/practices/:id/translations',
+  'POST /v1/word-translations',
+  'POST /v1/vocabulary-items',
   'POST /v1/imports',
   'PUT /v1/imports/:id/source-text',
   'PUT /v1/imports/:id/assets/:position',

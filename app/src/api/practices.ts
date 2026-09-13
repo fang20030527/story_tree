@@ -17,6 +17,13 @@ import {
   TranslationDtoSchema,
   type TranslationDto,
   type TranslationRequest,
+  VocabularyInputSchema,
+  type VocabularyInput,
+  VocabularyItemDtoSchema,
+  type VocabularyItemDto,
+  WordTranslationDtoSchema,
+  type WordTranslationDto,
+  type WordTranslationRequest,
   VocabularyPageSchema,
   type VocabularyPage,
 } from '@context-reader/contracts';
@@ -94,6 +101,29 @@ export function recordAssistance(
     `/v1/practices/${encodeURIComponent(practiceId)}/assistance`,
     AssistanceResponseSchema,
     request,
+    idempotencyKey,
+  );
+}
+
+/** Translate one selected word/phrase in the context supplied by the reader. */
+export function requestWordTranslation(
+  request: WordTranslationRequest,
+): Promise<WordTranslationDto> {
+  return apiRequest('/v1/word-translations', WordTranslationDtoSchema, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/** Add a contextual word/phrase to the durable vocabulary. */
+export function createVocabularyItem(
+  request: VocabularyInput,
+  idempotencyKey: string,
+): Promise<VocabularyItemDto> {
+  return postIdempotentJson(
+    '/v1/vocabulary-items',
+    VocabularyItemDtoSchema,
+    VocabularyInputSchema.parse(request),
     idempotencyKey,
   );
 }

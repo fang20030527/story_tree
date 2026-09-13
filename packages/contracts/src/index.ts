@@ -227,6 +227,26 @@ export const AssistanceResponseSchema = z
   })
   .strict();
 
+/**
+ * A lightweight lookup used by article readers.  Unlike practice
+ * translations this request has no durable article/practice scope; the
+ * caller supplies the selected word and its surrounding sentence so the
+ * provider can choose the contextual meaning.
+ */
+export const WordTranslationRequestSchema = z
+  .object({
+    term: z.string().trim().min(1).max(80),
+    context: z.string().trim().min(1).max(1_000).optional(),
+  })
+  .strict();
+
+export const WordTranslationDtoSchema = z
+  .object({
+    term: z.string().trim().min(1).max(80),
+    meaningZh: z.string().trim().min(1).max(200),
+  })
+  .strict();
+
 export const SubmitAnswerRequestSchema = z.discriminatedUnion('answerKind', [
   z
     .object({
@@ -566,6 +586,10 @@ export type PracticeDto = z.infer<typeof PracticeDtoSchema>;
 export type TranslationRequest = z.infer<typeof TranslationRequestSchema>;
 export type AssistanceRequest = z.infer<typeof AssistanceRequestSchema>;
 export type AssistanceResponse = z.infer<typeof AssistanceResponseSchema>;
+export type WordTranslationRequest = z.infer<
+  typeof WordTranslationRequestSchema
+>;
+export type WordTranslationDto = z.infer<typeof WordTranslationDtoSchema>;
 export type SubmitAnswerRequest = z.infer<typeof SubmitAnswerRequestSchema>;
 export type TranslationDto = z.infer<typeof TranslationDtoSchema>;
 export type ArticleImportSourceKind = z.infer<

@@ -19,7 +19,8 @@ export type IdempotencyOperation =
   | 'retry_article_import'
   | 'cancel_article_import'
   | 'request_article_translation'
-  | 'create_computer_upload_session';
+  | 'create_computer_upload_session'
+  | 'create_vocabulary_item';
 
 const resourceTypes: Record<IdempotencyOperation, string> = {
   create_practice: 'practice',
@@ -35,6 +36,7 @@ const resourceTypes: Record<IdempotencyOperation, string> = {
   cancel_article_import: 'article_import',
   request_article_translation: 'article_translation',
   create_computer_upload_session: 'computer_upload_session',
+  create_vocabulary_item: 'vocabulary_item',
 };
 
 const pendingRequestHashes = new WeakMap<object, Map<string, string>>();

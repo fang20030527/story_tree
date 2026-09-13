@@ -6,8 +6,10 @@ import {
   getPractice,
   getTranslation,
   getVocabulary,
+  createVocabularyItem,
   recordAssistance,
   registerAnonymous,
+  requestWordTranslation,
   requestTranslation,
   submitAnswer,
 } from './practices';
@@ -351,6 +353,71 @@ describe('API client', () => {
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect((init.headers as Headers).get('Idempotency-Key')).toBe(
       idempotencyKey,
+    );
+  });
+
+  it('looks up a selected word with its reading context', async () => {
+    mockedGetInstallationToken.mockResolvedValue('3f'.repeat(32));
+    const request = {
+      term: 'resilient',
+      context: 'A resilient reader updates context.',
+    };
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({
+        term: request.term,
+        meaningZh: '有韧性的；能复原的',
+      }),
+    });
+
+    await expect(requestWordTranslation(request)).resolves.toEqual({
+      term: request.term,
+      meaningZh: '有韧性的；能复原的',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.test/v1/word-translations',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
+    );
+  });
+
+  it('saves a selected word as an idempotent vocabulary item', async () => {
+    mockedGetInstallationToken.mockResolvedValue('4a'.repeat(32));
+    const idempotencyKey = 'word-card-client-key-1';
+    const request = {
+      term: 'resilient',
+      meaningZh: '有韧性的；能复原的',
+      sourceSentence: 'A resilient reader updates context.',
+    };
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: jest.fn().mockResolvedValue({
+        id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        ...request,
+        status: 'pending',
+        practiceCount: 0,
+        firstTryCorrectCount: 0,
+        assistedCount: 0,
+        lastPracticedAt: null,
+      }),
+    });
+
+    await expect(createVocabularyItem(request, idempotencyKey)).resolves.toMatchObject({
+      term: request.term,
+      meaningZh: request.meaningZh,
+    });
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect((init.headers as Headers).get('Idempotency-Key')).toBe(idempotencyKey);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.test/v1/vocabulary-items',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
     );
   });
 
