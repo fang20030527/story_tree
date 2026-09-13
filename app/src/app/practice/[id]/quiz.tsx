@@ -16,6 +16,7 @@ import { ApiError } from '@/api/client';
 import { getPractice, submitAnswer } from '@/api/practices';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { QuizArticleReference } from '@/features/practice/QuizArticleReference';
 import { QuizQuestion } from '@/features/practice/QuizQuestion';
 
 function safeLoadError(error: unknown): string {
@@ -32,10 +33,14 @@ function QuizContent({ practiceId }: { practiceId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
 
-  useEffect(() => {
-    let mounted = true;
+  const reloadPractice = () => {
     setLoading(true);
     setError(null);
+    setLoadAttempt((attempt) => attempt + 1);
+  };
+
+  useEffect(() => {
+    let mounted = true;
     getPractice(practiceId)
       .then((nextPractice) => {
         if (!mounted) return;
@@ -121,14 +126,14 @@ function QuizContent({ practiceId }: { practiceId: string }) {
     );
   }
 
-  if (error || !practice || !question) {
+  if (error || !practice || !practice.article || !question) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.bg }]}>
         <Text style={[styles.errorText, { color: theme.danger }]}>
           {error ?? '暂时无法加载题目'}
         </Text>
         <TouchableOpacity
-          onPress={() => setLoadAttempt((attempt) => attempt + 1)}
+          onPress={reloadPractice}
           style={[styles.retryButton, { borderColor: theme.border }]}>
           <Text style={[styles.retryText, { color: theme.text }]}>重试</Text>
         </TouchableOpacity>
@@ -154,19 +159,37 @@ function QuizContent({ practiceId }: { practiceId: string }) {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + 28 },
-        ]}
-        showsVerticalScrollIndicator={false}>
-        <QuizQuestion
-          key={question.id}
-          onContinue={() => setLoadAttempt((attempt) => attempt + 1)}
-          onSubmit={submitCurrentAnswer}
-          question={question}
+      <View style={styles.splitContent} testID="quiz-split-content">
+        <QuizArticleReference
+          activeTargetId={question.targetId}
+          key={question.targetId}
+          paragraphs={practice.article.paragraphs}
+          title={practice.article.title}
         />
-      </ScrollView>
+
+        <View
+          style={[
+            styles.questionPane,
+            { backgroundColor: theme.bg, borderTopColor: theme.border },
+          ]}
+          testID="quiz-question-pane">
+          <ScrollView
+            contentContainerStyle={[
+              styles.questionContent,
+              { paddingBottom: insets.bottom + 28 },
+            ]}
+            key={question.id}
+            showsVerticalScrollIndicator={false}
+            style={styles.questionScroll}
+            testID="quiz-question-scroll">
+            <QuizQuestion
+              onContinue={reloadPractice}
+              onSubmit={submitCurrentAnswer}
+              question={question}
+            />
+          </ScrollView>
+        </View>
+      </View>
     </View>
   );
 }
@@ -199,7 +222,14 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   progress: { fontSize: 12, marginTop: 2 },
   headerSpacer: { width: 26 },
-  content: { paddingHorizontal: 18, paddingTop: 24 },
+  splitContent: { flex: 1, minHeight: 0 },
+  questionPane: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    minHeight: 0,
+  },
+  questionScroll: { flex: 1 },
+  questionContent: { paddingHorizontal: 18, paddingTop: 20 },
   errorText: { fontSize: 14, lineHeight: 22, textAlign: 'center' },
   retryButton: {
     borderRadius: 10,
