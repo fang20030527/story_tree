@@ -23,6 +23,7 @@ import {
 } from '../idempotency/service';
 import {
   normalizeImportContent,
+  normalizePastedContent,
   type NormalizedImportContent,
 } from './content';
 import {
@@ -112,7 +113,7 @@ export async function putPastedSource(
   },
 ): Promise<ArticleImportDto> {
   const text = decodePastedText(input.content);
-  const normalized = normalizeImportContent({ title: null, text });
+  const normalized = normalizePastedContent(text);
   const sourceDigest = createHash('sha256').update(input.content).digest('hex');
 
   return db.transaction(async (tx) => {

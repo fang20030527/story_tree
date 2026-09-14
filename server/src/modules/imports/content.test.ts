@@ -5,6 +5,7 @@ import {
   hammingDistance64,
   isSimilarContent,
   normalizeImportContent,
+  normalizePastedContent,
 } from './content';
 
 const FIRST_PARAGRAPH =
@@ -33,6 +34,40 @@ function englishWords(length: number): string {
 }
 
 describe('article import content normalization', () => {
+  it('keeps the reported article heading and three body paragraphs separate', () => {
+    const source = `Are teenagers growing dimmer?&#x20;
+Every three years the OECD, a club mostly of rich countries, releases the results of international school tests sat by 15-year-olds all across the world.  There were reasons to hope that the latest data, published on September 8th,  would bring positive news.  Marks in mathematics, reading and science had collapsed in the previous round of testing,  which was carried out just after the pandemic.  Policymakers dared hope that, with the calamity well in the past, grades might start to rebound.&#x20;
+That is not what happened.  On the contrary, in rich countries—the primary focus of the tests—scores have fallen further.  In literacy, the decline is actually speeding up.  These data suggest that there are long-running factors pushing down achievement in schools,  and that without swift correction, pupils' abilities could yet plumb further depths.  Anyone who cares about the young of today—and the economies of tomorrow—ought to be alarmed.&#x20;
+The OECD's project, known as PISA, takes a measure of young people's aptitudes as they approach the end of their compulsory school days.  The number of school systems taking part has expanded over the years: the latest tests were sat in all 38 OECD member-countries and in 53 other places (many of them developing economies).  The results are used to create an international league table of sorts. `;
+    const normalized = normalizePastedContent(source);
+    expect(normalized.title).toBe('Are teenagers growing dimmer?');
+    expect(normalized.paragraphs).toEqual(
+      source.split('\n').map((line) => line.replaceAll('&#x20;', ' ').replace(/\s+/gu, ' ').trim()),
+    );
+    expect(normalized.paragraphs).toHaveLength(4);
+    expect(normalized.contentHash).toBe(normalizePastedContent(source.replaceAll('&#x20;', ' ')).contentHash);
+  });
+
+  it.each(['\n', '\r\n', '\r', '\u2028', '\u2029'])('preserves pasted paragraphs separated by %j', (separator) => {
+    const normalized = normalizePastedContent(
+      ['Are teenagers growing dimmer?&#x20;', FIRST_PARAGRAPH, '', `${SECOND_PARAGRAPH}&nbsp;`].join(separator),
+    );
+    expect(normalized.title).toBe('Are teenagers growing dimmer?');
+    expect(normalized.paragraphs).toEqual([
+      'Are teenagers growing dimmer?', FIRST_PARAGRAPH, SECOND_PARAGRAPH,
+    ]);
+    expect(normalized.text).toBe(normalized.paragraphs.join('\n\n'));
+    expect(normalizeImportContent(normalized)).toEqual(normalized);
+  });
+
+  it('continues joining visual line wraps in extracted documents', () => {
+    const normalized = normalizeImportContent({
+      title: null,
+      text: `${FIRST_PARAGRAPH}\n${SECOND_PARAGRAPH}`,
+    });
+    expect(normalized.paragraphs).toEqual([`${FIRST_PARAGRAPH} ${SECOND_PARAGRAPH}`]);
+  });
+
   it('normalizes title, paragraphs, line endings, and stable identities', () => {
     const normalized = normalizeImportContent({
       title: '  Ａ careful study  ',
