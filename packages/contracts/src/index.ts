@@ -378,13 +378,32 @@ const LocalFileAssetsSchema = z
     }
   });
 
+// Sharing apps often copy a title and description together with the URL.
+export const SharedArticleUrlSchema = z.string().trim().max(8_192)
+  .transform((value, context) => {
+    const candidates = [...new Set(
+      (value.replace(/\[[^\]\n]*\]\((https?:\/\/[^\s]+)\)/giu, '$1')
+        .match(/https?:\/\/[^\s<>"“”「」【】]+/giu) ?? [])
+        .map((candidate) => candidate.replace(/[，。！？；、）】》」”]+$/gu, '')),
+    )];
+    if (candidates.length !== 1) {
+      context.addIssue({ code: 'custom', message: '请粘贴一条完整的 http 或 https 文章链接' });
+      return z.NEVER;
+    }
+    return candidates[0]!;
+  })
+  .pipe(z.url().max(2_048).refine((value) => {
+    const url = new URL(value);
+    return /^https?:$/u.test(url.protocol) && !url.username && !url.password;
+  }, '请使用无需账号密码的 http 或 https 链接'));
+
 export const CreateArticleImportRequestSchema = z.discriminatedUnion(
   'sourceKind',
   [
     z
       .object({
         sourceKind: z.literal('url'),
-        url: z.url().max(2_048),
+        url: SharedArticleUrlSchema,
       })
       .strict(),
     z.object({ sourceKind: z.literal('paste') }).strict(),

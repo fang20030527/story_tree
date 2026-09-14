@@ -3,6 +3,22 @@ import { describe, expect, it } from 'vitest';
 import { extractReadableHtml } from './html';
 
 describe('static readable HTML extraction', () => {
+  it.each([
+    'https://dict.eudic.net/courses/detail/eeff71eb-a9df-4c18-869c-bebdab02f85a?pids=',
+    'https://cn.eudic.net/account/login?returnurl=%2Fting',
+  ])('identifies unavailable Eudic article bodies at %s', (url) => {
+    expect(() => extractReadableHtml('<html><body>立即报名</body></html>', url))
+      .toThrow(expect.objectContaining({ code: 'IMPORT_SOURCE_REQUIRES_ACCESS', retryable: false }));
+  });
+
+  it('still extracts publicly available Eudic articles', () => {
+    const result = extractReadableHtml(
+      '<html><head><title>Public story</title></head><body><article><p>Careful readers compare evidence before accepting broad public claims. They preserve context and revise conclusions when reliable facts change.</p></article></body></html>',
+      'https://dict.eudic.net/webting/play?id=public-story',
+    );
+    expect(result.text).toContain('Careful readers compare evidence');
+  });
+
   it('returns the main article without scripts, navigation, or sidebars', () => {
     const extracted = extractReadableHtml(
       `<!doctype html>

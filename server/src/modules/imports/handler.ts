@@ -280,6 +280,7 @@ function publicImportFailure(
     IMPORT_FETCH_FAILED: '网页暂时无法读取',
     IMPORT_UNSUPPORTED_TYPE: '该内容类型不支持',
     IMPORT_PARSE_FAILED: '未能提取可导入的正文',
+    IMPORT_SOURCE_REQUIRES_ACCESS: '该分享链接跳转到了登录或课程购买页，无法直接读取正文。请在原 App 中复制英文正文，或截取正文图片后导入。',
     IMPORT_OCR_FAILED: '图片文字暂时无法识别',
     IMPORT_CONTENT_INVALID: '导入内容无效',
     IMPORT_NOT_ENGLISH: '只能导入英文文章',

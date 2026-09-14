@@ -1,4 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { SharedArticleUrlSchema } from './index';
+
+describe('shared article URLs', () => {
+  const url = 'https://cn.eudic.net/ting/openArticle?id=ede36ef9-5198-44e6-99c4-02805b40ee20';
+  it.each([url, `每日英语分享：${url}。`, `每日英语\n${url}\n推荐阅读`, `[${url}](${url})`])('extracts a single article link from %s', (input) => {
+    expect(SharedArticleUrlSchema.parse(input)).toBe(url);
+    expect(CreateArticleImportRequestSchema.parse({ sourceKind: 'url', url: input })).toEqual({ sourceKind: 'url', url });
+  });
+  it.each(['没有链接', 'eudic://article/123', 'https://user:password@example.com/story', `${url} https://example.com/another`])('rejects invalid or ambiguous share text: %s', (input) => {
+    expect(SharedArticleUrlSchema.safeParse(input).success).toBe(false);
+  });
+  it('preserves query parameters and URL parentheses', () => {
+    const url = 'https://example.com/story_(one)?id=123&app=Ting';
+    expect(SharedArticleUrlSchema.parse(url)).toBe(url);
+  });
+});
 
 import {
   AnonymousAuthRequestSchema,

@@ -201,7 +201,7 @@ export default function ImportProcessingScreen() {
           {terminal || autoConfirmFailed ? <Ionicons name="alert-outline" size={38} color={theme.danger} /> : <ActivityIndicator color={theme.accentText} size="large" />}
         </View>
         <Text style={[styles.title, { color: theme.text }]}>{statusLabel}</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>导入完成后会自动加入书架并打开文章阅读；你可以放心离开，稍后回来会继续同一个导入任务。</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{terminal ? '你可以换一种方式导入文章。' : '导入完成后会自动加入书架并打开文章阅读；你可以放心离开，稍后回来会继续同一个导入任务。'}</Text>
         {articleImport?.status === 'processing' || articleImport?.status === 'queued' ? (
           <Text style={[styles.detail, { color: theme.textMuted }]}>通常需要几秒钟，图片 OCR 可能稍久一些。</Text>
         ) : null}
@@ -222,6 +222,16 @@ export default function ImportProcessingScreen() {
             <Ionicons name="refresh-outline" size={17} color={theme.blue} />
             <Text style={[styles.secondaryButtonText, { color: theme.blue }]}>重新获取状态</Text>
           </TouchableOpacity>
+        ) : null}
+        {articleImport?.status === 'failed' && articleImport.sourceKind === 'url' ? (
+          <>
+            <TouchableOpacity onPress={() => router.replace({ pathname: '/import', params: { source: 'paste' } })} style={[styles.primaryButton, { backgroundColor: theme.accent }]} activeOpacity={0.85}>
+              <Text style={[styles.primaryButtonText, { color: theme.accentText }]}>改用粘贴正文</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.replace({ pathname: '/import', params: { source: 'album' } })} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
+              <Text style={[styles.secondaryButtonText, { color: theme.blue }]}>导入正文截图</Text>
+            </TouchableOpacity>
+          </>
         ) : null}
         {terminal ? (
           <TouchableOpacity onPress={() => router.replace('/import')} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
