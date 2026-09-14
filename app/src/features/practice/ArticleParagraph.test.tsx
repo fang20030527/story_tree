@@ -150,7 +150,7 @@ describe('ArticleParagraph', () => {
     expect(view.getAllByText('trapped')[0]).toHaveStyle({ color: '#000000' });
   });
 
-  it('marks a word yellow after the vocabulary save succeeds', async () => {
+  it('highlights a word with a yellow background after the vocabulary save succeeds', async () => {
     const addToVocabulary = jest.fn().mockResolvedValue(undefined);
     const lookupWord = jest.fn().mockResolvedValue({
       partOfSpeech: '动词',
@@ -170,7 +170,10 @@ describe('ArticleParagraph', () => {
     await waitFor(() => expect(view.getByText('动词')).toBeTruthy());
     await fireEvent.press(view.getByLabelText('加入生词本'));
     await waitFor(() => expect(view.getByText('已加入生词本')).toBeTruthy());
-    expect(view.getAllByText('trapped')[0]).toHaveStyle({ color: '#f3bb31' });
+    expect(view.getAllByText('trapped')[0]).toHaveStyle({
+      color: '#000000',
+      backgroundColor: '#f3bb31',
+    });
   });
 
 });

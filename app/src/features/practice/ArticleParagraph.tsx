@@ -258,7 +258,7 @@ export function ClickableArticleParagraph({
   onWordPress,
 }: ClickableArticleParagraphProps) {
   const unaddedWordColor = '#000000';
-  const savedWordColor = addedWordColor ?? '#f3bb31';
+  const savedWordHighlight = addedWordColor ?? '#f3bb31';
   return (
     <Text
       selectable
@@ -268,9 +268,10 @@ export function ClickableArticleParagraph({
           key={token.key}
           onPress={() => onWordPress(token.text, text)}
           style={{
-            color: addedWords?.has(normalizeWord(token.text))
-              ? savedWordColor
-              : unaddedWordColor,
+            color: unaddedWordColor,
+            backgroundColor: addedWords?.has(normalizeWord(token.text))
+              ? savedWordHighlight
+              : undefined,
             fontWeight: '600',
           }}>
           {token.text}
