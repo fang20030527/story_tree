@@ -169,6 +169,7 @@ interface ArticleTranslationControlProps {
   request: TranslationRequest;
   label: string;
   actionLabel?: string;
+  showLabel?: boolean;
   onMissingArticle: () => void;
 }
 
@@ -177,6 +178,7 @@ function ArticleTranslationControl({
   request,
   label,
   actionLabel = label,
+  showLabel = true,
   onMissingArticle,
 }: ArticleTranslationControlProps) {
   const { theme } = useAppTheme();
@@ -206,7 +208,11 @@ function ArticleTranslationControl({
       <View style={styles.translationHeader}>
         <View style={styles.translationHeading}>
           <Ionicons name="language-outline" size={18} color={theme.blue} />
-          <Text style={[styles.translationTitle, { color: theme.text }]}>{label}</Text>
+          {showLabel ? (
+            <Text style={[styles.translationTitle, { color: theme.text }]}>
+              {label}
+            </Text>
+          ) : null}
         </View>
         <TouchableOpacity
           accessibilityRole="button"
@@ -277,6 +283,7 @@ function ParagraphBlock({
           label="翻译本段"
           onMissingArticle={onMissingArticle}
           request={{ scope: 'paragraph', paragraphId }}
+          showLabel={false}
         />
       </View>
       <InteractiveWordParagraph

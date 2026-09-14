@@ -33,7 +33,6 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const login = async () => {
@@ -45,10 +44,6 @@ export default function LoginScreen() {
     }
     if (password.length < 8) {
       setMessage('密码至少需要 8 个字符');
-      return;
-    }
-    if (!ageConfirmed) {
-      setMessage('请先确认已年满 14 周岁');
       return;
     }
 
@@ -133,24 +128,9 @@ export default function LoginScreen() {
               <Text style={styles.emailButtonText}>邮箱登录 / 注册</Text>
             )}
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setAgeConfirmed((current) => !current)}
-            style={styles.ageRow}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={ageConfirmed ? 'checkbox' : 'square-outline'}
-              size={19}
-              color={ageConfirmed ? theme.accent : theme.textMuted}
-            />
-            <Text style={[styles.ageText, { color: theme.textSecondary }]}>我已年满 14 周岁</Text>
-          </TouchableOpacity>
           {message ? (
             <Text style={[styles.message, { color: theme.danger }]}>{message}</Text>
           ) : null}
-          <Text style={[styles.hint, { color: theme.textMuted }]}>
-            邮箱登录暂不需要外部邮件 API key；密码只会以哈希形式保存在服务端。
-          </Text>
         </Card>
       </View>
     </KeyboardAvoidingView>
@@ -196,7 +176,4 @@ const styles = StyleSheet.create({
   },
   emailButtonText: { color: '#fff', fontSize: 16, fontWeight: weight('semibold') },
   message: { marginTop: 14, fontSize: 13, lineHeight: 20, textAlign: 'center' },
-  hint: { marginTop: 16, fontSize: 12, lineHeight: 18, textAlign: 'center' },
-  ageRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 16 },
-  ageText: { fontSize: 13 },
 });
