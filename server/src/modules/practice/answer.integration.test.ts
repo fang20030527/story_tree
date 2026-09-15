@@ -60,6 +60,7 @@ describe('first-answer evidence', () => {
         expect(AssistanceResponseSchema.parse(hintResponse.json())).toEqual({
           recorded: true,
           hintMeaningZh: seeded.targets[0]!.meaningZh,
+          sourceSentence: 'The original article introduced resilient.',
         });
         const replayedHint = await app.inject({
           method: 'POST',
@@ -297,6 +298,7 @@ async function seedPractice(
       normalizedTerm: normalizeTerm(term),
       meaningZh,
       normalizedMeaningZh: normalizeMeaningZh(meaningZh),
+      sourceSentence: `The original article introduced ${term}.`,
       fingerprint: vocabularyFingerprint(term, meaningZh),
     });
     const paragraphIndex = position < 4 ? 0 : 1;

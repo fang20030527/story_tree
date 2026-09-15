@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type { PracticeStatus } from '@context-reader/contracts';
+import { PracticeTopicSchema, type PracticeStatus } from '@context-reader/contracts';
 import { and, asc, eq, sql } from 'drizzle-orm';
 
 import { AppError, type ErrorCode } from '../../core/errors';
@@ -29,7 +29,7 @@ import {
 } from './generation-validator';
 import { assertPracticeTransition } from './state';
 
-const DEFAULT_PROMPT_VERSION = 'ielts-generation-v1';
+const DEFAULT_PROMPT_VERSION = 'ielts-generation-english-cloze-v3';
 const successfulTerminalStatuses = new Set<PracticeStatus>([
   'ready',
   'in_progress',
@@ -75,6 +75,7 @@ export async function handlePracticeGeneration(
   const validated = validateGeneratedPractice(
     generated,
     loaded.validationTargets,
+    loaded.providerInput.topic ? 'short' : 'long',
   );
 
   if (!(await moveToValidating(dependencies.db, job, context.signal))) return;
@@ -128,7 +129,7 @@ export async function failPracticeGeneration(
         .returning({ id: practiceSessions.id });
       if (!updated) throw stateConflict();
     }
-    await releaseQuota(tx, job.resourceId);
+    await settleGenerationQuota(tx, job.resourceId);
   });
 }
 
@@ -137,7 +138,7 @@ async function loadGenerationInput(
   practiceId: string,
 ): Promise<LoadedGenerationInput> {
   const [practice] = await db
-    .select({ status: practiceSessions.status, examPath: practiceSessions.examPath })
+    .select({ status: practiceSessions.status, examPath: practiceSessions.examPath, topic: practiceSessions.topic })
     .from(practiceSessions)
     .where(eq(practiceSessions.id, practiceId))
     .limit(1);
@@ -172,6 +173,7 @@ async function loadGenerationInput(
     status: practice.status,
     providerInput: {
       examPath: practice.examPath,
+      ...(practice.topic ? { topic: PracticeTopicSchema.parse(practice.topic) } : {}),
       targets: targets.map((target, index) => ({
         alias: `t${index + 1}`,
         term: target.term,
@@ -273,7 +275,7 @@ async function persistGeneratedPractice(
 
     await tx.insert(practiceQuestions).values(
       generated.questions.map((question) => {
-        const options: QuestionOption[] = question.optionsZh.map((label) => ({
+        const options: QuestionOption[] = question.optionsEn.map((label) => ({
           id: randomUUID(),
           label,
         }));
@@ -282,7 +284,7 @@ async function persistGeneratedPractice(
         const optionExplanations: OptionExplanations = Object.fromEntries(
           options.map((option, index) => [
             option.id,
-            question.optionExplanationsZh[index]!,
+            question.optionExplanationsEn[index]!,
           ]),
         );
         return {
@@ -292,7 +294,8 @@ async function persistGeneratedPractice(
           optionsJson: options,
           correctOptionId,
           meaningEn: question.meaningEn,
-          explanationZh: question.explanationZh,
+          // Keep the legacy storage column compatible with historical answers.
+          explanationZh: question.explanationEn,
           optionExplanationsJson: optionExplanations,
         };
       }),
@@ -305,7 +308,7 @@ async function persistGeneratedPractice(
         articleTitle: generated.title,
         articleWordCount: generated.wordCount,
         modelName: dependencies.modelName,
-        promptVersion: dependencies.promptVersion ?? DEFAULT_PROMPT_VERSION,
+        promptVersion: dependencies.promptVersion ?? (generated.wordCount <= 300 ? 'ielts-topic-short-english-cloze-v3' : DEFAULT_PROMPT_VERSION),
         failureCode: null,
         failureMessagePublic: null,
         readyAt: new Date(),
@@ -313,7 +316,7 @@ async function persistGeneratedPractice(
       .where(eq(practiceSessions.id, job.resourceId))
       .returning({ id: practiceSessions.id });
     if (!updated) throw stateConflict();
-    await commitQuota(tx, job.resourceId);
+    await settleGenerationQuota(tx, job.resourceId);
   });
 }
 
@@ -343,6 +346,14 @@ async function lockPracticeStatus(
   tx: AppTransaction,
   practiceId: string,
 ): Promise<PracticeStatus> {
+  // Always lock the group root first, including when this member is the root.
+  // This also serializes terminal writes so the last member can settle quota.
+  const [member] = await tx.select({ groupId: practiceSessions.topicGroupId })
+    .from(practiceSessions).where(eq(practiceSessions.id, practiceId)).limit(1);
+  if (member?.groupId) {
+    await tx.select({ id: practiceSessions.id }).from(practiceSessions)
+      .where(eq(practiceSessions.id, member.groupId)).for('update');
+  }
   const [practice] = await tx
     .select({ status: practiceSessions.status })
     .from(practiceSessions)
@@ -433,4 +444,22 @@ function stateConflict(): AppError {
 
 function leaseLost(): DOMException {
   return new DOMException('Job lease lost', 'AbortError');
+}
+
+// Caller holds the group-root lock acquired by lockPracticeStatus.
+async function settleGenerationQuota(tx: AppTransaction, practiceId: string): Promise<void> {
+  const [practice] = await tx.select().from(practiceSessions)
+    .where(eq(practiceSessions.id, practiceId)).limit(1);
+  if (!practice) throw stateConflict();
+  const members = practice.topicGroupId
+    ? await tx.select({ status: practiceSessions.status }).from(practiceSessions)
+      .where(eq(practiceSessions.topicGroupId, practice.topicGroupId))
+    : [practice];
+  if (members.some(({ status }) => !successfulTerminalStatuses.has(status) && status !== 'failed')) return;
+  const quotaId = practice.topicGroupId ?? practiceId;
+  if (members.some(({ status }) => successfulTerminalStatuses.has(status))) {
+    await commitQuota(tx, quotaId);
+  } else {
+    await releaseQuota(tx, quotaId);
+  }
 }

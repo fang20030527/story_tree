@@ -26,6 +26,11 @@ import {
   type WordTranslationRequest,
   VocabularyPageSchema,
   type VocabularyPage,
+  VocabularyWordPageSchema,
+  type VocabularyWordPage,
+  type VocabularyWordFilter,
+  VocabularyWordContextsSchema,
+  type VocabularyWordContexts,
 } from '@context-reader/contracts';
 import type { ZodType } from 'zod';
 
@@ -163,4 +168,31 @@ export function getVocabulary(
 
 export function getDashboard(): Promise<DashboardDto> {
   return apiRequest('/v1/dashboard', DashboardDtoSchema);
+}
+
+export interface VocabularyWordPageOptions extends VocabularyPageOptions {
+  filter?: VocabularyWordFilter;
+}
+
+export function getVocabularyWords(
+  options: VocabularyWordPageOptions = {},
+): Promise<VocabularyWordPage> {
+  const query = new URLSearchParams();
+  if (options.filter !== undefined) query.set('filter', options.filter);
+  if (options.cursor !== undefined) query.set('cursor', options.cursor);
+  if (options.limit !== undefined) query.set('limit', String(options.limit));
+  const serializedQuery = query.toString();
+  return apiRequest(
+    `/v1/vocabulary-words${serializedQuery ? `?${serializedQuery}` : ''}`,
+    VocabularyWordPageSchema,
+  );
+}
+
+export function getVocabularyWordContexts(
+  wordId: string,
+): Promise<VocabularyWordContexts> {
+  return apiRequest(
+    `/v1/vocabulary-words/${encodeURIComponent(wordId)}/contexts`,
+    VocabularyWordContextsSchema,
+  );
 }

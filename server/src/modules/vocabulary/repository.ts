@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { VocabularyInput } from '@context-reader/contracts';
 
@@ -10,6 +10,7 @@ import {
   normalizeTerm,
   vocabularyFingerprint,
 } from './normalize';
+import { lockVocabulary, syncVocabularyWords } from './word-state';
 
 interface PreparedVocabularyItem {
   term: string;
@@ -26,6 +27,7 @@ export async function upsertExactVocabularyItems(
   items: readonly VocabularyInput[],
 ): Promise<string[]> {
   if (items.length === 0) return [];
+  await lockVocabulary(tx, userId);
 
   const prepared: PreparedVocabularyItem[] = items.map((item) => ({
     term: item.term.trim(),
@@ -62,6 +64,7 @@ export async function upsertExactVocabularyItems(
   const idsByFingerprint = new Map(
     activeItems.map((item) => [item.fingerprint, item.id]),
   );
+  await syncVocabularyWords(tx, userId);
 
   return prepared.map(({ fingerprint }) => {
     const id = idsByFingerprint.get(fingerprint);
@@ -70,26 +73,4 @@ export async function upsertExactVocabularyItems(
     }
     return id;
   });
-}
-
-/** Pick active review targets on the server without exposing the selection. */
-export async function selectRandomReviewVocabularyItemIds(
-  tx: AppTransaction,
-  userId: string,
-  targetCount: number,
-): Promise<string[]> {
-  const rows = await tx
-    .select({ id: vocabularyItems.id })
-    .from(vocabularyItems)
-    .where(
-      and(
-        eq(vocabularyItems.userId, userId),
-        inArray(vocabularyItems.status, ['pending', 'reviewing']),
-        isNull(vocabularyItems.deletedAt),
-      ),
-    )
-    .orderBy(sql`random()`)
-    .limit(targetCount);
-
-  return rows.map(({ id }) => id);
 }

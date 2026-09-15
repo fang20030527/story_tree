@@ -36,9 +36,9 @@ describe('Fake AI provider', () => {
         (question) => question.targetAlias === target.alias,
       );
       expect(questions).toHaveLength(1);
-      expect(questions[0]?.optionsZh).toHaveLength(4);
-      expect(new Set(questions[0]?.optionsZh).size).toBe(4);
-      expect(questions[0]?.optionsZh).toContain(target.meaningZh);
+      expect(questions[0]?.optionsEn).toHaveLength(4);
+      expect(new Set(questions[0]?.optionsEn).size).toBe(4);
+      expect(questions[0]?.optionsEn).toContain(target.term);
     }
   });
 

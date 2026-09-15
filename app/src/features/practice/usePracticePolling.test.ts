@@ -69,6 +69,23 @@ describe('usePracticePolling', () => {
     jest.restoreAllMocks();
   });
 
+  it('continues polling siblings after the first article is ready', async () => {
+    const grouped: PracticeDto = {
+      ...practice('ready', 500),
+      group: { id: practiceId, articles: (['经济', '文化', '政治', '科技'] as const).map((topic, index) => ({
+        id: practiceId, topic, status: index === 0 ? 'ready' : 'generating',
+        title: null, wordCount: null, failureMessage: null,
+      })) },
+    };
+    mockedGetPractice.mockResolvedValue(grouped);
+    await renderHook(() => usePracticePolling(practiceId));
+    await flushPromises();
+    expect(mockedGetPractice).toHaveBeenCalledTimes(1);
+    await act(async () => { jest.advanceTimersByTime(500); });
+    await flushPromises();
+    expect(mockedGetPractice).toHaveBeenCalledTimes(2);
+  });
+
   it('follows server polling delays until the practice becomes ready', async () => {
     mockedGetPractice
       .mockResolvedValueOnce(practice('queued', 500))

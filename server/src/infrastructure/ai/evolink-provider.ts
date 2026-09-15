@@ -96,7 +96,7 @@ export class EvolinkAiProvider implements AiProvider {
     const response = await this.client.generateText(
       {
         messages: wordHintMessages(term, context),
-        maxCompletionTokens: 200,
+        maxCompletionTokens: 400,
         reasoningEffort: 'low',
         responseFormat: 'json_object',
       },

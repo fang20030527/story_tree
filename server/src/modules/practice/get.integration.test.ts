@@ -82,7 +82,7 @@ describe('practice retrieval', () => {
         expect(ready.questions[0]).toMatchObject({
           term: 'resilient',
           options: expect.arrayContaining([
-            expect.objectContaining({ label: '有韧性的' }),
+            expect.objectContaining({ label: 'resilient' }),
           ]),
           submittedAnswer: null,
         });

@@ -35,6 +35,13 @@ describe('practice creation storage', () => {
     mockedCreateIdempotencyKey.mockResolvedValue('a'.repeat(32));
   });
 
+  it('reuses a legacy pending payload when the new UI requests a topic group', async () => {
+    const oldOperation = await prepareCreatePracticeOperation(request);
+    const resumed = await prepareCreatePracticeOperation({ ...request, format: 'topic_set' });
+    expect(resumed).toEqual(oldOperation);
+    expect(resumed.request.format).toBeUndefined();
+  });
+
   it('retains one operation key when the same submission is retried', async () => {
     const first = await prepareCreatePracticeOperation(request);
     const retry = await prepareCreatePracticeOperation(request);

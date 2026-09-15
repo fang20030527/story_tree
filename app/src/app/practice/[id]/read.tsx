@@ -1,7 +1,9 @@
+import { usePracticeExitGuard } from '@/features/practice/usePracticeExitGuard';
+import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
-import type { ArticleParagraph as ArticleParagraphDto, PracticeDto, TranslationRequest } from '@context-reader/contracts';
+import type { ArticleParagraph as ArticleParagraphDto, PracticeDto, TranslationRequest, VocabularyInput } from '@context-reader/contracts';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,12 +16,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api/client';
-import { getPractice } from '@/api/practices';
+import { createVocabularyItem, getPractice, recordAssistance, requestWordTranslation } from '@/api/practices';
+import { createIdempotencyKey } from '@/api/installation';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import { InteractiveArticleParagraph } from '@/features/practice/ArticleParagraph';
-import { saveReadingPosition } from '@/features/practice/practiceStorage';
+import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
+import { loadReadingPosition, saveReadingPosition } from '@/features/practice/practiceStorage';
 import { useTranslation } from '@/features/practice/useTranslation';
+
+const READER_VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 35 };
 
 function safeLoadMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -111,27 +116,48 @@ function TranslationControl({
 interface PracticeParagraphProps {
   paragraph: ArticleParagraphDto;
   practiceId: string;
-  targetTerms: Record<string, string>;
+  addedWords: ReadonlySet<string>;
+  onWordAdded: (term: string) => void;
 }
 
 function PracticeParagraph({
   paragraph,
   practiceId,
-  targetTerms,
+  addedWords,
+  onWordAdded,
 }: PracticeParagraphProps) {
   const { theme } = useAppTheme();
 
+  const hintKeys = useRef(new Map<string, string>());
+  const lookupWord = async (term: string, context: string, targetId?: string) => {
+    if (!targetId) return requestWordTranslation({ term, context });
+    let key = hintKeys.current.get(targetId);
+    if (!key) {
+      key = await createIdempotencyKey();
+      hintKeys.current.set(targetId, key);
+    }
+    const hint = await recordAssistance(practiceId, { kind: 'word_hint', targetId }, key);
+    const details = await requestWordTranslation({ term, context }).catch((error: unknown) => {
+      if (!hint.hintMeaningZh) throw error;
+      return { partOfSpeech: '—', meaningZh: hint.hintMeaningZh };
+    });
+    return { ...details, savedSourceSentence: hint.sourceSentence };
+  };
+
   return (
     <View style={styles.paragraphBlock}>
-      <InteractiveArticleParagraph
+      <InteractiveWordParagraph
         borderColor={theme.border}
         dangerColor={theme.danger}
         mutedColor={theme.textMuted}
-        practiceId={practiceId}
+        addedWords={addedWords}
+        onWordAdded={onWordAdded}
+        onAddToVocabulary={addPracticeVocabulary}
+        lookupWord={lookupWord}
+        text={paragraph.segments.map((segment) => segment.text).join('')}
         segments={paragraph.segments}
         surfaceColor={theme.surfaceAlt}
         targetColor={theme.accent}
-        targetTerms={targetTerms}
         textColor={theme.text}
       />
       <TranslationControl
@@ -143,22 +169,26 @@ function PracticeParagraph({
   );
 }
 
+async function addPracticeVocabulary(input: VocabularyInput, idempotencyKey: string): Promise<void> {
+  await createVocabularyItem(input, idempotencyKey);
+}
+
 function ReaderContent({ practiceId }: { practiceId: string }) {
+  const readingOverlay = useReadingOverlay();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [practice, setPractice] = useState<PracticeDto | null>(null);
+  const allowNavigation = usePracticeExitGuard(practiceId);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const listRef = useRef<FlatList<ArticleParagraphDto>>(null);
+  const [initialIndex, setInitialIndex] = useState(0);
   const lastSavedIndexRef = useRef<number | null>(null);
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 35 }).current;
-  const practiceIdRef = useRef(practiceId);
-  practiceIdRef.current = practiceId;
 
   useEffect(() => {
     let mounted = true;
-    setLoadError(null);
-    getPractice(practiceId)
-      .then((nextPractice) => {
+    Promise.all([getPractice(practiceId), loadReadingPosition(practiceId).catch(() => 0)])
+      .then(([nextPractice, savedIndex]) => {
         if (!mounted) return;
         if (
           nextPractice.status === 'queued'
@@ -166,16 +196,17 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
           || nextPractice.status === 'validating'
           || nextPractice.status === 'failed'
         ) {
-          router.replace({
+          allowNavigation(() => router.replace({
             pathname: '/practice/[id]/generating',
             params: { id: practiceId },
-          });
+          }));
           return;
         }
         if (!nextPractice.article) {
           setLoadError('服务返回了无法识别的文章数据');
           return;
         }
+        setInitialIndex(Math.min(savedIndex, Math.max(0, nextPractice.article.paragraphs.length - 1)));
         setPractice(nextPractice);
       })
       .catch((error: unknown) => {
@@ -184,20 +215,14 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
     return () => {
       mounted = false;
     };
-  }, [loadAttempt, practiceId]);
+  }, [allowNavigation, loadAttempt, practiceId]);
 
-  const targetTerms = useMemo(
-    () => practice?.questions.reduce<Record<string, string>>(
-      (terms, question) => {
-        terms[question.targetId] = question.term;
-        return terms;
-      },
-      {},
-    ) ?? {},
-    [practice?.questions],
-  );
+  const [addedWords, setAddedWords] = useState<ReadonlySet<string>>(() => new Set());
+  const handleWordAdded = useCallback((term: string) => {
+    setAddedWords((current) => new Set([...current, term.trim().toLocaleLowerCase('en-US')]));
+  }, []);
 
-  const onViewableItemsChanged = useRef((info: {
+  const onViewableItemsChanged = useCallback((info: {
     viewableItems: ViewToken<ArticleParagraphDto>[];
   }) => {
     const visibleIndex = info.viewableItems
@@ -207,10 +232,10 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
       return;
     }
     lastSavedIndexRef.current = visibleIndex;
-    void saveReadingPosition(practiceIdRef.current, visibleIndex).catch(
+    void saveReadingPosition(practiceId, visibleIndex).catch(
       () => undefined,
     );
-  }).current;
+  }, [practiceId]);
 
   const renderParagraph = useCallback(({ item }: {
     item: ArticleParagraphDto;
@@ -218,14 +243,15 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
     <PracticeParagraph
       paragraph={item}
       practiceId={practiceId}
-      targetTerms={targetTerms}
+      addedWords={addedWords}
+      onWordAdded={handleWordAdded}
     />
-  ), [practiceId, targetTerms]);
+  ), [practiceId, addedWords, handleWordAdded]);
 
   if (!practice && !loadError) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.bg }]}>
-        <ActivityIndicator color={theme.accent} />
+        <ActivityIndicator accessibilityLabel="正在加载文章" color={theme.accent} />
       </View>
     );
   }
@@ -237,7 +263,10 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
           {loadError ?? '暂时无法加载这篇练习'}
         </Text>
         <TouchableOpacity
-          onPress={() => setLoadAttempt((attempt) => attempt + 1)}
+          onPress={() => {
+            setLoadError(null);
+            setLoadAttempt((attempt) => attempt + 1);
+          }}
           style={[styles.retryButton, { borderColor: theme.border }]}>
           <Text style={[styles.retryText, { color: theme.text }]}>重试</Text>
         </TouchableOpacity>
@@ -251,7 +280,9 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
         <TouchableOpacity
           accessibilityLabel="返回"
           hitSlop={8}
-          onPress={() => router.back()}>
+          onPress={() => practice.group
+            ? router.replace({ pathname: '/practice/[id]/topics', params: { id: practice.group.id } })
+            : router.back()}>
           <Ionicons name="chevron-back" size={26} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>长文练习</Text>
@@ -259,6 +290,13 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
       </View>
 
       <FlatList
+        ref={listRef}
+        initialScrollIndex={initialIndex}
+        onScrollToIndexFailed={({ index, averageItemLength }) => {
+          listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false });
+        }}
+        onScrollBeginDrag={() => readingOverlay?.select(null)}
+        testID="practice-reader-list"
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: insets.bottom + 24 },
@@ -273,7 +311,7 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
             })}
             style={[styles.quizButton, { backgroundColor: theme.accent }]}>
             <Text style={[styles.quizButtonText, { color: theme.accentText }]}>
-              开始词义测验
+              开始自测
             </Text>
             <Ionicons name="arrow-forward" size={18} color={theme.accentText} />
           </TouchableOpacity>
@@ -296,13 +334,17 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
         onViewableItemsChanged={onViewableItemsChanged}
         renderItem={renderParagraph}
         showsVerticalScrollIndicator={false}
-        viewabilityConfig={viewabilityConfig}
+        viewabilityConfig={READER_VIEWABILITY_CONFIG}
       />
     </View>
   );
 }
 
 export default function PracticeReaderScreen() {
+  return <ReadingOverlayProvider><PracticeReaderScreenContent /></ReadingOverlayProvider>;
+}
+
+function PracticeReaderScreenContent() {
   const { theme } = useAppTheme();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const practiceId = typeof id === 'string' ? id : null;
@@ -314,7 +356,7 @@ export default function PracticeReaderScreen() {
       </View>
     );
   }
-  return <ReaderContent practiceId={practiceId} />;
+  return <ReaderContent key={practiceId} practiceId={practiceId} />;
 }
 
 const styles = StyleSheet.create({

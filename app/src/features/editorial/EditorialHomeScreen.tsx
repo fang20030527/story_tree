@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ContinuePracticeCard } from '@/features/practice/ContinuePracticeCard';
+
 import { SectionHeader } from '@/components/ui';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
@@ -109,6 +111,7 @@ export function EditorialHomeScreen() {
           styles.content,
           { paddingBottom: insets.bottom + 28 },
         ]}>
+        <ContinuePracticeCard />
         {showSearchResults ? (
           <>
             <SectionHeader title="搜索结果" theme={theme} />

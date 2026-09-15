@@ -1,3 +1,4 @@
+import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   ImportedArticleDto,
@@ -51,6 +52,11 @@ function sourceLabel(sourceKind: ImportedArticleDto['sourceKind']): string {
 }
 
 export default function ArticleReadScreen() {
+  return <ReadingOverlayProvider><ArticleReadScreenContent /></ReadingOverlayProvider>;
+}
+
+function ArticleReadScreenContent() {
+  const readingOverlay = useReadingOverlay();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
@@ -126,7 +132,7 @@ export default function ArticleReadScreen() {
         <View style={styles.headerSpacer} />
       </View>
       {article ? (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView onScrollBeginDrag={() => readingOverlay?.select(null)} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]} showsVerticalScrollIndicator={false}>
           <View style={[styles.sourcePill, { backgroundColor: theme.accentSoft }]}><Ionicons name="cloud-done-outline" size={14} color={theme.accent} /><Text style={[styles.sourcePillText, { color: theme.textSecondary }]}>{sourceLabel(article.sourceKind)} · 私人文章</Text></View>
           <Text style={[styles.title, { color: theme.text }]}>{article.title}</Text>
           <Text style={[styles.meta, { color: theme.textMuted }]}>{article.wordCount} 词 · {new Date(article.importedAt).toLocaleDateString('zh-CN')}</Text>
@@ -141,6 +147,7 @@ export default function ArticleReadScreen() {
             />
           </View>
 
+          <Text style={[styles.meta, { color: theme.textMuted }]}>点按单词查词 · 长按单词翻译整句</Text>
           <View style={styles.articleBody}>
             {article.paragraphs.map((paragraph, index) => (
               <ParagraphBlock

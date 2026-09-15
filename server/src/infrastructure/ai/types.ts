@@ -1,11 +1,13 @@
 import type {
   WordTranslationResult,
+  PracticeTopic,
 } from '@context-reader/contracts';
 
 import type { GeneratedPractice, Verification } from './generated-schemas';
 
 export interface GeneratePracticeInput {
   examPath: 'ielts';
+  topic?: PracticeTopic;
   targets: Array<{
     alias: string;
     term: string;

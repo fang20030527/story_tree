@@ -33,6 +33,7 @@ interface AssistanceReferences {
   practiceTargetId: string | null;
   paragraphId: string | null;
   hintMeaningZh: string | null;
+  sourceSentence?: string | null;
 }
 
 export async function recordAssistance(
@@ -114,6 +115,9 @@ export async function recordAssistance(
     return AssistanceResponseSchema.parse({
       recorded: true,
       hintMeaningZh: references.hintMeaningZh,
+      ...(input.request.kind === 'word_hint'
+        ? { sourceSentence: references.sourceSentence ?? null }
+        : {}),
     });
   });
 }
@@ -128,6 +132,7 @@ async function resolveAssistanceReferences(
       .select({
         id: practiceTargets.id,
         meaningZh: vocabularyItems.meaningZh,
+        sourceSentence: vocabularyItems.sourceSentence,
       })
       .from(practiceTargets)
       .innerJoin(
@@ -146,6 +151,7 @@ async function resolveAssistanceReferences(
       practiceTargetId: target.id,
       paragraphId: null,
       hintMeaningZh: target.meaningZh,
+      sourceSentence: target.sourceSentence,
     };
   }
 
@@ -198,12 +204,16 @@ async function loadAssistanceResponse(
   if (!event) throw new AppError('NOT_FOUND', '辅助记录不存在', 404);
 
   let hintMeaningZh: string | null = null;
+  let sourceSentence: string | null = null;
   if (event.kind === 'word_hint') {
     if (!event.practiceTargetId) {
       throw new AppError('INTERNAL_ERROR', '辅助记录暂时无法读取', 500, true);
     }
     const [target] = await tx
-      .select({ meaningZh: vocabularyItems.meaningZh })
+      .select({
+        meaningZh: vocabularyItems.meaningZh,
+        sourceSentence: vocabularyItems.sourceSentence,
+      })
       .from(practiceTargets)
       .innerJoin(
         vocabularyItems,
@@ -215,6 +225,11 @@ async function loadAssistanceResponse(
       throw new AppError('INTERNAL_ERROR', '辅助记录暂时无法读取', 500, true);
     }
     hintMeaningZh = target.meaningZh;
+    sourceSentence = target.sourceSentence;
   }
-  return AssistanceResponseSchema.parse({ recorded: true, hintMeaningZh });
+  return AssistanceResponseSchema.parse({
+    recorded: true,
+    hintMeaningZh,
+    ...(event.kind === 'word_hint' ? { sourceSentence } : {}),
+  });
 }

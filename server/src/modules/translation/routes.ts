@@ -1,31 +1,60 @@
 import {
+  abbreviatePartOfSpeech,
+  SentenceTranslationRequestSchema,
+  SentenceTranslationDtoSchema,
   TranslationDtoSchema,
   TranslationRequestSchema,
   WordTranslationDtoSchema,
   WordTranslationResultSchema,
   WordTranslationRequestSchema,
+  type WordTranslationResult,
 } from '@context-reader/contracts';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 
 import type { ServerConfig } from '../../config/env';
 import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
+import { vocabularyItems } from '../../db/schema';
 import { extractJsonObject } from '../../infrastructure/ai/json';
 import type { AiProvider } from '../../infrastructure/ai/types';
 import { parseUuidParam, requireIdempotencyKey } from '../../http/validation';
 import { requireAuth } from '../auth/routes';
+import { normalizeTerm } from '../vocabulary/normalize';
 import { getTranslationForUser, requestTranslation } from './service';
 import { validateTranslationText } from './validation';
 
 export interface TranslationRoutesOptions {
   config: ServerConfig;
   db: AppDatabase;
+  sentenceProvider?: Pick<AiProvider, 'translate'>;
   wordProvider?: Pick<AiProvider, 'lookupWord'>;
 }
 
 export const translationRoutes: FastifyPluginAsync<
   TranslationRoutesOptions
 > = async (app, options) => {
+  app.post(
+    '/v1/sentence-translations',
+    { preHandler: requireAuth(options.db) },
+    async (request, reply) => {
+      const parsed = SentenceTranslationRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        throw new AppError('VALIDATION_ERROR', '句子不能为空且不能超过 10000 字符', 400);
+      }
+      if (!options.sentenceProvider) {
+        throw new AppError('AI_UNAVAILABLE', '翻译服务暂时不可用', 503, true);
+      }
+      const translatedTextZh = validateTranslationText(
+        await options.sentenceProvider.translate(
+          parsed.data.text,
+          AbortSignal.timeout(options.config.generationDeadlineMs),
+        ),
+      );
+      return reply.send(SentenceTranslationDtoSchema.parse({ translatedTextZh }));
+    },
+  );
+
   app.post(
     '/v1/word-translations',
     { preHandler: requireAuth(options.db) },
@@ -47,15 +76,27 @@ export const translationRoutes: FastifyPluginAsync<
       if (meaningZh.length > 200) {
         throw new AppError('AI_INVALID_OUTPUT', '翻译结果格式无效', 502, true);
       }
-      const partOfSpeech = lookup.partOfSpeech.trim();
+      const partOfSpeech = abbreviatePartOfSpeech(lookup.partOfSpeech);
       if (!partOfSpeech || partOfSpeech.length > 40) {
         throw invalidWordLookupOutput();
       }
+      const [savedWord] = await options.db
+        .select({ sourceSentence: vocabularyItems.sourceSentence })
+        .from(vocabularyItems)
+        .where(and(
+          eq(vocabularyItems.userId, request.authUser.userId),
+          eq(vocabularyItems.normalizedTerm, normalizeTerm(parsed.data.term)),
+          isNull(vocabularyItems.deletedAt),
+        ))
+        .orderBy(asc(vocabularyItems.createdAt), asc(vocabularyItems.id))
+        .limit(1);
       return reply.send(
         WordTranslationDtoSchema.parse({
+          ...lookup,
           term: parsed.data.term,
           partOfSpeech,
           meaningZh,
+          savedSourceSentence: savedWord?.sourceSentence ?? null,
         }),
       );
     },
@@ -105,10 +146,7 @@ export const translationRoutes: FastifyPluginAsync<
   );
 };
 
-interface NormalizedWordLookup {
-  partOfSpeech: string;
-  meaningZh: string;
-}
+type NormalizedWordLookup = WordTranslationResult;
 
 /**
  * Parse the structured dictionary response and tolerate the old plain-text
@@ -120,10 +158,7 @@ function normalizeWordLookup(raw: unknown): NormalizedWordLookup {
   if (typeof raw === 'object' && raw !== null) {
     const parsed = WordTranslationResultSchema.safeParse(raw);
     if (!parsed.success) throw invalidWordLookupOutput();
-    return {
-      partOfSpeech: parsed.data.partOfSpeech,
-      meaningZh: parsed.data.meaningZh,
-    };
+    return parsed.data;
   }
 
   if (typeof raw !== 'string') throw invalidWordLookupOutput();
@@ -134,10 +169,7 @@ function normalizeWordLookup(raw: unknown): NormalizedWordLookup {
   if (candidate !== undefined) {
     const parsed = WordTranslationResultSchema.safeParse(candidate);
     if (!parsed.success) throw invalidWordLookupOutput();
-    return {
-      partOfSpeech: parsed.data.partOfSpeech,
-      meaningZh: parsed.data.meaningZh,
-    };
+    return parsed.data;
   }
 
   return parseLegacyWordLookup(trimmed);

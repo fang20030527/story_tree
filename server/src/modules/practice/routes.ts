@@ -49,6 +49,7 @@ export const practiceRoutes: FastifyPluginAsync<PracticeRoutesOptions> = async (
         idempotencyKey,
         freeLimit: options.config.freePracticeLimit,
         generationDeadlineMs: options.config.generationDeadlineMs,
+        ...(parsed.data.format ? { format: parsed.data.format } : {}),
       };
       const created = 'items' in parsed.data
         ? await createPractice(options.db, {

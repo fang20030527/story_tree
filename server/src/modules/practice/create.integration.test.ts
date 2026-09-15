@@ -160,7 +160,7 @@ describe('transactional practice creation', () => {
     });
   }, 120_000);
 
-  it('selects the requested number of random review targets from vocabulary', async () => {
+  it('selects unique due words and does not exclude unverifiable legacy status labels', async () => {
     await withTestDatabase(async ({ db }) => {
       const token = '78'.repeat(32);
       const user = await registerAnonymous(db, token, true);
@@ -174,7 +174,7 @@ describe('transactional practice creation', () => {
           })),
         ),
       );
-      const eligibleIds = new Set(itemIds.slice(0, 16));
+      const eligibleIds = new Set(itemIds.slice(0, 18));
       await db
         .update(vocabularyItems)
         .set({ status: 'mastered' })
@@ -221,7 +221,7 @@ describe('transactional practice creation', () => {
             authorization: `Bearer ${token}`,
             'idempotency-key': 'random-adjusted-001',
           },
-          payload: { source: 'vocabulary', targetCount: 16 },
+          payload: { source: 'vocabulary', targetCount: 18 },
         });
         expect(adjustedResponse.statusCode).toBe(202);
         const adjustedPractice = CreatePracticeAcceptedSchema.parse(
@@ -231,37 +231,53 @@ describe('transactional practice creation', () => {
           .select({ vocabularyItemId: practiceTargets.vocabularyItemId })
           .from(practiceTargets)
           .where(eq(practiceTargets.practiceSessionId, adjustedPractice.practiceId));
-        expect(adjustedTargets).toHaveLength(16);
+        expect(adjustedTargets).toHaveLength(18);
         expect(new Set(adjustedTargets.map(({ vocabularyItemId }) => vocabularyItemId)))
           .toEqual(eligibleIds);
 
-        const insufficientResponse = await app.inject({
+        const cappedResponse = await app.inject({
           method: 'POST',
           url: '/v1/practices',
           headers: {
             authorization: `Bearer ${token}`,
-            'idempotency-key': 'random-too-many-001',
+            'idempotency-key': 'random-capped-count-001',
           },
-          payload: { source: 'vocabulary', targetCount: 17 },
+          payload: { source: 'vocabulary', format: 'topic_set', targetCount: 30 },
         });
-        expect(insufficientResponse.statusCode).toBe(422);
-        expect(PublicErrorSchema.parse(insufficientResponse.json()).error)
-          .toMatchObject({
-            code: 'INSUFFICIENT_VOCABULARY',
-            message: '词库中只有 16 个待复习义项，请调低练习数量',
-          });
-        expect(
-          await db
-            .select()
-            .from(practiceSessions)
-            .where(eq(practiceSessions.userId, user.userId)),
-        ).toHaveLength(2);
-        expect(
-          await db
-            .select()
-            .from(usageLedger)
-            .where(eq(usageLedger.userId, user.userId)),
-        ).toHaveLength(2);
+        expect(cappedResponse.statusCode).toBe(202);
+        const cappedPractice = CreatePracticeAcceptedSchema.parse(cappedResponse.json());
+        const members = await db.select().from(practiceSessions)
+          .where(eq(practiceSessions.topicGroupId, cappedPractice.practiceId));
+        expect(members).toHaveLength(4);
+        for (const member of members) {
+          const targets = await db.select().from(practiceTargets)
+            .where(eq(practiceTargets.practiceSessionId, member.id));
+          expect(targets).toHaveLength(18);
+          expect(new Set(targets.map((target) => target.vocabularyItemId))).toEqual(eligibleIds);
+        }
+        expect(await db.select().from(usageLedger).where(eq(usageLedger.userId, user.userId))).toHaveLength(3);
+
+        const replay = await app.inject({
+          method: 'POST', url: '/v1/practices',
+          headers: { authorization: `Bearer ${token}`, 'idempotency-key': 'random-capped-count-001' },
+          payload: { source: 'vocabulary', format: 'topic_set', targetCount: 30 },
+        });
+        expect(replay.statusCode).toBe(202);
+        expect(replay.json().practiceId).toBe(cappedPractice.practiceId);
+        expect(await db.select().from(usageLedger).where(eq(usageLedger.userId, user.userId))).toHaveLength(3);
+
+        const emptyToken = '91'.repeat(32);
+        const emptyUser = await registerAnonymous(db, emptyToken, true);
+        const emptyResponse = await app.inject({
+          method: 'POST', url: '/v1/practices',
+          headers: { authorization: `Bearer ${emptyToken}`, 'idempotency-key': 'empty-vocabulary-001' },
+          payload: { source: 'vocabulary', targetCount: 30 },
+        });
+        expect(emptyResponse.statusCode).toBe(422);
+        expect(PublicErrorSchema.parse(emptyResponse.json()).error).toMatchObject({
+          code: 'INSUFFICIENT_VOCABULARY', message: '当前没有待复习单词',
+        });
+        expect(await db.select().from(usageLedger).where(eq(usageLedger.userId, emptyUser.userId))).toHaveLength(0);
       } finally {
         await app.close();
       }

@@ -1,20 +1,33 @@
+import { ReadingOverlayProvider } from './ReadingOverlay';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
+import { requestSentenceTranslation } from '@/api/sentences';
+
 import { createIdempotencyKey } from '@/api/installation';
-import { recordAssistance } from '@/api/practices';
+import { recordAssistance, requestWordTranslation } from '@/api/practices';
 
 import {
   ArticleParagraph,
   InteractiveArticleParagraph,
   InteractiveWordParagraph,
   tokenizeArticleText,
+  contextForWord,
+  sentenceAtOffset,
 } from './ArticleParagraph';
+
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+jest.mock('expo-speech', () => ({
+  speak: jest.fn(), stop: jest.fn().mockResolvedValue(undefined),
+  getAvailableVoicesAsync: jest.fn().mockResolvedValue([]),
+}));
+jest.mock('@/api/sentences', () => ({ requestSentenceTranslation: jest.fn() }));
 
 jest.mock('@/api/installation', () => ({
   createIdempotencyKey: jest.fn(),
 }));
 jest.mock('@/api/practices', () => ({
   recordAssistance: jest.fn(),
+  requestWordTranslation: jest.fn(),
 }));
 
 const mockedCreateIdempotencyKey = jest.mocked(createIdempotencyKey);
@@ -23,6 +36,10 @@ const mockedRecordAssistance = jest.mocked(recordAssistance);
 describe('ArticleParagraph', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    jest.mocked(requestWordTranslation).mockResolvedValue({
+      term: 'resilient', partOfSpeech: 'adj.', meaningZh: '有韧性的',
+      phoneticUk: '/rɪˈzɪliənt/', phoneticUs: '/rɪˈzɪliənt/',
+    });
   });
 
   it('styles only target segments and treats markup-like text literally', async () => {
@@ -56,6 +73,7 @@ describe('ArticleParagraph', () => {
     let resolveAssistance: ((value: {
       recorded: true;
       hintMeaningZh: string | null;
+      sourceSentence?: string | null;
     }) => void) | undefined;
     mockedCreateIdempotencyKey.mockResolvedValue('hint_key_1234567890');
     mockedRecordAssistance.mockReturnValue(new Promise((resolve) => {
@@ -80,10 +98,17 @@ describe('ArticleParagraph', () => {
     expect(view.queryByText('有韧性的')).toBeNull();
 
     await act(async () => {
-      resolveAssistance?.({ recorded: true, hintMeaningZh: '有韧性的' });
+      resolveAssistance?.({ recorded: true, hintMeaningZh: '有韧性的', sourceSentence: 'The original reader was resilient.' });
       await Promise.resolve();
     });
     expect(view.getByText('有韧性的')).toBeTruthy();
+    expect(view.getByText('The original reader was resilient.')).toBeTruthy();
+    await waitFor(() => expect(view.getAllByText('/rɪˈzɪliənt/')).toHaveLength(2));
+    expect(view.getByText('adj.')).toBeTruthy();
+    await fireEvent.press(view.getByLabelText('关闭词义提示'));
+    await fireEvent.press(view.getByText('resilient'));
+    expect(view.getByText('The original reader was resilient.')).toBeTruthy();
+    expect(mockedRecordAssistance).toHaveBeenCalledTimes(1);
   });
 
   it('keeps article text intact while exposing tapped words and saving a card', async () => {
@@ -144,7 +169,7 @@ describe('ArticleParagraph', () => {
 
     await fireEvent.press(view.getByText('trapped'));
     await waitFor(() => {
-      expect(view.getByText('动词')).toBeTruthy();
+      expect(view.getByText('v.')).toBeTruthy();
       expect(view.getByText('困住；使受困')).toBeTruthy();
     });
     expect(view.getAllByText('trapped')[0]).toHaveStyle({ color: '#000000' });
@@ -167,7 +192,7 @@ describe('ArticleParagraph', () => {
     );
 
     await fireEvent.press(view.getByText('trapped'));
-    await waitFor(() => expect(view.getByText('动词')).toBeTruthy());
+    await waitFor(() => expect(view.getByText('v.')).toBeTruthy());
     await fireEvent.press(view.getByLabelText('加入生词本'));
     await waitFor(() => expect(view.getByText('已加入生词本')).toBeTruthy());
     expect(view.getAllByText('trapped')[0]).toHaveStyle({
@@ -176,4 +201,172 @@ describe('ArticleParagraph', () => {
     });
   });
 
+  it('saves the sentence at the tapped occurrence, even when a word repeats', async () => {
+    const lookupWord = jest.fn().mockResolvedValue({ partOfSpeech: '名词', meaningZh: '河岸', phoneticUk: '/bæŋk/', phoneticUs: '/bæŋk/' });
+    const save = jest.fn().mockResolvedValue(undefined);
+    mockedCreateIdempotencyKey.mockResolvedValue('repeated-word-key-01');
+    const view = await render(<InteractiveWordParagraph
+      text="The bank lends money. We sit by the bank. Birds sing."
+      targetColor="#f0b429" lookupWord={lookupWord} onAddToVocabulary={save}
+    />);
+    await fireEvent.press(view.getAllByText('bank')[1]);
+    await waitFor(() => expect(view.getByText('河岸')).toBeTruthy());
+    expect(lookupWord).toHaveBeenCalledWith('bank', 'We sit by the bank.');
+    expect(view.getAllByText('/bæŋk/')).toHaveLength(2);
+    await fireEvent.press(view.getByLabelText('加入生词本'));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ term: 'bank', meaningZh: '河岸', sourceSentence: 'We sit by the bank.' }, 'repeated-word-key-01'));
+    expect(view.getByText('We sit by the bank.')).toBeTruthy();
+  });
+
+  it('displays the saved source alongside a new contextual meaning', async () => {
+    const view = await render(<InteractiveWordParagraph
+      text="A bank lends money." targetColor="#f0b429"
+      lookupWord={jest.fn().mockResolvedValue({ partOfSpeech: 'n.', meaningZh: '银行', savedSourceSentence: 'We sit by the bank.' })}
+    />);
+    await fireEvent.press(view.getByText('bank'));
+    await waitFor(() => expect(view.getByText('银行')).toBeTruthy());
+    expect(view.getByText('We sit by the bank.')).toBeTruthy();
+  });
+
+  it('preserves the original sentence across previously cached occurrences', async () => {
+    mockedCreateIdempotencyKey.mockResolvedValue('save-original-sentence');
+    const lookupWord = jest.fn().mockResolvedValue({ partOfSpeech: 'n.', meaningZh: '银行' });
+    const save = jest.fn().mockResolvedValue(undefined);
+    const view = await render(<InteractiveWordParagraph
+      text="A bank lends money. We sit by the bank." targetColor="#f0b429"
+      lookupWord={lookupWord} onAddToVocabulary={save}
+    />);
+    await fireEvent.press(view.getAllByText('bank')[1]);
+    await waitFor(() => expect(view.getByText('银行')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('关闭词义提示'));
+    await fireEvent.press(view.getAllByText('bank')[0]);
+    await waitFor(() => expect(view.getByText('银行')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('加入生词本'));
+    await waitFor(() => expect(view.getByText('A bank lends money.')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('关闭词义提示'));
+    await fireEvent.press(view.getAllByText('bank')[1]);
+    expect(view.getByText('A bank lends money.')).toBeTruthy();
+    expect(lookupWord).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes an unsaved cached lookup after the word is saved elsewhere', async () => {
+    const lookupWord = jest.fn()
+      .mockResolvedValueOnce({ partOfSpeech: 'n.', meaningZh: '银行', savedSourceSentence: null })
+      .mockResolvedValueOnce({ partOfSpeech: 'n.', meaningZh: '银行', savedSourceSentence: 'We sit by the bank.' });
+    const view = await render(<InteractiveWordParagraph
+      text="A bank lends money." targetColor="#f0b429" lookupWord={lookupWord}
+    />);
+    await fireEvent.press(view.getByText('bank'));
+    await waitFor(() => expect(view.getByText('银行')).toBeTruthy());
+    await fireEvent.press(view.getByLabelText('关闭词义提示'));
+    await view.rerender(<InteractiveWordParagraph
+      text="A bank lends money." targetColor="#f0b429" lookupWord={lookupWord} addedWords={new Set(['bank'])}
+    />);
+    await fireEvent.press(view.getByText('bank'));
+    await waitFor(() => expect(view.getByText('We sit by the bank.')).toBeTruthy());
+    expect(lookupWord).toHaveBeenCalledTimes(2);
+  });
+
+  it('saves the full long sentence while bounding dictionary context', async () => {
+    mockedCreateIdempotencyKey.mockResolvedValue('save-full-sentence');
+    const sentence = `A resilient ${'community '.repeat(120)}recovered.`;
+    const lookupWord = jest.fn().mockResolvedValue({ partOfSpeech: 'adj.', meaningZh: '有韧性的' });
+    const save = jest.fn().mockResolvedValue(undefined);
+    const view = await render(<InteractiveWordParagraph
+      text={sentence} targetColor="#f0b429" lookupWord={lookupWord} onAddToVocabulary={save}
+    />);
+    await fireEvent.press(view.getByText('resilient'));
+    await waitFor(() => expect(view.getByText('有韧性的')).toBeTruthy());
+    expect(lookupWord.mock.calls[0][1].length).toBeLessThanOrEqual(1_000);
+    await fireEvent.press(view.getByLabelText('加入生词本'));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({
+      term: 'resilient', meaningZh: '有韧性的', sourceSentence: sentence,
+    }, 'save-full-sentence'));
+    expect(view.getAllByText(sentence)).toHaveLength(2);
+  });
+
+  it('keeps saved AI context readable if the dictionary service fails', async () => {
+    mockedCreateIdempotencyKey.mockResolvedValue('hint_key_1234567890');
+    mockedRecordAssistance.mockResolvedValue({ recorded: true, hintMeaningZh: '有韧性的', sourceSentence: 'An earlier resilient community recovered.' });
+    jest.mocked(requestWordTranslation).mockRejectedValue(new Error('offline'));
+    const view = await render(<InteractiveArticleParagraph practiceId="p1" segments={[{ text: 'resilient', targetId: 't1' }]} targetTerms={{ t1: 'resilient' }} targetColor="#f0b429" />);
+    await fireEvent.press(view.getByText('resilient'));
+    await waitFor(() => expect(view.getByText('音标和词性加载失败 · 重试')).toBeTruthy());
+    expect(view.getByText('An earlier resilient community recovered.')).toBeTruthy();
+    expect(view.getByText('有韧性的')).toBeTruthy();
+  });
+
+  it('bounds a very long sentence while retaining the selected word', () => {
+    const paragraph = `${'word '.repeat(210)}resilient ${'word '.repeat(210)}.`;
+    const context = contextForWord(paragraph, 'resilient');
+    expect(context.length).toBeLessThanOrEqual(1_000);
+    expect(context).toContain('resilient');
+    expect(contextForWord('Banking grows. A bank opens.', 'bank')).toBe('A bank opens.');
+    expect(contextForWord('Dr. Smith saw a resilient reader. It was late.', 'resilient')).toBe('Dr. Smith saw a resilient reader.');
+    expect(contextForWord('It cost 3.5 dollars. The resilient reader paid.', 'cost')).toBe('It cost 3.5 dollars.');
+    expect(contextForWord('She said "hello." A resilient reader smiled.', 'resilient')).toBe('A resilient reader smiled.');
+  });
+});
+
+describe('sentence translation', () => {
+  it('locates repeated words and preserves abbreviations, decimals, quotes and long sentences', () => {
+    const text = 'Dr. Smith paid 3.5 dollars. “Smith returned!”';
+    expect(sentenceAtOffset(text, text.lastIndexOf('Smith'))).toBe('“Smith returned!”');
+    expect(sentenceAtOffset(text, text.indexOf('paid'))).toBe('Dr. Smith paid 3.5 dollars.');
+    const longSentence = 'word '.repeat(250) + 'ends.';
+    expect(sentenceAtOffset(longSentence, 20)).toBe(longSentence);
+  });
+
+  it('translates only the held sentence and reuses its translation after closing', async () => {
+    jest.mocked(requestSentenceTranslation).mockResolvedValue('鸟儿飞翔。');
+    const lookupWord = jest.fn();
+    const view = await render(<InteractiveWordParagraph text="Birds fly. Fish swim." targetColor="#123456" lookupWord={lookupWord} />);
+    await fireEvent(view.getByText('Birds'), 'longPress');
+    await waitFor(() => expect(view.getByText('鸟儿飞翔。')).toBeTruthy());
+    expect(requestSentenceTranslation).toHaveBeenCalledWith('Birds fly.');
+    expect(lookupWord).not.toHaveBeenCalled();
+    await fireEvent.press(view.getByLabelText('关闭单句翻译'));
+    await fireEvent(view.getByText('fly'), 'longPress');
+    expect(view.getByText('鸟儿飞翔。')).toBeTruthy();
+    expect(requestSentenceTranslation).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a late translation after changing sentences and allows retry', async () => {
+    let resolveFirst!: (value: string) => void;
+    jest.mocked(requestSentenceTranslation).mockReset()
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce('鱼儿游泳。');
+    const view = await render(<InteractiveWordParagraph text="Birds fly. Fish swim." targetColor="#123456" />);
+    await fireEvent(view.getByText('Birds'), 'longPress');
+    await fireEvent(view.getByText('Fish'), 'longPress');
+    await act(async () => resolveFirst('旧译文'));
+    expect(view.queryByText('旧译文')).toBeNull();
+    await fireEvent.press(view.getByText('暂时无法翻译这个句子 · 重试'));
+    await waitFor(() => expect(view.getByText('鱼儿游泳。')).toBeTruthy());
+  });
+});
+
+describe('floating word cards', () => {
+  it('positions outside prose and replaces cards across paragraphs without allowing late results to reopen them', async () => {
+    let resolveFirst!: (value: string) => void;
+    const firstLookup = jest.fn().mockImplementation(() => new Promise<string>((resolve) => { resolveFirst = resolve; }));
+    const secondLookup = jest.fn().mockResolvedValue('游泳');
+    const view = await render(
+      <ReadingOverlayProvider>
+        <InteractiveWordParagraph text="Birds fly." targetColor="#123456" lookupWord={firstLookup} />
+        <InteractiveWordParagraph text="Fish swim." targetColor="#123456" lookupWord={secondLookup} />
+      </ReadingOverlayProvider>,
+    );
+    await fireEvent.press(view.getByText('Birds'), { nativeEvent: { pageX: 140, pageY: 120 } });
+    expect(view.getByTestId('word-floating-bubble')).toHaveStyle({ position: 'absolute', top: 138 });
+    await fireEvent.press(view.getByText('swim'), { nativeEvent: { pageX: 150, pageY: 180 } });
+    await waitFor(() => expect(view.getByText('游泳')).toBeTruthy());
+    expect(view.getAllByLabelText('关闭词义提示')).toHaveLength(1);
+    expect(view.getByTestId('word-floating-bubble')).toHaveStyle({ top: 198 });
+    await act(async () => resolveFirst('鸟儿'));
+    expect(view.queryByText('鸟儿')).toBeNull();
+    await fireEvent.press(view.getByLabelText('关闭词义提示'));
+    expect(view.queryByTestId('word-floating-bubble')).toBeNull();
+  });
 });

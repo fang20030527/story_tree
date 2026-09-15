@@ -137,6 +137,7 @@ try {
     config,
     db: database.db,
     wordTranslationProvider: aiProvider,
+    sentenceTranslationProvider: aiProvider,
     readiness: checkDatabaseReadiness,
     readinessTimeoutMs,
   });

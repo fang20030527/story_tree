@@ -2,7 +2,6 @@ import type { ArticleSegment } from '@context-reader/contracts';
 
 import { AppError } from '../../core/errors';
 import type { GeneratedPractice } from '../../infrastructure/ai/generated-schemas';
-import { normalizeMeaningZh } from '../vocabulary/normalize';
 
 export interface GenerationTarget {
   id: string;
@@ -24,11 +23,11 @@ export interface ValidatedQuestion {
   targetId: string;
   targetAlias: string;
   prompt: string;
-  optionsZh: string[];
+  optionsEn: string[];
   correctOptionIndex: number;
   meaningEn: string;
-  explanationZh: string;
-  optionExplanationsZh: string[];
+  explanationEn: string;
+  optionExplanationsEn: string[];
 }
 
 export interface ValidatedGeneratedPractice {
@@ -48,6 +47,7 @@ export interface TargetRange {
 export function validateGeneratedPractice(
   generated: GeneratedPractice,
   targets: readonly GenerationTarget[],
+  length: 'long' | 'short' = 'long',
 ): ValidatedGeneratedPractice {
   const paragraphsByKey = indexParagraphs(generated.paragraphs);
   const targetsByAlias = indexTargets(targets);
@@ -64,7 +64,9 @@ export function validateGeneratedPractice(
   const wordCount = countEnglishWords(
     generated.paragraphs.map((paragraph) => paragraph.text).join(' '),
   );
-  if (wordCount < 700 || wordCount > 1_000) throw invalidOutput();
+  const minWords = length === 'short' ? 200 : 700;
+  const maxWords = length === 'short' ? 300 : 1_000;
+  if (wordCount < minWords || wordCount > maxWords) throw invalidOutput();
 
   const usages = targets.map((target) => {
     const usage = usageByAlias.get(target.alias)!;
@@ -90,25 +92,35 @@ export function validateGeneratedPractice(
 
   const questions = targets.map((target) => {
     const question = questionByAlias.get(target.alias)!;
-    const normalizedOptions = question.optionsZh.map(normalizeMeaningZh);
-    if (new Set(normalizedOptions).size !== normalizedOptions.length) {
+    const normalizedOptions = question.optionsEn.map((option) => option.trim().toLowerCase());
+    const englishFields = [question.prompt, ...question.optionsEn, question.meaningEn,
+      question.explanationEn, ...question.optionExplanationsEn];
+    if (question.optionsEn.length !== 4
+      || new Set(normalizedOptions).size !== 4
+      || englishFields.some((text) => !/[a-z]/i.test(text) || /\p{Script=Han}/u.test(text))
+      || (question.prompt.match(/_{2,}/g) ?? []).length !== 1
+      || question.prompt.match(/_{2,}/g)?.[0] !== '____'
+      || !Number.isInteger(question.correctOptionIndex)
+      || question.correctOptionIndex < 0 || question.correctOptionIndex > 3) {
       throw invalidOutput();
     }
-    const normalizedMeaning = normalizeMeaningZh(target.meaningZh);
-    const matchingIndexes = normalizedOptions.flatMap((option, index) =>
-      option === normalizedMeaning ? [index] : [],
-    );
-    if (matchingIndexes.length !== 1) throw invalidOutput();
+    const answer = question.optionsEn[question.correctOptionIndex]!.trim();
+    const promptWords = ` ${question.prompt.toLowerCase().replace(/[^a-z'-]+/g, ' ')} `;
+    if (promptWords.includes(` ${answer.toLowerCase()} `)) throw invalidOutput();
+    const completedSentence = question.prompt.replace('____', answer).toLowerCase();
+    if (generated.paragraphs.some((paragraph) => paragraph.text.toLowerCase().includes(completedSentence))) {
+      throw invalidOutput();
+    }
 
     return {
       targetId: target.id,
       targetAlias: target.alias,
       prompt: question.prompt,
-      optionsZh: question.optionsZh,
-      correctOptionIndex: matchingIndexes[0]!,
+      optionsEn: question.optionsEn,
+      correctOptionIndex: question.correctOptionIndex,
       meaningEn: question.meaningEn,
-      explanationZh: question.explanationZh,
-      optionExplanationsZh: question.optionExplanationsZh,
+      explanationEn: question.explanationEn,
+      optionExplanationsEn: question.optionExplanationsEn,
     };
   });
 

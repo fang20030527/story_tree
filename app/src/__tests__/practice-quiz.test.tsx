@@ -4,6 +4,7 @@ import type { PracticeDto } from '@context-reader/contracts';
 import { getPractice } from '@/api/practices';
 import PracticeQuizScreen from '@/app/practice/[id]/quiz';
 
+jest.mock('@/features/practice/usePracticeExitGuard', () => ({ usePracticeExitGuard: () => jest.requireActual('react').useCallback((action: () => void) => action(), []) }));
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), replace: jest.fn() },
   useLocalSearchParams: () => ({
@@ -95,4 +96,18 @@ it('places the source above the question in independently scrollable panes', asy
   expect(view.getByTestId('quiz-question-pane')).toHaveStyle({ flex: 1 });
   expect(view.getByText('How systems recover')).toBeTruthy();
   expect(view.getByText('在本文语境中是什么意思？')).toBeTruthy();
+});
+
+it('hides the source and target heading for English contextual self-tests', async () => {
+  const next = JSON.parse(JSON.stringify(practice)) as typeof practice;
+  next.questions[0]!.prompt = 'Despite setbacks, the team remained ____.';
+  next.questions[0]!.options.forEach((option, index) => {
+    option.label = ['resilient', 'fragile', 'temporary', 'ambiguous'][index]!;
+  });
+  jest.mocked(getPractice).mockResolvedValue(next);
+  const view = await render(<PracticeQuizScreen />);
+  expect(await view.findByText('Vocabulary self-test')).toBeTruthy();
+  expect(view.queryByTestId('quiz-reference-pane')).toBeNull();
+  expect(view.getAllByText('resilient')).toHaveLength(1);
+  expect(view.getByLabelText('Check answer')).toBeTruthy();
 });

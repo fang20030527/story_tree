@@ -40,6 +40,7 @@ import {
   WechatAuthRequestSchema,
   WechatAuthResponseSchema,
   WordTranslationDtoSchema,
+  VocabularyInputSchema,
 } from './index';
 
 describe('shared contracts', () => {
@@ -456,5 +457,15 @@ describe('shared contracts', () => {
       items: Array.from({ length: 101 }, () => item),
       nextCursor: null,
     }).success).toBe(false);
+  });
+});
+
+
+describe('saved word sentences', () => {
+  it('preserves complete sentences beyond the dictionary context limit', () => {
+    const sourceSentence = `A resilient ${'community '.repeat(120)}recovered.`;
+    expect(VocabularyInputSchema.parse({
+      term: 'resilient', meaningZh: '有韧性的', sourceSentence,
+    }).sourceSentence).toBe(sourceSentence);
   });
 });

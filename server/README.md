@@ -25,7 +25,7 @@ Expo Go 真机调试要求手机和 API 主机可在同一局域网互访。`EXP
 | `POST /v1/auth/anonymous` | `201` 或 `200` | 创建或恢复 14+ 匿名身份 |
 | `POST /v1/auth/email` | `201` 或 `200` | 用邮箱和密码创建或恢复注册身份 |
 | `POST /v1/auth/wechat` | `201` 或 `200` | 用原生微信授权 code 绑定或恢复注册身份 |
-| `POST /v1/practices` | `202` | 根据手动义项，或按用户设置的数量从词库随机抽词，预留额度并创建生成任务 |
+| `POST /v1/practices` | `202` | 根据手动单词，或按复习优先级选择到期单词，预留额度并创建生成任务 |
 | `GET /v1/practices/:id` | `200` | 读取持久练习状态与建议轮询间隔 |
 | `POST /v1/practices/:id/translations` | `200` 或 `202` | 读取缓存译文或创建翻译任务 |
 | `GET /v1/translations/:id` | `200` | 读取翻译状态 |
@@ -34,6 +34,8 @@ Expo Go 真机调试要求手机和 API 主机可在同一局域网互访。`EXP
 | `POST /v1/word-translations` | `200` | 按语境查询一个单词或短语的词性与中文义项 |
 | `POST /v1/vocabulary-items` | `201` | 幂等保存一个阅读中选定的词义 |
 | `GET /v1/vocabulary-items` | `200` | 游标分页的词义与进度 |
+| `GET /v1/vocabulary-words` | `200` | 按单词分页、筛选和排序，包含全库待复习统计及下一次刷新时间 |
+| `GET /v1/vocabulary-words/:wordId/contexts` | `200` | 展开单词已保存的释义和例句，仅限所有者 |
 | `GET /v1/dashboard` | `200` | 未完成练习、统计和剩余额度 |
 | `POST /v1/imports` | `201` | 创建 URL、粘贴、相册或本地文件导入 |
 | `PUT /v1/imports/:id/source-text` | `200` | 流式上传粘贴的 UTF-8 正文 |
@@ -58,7 +60,15 @@ Expo Go 真机调试要求手机和 API 主机可在同一局域网互访。`EXP
 从词库创建长文练习时，`POST /v1/practices` 接收
 `{ "source": "vocabulary", "targetCount": 10 }`。`targetCount` 省略时默认为 10，
 只要求为正整数，不设固定硬上限；实际可选数量由该用户当前的
-`待复习` 和 `复习中` 义项数量决定。
+到期单词数量决定。同词不同释义只计一个单词，每次只选一个语境；优先选择尚未练习的新词，再按 FSRS 当前回忆概率由低到高选择到期词。未到期词不会为凑数自动进入练习。数量不足返回 `INSUFFICIENT_VOCABULARY`。
+
+### 单词间隔复习
+
+`vocabulary_words` 保存用户级单词身份和 FSRS 状态，`vocabulary_items` 保留语境记录及旧 ID，`word_review_events` 按练习和单词保存合并后的复习事件。迁移 0005 只增加表、关联字段和回填，不删除原有释义、例句或答案。迁移后首次读取／写入词库，会从真实首次答案重放进度；缺少历史的旧累计次数和 `mastered/self_reported` 标签不能代替独立回忆证据。
+
+调度使用 ts-fsrs 5.4.2，目标记忆保留率 0.90（非准确率保证），关闭随机扰动以保证历史重放和排序可复现。独立答对映射 Good；答错、不认识或答前查看目标词释义映射 Again。只看段落／全文翻译后答对不提高记忆强度，安排不晚于一天后的独立验证。答后查看帮助不改写首次成绩，听发音不计为复习。同一练习中同词多题取较弱结果，只计一次；更新使用事务与用户级锁，避免并发漏记。
+
+新词到期时间设为收录时刻。新词和其他已到期词属于“待复习”，其余属于“未到时间”；状态按服务端 UTC 时间计算。读取参数 `filter=all|due|scheduled`、`limit=1..50`，可传 `cursor` 继续读取。统计不受当前页和筛选影响。游标绑定用户、筛选条件和评估时间；词库内容或复习状态改变、或超过 30 分钟，返回 `VOCABULARY_CHANGED`，客户端重新加载第一页。`nextRefreshAt` 用于到期自动刷新。
 
 练习状态为 `queued → generating → validating → ready → in_progress → completed`，任何生成终态错误进入 `failed`。翻译状态为 `queued → generating → ready`，终态错误进入 `failed`。
 
@@ -135,3 +145,10 @@ RUN_IMPORT_LIVE_SMOKE=1 npm run smoke:imports --workspace=@context-reader/server
 - 真实 Neon + EvoLink 冒烟流程通过：三词练习约 56.8 秒进入 `ready`，段落翻译与全文翻译均进入 `ready`，一次正确作答与一次 `dont_know` 均被接受；练习创建、翻译、辅助和作答的幂等重放均返回相同资源或结果，剩余免费额度为 2。
 - Expo Web 开发模式已实际渲染首页和 `/practice/new`；生产导出成功生成 15 条静态路由。源码和导出包扫描未发现服务端变量名、PostgreSQL URL 或配置中的真实密钥值。
 - 原生 iOS/Android 交互流程尚未验证：本机没有 `simctl` 或 `adb`。发布前仍需在一个可用的 iOS 或 Android 目标上完成 14+ 确认、后台恢复、阅读辅助、作答、结果页与重启恢复验收。
+
+
+### 四主题短文练习（2026-09-15）
+
+新版客户端在 `POST /v1/practices` 中传入 `format: "topic_set"`，一次创建四个不同主题的独立短文练习，每篇 200–300 词。`GET /v1/practices/:id` 的可选 `group` 字段包含四篇文章的主题、标题、字数和状态；旧请求与旧文章仍兼容。每篇各自保存答案和翻译，后台任务独立重试，整组只预留一次额度；所有任务结束后，任意成功则确认额度，全部失败则返还。
+
+启动新版后端前，使用项目已有 `npm run db:migrate --workspace=@context-reader/server` 入口应用 `0006_ambiguous_bloodstrike.sql`（新增分组字段及唯一索引）。客户端生成完成后进入主题选择页，支持从首页继续未完成的主题组。

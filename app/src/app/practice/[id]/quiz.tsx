@@ -1,3 +1,4 @@
+import { usePracticeExitGuard } from '@/features/practice/usePracticeExitGuard';
 import { Ionicons } from '@expo/vector-icons';
 import type { AnswerResult, PracticeDto } from '@context-reader/contracts';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -17,6 +18,7 @@ import { getPractice, submitAnswer } from '@/api/practices';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { QuizArticleReference } from '@/features/practice/QuizArticleReference';
+import { isEnglishSelfTest } from '@/features/practice/isEnglishSelfTest';
 import { QuizQuestion } from '@/features/practice/QuizQuestion';
 
 function safeLoadError(error: unknown): string {
@@ -29,6 +31,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [practice, setPractice] = useState<PracticeDto | null>(null);
+  const allowNavigation = usePracticeExitGuard(practiceId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -50,20 +53,20 @@ function QuizContent({ practiceId }: { practiceId: string }) {
           || nextPractice.status === 'validating'
           || nextPractice.status === 'failed'
         ) {
-          router.replace({
+          allowNavigation(() => router.replace({
             pathname: '/practice/[id]/generating',
             params: { id: practiceId },
-          });
+          }));
           return;
         }
         const nextQuestion = nextPractice.questions.find(
           (question) => question.submittedAnswer === null,
         );
         if (!nextQuestion) {
-          router.replace({
+          allowNavigation(() => router.replace({
             pathname: '/practice/[id]/result',
             params: { id: practiceId },
-          });
+          }));
           return;
         }
         setPractice(nextPractice);
@@ -77,7 +80,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
     return () => {
       mounted = false;
     };
-  }, [loadAttempt, practiceId]);
+  }, [allowNavigation, loadAttempt, practiceId]);
 
   const question = practice?.questions.find(
     (candidate) => candidate.submittedAnswer === null,
@@ -151,7 +154,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
           <Ionicons name="chevron-back" size={26} color={theme.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>词义测验</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>{isEnglishSelfTest(question) ? 'Vocabulary self-test' : '词义测验'}</Text>
           <Text style={[styles.progress, { color: theme.textMuted }]}>
             {answeredCount + 1}/{practice.questions.length}
           </Text>
@@ -160,12 +163,12 @@ function QuizContent({ practiceId }: { practiceId: string }) {
       </View>
 
       <View style={styles.splitContent} testID="quiz-split-content">
-        <QuizArticleReference
+        {!isEnglishSelfTest(question) && <QuizArticleReference
           activeTargetId={question.targetId}
           key={question.targetId}
           paragraphs={practice.article.paragraphs}
           title={practice.article.title}
-        />
+        />}
 
         <View
           style={[

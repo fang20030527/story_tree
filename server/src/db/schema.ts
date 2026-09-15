@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import type { WordReviewState, ConsolidatedReview } from '../modules/vocabulary/scheduler';
 import {
   type AnyPgColumn,
   bigint as pgBigint,
@@ -162,6 +163,29 @@ export const installations = pgTable(
   ],
 );
 
+export const vocabularyWords = pgTable('vocabulary_words', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  normalizedTerm: text('normalized_term').notNull(),
+  reviewState: jsonb('review_state').$type<WordReviewState>(),
+  createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+  updatedAt: utcTimestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('vocabulary_word_user_term_unique').on(table.userId, table.normalizedTerm),
+]);
+
+export const wordReviewEvents = pgTable('word_review_events', {
+  wordId: uuid('word_id').notNull().references(() => vocabularyWords.id, { onDelete: 'cascade' }),
+  practiceId: uuid('practice_id').notNull().references(() => practiceSessions.id, { onDelete: 'cascade' }),
+  vocabularyItemId: uuid('vocabulary_item_id').notNull().references(() => vocabularyItems.id),
+  outcome: text('outcome').$type<ConsolidatedReview['outcome']>().notNull(),
+  wasAssisted: boolean('was_assisted').notNull(),
+  reviewedAt: utcTimestamp('reviewed_at').notNull(),
+}, (table) => [
+  uniqueIndex('word_review_practice_unique').on(table.wordId, table.practiceId),
+  check('word_review_outcome_check', sql`${table.outcome} in ('independent', 'failed', 'translated')`),
+]);
+
 export const vocabularyItems = pgTable(
   'vocabulary_items',
   {
@@ -170,6 +194,7 @@ export const vocabularyItems = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     term: text('term').notNull(),
+    wordId: uuid('word_id').references(() => vocabularyWords.id),
     normalizedTerm: text('normalized_term').notNull(),
     meaningZh: text('meaning_zh').notNull(),
     normalizedMeaningZh: text('normalized_meaning_zh').notNull(),
@@ -217,6 +242,9 @@ export const practiceSessions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     examPath: examPath('exam_path').default('ielts').notNull(),
     status: practiceStatus('status').default('queued').notNull(),
+    topicGroupId: uuid('topic_group_id'),
+    topic: text('topic'),
+    topicPosition: integer('topic_position'),
     articleTitle: text('article_title'),
     articleWordCount: integer('article_word_count'),
     modelName: text('model_name'),
@@ -228,7 +256,11 @@ export const practiceSessions = pgTable(
     startedAt: utcTimestamp('started_at'),
     completedAt: utcTimestamp('completed_at'),
   },
-  (table) => [index('practice_user_created_idx').on(table.userId, table.createdAt, table.id)],
+  (table) => [
+    index('practice_user_created_idx').on(table.userId, table.createdAt, table.id),
+    uniqueIndex('practice_group_position_idx').on(table.topicGroupId, table.topicPosition),
+    uniqueIndex('practice_group_topic_idx').on(table.topicGroupId, table.topic),
+  ],
 );
 
 export const practiceParagraphs = pgTable(

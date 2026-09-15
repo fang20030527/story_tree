@@ -1,6 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
 
-import type { PracticeDto } from '@context-reader/contracts';
+import { PracticeGroupSchema, type PracticeDto } from '@context-reader/contracts';
 
 import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
@@ -31,6 +31,20 @@ export async function getPracticeForUser(
     .limit(1);
   if (!practice) throw new AppError('NOT_FOUND', '练习不存在', 404);
 
+  const group = practice.topicGroupId ? PracticeGroupSchema.parse({
+    id: practice.topicGroupId,
+    articles: await db.select({
+      id: practiceSessions.id,
+      topic: practiceSessions.topic,
+      status: practiceSessions.status,
+      title: practiceSessions.articleTitle,
+      wordCount: practiceSessions.articleWordCount,
+      failureMessage: practiceSessions.failureMessagePublic,
+    }).from(practiceSessions).where(and(
+      eq(practiceSessions.topicGroupId, practice.topicGroupId),
+      eq(practiceSessions.userId, input.userId),
+    )).orderBy(asc(practiceSessions.topicPosition)),
+  }) : undefined;
   const remainingFreePractices = await getRemainingQuota(
     db,
     input.userId,
@@ -42,13 +56,13 @@ export async function getPracticeForUser(
     practice.status === 'validating' ||
     practice.status === 'failed'
   ) {
-    return serializePractice({
+    return { ...(group ? { group } : {}), ...serializePractice({
       practice,
       remainingFreePractices,
       paragraphs: [],
       targets: [],
       questions: [],
-    });
+    }) };
   }
 
   const [paragraphs, targets, questionRows] = await Promise.all([
@@ -99,11 +113,11 @@ export async function getPracticeForUser(
       .orderBy(asc(practiceTargets.position)),
   ]);
 
-  return serializePractice({
+  return { ...(group ? { group } : {}), ...serializePractice({
     practice,
     remainingFreePractices,
     paragraphs,
     targets,
     questions: questionRows satisfies QuestionReadRow[],
-  });
+  }) };
 }

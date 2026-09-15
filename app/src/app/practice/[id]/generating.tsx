@@ -35,44 +35,45 @@ function GeneratingPractice({
   const insets = useSafeAreaInsets();
   const { practice, error, retry } = usePracticePolling(practiceId);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const groupId = practice?.group?.id;
   const finishingReady = useRef(false);
   const clearingFailure = useRef(false);
 
-  const openReader = useCallback(async () => {
+  const openNextStep = useCallback(async () => {
     if (finishingReady.current) return;
     finishingReady.current = true;
     try {
       await clearReadyPracticeCreation();
       router.replace({
-        pathname: '/practice/[id]/read',
-        params: { id: practiceId },
+        pathname: groupId ? '/practice/[id]/topics' : '/practice/[id]/read',
+        params: { id: groupId ?? practiceId },
       });
     } catch {
       finishingReady.current = false;
-      setStorageError('练习已生成，但本地状态清理失败，请重试');
+      setStorageError(groupId ? '暂时无法打开主题选择，请重试' : '练习已生成，但本地状态清理失败，请重试');
     }
-  }, [practiceId]);
+  }, [practiceId, groupId]);
 
   useEffect(() => {
     if (
-      practice?.status === 'ready'
+      practice?.group || practice?.status === 'ready'
       || practice?.status === 'in_progress'
       || practice?.status === 'completed'
     ) {
-      const openTimer = setTimeout(() => void openReader(), 0);
+      const openTimer = setTimeout(() => void openNextStep(), 0);
       return () => clearTimeout(openTimer);
     }
     return undefined;
-  }, [openReader, practice?.status]);
+  }, [openNextStep, practice?.status, practice?.group]);
 
   useEffect(() => {
-    if (practice?.status !== 'failed' || clearingFailure.current) return;
+    if (practice?.group || practice?.status !== 'failed' || clearingFailure.current) return;
     clearingFailure.current = true;
     clearCreatePracticeOperation().catch(() => {
       clearingFailure.current = false;
       setStorageError('无法清理失败的创建记录，请重试返回');
     });
-  }, [practice?.status]);
+  }, [practice?.status, practice?.group]);
 
   const returnToForm = async () => {
     setStorageError(null);
@@ -86,7 +87,7 @@ function GeneratingPractice({
     }
   };
 
-  const failed = practice?.status === 'failed';
+  const failed = !practice?.group && practice?.status === 'failed';
   const currentStatus = practice?.status;
   const safeStatus = currentStatus === 'generating'
     || currentStatus === 'validating'
@@ -156,9 +157,9 @@ function GeneratingPractice({
             <Text style={[styles.detail, { color: theme.danger }]}>
               {storageError}
             </Text>
-            {practice?.status === 'ready' ? (
+            {practice?.group || practice?.status === 'ready' || practice?.status === 'in_progress' || practice?.status === 'completed' ? (
               <TouchableOpacity
-                onPress={() => void openReader()}
+                onPress={() => void openNextStep()}
                 style={[styles.secondaryButton, { borderColor: theme.border }]}>
                 <Text style={[styles.secondaryText, { color: theme.text }]}>重试</Text>
               </TouchableOpacity>

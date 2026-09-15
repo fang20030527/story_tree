@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 
-import type { PracticeStatus, VocabularyInput } from '@context-reader/contracts';
+import { PracticeTopicSchema, type PracticeStatus, type VocabularyInput } from '@context-reader/contracts';
 import { and, eq } from 'drizzle-orm';
 
 import { AppError } from '../../core/errors';
@@ -11,11 +11,11 @@ import {
   finishIdempotentOperation,
 } from '../idempotency/service';
 import { getRemainingQuota, reserveQuota } from '../quota/service';
-import { rejectDuplicateInputs } from '../vocabulary/normalize';
+import { normalizeTerm, rejectDuplicateInputs } from '../vocabulary/normalize';
 import {
-  selectRandomReviewVocabularyItemIds,
   upsertExactVocabularyItems,
 } from '../vocabulary/repository';
+import { selectReviewVocabularyItemIds } from '../vocabulary/word-state';
 
 export interface CreatedPractice {
   practiceId: string;
@@ -32,17 +32,27 @@ export async function createPractice(
     items: VocabularyInput[];
     freeLimit: number;
     generationDeadlineMs: number;
+    format?: 'topic_set';
   },
 ): Promise<CreatedPractice> {
   rejectDuplicateInputs(input.items);
   return createPracticeWithTargetResolver(db, {
     userId: input.userId,
     idempotencyKey: input.idempotencyKey,
-    requestMaterial: input.items,
+    requestMaterial: input.format ? { items: input.items, format: input.format } : input.items,
     freeLimit: input.freeLimit,
     generationDeadlineMs: input.generationDeadlineMs,
-    resolveTargetIds: (tx) =>
-      upsertExactVocabularyItems(tx, input.userId, input.items),
+    ...(input.format ? { format: input.format } : {}),
+    resolveTargetIds: async (tx) => {
+      const ids = await upsertExactVocabularyItems(tx, input.userId, input.items);
+      const seen = new Set<string>();
+      return ids.filter((_id, index) => {
+        const term = normalizeTerm(input.items[index]!.term);
+        if (seen.has(term)) return false;
+        seen.add(term);
+        return true;
+      });
+    },
   });
 }
 
@@ -54,6 +64,7 @@ export async function createPracticeFromVocabulary(
     targetCount: number;
     freeLimit: number;
     generationDeadlineMs: number;
+    format?: 'topic_set';
   },
 ): Promise<CreatedPractice> {
   if (!Number.isSafeInteger(input.targetCount) || input.targetCount < 1) {
@@ -65,20 +76,22 @@ export async function createPracticeFromVocabulary(
     idempotencyKey: input.idempotencyKey,
     requestMaterial: {
       source: 'vocabulary',
+      ...(input.format ? { format: input.format } : {}),
       targetCount: input.targetCount,
     },
     freeLimit: input.freeLimit,
     generationDeadlineMs: input.generationDeadlineMs,
+    ...(input.format ? { format: input.format } : {}),
     resolveTargetIds: async (tx) => {
-      const itemIds = await selectRandomReviewVocabularyItemIds(
+      const itemIds = await selectReviewVocabularyItemIds(
         tx,
         input.userId,
         input.targetCount,
       );
-      if (itemIds.length < input.targetCount) {
+      if (itemIds.length === 0) {
         throw new AppError(
           'INSUFFICIENT_VOCABULARY',
-          `词库中只有 ${itemIds.length} 个待复习义项，请调低练习数量`,
+          '当前没有待复习单词',
           422,
         );
       }
@@ -93,6 +106,7 @@ interface TargetResolverInput {
   requestMaterial: unknown;
   freeLimit: number;
   generationDeadlineMs: number;
+  format?: 'topic_set';
   resolveTargetIds: (tx: AppTransaction) => Promise<string[]>;
 }
 
@@ -135,12 +149,25 @@ async function createPracticeWithTargetResolver(
     }
 
     const practiceId = randomUUID();
-    await tx.insert(practiceSessions).values({
-      id: practiceId,
+    const topics = [...PracticeTopicSchema.options];
+    for (let index = topics.length - 1; index > 0; index -= 1) {
+      const other = randomInt(index + 1);
+      [topics[index], topics[other]] = [topics[other]!, topics[index]!];
+    }
+    const members = input.format === 'topic_set'
+      ? topics.slice(0, 4).map((topic, position) => ({
+          id: position === 0 ? practiceId : randomUUID(),
+          topicGroupId: practiceId,
+          topic,
+          topicPosition: position,
+        }))
+      : [{ id: practiceId }];
+    await tx.insert(practiceSessions).values(members.map((member) => ({
+      ...member,
       userId: input.userId,
-      examPath: 'ielts',
-      status: 'queued',
-    });
+      examPath: 'ielts' as const,
+      status: 'queued' as const,
+    })));
     const remainingFreePractices = await reserveQuota(
       tx,
       input.userId,
@@ -149,23 +176,23 @@ async function createPracticeWithTargetResolver(
     );
     const itemIds = await input.resolveTargetIds(tx);
     await tx.insert(practiceTargets).values(
-      itemIds.map((vocabularyItemId, position) => ({
+      members.flatMap((member) => itemIds.map((vocabularyItemId, position) => ({
         id: randomUUID(),
-        practiceSessionId: practiceId,
+        practiceSessionId: member.id,
         vocabularyItemId,
         position,
-      })),
+      }))),
     );
-    await tx.insert(jobs).values({
+    await tx.insert(jobs).values(members.map((member) => ({
       id: randomUUID(),
-      kind: 'practice_generation',
-      resourceId: practiceId,
-      status: 'queued',
+      kind: 'practice_generation' as const,
+      resourceId: member.id,
+      status: 'queued' as const,
       attemptCount: 0,
       maxAttempts: 3,
       availableAt: new Date(),
-      deadlineAt: new Date(Date.now() + input.generationDeadlineMs),
-    });
+      deadlineAt: new Date(Date.now() + input.generationDeadlineMs * members.length),
+    })));
     await finishIdempotentOperation(
       tx,
       input.userId,

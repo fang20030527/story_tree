@@ -1,3 +1,4 @@
+import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,13 +28,14 @@ type Props = { articleId: string };
 export function EditorialReadScreen({ articleId }: Props) {
   const article = getEditorialArticle(articleId);
   return article ? (
-    <EditorialReadContent article={article} />
+    <ReadingOverlayProvider><EditorialReadContent article={article} /></ReadingOverlayProvider>
   ) : (
     <MissingEditorialArticleState />
   );
 }
 
 function EditorialReadContent({ article }: { article: EditorialArticle }) {
+  const readingOverlay = useReadingOverlay();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [showFullTranslation, setShowFullTranslation] = useState(false);
@@ -68,7 +70,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         <Text style={[styles.headerTitle, { color: theme.text }]}>平台外刊</Text>
         <View style={styles.headerSpacer} />
       </View>
-      <ScrollView
+      <ScrollView onScrollBeginDrag={() => readingOverlay?.select(null)}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + 32 },

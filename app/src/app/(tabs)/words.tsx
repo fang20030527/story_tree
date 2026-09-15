@@ -1,9 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { VocabularyItemDto } from '@context-reader/contracts';
+import type {
+  VocabularyWord,
+  VocabularyWordContexts,
+  VocabularyWordFilter,
+  VocabularyWordPage,
+} from '@context-reader/contracts';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,307 +20,322 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api/client';
 import { InstallationCredentialUnavailableError } from '@/api/installation';
-import { getVocabulary } from '@/api/practices';
-import { Card, Chip } from '@/components/ui';
+import { getVocabularyWordContexts, getVocabularyWords } from '@/api/practices';
+import { Card } from '@/components/ui';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import {
-  mergeVocabularyItems,
-  vocabularyStatusLabel,
-} from '@/features/practice/vocabularyPresentation';
+  localReviewTime,
+  mergeVocabularyWords,
+  wordReviewLabel,
+} from '@/features/practice/wordPresentation';
 
-const FILTERS = [
-  '全部',
-  '待复习',
-  '复习中',
-  '已掌握',
-  '用户自报已会',
-] as const;
+const FILTERS: { value: VocabularyWordFilter; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'due', label: '待复习' },
+  { value: 'scheduled', label: '未到时间' },
+];
 const PAGE_SIZE = 30;
 
-type VocabularyFilter = (typeof FILTERS)[number];
+type ListError = { message: string; source: 'first' | 'more' };
+type RefreshTiming = Pick<VocabularyWordPage, 'evaluatedAt' | 'nextRefreshAt'> & {
+  receivedAt: number;
+};
 
 function vocabularyErrorMessage(error: unknown): string {
   if (error instanceof InstallationCredentialUnavailableError) {
     return '云端词库请在 iOS 或 Android 设备上查看';
   }
-  return error instanceof ApiError
-    ? error.message
-    : '暂时无法加载词库';
+  return error instanceof ApiError ? error.message : '暂时无法加载词库';
 }
 
-function lastPracticedLabel(lastPracticedAt: string | null): string {
-  return lastPracticedAt
-    ? `最近练习 ${lastPracticedAt.slice(0, 10)}`
-    : '尚未练习';
+function WordCard({ item }: { item: VocabularyWord }) {
+  const { theme } = useAppTheme();
+  const [expanded, setExpanded] = useState(false);
+  const [contexts, setContexts] = useState<VocabularyWordContexts | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+  const pendingRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const loadContexts = async () => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await getVocabularyWordContexts(item.wordId);
+      if (mountedRef.current) setContexts(result);
+    } catch (cause) {
+      if (mountedRef.current) setError(vocabularyErrorMessage(cause));
+    } finally {
+      pendingRef.current = false;
+      if (mountedRef.current) setLoading(false);
+    }
+  };
+
+  return (
+    <Card theme={theme} style={styles.wordCard}>
+      <Text style={[styles.word, { color: theme.text }]}>{item.term}</Text>
+      <Text style={[styles.meaning, { color: theme.accent }]}>{item.meaningZh}</Text>
+      <Text style={[styles.reviewReason, {
+        color: item.reviewReason === 'scheduled' ? theme.textSecondary : theme.blue,
+      }]}>
+        {wordReviewLabel(item)}
+      </Text>
+      {item.sourceSentence ? (
+        <Text numberOfLines={3} style={[styles.context, { color: theme.textSecondary }]}>
+          {item.sourceSentence}
+        </Text>
+      ) : null}
+      {item.contextCount > 1 ? (
+        <>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={`${expanded ? '收起' : '展开'} ${item.term} 的已保存语境`}
+            accessibilityState={{ expanded }}
+            onPress={() => {
+              setExpanded(!expanded);
+              if (!expanded && !contexts) void loadContexts();
+            }}
+            style={styles.contextToggle}>
+            <Text style={{ color: theme.blue, fontSize: 12 }}>
+              {expanded ? '收起语境' : `查看 ${item.contextCount} 个已保存语境`}
+            </Text>
+            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.blue} />
+          </TouchableOpacity>
+          {expanded ? (
+            <View style={[styles.contextPanel, { borderColor: theme.border }]}>
+              <Text style={[styles.metrics, { color: theme.textMuted }]}>
+                不同含义共享一个复习计划，每次练习其中一个语境。
+              </Text>
+              {loading ? <ActivityIndicator color={theme.accent} size="small" /> : null}
+              {error ? (
+                <View>
+                  <Text style={[styles.stateText, { color: theme.danger }]}>{error}</Text>
+                  <TouchableOpacity onPress={() => void loadContexts()} accessibilityLabel={`重试加载 ${item.term} 的语境`}>
+                    <Text style={[styles.inlineRetry, { color: theme.blue }]}>重试加载语境</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              {contexts?.contexts.map((context) => (
+                <View key={context.id} style={styles.savedContext}>
+                  <Text style={[styles.meaning, { color: theme.text }]}>{context.meaningZh}</Text>
+                  {context.sourceSentence ? (
+                    <Text style={[styles.context, { color: theme.textSecondary }]}>{context.sourceSentence}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </>
+      ) : null}
+      <View style={styles.wordFooter}>
+        <Text style={[styles.metrics, { color: theme.textMuted }]}>
+          练习 {item.practiceCount} 次 · 独立答对 {item.independentCorrectCount} 次
+          {'\n'}使用帮助 {item.assistedCount} 次
+        </Text>
+      </View>
+      {item.lastPracticedAt ? (
+        <Text style={[styles.lastPracticed, { color: theme.textMuted }]}>
+          最近练习 {localReviewTime(item.lastPracticedAt)}
+        </Text>
+      ) : null}
+    </Card>
+  );
 }
 
 export default function WordsScreen() {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<VocabularyFilter>('全部');
-  const [items, setItems] = useState<VocabularyItemDto[]>([]);
+  const [filter, setFilter] = useState<VocabularyWordFilter>('all');
+  const [items, setItems] = useState<VocabularyWord[]>([]);
+  const [summary, setSummary] = useState<VocabularyWordPage['summary'] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [timing, setTiming] = useState<RefreshTiming | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
+  const [listError, setListError] = useState<ListError | null>(null);
   const focusedRef = useRef(false);
-  const firstPageRequestRef = useRef(0);
+  const requestVersionRef = useRef(0);
+  const pendingMoreRef = useRef(false);
 
   const loadFirstPage = useCallback(async () => {
-    const requestId = firstPageRequestRef.current + 1;
-    firstPageRequestRef.current = requestId;
+    const version = ++requestVersionRef.current;
+    pendingMoreRef.current = false;
+    setLoadingMore(false);
     setInitialLoading(true);
     setListError(null);
     setNextCursor(null);
-
+    setTiming(null);
+    const isCurrent = () => focusedRef.current && requestVersionRef.current === version;
     try {
-      const page = await getVocabulary({ limit: PAGE_SIZE });
-      if (!focusedRef.current || firstPageRequestRef.current !== requestId) {
-        return;
-      }
+      const page = await getVocabularyWords({ filter, limit: PAGE_SIZE });
+      if (!isCurrent()) return;
       setItems(page.items);
+      setSummary(page.summary);
       setNextCursor(page.nextCursor);
+      setTiming({ evaluatedAt: page.evaluatedAt, nextRefreshAt: page.nextRefreshAt, receivedAt: Date.now() });
     } catch (error) {
-      if (focusedRef.current && firstPageRequestRef.current === requestId) {
-        setListError(vocabularyErrorMessage(error));
-      }
+      if (isCurrent()) setListError({ message: vocabularyErrorMessage(error), source: 'first' });
     } finally {
-      if (focusedRef.current && firstPageRequestRef.current === requestId) {
-        setInitialLoading(false);
-      }
+      if (isCurrent()) setInitialLoading(false);
     }
-  }, []);
+  }, [filter]);
 
-  useFocusEffect(
-    useCallback(() => {
-      focusedRef.current = true;
-      void loadFirstPage();
+  useFocusEffect(useCallback(() => {
+    focusedRef.current = true;
+    void loadFirstPage();
+    return () => {
+      focusedRef.current = false;
+      ++requestVersionRef.current;
+    };
+  }, [loadFirstPage]));
 
-      return () => {
-        focusedRef.current = false;
-      };
-    }, [loadFirstPage]),
-  );
+  useEffect(() => {
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && previousState !== 'active' && focusedRef.current) {
+        void loadFirstPage();
+      }
+      previousState = state;
+    });
+    return () => subscription.remove();
+  }, [loadFirstPage]);
 
-  const visibleItems = useMemo(
-    () => filter === '全部'
-      ? items
-      : items.filter((item) => vocabularyStatusLabel(item.status) === filter),
-    [filter, items],
-  );
-  const reviewCount = items.filter(
-    (item) => item.status === 'pending' || item.status === 'reviewing',
-  ).length;
-
-  const statusColor = (status: VocabularyItemDto['status']) => {
-    if (status === 'mastered') return theme.green;
-    if (status === 'reviewing') return theme.accent;
-    if (status === 'self_reported') return theme.textSecondary;
-    return theme.blue;
-  };
+  useEffect(() => {
+    if (!timing?.nextRefreshAt) return;
+    // Anchor to server evaluation time so device clock skew does not delay due words.
+    const dueIn = Date.parse(timing.nextRefreshAt) - Date.parse(timing.evaluatedAt);
+    const delay = Math.min(2_147_483_647, Math.max(100, dueIn - (Date.now() - timing.receivedAt) + 100));
+    const timeout = setTimeout(() => {
+      if (focusedRef.current) void loadFirstPage();
+    }, delay);
+    return () => clearTimeout(timeout);
+  }, [loadFirstPage, timing]);
 
   const loadMore = async () => {
-    if (!nextCursor || loadingMore) return;
+    if (!nextCursor || initialLoading || pendingMoreRef.current) return;
+    const version = requestVersionRef.current;
+    const isCurrent = () => focusedRef.current && requestVersionRef.current === version;
+    pendingMoreRef.current = true;
     setLoadingMore(true);
     setListError(null);
     try {
-      const page = await getVocabulary({
-        cursor: nextCursor,
-        limit: PAGE_SIZE,
-      });
-      setItems((current) => mergeVocabularyItems(current, page.items));
+      const page = await getVocabularyWords({ filter, cursor: nextCursor, limit: PAGE_SIZE });
+      if (!isCurrent()) return;
+      setItems((current) => mergeVocabularyWords(current, page.items));
+      setSummary(page.summary);
       setNextCursor(page.nextCursor);
     } catch (error) {
-      setListError(vocabularyErrorMessage(error));
+      if (!isCurrent()) return;
+      if (error instanceof ApiError && error.code === 'VOCABULARY_CHANGED') {
+        setItems([]);
+        await loadFirstPage();
+      } else {
+        setListError({ message: vocabularyErrorMessage(error), source: 'more' });
+      }
     } finally {
-      setLoadingMore(false);
+      if (isCurrent()) {
+        pendingMoreRef.current = false;
+        setLoadingMore(false);
+      }
     }
   };
 
-  const retry = () => void loadFirstPage();
+  const retry = () => void (listError?.source === 'more' ? loadMore() : loadFirstPage());
+  const isEmpty = !initialLoading && !listError && items.length === 0;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Text style={[styles.headerTitle, { color: theme.text }]}>词库</Text>
         <TouchableOpacity
-          accessibilityLabel="录入新词义"
+          accessibilityLabel="录入新单词"
           hitSlop={8}
           onPress={() => router.push('/practice/new')}
           style={[styles.headerButton, { borderColor: theme.border }]}>
           <Ionicons name="add" size={20} color={theme.text} />
         </TouchableOpacity>
       </View>
-
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + 24 },
-        ]}
-        showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
         <Card theme={theme} style={styles.summary}>
           <View>
-            <Text style={[styles.summaryNum, { color: theme.text }]}>
-              {reviewCount}
-            </Text>
-            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-              个义项待复习
-            </Text>
+            <Text testID="due-word-count" style={[styles.summaryNum, { color: theme.text }]}>{summary?.dueCount ?? '—'}</Text>
+            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>个单词待复习</Text>
           </View>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => router.push('/practice/from-vocabulary')}
-            style={[styles.reviewButton, { backgroundColor: theme.accent }]}>
+          <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/practice/from-vocabulary')} style={[styles.reviewButton, { backgroundColor: theme.accent }]}>
             <Ionicons name="sparkles" size={14} color={theme.accentText} />
-            <Text style={[styles.reviewButtonText, { color: theme.accentText }]}>
-              创建长文练习
-            </Text>
+            <Text style={[styles.reviewButtonText, { color: theme.accentText }]}>创建主题短文</Text>
           </TouchableOpacity>
         </Card>
         <Text style={[styles.summaryHint, { color: theme.textMuted }]}>
-          词库状态会根据首次作答和阅读辅助自动更新
+          根据练习表现和间隔时间安排复习，优先巩固容易忘的单词。
         </Text>
-
         <View style={styles.filterRow}>
-          {FILTERS.map((nextFilter) => (
+          {FILTERS.map((option) => (
             <TouchableOpacity
-              key={nextFilter}
-              onPress={() => setFilter(nextFilter)}
-              style={[
-                styles.filterChip,
-                {
-                  backgroundColor: filter === nextFilter
-                    ? theme.accentSoft
-                    : theme.surface,
-                  borderColor: filter === nextFilter
-                    ? theme.accent
-                    : theme.border,
-                },
-              ]}>
-              <Text
-                style={{
-                  color: filter === nextFilter
-                    ? theme.accent
-                    : theme.textSecondary,
-                  fontSize: 13,
-                  fontWeight: weight(
-                    filter === nextFilter ? 'semibold' : 'regular',
-                  ),
-                }}>
-                {nextFilter}
+              key={option.value}
+              accessibilityRole="button"
+              accessibilityState={{ selected: filter === option.value }}
+              onPress={() => {
+                if (filter === option.value) return;
+                ++requestVersionRef.current;
+                setItems([]);
+                setNextCursor(null);
+                setListError(null);
+                setInitialLoading(true);
+                setFilter(option.value);
+              }}
+              style={[styles.filterChip, {
+                backgroundColor: filter === option.value ? theme.accentSoft : theme.surface,
+                borderColor: filter === option.value ? theme.accent : theme.border,
+              }]}>
+              <Text style={{ color: filter === option.value ? theme.accent : theme.textSecondary, fontSize: 13, fontWeight: weight(filter === option.value ? 'semibold' : 'regular') }}>
+                {option.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
-
-        {initialLoading && items.length === 0 ? (
-          <View style={styles.stateArea}>
+        {initialLoading ? (
+          <View style={items.length ? styles.inlineError : styles.stateArea}>
             <ActivityIndicator color={theme.accent} />
-            <Text style={[styles.stateText, { color: theme.textMuted }]}>
-              正在加载词库…
-            </Text>
+            <Text style={[styles.stateText, { color: theme.textMuted }]}>{items.length ? '正在更新复习安排…' : '正在加载词库…'}</Text>
           </View>
         ) : null}
-
-        {!initialLoading && listError && items.length === 0 ? (
+        {listError ? (
           <Card theme={theme} style={styles.stateCard}>
-            <Ionicons name="cloud-offline-outline" size={28} color={theme.textMuted} />
-            <Text style={[styles.stateText, { color: theme.textSecondary }]}>
-              {listError}
-            </Text>
-            <TouchableOpacity
-              onPress={retry}
-              style={[styles.retryButton, { borderColor: theme.border }]}>
+            <Text style={[styles.stateText, { color: theme.textSecondary }]}>{listError.message}</Text>
+            <TouchableOpacity onPress={retry} style={[styles.retryButton, { borderColor: theme.border }]}>
               <Text style={[styles.retryText, { color: theme.text }]}>重试</Text>
             </TouchableOpacity>
           </Card>
         ) : null}
-
-        {!initialLoading && !listError && items.length === 0 ? (
+        {isEmpty ? (
           <Card theme={theme} style={styles.stateCard}>
             <Ionicons name="library-outline" size={30} color={theme.textMuted} />
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
-              还没有云端生词
+              {summary?.totalCount === 0 ? '还没有云端生词' : filter === 'due' ? '当前没有待复习单词' : '当前没有未到时间的单词'}
             </Text>
             <Text style={[styles.stateText, { color: theme.textSecondary }]}>
-              在文章阅读或长文练习中保存的义项会出现在这里。
+              {summary?.totalCount === 0 ? '在文章阅读或主题短文中保存的单词会出现在这里。' : '复习安排会随时间和练习表现更新。'}
             </Text>
-          </Card>
-        ) : null}
-
-        {items.length > 0 && visibleItems.length === 0 ? (
-          <Text style={[styles.filteredEmpty, { color: theme.textMuted }]}>
-            这个分类暂无义项
-          </Text>
-        ) : null}
-
-        {visibleItems.map((item) => (
-          <Card key={item.id} theme={theme} style={styles.wordCard}>
-            <View style={styles.wordHeader}>
-              <View style={styles.wordMain}>
-                <Text style={[styles.word, { color: theme.text }]}>
-                  {item.term}
-                </Text>
-                <Text style={[styles.meaning, { color: theme.accent }]}>
-                  {item.meaningZh}
-                </Text>
-              </View>
-              <Chip
-                bg={theme.accentSoft}
-                color={statusColor(item.status)}
-                label={vocabularyStatusLabel(item.status)}
-              />
-            </View>
-
-            {item.sourceSentence ? (
-              <Text
-                numberOfLines={3}
-                style={[styles.context, { color: theme.textSecondary }]}>
-                {item.sourceSentence}
-              </Text>
+            {filter !== 'all' && summary?.totalCount !== 0 ? (
+              <TouchableOpacity onPress={() => setFilter('all')} style={styles.contextToggle}>
+                <Text style={{ color: theme.blue }}>查看全部词库</Text>
+              </TouchableOpacity>
             ) : null}
-
-            <View style={styles.wordFooter}>
-              <Text style={[styles.metrics, { color: theme.textMuted }]}>
-                练习 {item.practiceCount} 次 · 首次答对 {item.firstTryCorrectCount} 次
-                {'\n'}使用帮助 {item.assistedCount} 次
-              </Text>
-              <Text style={[styles.lastPracticed, { color: theme.textMuted }]}>
-                {lastPracticedLabel(item.lastPracticedAt)}
-              </Text>
-            </View>
           </Card>
-        ))}
-
-        {listError && items.length > 0 ? (
-          <View style={styles.inlineError}>
-            <Text style={[styles.inlineErrorText, { color: theme.danger }]}>
-              {listError}
-            </Text>
-            <TouchableOpacity onPress={nextCursor ? () => void loadMore() : retry}>
-              <Text style={[styles.inlineRetry, { color: theme.blue }]}>
-                重试
-              </Text>
-            </TouchableOpacity>
-          </View>
         ) : null}
-
+        {items.map((item) => <WordCard key={`${item.wordId}:${item.contextCount}`} item={item} />)}
         {nextCursor ? (
-          <TouchableOpacity
-            disabled={loadingMore}
-            onPress={() => void loadMore()}
-            style={[
-              styles.loadMoreButton,
-              { borderColor: theme.border, opacity: loadingMore ? 0.65 : 1 },
-            ]}>
-            {loadingMore ? (
-              <ActivityIndicator color={theme.accent} size="small" />
-            ) : (
-              <Text style={[styles.loadMoreText, { color: theme.text }]}>
-                加载更多
-              </Text>
-            )}
+          <TouchableOpacity disabled={loadingMore || initialLoading} onPress={() => void loadMore()} style={[styles.loadMoreButton, { borderColor: theme.border, opacity: loadingMore ? 0.65 : 1 }]}>
+            {loadingMore ? <ActivityIndicator color={theme.accent} size="small" /> : <Text style={[styles.loadMoreText, { color: theme.text }]}>加载更多</Text>}
           </TouchableOpacity>
         ) : null}
       </ScrollView>
@@ -390,10 +411,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   retryText: { fontSize: 14, fontWeight: weight('semibold') },
-  filteredEmpty: { fontSize: 14, paddingVertical: 38, textAlign: 'center' },
   wordCard: { marginBottom: 10, padding: 14 },
-  wordHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 8 },
-  wordMain: { flex: 1 },
+  reviewReason: { fontSize: 12, lineHeight: 18, marginTop: 8 },
+  contextToggle: { alignItems: 'center', flexDirection: 'row', gap: 4, minHeight: 36, marginTop: 5 },
+  contextPanel: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10 },
+  savedContext: { marginTop: 12 },
   word: { fontSize: 17, fontWeight: weight('bold') },
   meaning: { fontSize: 13, fontWeight: weight('medium'), marginTop: 3 },
   context: { fontSize: 13, fontStyle: 'italic', lineHeight: 19, marginTop: 9 },
@@ -404,7 +426,7 @@ const styles = StyleSheet.create({
     marginTop: 11,
   },
   metrics: { flex: 1, fontSize: 11, lineHeight: 17 },
-  lastPracticed: { fontSize: 11, marginLeft: 12, textAlign: 'right' },
+  lastPracticed: { fontSize: 11, marginTop: 5 },
   inlineError: { alignItems: 'center', paddingVertical: 12 },
   inlineErrorText: { fontSize: 12, lineHeight: 18, textAlign: 'center' },
   inlineRetry: { fontSize: 13, fontWeight: weight('semibold'), marginTop: 6 },

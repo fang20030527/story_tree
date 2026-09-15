@@ -2,11 +2,12 @@ import {
   DashboardDtoSchema,
   type DashboardDto,
 } from '@context-reader/contracts';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import type { AppDatabase } from '../../db/client';
-import { practiceSessions, vocabularyItems } from '../../db/schema';
+import { practiceSessions } from '../../db/schema';
 import { getRemainingQuota } from '../quota/service';
+import { loadRankedWords } from '../vocabulary/word-state';
 
 const incompleteStatuses = [
   'queued',
@@ -33,18 +34,7 @@ export async function getDashboard(
         )
         .orderBy(desc(practiceSessions.createdAt), desc(practiceSessions.id))
         .limit(1),
-      db
-        .select({
-          vocabularyCount: sql<number>`count(*)::int`,
-          reviewingCount: sql<number>`count(*) filter (where ${vocabularyItems.status} = 'reviewing')::int`,
-        })
-        .from(vocabularyItems)
-        .where(
-          and(
-            eq(vocabularyItems.userId, input.userId),
-            isNull(vocabularyItems.deletedAt),
-          ),
-        ),
+      db.transaction((tx) => loadRankedWords(tx, input.userId, new Date())),
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(practiceSessions)
@@ -59,8 +49,8 @@ export async function getDashboard(
 
   return DashboardDtoSchema.parse({
     incompletePracticeId: incomplete[0]?.id ?? null,
-    vocabularyCount: vocabularyCounts[0]?.vocabularyCount ?? 0,
-    reviewingCount: vocabularyCounts[0]?.reviewingCount ?? 0,
+    vocabularyCount: vocabularyCounts.length,
+    reviewingCount: vocabularyCounts.filter((entry) => entry.priority.group < 2).length,
     completedPracticeCount: completedCounts[0]?.count ?? 0,
     remainingFreePractices,
   });

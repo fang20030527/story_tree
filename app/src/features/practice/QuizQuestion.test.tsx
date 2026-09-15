@@ -167,3 +167,19 @@ describe('QuizQuestion', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });
+
+ it('keeps the target out of the heading and shows English feedback only after a cloze answer', async () => {
+  const cloze = { ...question(), prompt: 'Despite setbacks, the team remained ____.',
+    options: optionIds.map((id, index) => ({ id, label: ['resilient', 'fragile', 'temporary', 'ambiguous'][index]! })) };
+  const answer = { ...feedback('option'), explanationZh: 'Recovering after setbacks shows resilience.',
+    optionExplanations: { [optionIds[0]]: 'Fits the ability to recover.' } };
+  const onSubmit = jest.fn().mockResolvedValue(answer);
+  const view = await render(<QuizQuestion question={cloze} onSubmit={onSubmit} onContinue={jest.fn()} />);
+  expect(view.getAllByText('resilient')).toHaveLength(1);
+  expect(view.queryByText(answer.explanationZh)).toBeNull();
+  expect(view.getByLabelText('Check answer')).toBeDisabled();
+  await fireEvent.press(view.getByText('resilient'));
+  await fireEvent.press(view.getByLabelText('Check answer'));
+  expect(view.getByText('Correct!')).toBeTruthy();
+  expect(view.getByText(answer.explanationZh)).toBeTruthy();
+ });

@@ -2,6 +2,7 @@ import {
   VocabularyInputSchema,
   VocabularyItemDtoSchema,
   VocabularyPageSchema,
+  VocabularyWordFilterSchema,
 } from '@context-reader/contracts';
 import type { FastifyPluginAsync } from 'fastify';
 
@@ -13,6 +14,7 @@ import {
   createVocabularyItemForUser,
   getVocabularyPage,
 } from './service';
+import { getVocabularyWordContexts, getVocabularyWordPage } from './word-service';
 
 export interface VocabularyRoutesOptions {
   db: AppDatabase;
@@ -21,6 +23,19 @@ export interface VocabularyRoutesOptions {
 export const vocabularyRoutes: FastifyPluginAsync<
   VocabularyRoutesOptions
 > = async (app, options) => {
+  app.get('/v1/vocabulary-words', { preHandler: requireAuth(options.db) }, async (request, reply) => {
+    const query = request.query as { cursor?: unknown; limit?: unknown; filter?: unknown };
+    const filter = VocabularyWordFilterSchema.safeParse(query.filter ?? 'all');
+    if (!filter.success) throw new AppError('VALIDATION_ERROR', '词库筛选格式无效', 400);
+    return reply.send(await getVocabularyWordPage(options.db, {
+      userId: request.authUser.userId, filter: filter.data,
+      limit: parseLimit(query.limit), cursor: parseCursorParameter(query.cursor),
+    }));
+  });
+  app.get('/v1/vocabulary-words/:wordId/contexts', { preHandler: requireAuth(options.db) }, async (request, reply) => {
+    const { wordId } = request.params as { wordId: string };
+    return reply.send(await getVocabularyWordContexts(options.db, request.authUser.userId, wordId));
+  });
   app.post(
     '/v1/vocabulary-items',
     { preHandler: requireAuth(options.db) },

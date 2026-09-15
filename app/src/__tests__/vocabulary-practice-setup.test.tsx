@@ -11,9 +11,14 @@ import {
   loadCreatePracticeOperation,
   prepareCreatePracticeOperation,
   saveActivePracticeId,
+  saveAgeConfirmation,
 } from '@/features/practice/practiceStorage';
 
+import { loadPracticeTargetCount } from '@/features/practice/practicePreferences';
+
 import VocabularyPracticeSetupScreen from '../app/practice/from-vocabulary';
+
+jest.mock('@/features/practice/practicePreferences', () => ({ loadPracticeTargetCount: jest.fn() }));
 
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), replace: jest.fn() },
@@ -50,6 +55,7 @@ const mockedSaveActivePracticeId = jest.mocked(saveActivePracticeId);
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.mocked(loadPracticeTargetCount).mockResolvedValue(30);
   mockedHasConfirmedAge.mockResolvedValue(true);
   mockedLoadOperation.mockResolvedValue(null);
   mockedClearOperation.mockResolvedValue(undefined);
@@ -71,49 +77,47 @@ beforeEach(() => {
   mockedSaveActivePracticeId.mockResolvedValue(undefined);
 });
 
-it('defaults to ten and submits only the adjusted target count', async () => {
+
+it('automatically uses the saved count without another input step', async () => {
   const view = await render(<VocabularyPracticeSetupScreen />);
-  const countInput = await view.findByLabelText('练习目标词数');
-  expect(countInput.props.value).toBe('10');
-
-  await fireEvent.changeText(countInput, '16');
-  await fireEvent.press(view.getByText('随机抽词并生成'));
-
-  await waitFor(() => {
-    expect(mockedPrepareOperation).toHaveBeenCalledWith({
-      source: 'vocabulary',
-      targetCount: 16,
-    });
-  });
-  expect(mockedCreatePractice).toHaveBeenCalledWith(
-    { source: 'vocabulary', targetCount: 16 },
-    'random_vocabulary_key_123',
-  );
-  expect(router.replace).toHaveBeenCalledWith({
-    pathname: '/practice/[id]/generating',
-    params: {
-      id: '22222222-2222-4222-8222-222222222222',
-      origin: 'vocabulary',
-    },
-  });
+  await waitFor(() => expect(mockedCreatePractice).toHaveBeenCalledWith(
+    { source: 'vocabulary', format: 'topic_set', targetCount: 30 }, 'random_vocabulary_key_123',
+  ));
+  expect(view.queryByLabelText('练习目标词数')).toBeNull();
+  expect(mockedCreatePractice).toHaveBeenCalledTimes(1);
+  expect(router.replace).toHaveBeenCalledWith({ pathname: '/practice/[id]/generating', params: {
+    id: '22222222-2222-4222-8222-222222222222', origin: 'vocabulary',
+  } });
 });
-
-it('shows the available count and unlocks adjustment after a rejected request', async () => {
-  mockedCreatePractice.mockRejectedValueOnce(
-    new ApiError(
-      'INSUFFICIENT_VOCABULARY',
-      '词库中只有 6 个待复习义项，请调低练习数量',
-      false,
-    ),
-  );
+it('links to profile settings when the library cannot supply the requested words', async () => {
+  mockedCreatePractice.mockRejectedValueOnce(new ApiError('INSUFFICIENT_VOCABULARY', '当前没有待复习单词', false));
   const view = await render(<VocabularyPracticeSetupScreen />);
-  await view.findByLabelText('练习目标词数');
-
-  await fireEvent.press(view.getByText('随机抽词并生成'));
-
-  expect(
-    await view.findByText('词库中只有 6 个待复习义项，请调低练习数量'),
-  ).toBeTruthy();
+  await view.findByText('当前没有待复习单词');
   expect(mockedClearOperation).toHaveBeenCalledTimes(1);
-  expect(router.replace).not.toHaveBeenCalled();
+  await fireEvent.press(view.getByText('前往“我的”调整练习数量'));
+  expect(router.replace).toHaveBeenCalledWith('/(tabs)/profile');
+});
+it('keeps the original pending request even when the saved count has changed', async () => {
+  const request = { source: 'vocabulary' as const, format: 'topic_set' as const, targetCount: 16 };
+  mockedLoadOperation.mockResolvedValueOnce({ request, idempotencyKey: 'original-request-key' });
+  await render(<VocabularyPracticeSetupScreen />);
+  await waitFor(() => expect(mockedCreatePractice).toHaveBeenCalledWith(request, 'original-request-key'));
+  expect(mockedPrepareOperation).not.toHaveBeenCalled();
+});
+it('requires the existing age confirmation before automatic creation', async () => {
+  mockedHasConfirmedAge.mockResolvedValue(false);
+  jest.mocked(saveAgeConfirmation).mockResolvedValue();
+  const view = await render(<VocabularyPracticeSetupScreen />);
+  await view.findByText('使用前请确认年龄');
+  expect(mockedCreatePractice).not.toHaveBeenCalled();
+  await fireEvent.press(view.getByText('我已年满 14 周岁'));
+  await waitFor(() => expect(mockedCreatePractice).toHaveBeenCalledTimes(1));
+});
+it('does not silently generate with a different count when settings cannot load', async () => {
+  jest.mocked(loadPracticeTargetCount).mockRejectedValueOnce(new Error('无法读取设置'));
+  const view = await render(<VocabularyPracticeSetupScreen />);
+  await view.findByText('无法读取设置');
+  expect(mockedCreatePractice).not.toHaveBeenCalled();
+  await fireEvent.press(view.getByText('重试'));
+  await waitFor(() => expect(mockedCreatePractice).toHaveBeenCalledTimes(1));
 });

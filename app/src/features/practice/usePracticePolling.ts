@@ -63,7 +63,8 @@ export function usePracticePolling(
       setPractice(nextPractice);
       if (
         appState === 'active'
-        && POLLING_STATUSES.has(nextPractice.status)
+        && (POLLING_STATUSES.has(nextPractice.status)
+          || nextPractice.group?.articles.some((article) => POLLING_STATUSES.has(article.status)))
       ) {
         timer = setTimeout(
           () => void poll(),

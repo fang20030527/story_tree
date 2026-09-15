@@ -64,7 +64,7 @@ describe('practice generation', () => {
       expect(practice).toMatchObject({
         status: 'ready',
         modelName: 'fake-ielts-v1',
-        promptVersion: 'ielts-generation-v1',
+        promptVersion: 'ielts-generation-english-cloze-v3',
       });
       expect(practice?.articleWordCount).toBeGreaterThanOrEqual(700);
       expect(practice?.articleWordCount).toBeLessThanOrEqual(1_000);
@@ -125,7 +125,8 @@ describe('practice generation', () => {
         const job = await claimNextJob(
           db,
           `${label}-worker`,
-          60_000,
+          // Keep earlier failed scenarios leased until this multi-scenario test ends.
+          180_000,
           ['practice_generation'],
         );
         expect(job?.resourceId).toBe(created.practiceId);

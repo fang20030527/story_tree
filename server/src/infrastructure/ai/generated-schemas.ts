@@ -29,10 +29,11 @@ export const GeneratedPracticeSchema = z
         .object({
           targetAlias: TargetAliasSchema,
           prompt: z.string().min(1),
-          optionsZh: z.array(z.string().min(1)).length(4),
+          optionsEn: z.array(z.string().min(1)).length(4),
+          correctOptionIndex: z.number().int().min(0).max(3),
           meaningEn: z.string().min(1),
-          explanationZh: z.string().min(1),
-          optionExplanationsZh: z.array(z.string().min(1)).length(4),
+          explanationEn: z.string().min(1),
+          optionExplanationsEn: z.array(z.string().min(1)).length(4),
         })
         .strict(),
     ),

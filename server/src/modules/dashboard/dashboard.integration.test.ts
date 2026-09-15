@@ -115,7 +115,7 @@ describe('vocabulary and dashboard queries', () => {
         expect(DashboardDtoSchema.parse(dashboardResponse.json())).toEqual({
           incompletePracticeId: practiceIds.newestIncomplete,
           vocabularyCount: 3,
-          reviewingCount: 1,
+          reviewingCount: 3,
           completedPracticeCount: 1,
           remainingFreePractices: 2,
         });
