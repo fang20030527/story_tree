@@ -29,10 +29,10 @@ beforeEach(() => jest.clearAllMocks());
 it('renders catalog prose and records one editorial recent view', async () => {
   const view = await render(<EditorialReadScreen articleId="hero" />);
   expect(
-    view.getByText('Why Millions Watch Sweden’s Slow Moose Migration'),
+    view.getByText('World’s Oldest Evidence of Habitual Drug Use Found in Ancient Teeth'),
   ).toBeTruthy();
   expect(
-    view.getByText(/Every spring, cameras beside a northern river/u),
+    view.getByText(/Researchers say marks and chemical traces/u),
   ).toBeTruthy();
   await waitFor(() =>
     expect(recordEditorialRecentView).toHaveBeenCalledWith('hero'),

@@ -29,7 +29,7 @@ it('shows only the approved discovery sections and opens an overview', async () 
   }
 
   await fireEvent.press(
-    view.getByLabelText('年度最治愈直播：看瑞典北部驼鹿迁徙，查看文章概述'),
+    view.getByLabelText('考古学家在 2.5 万年前牙齿中发现习惯性用药证据，查看文章概述'),
   );
   expect(router.push).toHaveBeenCalledWith({
     pathname: '/editorial/[id]',
@@ -45,22 +45,22 @@ it('expands search and filters title, source, category, and no-result states', a
   await fireEvent.press(view.getByLabelText('搜索平台外刊'));
   const input = view.getByPlaceholderText('搜索中英文标题、来源或分类');
 
-  await fireEvent.changeText(input, 'The Atlantic');
-  expect(view.getByText('夜班工作者如何守护自己的睡眠节律')).toBeTruthy();
-  expect(view.queryByText('AI 正在如何改变语言学习的底层逻辑')).toBeNull();
+  await fireEvent.changeText(input, 'BBC Future');
+  expect(view.getByText('鹰与狼：爱尔兰地名里留存下来的失落动物')).toBeTruthy();
+  expect(view.queryByText('考古学家在 2.5 万年前牙齿中发现习惯性用药证据')).toBeNull();
 
   await fireEvent.changeText(input, '动物');
-  expect(view.getByText('一只金毛犬的治疗师生涯')).toBeTruthy();
+  expect(view.getByText('对付斑衣蜡蝉的意外秘密武器')).toBeTruthy();
 
   await fireEvent.changeText(input, 'no such article');
   expect(view.getByText('没有找到相关外刊')).toBeTruthy();
 });
 
 it.each([
-  ['hero', '年度最治愈直播：看瑞典北部驼鹿迁徙'],
-  ['a1', 'AI 正在如何改变语言学习的底层逻辑'],
-  ['n1', '加拿大就业市场在八月出现回落'],
-  ['k1', '蘑菇其实是森林的“快递网络”'],
+  ['hero', '考古学家在 2.5 万年前牙齿中发现习惯性用药证据'],
+  ['a1', '鹰与狼：爱尔兰地名里留存下来的失落动物'],
+  ['n1', '通胀在全球回归，抗通胀之战也随之回来'],
+  ['k1', '这只孤儿小象如何逆转发运'],
 ] as const)('opens %s through its overview', async (id, title) => {
   const view = await render(<EditorialHomeScreen />);
   await fireEvent.press(view.getByLabelText(`${title}，查看文章概述`));

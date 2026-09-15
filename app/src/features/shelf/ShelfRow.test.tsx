@@ -28,7 +28,7 @@ const importedItem: ShelfItem = {
 };
 
 it.each([
-  [editorialItem, '移出书架', 'The Guardian', '年度最治愈直播：看瑞典北部驼鹿迁徙'],
+  [editorialItem, '移出书架', 'Smithsonian Magazine', '考古学家在 2.5 万年前牙齿中发现习惯性用药证据'],
   [importedItem, '删除文章', '粘贴正文', 'Private article'],
 ] as const)('renders and dispatches the %s row', async (item, action, meta, title) => {
   const onOpen = jest.fn();
