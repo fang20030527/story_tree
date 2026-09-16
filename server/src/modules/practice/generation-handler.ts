@@ -67,40 +67,52 @@ export async function handlePracticeGeneration(
 
   if (!(await moveToGenerating(dependencies.db, job, context.signal))) return;
 
-  assertProviderCallAllowed(job, context.signal);
-  const generated = await dependencies.provider.generatePractice(
-    loaded.providerInput,
-    context.signal,
-  );
-  const validated = validateGeneratedPractice(
-    generated,
-    loaded.validationTargets,
-    loaded.providerInput.topic ? 'short' : 'long',
-  );
+  let generationInput = loaded.providerInput;
+  for (let revision = 0; revision < 2; revision += 1) {
+    assertProviderCallAllowed(job, context.signal);
+    const generated = await dependencies.provider.generatePractice(
+      generationInput,
+      context.signal,
+    );
+    const validated = validateGeneratedPractice(
+      generated,
+      loaded.validationTargets,
+      loaded.providerInput.topic ? 'short' : 'long',
+    );
 
-  if (!(await moveToValidating(dependencies.db, job, context.signal))) return;
+    if (!(await moveToValidating(dependencies.db, job, context.signal))) return;
 
-  assertProviderCallAllowed(job, context.signal);
-  const verification = await dependencies.provider.verifyPractice(
-    { ...loaded.providerInput, generated },
-    context.signal,
-  );
-  if (!verification.approved) throw invalidGeneratedContent();
+    assertProviderCallAllowed(job, context.signal);
+    const verification = await dependencies.provider.verifyPractice(
+      { ...loaded.providerInput, generated },
+      context.signal,
+    );
+    if (!verification.approved) {
+      if (revision === 1) throw invalidGeneratedContent();
+      generationInput = {
+        ...loaded.providerInput,
+        revision: { generated, issues: verification.issues },
+      };
+      if (!(await moveToGenerating(dependencies.db, job, context.signal))) return;
+      continue;
+    }
 
-  assertProviderCallAllowed(job, context.signal);
-  const outputModeration = await dependencies.provider.moderate(
-    serializeVisibleContent(generated),
-    context.signal,
-  );
-  assertModerationAccepted(outputModeration, true);
+    assertProviderCallAllowed(job, context.signal);
+    const outputModeration = await dependencies.provider.moderate(
+      serializeVisibleContent(generated),
+      context.signal,
+    );
+    assertModerationAccepted(outputModeration, true);
 
-  assertWithinDeadline(job, context.signal);
-  await persistGeneratedPractice(
-    dependencies,
-    job,
-    validated,
-    context.signal,
-  );
+    assertWithinDeadline(job, context.signal);
+    await persistGeneratedPractice(
+      dependencies,
+      job,
+      validated,
+      context.signal,
+    );
+    return;
+  }
 }
 
 export async function failPracticeGeneration(

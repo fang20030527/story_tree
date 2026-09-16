@@ -94,6 +94,12 @@ describe('API client', () => {
     });
   });
 
+  it('reports an HTML gateway failure as temporarily unavailable', async () => {
+    mockedGetInstallationToken.mockResolvedValue('ab'.repeat(32));
+    fetchMock.mockResolvedValue({ ok: false, status: 502, json: jest.fn().mockRejectedValue(new SyntaxError('HTML')) });
+    await expect(registerAnonymous(true)).rejects.toMatchObject({ code: 'SERVER_UNAVAILABLE', retryable: true });
+  });
+
   it('accepts an authenticated 204 response without parsing JSON', async () => {
     mockedGetInstallationToken.mockResolvedValue('ab'.repeat(32));
     const json = jest.fn();

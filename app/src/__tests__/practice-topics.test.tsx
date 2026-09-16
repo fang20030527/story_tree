@@ -72,6 +72,8 @@ it('keeps pending and failed cards visible while successful topics stay availabl
   const view = await render(<TopicSelectionScreen />);
   expect(view.getByText('内容检查未通过')).toBeTruthy();
   expect(view.getByText('1/4')).toBeTruthy();
+  expect(view.getByLabelText('短文生成进度').props.accessibilityValue).toMatchObject({ min: 0, max: 4, now: 3 });
+  expect(view.getByText('2 篇可阅读 · 1 篇未成功')).toBeTruthy();
   await fireEvent.press(view.getByLabelText('文化，正在生成'));
   await fireEvent.press(view.getByLabelText('经济，生成未完成'));
   expect(router.push).not.toHaveBeenCalled();
@@ -88,4 +90,16 @@ it('routes generation to topic selection even when the first article failed', as
     pathname: '/practice/[id]/topics', params: { id: groupId },
   }));
   expect(router.replace).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: '/practice/[id]/read' }));
+});
+
+
+it('opens the first ready article while the other three are still generating', async () => {
+  const partial = structuredClone(practice);
+  partial.status = 'generating';
+  partial.group!.articles.forEach((article, index) => { article.status = index === 2 ? 'ready' : 'generating'; });
+  jest.mocked(usePracticePolling).mockReturnValue({ practice: partial, error: null, retry: jest.fn() });
+  const view = await render(<TopicSelectionScreen />);
+  expect(view.getByLabelText('短文生成进度').props.accessibilityValue.now).toBe(1);
+  await fireEvent.press(view.getByLabelText('政治，开始阅读'));
+  await waitFor(() => expect(router.push).toHaveBeenCalledWith({ pathname: '/practice/[id]/read', params: { id: partial.group!.articles[2]!.id } }));
 });

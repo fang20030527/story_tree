@@ -35,6 +35,12 @@ describe('four-topic practice groups', () => {
         claimed.push((await claimNextJob(db, `topic-worker-${index}`, 120_000, ['practice_generation']))!);
       }
       const options = { db, provider: new FakeAiProvider(), modelName: 'fake-topic' };
+      const firstReadyJob = claimed.find((job) => job.resourceId !== created.practiceId)!;
+      await handlePracticeGeneration(options, firstReadyJob, signal());
+      const partial = await read(created.practiceId);
+      expect(partial.status).toBe('queued');
+      expect(partial.group!.articles.filter((article) => article.status === 'ready')).toHaveLength(1);
+      expect((await read(firstReadyJob.resourceId)).article).not.toBeNull();
       // Concurrent final writes must still settle quota exactly once.
       await Promise.all(claimed.map((job) => handlePracticeGeneration(options, job, signal())));
       const ready = await read(created.practiceId);

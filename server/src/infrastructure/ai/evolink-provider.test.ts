@@ -56,6 +56,24 @@ describe('EvoLink AI provider', () => {
     );
   });
 
+  it('repairs malformed generation with field feedback and still validates the result', async () => {
+    const malformed = { ...generatedPractice(), questions: [{ ...generatedPractice().questions[0], optionsEn: ['one'] }] };
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: JSON.stringify(malformed) } }] }))
+      .mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: JSON.stringify(generatedPractice()) } }] }));
+    await expect(createProvider(fetchImpl).generatePractice({ examPath: 'ielts', targets: [] }, new AbortController().signal)).resolves.toEqual(generatedPractice());
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const correction = JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body));
+    expect(correction.messages[3].content).toContain('optionsEn');
+    expect(correction.messages[3].content).toContain('too_small');
+  });
+
+  it('stops after one correction if the generated structure is still invalid', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => jsonResponse({ choices: [{ message: { content: '{"title":null}' } }] }));
+    await expect(createProvider(fetchImpl).generatePractice({ examPath: 'ielts', targets: [] }, new AbortController().signal)).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it('scales the output budget instead of imposing a fixed target-count ceiling', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({

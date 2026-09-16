@@ -86,6 +86,40 @@ describe('usePracticePolling', () => {
     expect(mockedGetPractice).toHaveBeenCalledTimes(2);
   });
 
+  it('recovers from malformed data after the first article failed and discovers a ready sibling', async () => {
+    const grouped: PracticeDto = {
+      ...practice('failed', 500),
+      group: { id: practiceId, articles: (['经济', '文化', '政治', '科技'] as const).map((topic, index) => ({
+        id: practiceId, topic, status: index === 0 ? 'failed' : 'generating',
+        title: null, wordCount: null, failureMessage: null,
+      })) },
+    };
+    const done = structuredClone(grouped);
+    done.group!.articles.slice(1).forEach((article) => { article.status = 'ready'; });
+    mockedGetPractice.mockResolvedValueOnce(grouped)
+      .mockRejectedValueOnce(new ApiError('INVALID_SERVER_RESPONSE', '服务返回了无法识别的数据', true))
+      .mockResolvedValueOnce(done);
+    const { result } = await renderHook(() => usePracticePolling(practiceId));
+    await flushPromises();
+    await act(async () => { jest.advanceTimersByTime(500); });
+    expect(result.current.practice).toEqual(grouped);
+    expect(result.current.error).not.toBeNull();
+    await act(async () => { jest.advanceTimersByTime(2_000); });
+    expect(result.current.practice).toEqual(done);
+    expect(result.current.error).toBeNull();
+    await act(async () => { jest.advanceTimersByTime(30_000); });
+    expect(mockedGetPractice).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not retry authorization failures automatically', async () => {
+    mockedGetPractice.mockRejectedValue(new ApiError('UNAUTHORIZED', '请重新登录', false));
+    const { result } = await renderHook(() => usePracticePolling(practiceId));
+    await flushPromises();
+    await act(async () => { jest.advanceTimersByTime(30_000); });
+    expect(mockedGetPractice).toHaveBeenCalledTimes(1);
+    expect(result.current.error?.code).toBe('UNAUTHORIZED');
+  });
+
   it('follows server polling delays until the practice becomes ready', async () => {
     mockedGetPractice
       .mockResolvedValueOnce(practice('queued', 500))
@@ -192,7 +226,7 @@ describe('usePracticePolling', () => {
     expect(mockedGetPractice).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the last state after a network error and retries on demand', async () => {
+  it('keeps the last state after a network error and automatically recovers', async () => {
     mockedGetPractice
       .mockResolvedValueOnce(practice('queued', 500))
       .mockRejectedValueOnce(
@@ -213,13 +247,7 @@ describe('usePracticePolling', () => {
     expect(result.current.error?.message).toBe('网络连接失败');
 
     await act(async () => {
-      jest.advanceTimersByTime(10_000);
-      await Promise.resolve();
-    });
-    expect(mockedGetPractice).toHaveBeenCalledTimes(2);
-
-    await act(async () => {
-      result.current.retry();
+      jest.advanceTimersByTime(2_000);
       await Promise.resolve();
     });
     expect(result.current.practice?.status).toBe('ready');
