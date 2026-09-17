@@ -101,3 +101,5 @@ it('changes its accessible action label and blocks a pending shelf write', async
   resolveWrite();
   await waitFor(() => expect(view.getByLabelText('移出书架')).toBeTruthy());
 });
+
+jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'));

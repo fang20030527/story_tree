@@ -1,3 +1,4 @@
+import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
@@ -51,6 +52,7 @@ export function ShelfRow({ item, managing, deleting, onOpen, onManage }: Props) 
           </View>
         )}
         <View style={styles.info}>
+          {editorial ? <EditorialReadBadge articleId={item.id} /> : null}
           <Text style={[styles.source, { color: theme.textMuted }]}>
             {item.kind === 'editorial'
               ? item.article.source

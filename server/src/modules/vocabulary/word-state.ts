@@ -135,7 +135,16 @@ export async function loadRankedWords(tx: AppTransaction, userId: string, now: D
     a.priority.due - b.priority.due || a.word.id.localeCompare(b.word.id));
 }
 
+/** Auto-selection skips mastered words and takes due learning words (group 1) before unlearned ones (group 0). */
 export async function selectReviewVocabularyItemIds(tx: AppTransaction, userId: string, count: number): Promise<string[]> {
   const words = await loadRankedWords(tx, userId, new Date());
-  return words.filter((entry) => entry.priority.group < 2).slice(0, count).map((entry) => entry.targetContext.id);
+  return words
+    .filter((entry) => !entry.word.masteredAt && entry.priority.group < 2)
+    .sort((a, b) => selectionRank(a) - selectionRank(b))
+    .slice(0, count)
+    .map((entry) => entry.targetContext.id);
+}
+
+function selectionRank(entry: RankedWord): number {
+  return entry.priority.group === 1 ? 0 : 1;
 }

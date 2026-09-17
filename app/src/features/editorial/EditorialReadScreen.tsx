@@ -1,7 +1,7 @@
 import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -22,13 +22,14 @@ import {
 } from '@/features/editorial/catalog';
 import { recordEditorialRecentView } from '@/features/library/libraryStorage';
 import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
+import { markEditorialArticleRead } from './editorialReadStorage';
 
 type Props = { articleId: string };
 
 export function EditorialReadScreen({ articleId }: Props) {
   const article = getEditorialArticle(articleId);
   return article ? (
-    <ReadingOverlayProvider><EditorialReadContent article={article} /></ReadingOverlayProvider>
+    <ReadingOverlayProvider><EditorialReadContent key={article.id} article={article} /></ReadingOverlayProvider>
   ) : (
     <MissingEditorialArticleState />
   );
@@ -39,6 +40,26 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [showFullTranslation, setShowFullTranslation] = useState(false);
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
+  const completeLearning = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setCompletionError(null);
+    readingOverlay?.select(null);
+    try {
+      await markEditorialArticleRead(article.id);
+    } catch {
+      savingRef.current = false;
+      setSaving(false);
+      setCompletionError('已读状态保存失败，请重试');
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
   const [addedWords, setAddedWords] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -131,6 +152,22 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
             />
           ))}
         </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="完成学习"
+          accessibilityState={{ disabled: saving, busy: saving }}
+          disabled={saving}
+          onPress={() => void completeLearning()}
+          style={[styles.completeButton, { backgroundColor: theme.accent, opacity: saving ? 0.6 : 1 }]}>
+          <Text style={[styles.completeButtonText, { color: theme.accentText }]}>
+            {saving ? '保存中…' : '完成学习'}
+          </Text>
+        </TouchableOpacity>
+        {completionError ? (
+          <Text accessibilityLiveRegion="polite" style={{ color: theme.danger, marginTop: 12 }}>
+            {completionError}
+          </Text>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -302,6 +339,8 @@ const styles = StyleSheet.create({
   translationAction: { fontSize: 12, fontWeight: weight('semibold') },
   translationText: { fontSize: 14, lineHeight: 23, marginTop: 12 },
   body: { gap: 22, marginTop: 28 },
+  completeButton: { alignItems: 'center', borderRadius: 13, marginTop: 32, paddingVertical: 16 },
+  completeButtonText: { fontSize: 16, fontWeight: weight('semibold') },
   paragraph: { fontSize: 17, lineHeight: 30 },
   missing: { alignItems: 'center', flex: 1, gap: 14, justifyContent: 'center' },
   missingTitle: { fontSize: 18, fontWeight: weight('semibold') },

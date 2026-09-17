@@ -21,7 +21,7 @@ const statusLabels: Record<PracticeDto['status'], string> = {
 };
 const readable = new Set(['ready', 'in_progress', 'completed']);
 
-function TopicSelection({ practiceId }: { practiceId: string }) {
+function TopicSelection({ practiceId, vocabularyOrigin }: { practiceId: string; vocabularyOrigin: boolean }) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { practice, error, retry } = usePracticePolling(practiceId);
@@ -55,7 +55,7 @@ function TopicSelection({ practiceId }: { practiceId: string }) {
       if (group?.articles.every((article) => article.status === 'completed' || article.status === 'failed')) {
         await clearActivePracticeId();
       }
-      router.replace('/');
+      router.replace(vocabularyOrigin ? '/practice/from-vocabulary' : '/');
     } catch {
       setStorageError('暂时无法保存完成状态，请重试');
     }
@@ -147,9 +147,9 @@ function TopicSelection({ practiceId }: { practiceId: string }) {
 }
 
 export default function TopicSelectionScreen() {
-  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const { id, origin } = useLocalSearchParams<{ id?: string | string[]; origin?: string | string[] }>();
   if (typeof id !== 'string') return <View style={styles.content}><Text>练习地址无效</Text></View>;
-  return <TopicSelection key={id} practiceId={id} />;
+  return <TopicSelection key={id} practiceId={id} vocabularyOrigin={origin === 'vocabulary'} />;
 }
 
 const styles = StyleSheet.create({

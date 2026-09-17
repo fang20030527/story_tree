@@ -41,6 +41,10 @@ import {
   WechatAuthResponseSchema,
   WordTranslationDtoSchema,
   VocabularyInputSchema,
+  VocabularyTimeZoneSchema,
+  VocabularyWordFilterSchema,
+  VocabularyWordMasterySchema,
+  VocabularyWordPageSchema,
 } from './index';
 
 describe('shared contracts', () => {
@@ -314,6 +318,9 @@ describe('shared contracts', () => {
       incompletePracticeId: crypto.randomUUID(),
       vocabularyCount: 12,
       reviewingCount: 4,
+      dueLearningCount: 4,
+      unlearnedCount: 5,
+      todayAddedCount: 2,
       completedPracticeCount: 2,
       remainingFreePractices: 1,
     };
@@ -467,5 +474,70 @@ describe('saved word sentences', () => {
     expect(VocabularyInputSchema.parse({
       term: 'resilient', meaningZh: '有韧性的', sourceSentence,
     }).sourceSentence).toBe(sourceSentence);
+  });
+});
+
+describe('vocabulary word hub contracts', () => {
+  it('accepts legacy and category word filters only', () => {
+    for (const filter of ['all', 'due', 'scheduled', 'today', 'learning', 'unlearned', 'mastered']) {
+      expect(VocabularyWordFilterSchema.safeParse(filter).success).toBe(true);
+    }
+    for (const filter of ['', 'learning ', 'archived', 'ALL']) {
+      expect(VocabularyWordFilterSchema.safeParse(filter).success).toBe(false);
+    }
+  });
+
+  it('validates IANA time zones', () => {
+    expect(VocabularyTimeZoneSchema.safeParse('Asia/Shanghai').success).toBe(true);
+    expect(VocabularyTimeZoneSchema.safeParse('UTC').success).toBe(true);
+    expect(VocabularyTimeZoneSchema.safeParse('Mars/Olympus_Mons').success).toBe(false);
+    expect(VocabularyTimeZoneSchema.safeParse('').success).toBe(false);
+  });
+
+  it('requires the full word page summary and per-word mastery flag', () => {
+    const word = {
+      wordId: crypto.randomUUID(),
+      term: 'resilient',
+      meaningZh: '有韧性的',
+      sourceSentence: null,
+      contextCount: 1,
+      reviewReason: 'due',
+      nextReviewAt: new Date().toISOString(),
+      practiceCount: 2,
+      independentCorrectCount: 1,
+      assistedCount: 0,
+      lastPracticedAt: new Date().toISOString(),
+      masteredAt: null,
+    };
+    const summary = {
+      totalCount: 3,
+      todayCount: 1,
+      learningCount: 1,
+      dueLearningCount: 1,
+      unlearnedCount: 1,
+      masteredCount: 1,
+    };
+    expect(VocabularyWordPageSchema.safeParse({
+      items: [word], nextCursor: null,
+      evaluatedAt: new Date().toISOString(), nextRefreshAt: null, summary,
+    }).success).toBe(true);
+    expect(VocabularyWordPageSchema.safeParse({
+      items: [{ ...word, masteredAt: undefined }], nextCursor: null,
+      evaluatedAt: new Date().toISOString(), nextRefreshAt: null, summary,
+    }).success).toBe(false);
+    expect(VocabularyWordPageSchema.safeParse({
+      items: [word], nextCursor: null,
+      evaluatedAt: new Date().toISOString(), nextRefreshAt: null,
+      summary: { totalCount: 3, dueCount: 2, scheduledCount: 1 },
+    }).success).toBe(false);
+  });
+
+  it('validates the mastery mutation response', () => {
+    const wordId = crypto.randomUUID();
+    expect(VocabularyWordMasterySchema.safeParse({
+      wordId, masteredAt: new Date().toISOString(),
+    }).success).toBe(true);
+    expect(VocabularyWordMasterySchema.safeParse({ wordId, masteredAt: null }).success).toBe(true);
+    expect(VocabularyWordMasterySchema.safeParse({ wordId }).success).toBe(false);
   });
 });

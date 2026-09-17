@@ -1,5 +1,11 @@
 import { getInstallationToken } from './installation';
-import { getVocabulary, getVocabularyWordContexts, getVocabularyWords } from './practices';
+import {
+  getVocabulary,
+  getVocabularyWordContexts,
+  getVocabularyWords,
+  markVocabularyWordMastered,
+  restoreVocabularyWord,
+} from './practices';
 
 jest.mock('./installation', () => ({ getInstallationToken: jest.fn() }));
 
@@ -11,10 +17,15 @@ const word = {
   wordId, term: 'bank', meaningZh: '银行', sourceSentence: null,
   contextCount: 2, reviewReason: 'new', nextReviewAt: '2026-09-14T12:00:00.000Z',
   practiceCount: 0, independentCorrectCount: 0, assistedCount: 0, lastPracticedAt: null,
+  masteredAt: null,
+};
+const summary = {
+  totalCount: 80, todayCount: 5, learningCount: 30,
+  dueLearningCount: 12, unlearnedCount: 45, masteredCount: 5,
 };
 const page = {
   items: [word], nextCursor: 'more', evaluatedAt: '2026-09-14T12:00:00.000Z', nextRefreshAt: null,
-  summary: { totalCount: 80, dueCount: 40, scheduledCount: 40 },
+  summary,
 };
 const success = (body: unknown) => ({ ok: true, status: 200, json: jest.fn().mockResolvedValue(body) });
 
@@ -37,6 +48,39 @@ it('requests a server-filtered word page with a safely encoded cursor', async ()
     'https://api.example.test/v1/vocabulary-words?filter=due&cursor=opaque%2B%2F%3D%3F&limit=30',
     expect.objectContaining({}),
   );
+});
+
+it('passes the new category filter and IANA time zone to the server', async () => {
+  fetchMock.mockResolvedValueOnce(success(page));
+  await expect(getVocabularyWords({ filter: 'today', timeZone: 'Asia/Shanghai', limit: 30 })).resolves.toEqual(page);
+  expect(fetchMock).toHaveBeenCalledWith(
+    'https://api.example.test/v1/vocabulary-words?filter=today&timeZone=Asia%2FShanghai&limit=30',
+    expect.objectContaining({}),
+  );
+});
+
+it('marks a word mastered with a retained idempotency key', async () => {
+  const mastery = { wordId, masteredAt: '2026-09-14T12:30:00.000Z' };
+  fetchMock.mockResolvedValueOnce(success(mastery));
+  await expect(markVocabularyWordMastered(wordId, 'mastery-key-1')).resolves.toEqual(mastery);
+  expect(fetchMock).toHaveBeenCalledWith(
+    `https://api.example.test/v1/vocabulary-words/${wordId}/mastered`,
+    expect.objectContaining({ method: 'POST', body: '{}' }),
+  );
+  const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+  expect((init.headers as Headers).get('Idempotency-Key')).toBe('mastery-key-1');
+});
+
+it('restores a mastered word with a retained idempotency key', async () => {
+  const mastery = { wordId, masteredAt: null };
+  fetchMock.mockResolvedValueOnce(success(mastery));
+  await expect(restoreVocabularyWord(wordId, 'restore-key-1')).resolves.toEqual(mastery);
+  expect(fetchMock).toHaveBeenCalledWith(
+    `https://api.example.test/v1/vocabulary-words/${wordId}/unmaster`,
+    expect.objectContaining({ method: 'POST', body: '{}' }),
+  );
+  const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+  expect((init.headers as Headers).get('Idempotency-Key')).toBe('restore-key-1');
 });
 
 it('loads all saved contexts for one word through the context schema', async () => {

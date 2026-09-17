@@ -49,3 +49,5 @@ it.each([
   await fireEvent.press(view.getByText(action));
   expect(onManage).toHaveBeenCalledWith(item);
 });
+
+jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'));

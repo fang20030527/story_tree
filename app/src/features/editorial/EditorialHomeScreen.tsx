@@ -1,3 +1,4 @@
+import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -267,6 +268,7 @@ function HeroCard({
         <View style={styles.heroShade} />
         <View style={styles.heroOverlay}>
           <Text style={styles.heroSource}>{article.source} · {article.category}</Text>
+          <EditorialReadBadge articleId={article.id} />
           <Text style={styles.heroTitle}>{article.titleZh}</Text>
           <Text style={styles.heroMeta}>{article.level} · {article.wordCount} 词 · {article.minutes} 分钟</Text>
         </View>
@@ -293,6 +295,7 @@ function ArticleCard({
       style={[styles.articleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <EditorialImage uri={article.image} style={styles.articleImage} />
       <View style={styles.articleInfo}>
+        <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.articleTitle, { color: theme.text }]} numberOfLines={2}>{article.titleZh}</Text>
         <Text style={[styles.articleSource, { color: theme.textMuted }]} numberOfLines={1}>{article.source} · {article.category}</Text>
         <Text style={[styles.articleMeta, { color: theme.textSecondary }]}>{article.level} · {article.wordCount} 词 · {article.minutes} 分钟</Text>

@@ -629,7 +629,24 @@ export const VocabularyPageSchema = z
   })
   .strict();
 
-export const VocabularyWordFilterSchema = z.enum(['all', 'due', 'scheduled']);
+export const VocabularyTimeZoneSchema = z.string().trim().min(1).max(64).refine((value) => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}, '时区格式无效');
+
+export const VocabularyWordFilterSchema = z.enum([
+  'all',
+  'due',
+  'scheduled',
+  'today',
+  'learning',
+  'unlearned',
+  'mastered',
+]);
 export const VocabularyWordSchema = z.object({
   wordId: UuidSchema,
   term: z.string(),
@@ -642,6 +659,7 @@ export const VocabularyWordSchema = z.object({
   independentCorrectCount: z.number().int().nonnegative(),
   assistedCount: z.number().int().nonnegative(),
   lastPracticedAt: z.iso.datetime().nullable(),
+  masteredAt: z.iso.datetime().nullable(),
 }).strict();
 export const VocabularyWordPageSchema = z.object({
   items: z.array(VocabularyWordSchema),
@@ -650,8 +668,11 @@ export const VocabularyWordPageSchema = z.object({
   nextRefreshAt: z.iso.datetime().nullable(),
   summary: z.object({
     totalCount: z.number().int().nonnegative(),
-    dueCount: z.number().int().nonnegative(),
-    scheduledCount: z.number().int().nonnegative(),
+    todayCount: z.number().int().nonnegative(),
+    learningCount: z.number().int().nonnegative(),
+    dueLearningCount: z.number().int().nonnegative(),
+    unlearnedCount: z.number().int().nonnegative(),
+    masteredCount: z.number().int().nonnegative(),
   }).strict(),
 }).strict();
 export const VocabularyWordContextsSchema = z.object({
@@ -662,16 +683,25 @@ export const VocabularyWordContextsSchema = z.object({
     sourceSentence: z.string().nullable(),
   }).strict()),
 }).strict();
+export const VocabularyWordMasterySchema = z.object({
+  wordId: UuidSchema,
+  masteredAt: z.iso.datetime().nullable(),
+}).strict();
 export type VocabularyWordFilter = z.infer<typeof VocabularyWordFilterSchema>;
 export type VocabularyWord = z.infer<typeof VocabularyWordSchema>;
 export type VocabularyWordPage = z.infer<typeof VocabularyWordPageSchema>;
 export type VocabularyWordContexts = z.infer<typeof VocabularyWordContextsSchema>;
+export type VocabularyWordMastery = z.infer<typeof VocabularyWordMasterySchema>;
 
 export const DashboardDtoSchema = z
   .object({
     incompletePracticeId: UuidSchema.nullable(),
     vocabularyCount: z.number().int().nonnegative(),
+    /** @deprecated 使用 dueLearningCount；旧客户端仍读取该字段。 */
     reviewingCount: z.number().int().nonnegative(),
+    dueLearningCount: z.number().int().nonnegative(),
+    unlearnedCount: z.number().int().nonnegative(),
+    todayAddedCount: z.number().int().nonnegative(),
     completedPracticeCount: z.number().int().nonnegative(),
     remainingFreePractices: z.number().int().nonnegative(),
   })

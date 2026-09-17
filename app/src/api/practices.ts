@@ -31,6 +31,8 @@ import {
   type VocabularyWordFilter,
   VocabularyWordContextsSchema,
   type VocabularyWordContexts,
+  VocabularyWordMasterySchema,
+  type VocabularyWordMastery,
 } from '@context-reader/contracts';
 import type { ZodType } from 'zod';
 
@@ -172,6 +174,8 @@ export function getDashboard(): Promise<DashboardDto> {
 
 export interface VocabularyWordPageOptions extends VocabularyPageOptions {
   filter?: VocabularyWordFilter;
+  /** IANA time zone used by the server to compute the local "today" filter. */
+  timeZone?: string;
 }
 
 export function getVocabularyWords(
@@ -179,12 +183,39 @@ export function getVocabularyWords(
 ): Promise<VocabularyWordPage> {
   const query = new URLSearchParams();
   if (options.filter !== undefined) query.set('filter', options.filter);
+  if (options.timeZone !== undefined) query.set('timeZone', options.timeZone);
   if (options.cursor !== undefined) query.set('cursor', options.cursor);
   if (options.limit !== undefined) query.set('limit', String(options.limit));
   const serializedQuery = query.toString();
   return apiRequest(
     `/v1/vocabulary-words${serializedQuery ? `?${serializedQuery}` : ''}`,
     VocabularyWordPageSchema,
+  );
+}
+
+/** Mark a word as manually mastered so it leaves future auto selection. */
+export function markVocabularyWordMastered(
+  wordId: string,
+  idempotencyKey: string,
+): Promise<VocabularyWordMastery> {
+  return postIdempotentJson(
+    `/v1/vocabulary-words/${encodeURIComponent(wordId)}/mastered`,
+    VocabularyWordMasterySchema,
+    {},
+    idempotencyKey,
+  );
+}
+
+/** Restore a mastered word to learning without touching its review evidence. */
+export function restoreVocabularyWord(
+  wordId: string,
+  idempotencyKey: string,
+): Promise<VocabularyWordMastery> {
+  return postIdempotentJson(
+    `/v1/vocabulary-words/${encodeURIComponent(wordId)}/unmaster`,
+    VocabularyWordMasterySchema,
+    {},
+    idempotencyKey,
   );
 }
 

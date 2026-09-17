@@ -20,6 +20,7 @@ export default function RootLayout() {
         <Stack.Screen name="import-preview" />
         <Stack.Screen name="import-computer" />
         <Stack.Screen name="article-read" />
+        <Stack.Screen name="vocabulary/book" />
         <Stack.Screen name="editorial/[id]/index" />
         <Stack.Screen name="editorial/[id]/read" />
         <Stack.Screen name="recent" />

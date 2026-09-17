@@ -168,6 +168,7 @@ export const vocabularyWords = pgTable('vocabulary_words', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   normalizedTerm: text('normalized_term').notNull(),
   reviewState: jsonb('review_state').$type<WordReviewState>(),
+  masteredAt: utcTimestamp('mastered_at'),
   createdAt: utcTimestamp('created_at').defaultNow().notNull(),
   updatedAt: utcTimestamp('updated_at').defaultNow().notNull(),
 }, (table) => [

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { VocabularyWordPageSchema } from '@context-reader/contracts';
+import { VocabularyWordMasterySchema, VocabularyWordPageSchema, type VocabularyWordFilter } from '@context-reader/contracts';
 
 import { withTestDatabase } from '../../../test/database';
 import { buildApp } from '../../app';
@@ -18,7 +18,7 @@ import { submitFirstAnswer } from '../practice/answer-service';
 import { recordAssistance } from '../practice/assistance-service';
 import { normalizeMeaningZh, normalizeTerm, vocabularyFingerprint } from './normalize';
 import { upsertExactVocabularyItems } from './repository';
-import { getVocabularyWordContexts, getVocabularyWordPage } from './word-service';
+import { getVocabularyWordContexts, getVocabularyWordPage, setVocabularyWordMastery } from './word-service';
 import { loadRankedWords, selectReviewVocabularyItemIds, syncVocabularyWords } from './word-state';
 
 const DAY = 86_400_000;
@@ -37,7 +37,10 @@ describe('word-level vocabulary review', () => {
         { term: 'ｂａｎｋ', meaningZh: '河岸', sourceSentence: 'They walked along the bank.' },
       ]));
       const page = await getVocabularyWordPage(db, pageInput(owner.userId));
-      expect(page.summary).toEqual({ totalCount: 1, dueCount: 1, scheduledCount: 0 });
+      expect(page.summary).toEqual({
+        totalCount: 1, todayCount: 1, learningCount: 0,
+        dueLearningCount: 0, unlearnedCount: 1, masteredCount: 0,
+      });
       expect(page.items[0]).toMatchObject({ contextCount: 2, reviewReason: 'new', practiceCount: 0 });
       const wordId = page.items[0]!.wordId;
       const contexts = await getVocabularyWordContexts(db, owner.userId, wordId);
@@ -76,7 +79,10 @@ describe('word-level vocabulary review', () => {
       ]);
       const first = await getVocabularyWordPage(db, { ...pageInput(owner.userId, NOW), limit: 20 });
       expect(first.items).toHaveLength(20);
-      expect(first.summary).toEqual({ totalCount: 55, dueCount: 54, scheduledCount: 1 });
+      expect(first.summary).toEqual({
+        totalCount: 55, todayCount: 0, learningCount: 3,
+        dueLearningCount: 2, unlearnedCount: 52, masteredCount: 0,
+      });
       expect(first.items.every((word) => word.reviewReason === 'new')).toBe(true);
       expect(first.nextCursor).not.toBeNull();
       const second = await getVocabularyWordPage(db, {
@@ -108,7 +114,10 @@ describe('word-level vocabulary review', () => {
       const justBefore = await getVocabularyWordPage(db, pageInput(owner.userId, new Date(deadline - 1)));
       const atDeadline = await getVocabularyWordPage(db, pageInput(owner.userId, new Date(deadline)));
       expect(justBefore.summary).toEqual(first.summary);
-      expect(atDeadline.summary).toEqual({ totalCount: 55, dueCount: 55, scheduledCount: 0 });
+      expect(atDeadline.summary).toEqual({
+        totalCount: 55, todayCount: 0, learningCount: 3,
+        dueLearningCount: 3, unlearnedCount: 52, masteredCount: 0,
+      });
     });
   }, 120_000);
 
@@ -132,7 +141,7 @@ describe('word-level vocabulary review', () => {
       expect(ranked[1]!.contexts[0]!.id).toBe(contexts[1]!.id);
       expect(ranked[1]!.targetContext.id).toBe(contexts[0]!.id);
       const selection = await db.transaction((tx) => selectReviewVocabularyItemIds(tx, owner.userId, 10));
-      expect(selection).toEqual([contexts[2]!.id, contexts[0]!.id]);
+      expect(selection).toEqual([contexts[0]!.id, contexts[2]!.id]);
     });
   }, 120_000);
 
@@ -150,11 +159,20 @@ describe('word-level vocabulary review', () => {
       expect(foreignPage.items[0]!.wordId).not.toBe(first.items[0]!.wordId);
       const app = buildApp({ config, db, logger: false });
       try {
-        const invalidFilter = await app.inject({
+        const masteredFilter = await app.inject({
           method: 'GET', url: '/v1/vocabulary-words?filter=mastered', headers: { authorization: `Bearer ${token}` },
+        });
+        expect(masteredFilter.statusCode).toBe(200);
+        expect(VocabularyWordPageSchema.parse(masteredFilter.json()).items).toHaveLength(0);
+        const invalidFilter = await app.inject({
+          method: 'GET', url: '/v1/vocabulary-words?filter=archived', headers: { authorization: `Bearer ${token}` },
         });
         expect(invalidFilter.statusCode).toBe(400);
         expect(invalidFilter.json()).toMatchObject({ error: { code: 'VALIDATION_ERROR' } });
+        const invalidTimeZone = await app.inject({
+          method: 'GET', url: '/v1/vocabulary-words?timeZone=Mars/Olympus', headers: { authorization: `Bearer ${token}` },
+        });
+        expect(invalidTimeZone.statusCode).toBe(400);
         const foreignContexts = await app.inject({
           method: 'GET', url: `/v1/vocabulary-words/${first.items[0]!.wordId}/contexts`,
           headers: { authorization: `Bearer ${otherToken}` },
@@ -170,6 +188,38 @@ describe('word-level vocabulary review', () => {
         });
         expect(valid.statusCode).toBe(200);
         expect(VocabularyWordPageSchema.parse(valid.json()).summary.totalCount).toBe(2);
+
+        const targetWordId = first.items[0]!.wordId;
+        const missingKey = await app.inject({
+          method: 'POST', url: `/v1/vocabulary-words/${targetWordId}/mastered`,
+          headers: { authorization: `Bearer ${token}` },
+        });
+        expect(missingKey.statusCode).toBe(400);
+        const foreignMastery = await app.inject({
+          method: 'POST', url: `/v1/vocabulary-words/${targetWordId}/mastered`,
+          headers: { authorization: `Bearer ${otherToken}`, 'idempotency-key': 'foreign-master-key-01' },
+        });
+        expect(foreignMastery.statusCode).toBe(404);
+        const mastered = await app.inject({
+          method: 'POST', url: `/v1/vocabulary-words/${targetWordId}/mastered`,
+          headers: { authorization: `Bearer ${token}`, 'idempotency-key': 'master-word-key-0001' },
+        });
+        expect(mastered.statusCode).toBe(200);
+        const mastery = VocabularyWordMasterySchema.parse(mastered.json());
+        expect(mastery.wordId).toBe(targetWordId);
+        expect(mastery.masteredAt).not.toBeNull();
+        const replayed = await app.inject({
+          method: 'POST', url: `/v1/vocabulary-words/${targetWordId}/mastered`,
+          headers: { authorization: `Bearer ${token}`, 'idempotency-key': 'master-word-key-0001' },
+        });
+        expect(replayed.statusCode).toBe(200);
+        expect(replayed.json()).toEqual(mastered.json());
+        const unmastered = await app.inject({
+          method: 'POST', url: `/v1/vocabulary-words/${targetWordId}/unmaster`,
+          headers: { authorization: `Bearer ${token}`, 'idempotency-key': 'restore-word-key-001' },
+        });
+        expect(unmastered.statusCode).toBe(200);
+        expect(unmastered.json()).toMatchObject({ wordId: targetWordId, masteredAt: null });
       } finally { await app.close(); }
       await expect(getVocabularyWordPage(db, {
         ...pageInput(owner.userId), filter: 'due', cursor: first.nextCursor,
@@ -211,7 +261,10 @@ describe('word-level vocabulary review', () => {
       await db.execute(sql.raw(backfill));
       expect(await db.select().from(vocabularyWords)).toHaveLength(2);
       const page = await getVocabularyWordPage(db, pageInput(owner.userId, NOW));
-      expect(page.summary).toEqual({ totalCount: 2, dueCount: 2, scheduledCount: 0 });
+      expect(page.summary).toEqual({
+        totalCount: 2, todayCount: 0, learningCount: 1,
+        dueLearningCount: 1, unlearnedCount: 1, masteredCount: 0,
+      });
       expect(page.items.find((word) => word.term === 'untested')).toMatchObject({ practiceCount: 0, reviewReason: 'new' });
       const bank = page.items.find((word) => word.term === 'bank')!;
       expect(bank).toMatchObject({ contextCount: 2, practiceCount: 1, independentCorrectCount: 0, reviewReason: 'relearn' });
@@ -322,6 +375,94 @@ describe('word-level vocabulary review', () => {
         expect(Date.parse(state.nextReviewAt) - Date.parse(state.lastPracticedAt!)).toBe(DAY);
       }
       for (const term of ['unknown', 'incorrect']) expect(stateOf(term)).toMatchObject({ lastOutcome: 'failed', assistedCount: 1 });
+    });
+  }, 120_000);
+
+  it('classifies words into mutually exclusive categories with timezone-aware today, and mastery exits auto-selection', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const owner = await registerAnonymous(db, 'c9'.repeat(32), true);
+      const other = await registerAnonymous(db, 'ca'.repeat(32), true);
+      const contexts = await seedContexts(db, owner.userId, [
+        { term: 'fresh', meaningZh: '未学' },
+        { term: 'duetoday', meaningZh: '到期在学' },
+        { term: 'laterword', meaningZh: '未到期在学' },
+        { term: 'known', meaningZh: '已掌握' },
+        // 2026-08-31T17:00Z is already 09-01 in Asia/Shanghai but still 08-31 in UTC.
+        { term: 'boundary', meaningZh: '边界', createdAt: new Date('2026-08-31T17:00:00.000Z') },
+      ]);
+      const practice = await seedPractice(db, owner.userId, [contexts[1]!.id, contexts[2]!.id]);
+      const evaluatedAt = new Date('2026-09-01T12:00:00.000Z');
+      await insertHistoricalAnswers(db, owner.userId, practice, [
+        { index: 0, at: new Date(+NOW - 30 * DAY), correct: true },
+        // A future historical timestamp keeps auto-selection (evaluated at real now) deterministic.
+        { index: 1, at: new Date(Date.now() + DAY), correct: true },
+      ]);
+      const termsOf = async (filter: VocabularyWordFilter, timeZone = 'UTC') =>
+        (await getVocabularyWordPage(db, { ...pageInput(owner.userId, evaluatedAt), filter, timeZone }))
+          .items.map((word) => word.term);
+
+      const known = (await getVocabularyWordPage(db, { ...pageInput(owner.userId, evaluatedAt) }))
+        .items.find((word) => word.term === 'known')!;
+      expect(known.masteredAt).toBeNull();
+      const marked = await setVocabularyWordMastery(db, {
+        userId: owner.userId, wordId: known.wordId, mastered: true, idempotencyKey: 'master-known-key-001',
+      });
+      expect(marked).toEqual({ wordId: known.wordId, masteredAt: expect.any(String) });
+      expect(await setVocabularyWordMastery(db, {
+        userId: owner.userId, wordId: known.wordId, mastered: true, idempotencyKey: 'master-known-key-001',
+      })).toEqual(marked);
+      await expect(setVocabularyWordMastery(db, {
+        userId: other.userId, wordId: known.wordId, mastered: true, idempotencyKey: 'foreign-master-key-02',
+      })).rejects.toMatchObject({ code: 'NOT_FOUND', statusCode: 404 });
+
+      const page = await getVocabularyWordPage(db, { ...pageInput(owner.userId, evaluatedAt), timeZone: 'UTC' });
+      expect(page.summary).toEqual({
+        totalCount: 5, todayCount: 0, learningCount: 2,
+        dueLearningCount: 1, unlearnedCount: 2, masteredCount: 1,
+      });
+      expect(await termsOf('learning')).toEqual(['duetoday', 'laterword']);
+      expect(await termsOf('unlearned')).toEqual(['fresh', 'boundary']);
+      const masteredOnly = await getVocabularyWordPage(db, { ...pageInput(owner.userId, evaluatedAt), filter: 'mastered' });
+      expect(masteredOnly.items.map((word) => word.term)).toEqual(['known']);
+      expect(masteredOnly.items[0]!.masteredAt).toBe(marked.masteredAt);
+      expect(await termsOf('today')).toEqual([]);
+      expect(await termsOf('today', 'Asia/Shanghai')).toEqual(['boundary']);
+      expect((await getVocabularyWordPage(db, {
+        ...pageInput(owner.userId, evaluatedAt), filter: 'today', timeZone: 'Asia/Shanghai',
+      })).summary.todayCount).toBe(1);
+      expect(await termsOf('due')).toEqual(['fresh', 'boundary', 'duetoday']);
+      expect(await termsOf('scheduled')).toEqual(['laterword']);
+
+      // Due learning words come before unlearned ones; mastered and future words are not candidates.
+      const selection = await db.transaction((tx) => selectReviewVocabularyItemIds(tx, owner.userId, 10));
+      expect(selection).toEqual([contexts[1]!.id, contexts[0]!.id, contexts[4]!.id]);
+
+      // Restoring keeps review evidence and returns the word to its evidence-based category.
+      const [beforeRestore] = await db.select().from(vocabularyWords).where(eq(vocabularyWords.id, known.wordId));
+      const restored = await setVocabularyWordMastery(db, {
+        userId: owner.userId, wordId: known.wordId, mastered: false, idempotencyKey: 'restore-known-key-01',
+      });
+      expect(restored.masteredAt).toBeNull();
+      const [afterRestore] = await db.select().from(vocabularyWords).where(eq(vocabularyWords.id, known.wordId));
+      expect(afterRestore!.reviewState).toEqual(beforeRestore!.reviewState);
+      expect((await termsOf('unlearned')).sort()).toEqual(['boundary', 'fresh', 'known']);
+
+      // Mastery changes invalidate in-flight cursors; legacy v1 cursors are rejected outright.
+      const paged = await getVocabularyWordPage(db, { ...pageInput(owner.userId, evaluatedAt), limit: 1 });
+      expect(paged.nextCursor).not.toBeNull();
+      await setVocabularyWordMastery(db, {
+        userId: owner.userId, wordId: paged.items[0]!.wordId, mastered: true, idempotencyKey: 'master-first-key-001',
+      });
+      await expect(getVocabularyWordPage(db, {
+        ...pageInput(owner.userId, new Date(+evaluatedAt + 60_000)), cursor: paged.nextCursor,
+      })).rejects.toMatchObject({ code: 'VOCABULARY_CHANGED', statusCode: 409 });
+      const legacyCursor = Buffer.from(JSON.stringify({
+        version: 1, userId: owner.userId, filter: 'all',
+        evaluatedAt: evaluatedAt.toISOString(), revision: 'a'.repeat(64), lastWordId: known.wordId,
+      })).toString('base64url');
+      await expect(getVocabularyWordPage(db, {
+        ...pageInput(owner.userId, evaluatedAt), cursor: legacyCursor,
+      })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
     });
   }, 120_000);
 });

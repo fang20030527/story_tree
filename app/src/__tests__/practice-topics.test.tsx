@@ -103,3 +103,24 @@ it('opens the first ready article while the other three are still generating', a
   await fireEvent.press(view.getByLabelText('政治，开始阅读'));
   await waitFor(() => expect(router.push).toHaveBeenCalledWith({ pathname: '/practice/[id]/read', params: { id: partial.group!.articles[2]!.id } }));
 });
+
+it('returns home by default when leaving topic selection', async () => {
+  const view = await render(<TopicSelectionScreen />);
+  await fireEvent.press(view.getByLabelText('返回首页'));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/'));
+});
+
+it('returns to the vocabulary practice entry when the group came from it', async () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue({ id: groupId, origin: 'vocabulary' });
+  const view = await render(<TopicSelectionScreen />);
+  await fireEvent.press(view.getByLabelText('返回首页'));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/practice/from-vocabulary'));
+});
+
+it('threads the vocabulary origin from generation into topic selection', async () => {
+  jest.mocked(useLocalSearchParams).mockReturnValue({ id: groupId, origin: 'vocabulary' });
+  await render(<GeneratingScreen />);
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith({
+    pathname: '/practice/[id]/topics', params: { id: groupId, origin: 'vocabulary' },
+  }));
+});

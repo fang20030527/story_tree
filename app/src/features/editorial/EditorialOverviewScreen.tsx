@@ -1,3 +1,4 @@
+import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -140,6 +141,7 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
           </View>
         </EditorialImage>
 
+        <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.titleZh, { color: theme.text }]}>{article.titleZh}</Text>
         <Text style={[styles.titleEn, { color: theme.textSecondary }]}>{article.titleEn}</Text>
         <Text style={[styles.meta, { color: theme.textMuted }]}>

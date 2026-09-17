@@ -6,6 +6,7 @@ const word: VocabularyWord = {
   wordId: 'word-1', term: 'bank', meaningZh: '银行', sourceSentence: null,
   contextCount: 2, reviewReason: 'new', nextReviewAt: '2026-09-14T12:30:00.000Z',
   practiceCount: 0, independentCorrectCount: 0, assistedCount: 0, lastPracticedAt: null,
+  masteredAt: null,
 };
 
 it('explains new, failed and due words without claiming mastery', () => {

@@ -46,13 +46,15 @@ function GeneratingPractice({
       await clearReadyPracticeCreation();
       router.replace({
         pathname: groupId ? '/practice/[id]/topics' : '/practice/[id]/read',
-        params: { id: groupId ?? practiceId },
+        params: groupId
+          ? { id: groupId, origin: vocabularyOrigin ? 'vocabulary' : undefined }
+          : { id: practiceId },
       });
     } catch {
       finishingReady.current = false;
       setStorageError(groupId ? '暂时无法打开主题选择，请重试' : '练习已生成，但本地状态清理失败，请重试');
     }
-  }, [practiceId, groupId]);
+  }, [practiceId, groupId, vocabularyOrigin]);
 
   useEffect(() => {
     if (
