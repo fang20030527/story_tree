@@ -389,34 +389,19 @@ describe('API client', () => {
     );
   });
 
-  it('looks up a selected word with its reading context', async () => {
-    mockedGetInstallationToken.mockResolvedValue('3f'.repeat(32));
+  it('looks up a selected word locally without authentication or a translation request', async () => {
     const request = {
       term: 'resilient',
       context: 'A resilient reader updates context.',
     };
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: jest.fn().mockResolvedValue({
-        term: request.term,
-        partOfSpeech: '形容词',
-        meaningZh: '有韧性的；能复原的',
-      }),
-    });
-
-    await expect(requestWordTranslation(request)).resolves.toEqual({
+    await expect(requestWordTranslation(request)).resolves.toMatchObject({
       term: request.term,
-      partOfSpeech: '形容词',
-      meaningZh: '有韧性的；能复原的',
+      partOfSpeech: 'adj.',
+      meaningZh: expect.stringContaining('有弹性的'),
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.example.test/v1/word-translations',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify(request),
-      }),
-    );
+    await expect(requestWordTranslation({ term: 'zzmissingwordzz' })).rejects.toThrow('本地词典未收录这个词');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mockedGetInstallationToken).not.toHaveBeenCalled();
   });
 
   it('saves a selected word as an idempotent vocabulary item', async () => {
@@ -547,7 +532,7 @@ describe('API client', () => {
       remainingFreePractices: 2,
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.example.test/v1/dashboard',
+      `https://api.example.test/v1/dashboard?${new URLSearchParams({ timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }).toString()}`,
       expect.objectContaining({}),
     );
   });

@@ -1,3 +1,4 @@
+import { EditorialAudioPlayer } from './EditorialAudioPlayer';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
@@ -103,3 +104,11 @@ it('changes its accessible action label and blocks a pending shelf write', async
 });
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+
+jest.mock('./EditorialAudioPlayer', () => ({ EditorialAudioPlayer: jest.fn(() => null) }));
+
+it('connects the supplied recording to the AI article', async () => {
+  const view = await render(<EditorialOverviewScreen articleId="ai-arms-race" />);
+  expect(view.getByText('Can the AI arms race be stopped?')).toBeTruthy();
+  expect(EditorialAudioPlayer).toHaveBeenCalledWith(expect.objectContaining({ source: expect.anything() }), undefined);
+});

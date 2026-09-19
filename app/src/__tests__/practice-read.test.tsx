@@ -210,6 +210,47 @@ it.each([null, 'target-reader'])('opens and saves a word card for target %s', as
   expect(await view.findByLabelText('已加入生词本')).toBeTruthy();
 });
 
+it('shows a target word offline and retries its assistance record on the next tap', async () => {
+  jest.mocked(createIdempotencyKey).mockResolvedValue('offline-hint-key');
+  jest.mocked(requestWordTranslation).mockResolvedValue({ term: 'reader', partOfSpeech: 'n.', meaningZh: '读者' });
+  jest.mocked(recordAssistance)
+    .mockRejectedValueOnce(new Error('网络不可用'))
+    .mockResolvedValueOnce({ recorded: true, hintMeaningZh: '服务端旧含义', sourceSentence: 'A saved reader.' });
+  jest.mocked(getPractice).mockResolvedValue({ ...first, article: {
+    ...first.article!, paragraphs: [{ id: 'paragraph', position: 0, segments: [
+      { text: 'A ', targetId: null }, { text: 'reader', targetId: 'target-reader' },
+      { text: ' studies.', targetId: null },
+    ] }],
+  } });
+  const view = await render(<PracticeReaderScreen />);
+  await fireEvent.press(await view.findByText('reader'));
+  expect(await view.findByText('读者')).toBeTruthy();
+  expect(view.getByText('剑桥本地词典 · 常用释义')).toBeTruthy();
+  expect(view.queryByText('网络不可用')).toBeNull();
+  await fireEvent.press(view.getByLabelText('关闭词义提示'));
+  await fireEvent.press(view.getByText('reader'));
+  expect(await view.findByText('A saved reader.')).toBeTruthy();
+  expect(view.queryByText('服务端旧含义')).toBeNull();
+  expect(requestWordTranslation).toHaveBeenCalledTimes(1);
+  expect(recordAssistance).toHaveBeenCalledTimes(2);
+  expect(recordAssistance).toHaveBeenLastCalledWith(FIRST_ID, { kind: 'word_hint', targetId: 'target-reader' }, 'offline-hint-key');
+});
+
+it('does not wait for a slow assistance request before displaying a definition', async () => {
+  jest.mocked(createIdempotencyKey).mockResolvedValue('slow-hint-key');
+  jest.mocked(recordAssistance).mockReturnValue(new Promise(() => {}));
+  jest.mocked(requestWordTranslation).mockResolvedValue({ term: 'reader', partOfSpeech: 'n.', meaningZh: '读者' });
+  jest.mocked(getPractice).mockResolvedValue({ ...first, article: {
+    ...first.article!, paragraphs: [{ id: 'paragraph', position: 0, segments: [
+      { text: 'reader', targetId: 'target-reader' },
+    ] }],
+  } });
+  const view = await render(<PracticeReaderScreen />);
+  await fireEvent.press(await view.findByText('reader'));
+  expect(await view.findByText('读者')).toBeTruthy();
+  await waitFor(() => expect(recordAssistance).toHaveBeenCalledTimes(1));
+});
+
 it('restores the saved paragraph when reopening the reader', async () => {
   jest.mocked(loadReadingPosition).mockResolvedValue(1);
   jest.mocked(getPractice).mockResolvedValue({ ...first, article: { ...first.article!, paragraphs: [

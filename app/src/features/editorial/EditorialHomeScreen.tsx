@@ -178,22 +178,26 @@ export function EditorialHomeScreen() {
               </>
             ) : null}
 
-            <SectionHeader
-              title="精选外刊"
-              theme={theme}
-              moreLabel="更多"
-              onMore={() => setSectionView('featured')}
-            />
-            <View style={styles.resultsList}>
-              {featured.map((article) => (
-                <ArticleCard
-                  key={article.id}
-                  article={article}
+            {featured.length > 0 ? (
+              <>
+                <SectionHeader
+                  title="精选外刊"
                   theme={theme}
-                  onPress={() => openOverview(article)}
+                  moreLabel="更多"
+                  onMore={() => setSectionView('featured')}
                 />
-              ))}
-            </View>
+                <View style={styles.resultsList}>
+                  {featured.map((article) => (
+                    <ArticleCard
+                      key={article.id}
+                      article={article}
+                      theme={theme}
+                      onPress={() => openOverview(article)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
 
             <SectionHeader
               title="每日快讯"

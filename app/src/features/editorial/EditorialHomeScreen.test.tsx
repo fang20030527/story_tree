@@ -29,7 +29,7 @@ it('shows only the approved discovery sections and opens an overview', async () 
   }
 
   await fireEvent.press(
-    view.getByLabelText('考古学家在 2.5 万年前牙齿中发现习惯性用药证据，查看文章概述'),
+    view.getByLabelText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母，查看文章概述'),
   );
   expect(router.push).toHaveBeenCalledWith({
     pathname: '/editorial/[id]',
@@ -46,19 +46,18 @@ it('expands search and filters title, source, category, and no-result states', a
   const input = view.getByPlaceholderText('搜索中英文标题、来源或分类');
 
   await fireEvent.changeText(input, 'BBC Future');
-  expect(view.getByText('鹰与狼：爱尔兰地名里留存下来的失落动物')).toBeTruthy();
-  expect(view.queryByText('考古学家在 2.5 万年前牙齿中发现习惯性用药证据')).toBeNull();
+  expect(view.getByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母')).toBeTruthy();
 
-  await fireEvent.changeText(input, '动物');
-  expect(view.getByText('对付斑衣蜡蝉的意外秘密武器')).toBeTruthy();
+  await fireEvent.changeText(input, '自然');
+  expect(view.getByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母')).toBeTruthy();
 
   await fireEvent.changeText(input, 'no such article');
   expect(view.getByText('没有找到相关外刊')).toBeTruthy();
 });
 
 it.each([
-  ['hero', '考古学家在 2.5 万年前牙齿中发现习惯性用药证据'],
-  ['a1', '鹰与狼：爱尔兰地名里留存下来的失落动物'],
+  ['ai-arms-race', '人工智能军备竞赛能被叫停吗？'],
+  ['hero', '拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母'],
   ['n1', '通胀在全球回归，抗通胀之战也随之回来'],
   ['k1', '这只孤儿小象如何逆转发运'],
 ] as const)('opens %s through its overview', async (id, title) => {

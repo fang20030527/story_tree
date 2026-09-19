@@ -12,14 +12,7 @@ describe('editorial catalog', () => {
     );
     expect(editorialArticles.map(({ id }) => id)).toEqual([
       'hero',
-      'a1',
-      'a2',
-      'a3',
-      'a4',
-      'a5',
-      'a6',
-      'a7',
-      'a8',
+      'ai-arms-race',
       'n1',
       'n2',
       'n3',
@@ -42,19 +35,10 @@ describe('editorial catalog', () => {
   });
 
   it('retrieves sections and searches title, source, and category', () => {
-    expect(getEditorialArticle('hero')?.source).toBe('Smithsonian Magazine');
+    expect(getEditorialArticle('hero')?.source).toBe('BBC Future');
     expect(getEditorialArticle('missing')).toBeUndefined();
     expect(getEditorialSection('today').map(({ id }) => id)).toEqual(['hero']);
-    expect(getEditorialSection('featured').map(({ id }) => id)).toEqual([
-      'a1',
-      'a2',
-      'a3',
-      'a4',
-      'a5',
-      'a6',
-      'a7',
-      'a8',
-    ]);
+    expect(getEditorialSection('featured').map(({ id }) => id)).toEqual(['ai-arms-race']);
     expect(getEditorialSection('daily').map(({ id }) => id)).toEqual([
       'n1',
       'n2',
@@ -70,11 +54,11 @@ describe('editorial catalog', () => {
       'k3',
       'k4',
     ]);
-    expect(searchEditorialArticles('自然').map(({ id }) => id)).toContain('a1');
+    expect(searchEditorialArticles('自然').map(({ id }) => id)).toContain('hero');
     expect(searchEditorialArticles('bbc future').map(({ id }) => id)).toContain(
-      'a4',
+      'hero',
     );
-    expect(searchEditorialArticles('动物').map(({ id }) => id)).toContain('a7');
+    expect(getEditorialArticle('a1')).toBeUndefined();
     expect(searchEditorialArticles('   ')).toEqual(editorialArticles);
   });
 });

@@ -21,7 +21,6 @@ import {
   type VocabularyInput,
   VocabularyItemDtoSchema,
   type VocabularyItemDto,
-  WordTranslationDtoSchema,
   type WordTranslationDto,
   type WordTranslationRequest,
   VocabularyPageSchema,
@@ -35,6 +34,8 @@ import {
   type VocabularyWordMastery,
 } from '@context-reader/contracts';
 import type { ZodType } from 'zod';
+
+import { lookupLocalWord } from '@/features/dictionary/lookup';
 
 import { apiRequest } from './client';
 
@@ -112,14 +113,11 @@ export function recordAssistance(
   );
 }
 
-/** Translate one selected word/phrase in the context supplied by the reader. */
+/** 查随应用打包的本地词典，保留旧入口供阅读页共用，不发送翻译请求。 */
 export function requestWordTranslation(
   request: WordTranslationRequest,
 ): Promise<WordTranslationDto> {
-  return apiRequest('/v1/word-translations', WordTranslationDtoSchema, {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
+  return lookupLocalWord(request);
 }
 
 /** Add a contextual word/phrase to the durable vocabulary. */
@@ -169,7 +167,10 @@ export function getVocabulary(
 }
 
 export function getDashboard(): Promise<DashboardDto> {
-  return apiRequest('/v1/dashboard', DashboardDtoSchema);
+  const query = new URLSearchParams({
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
+  return apiRequest(`/v1/dashboard?${query.toString()}`, DashboardDtoSchema);
 }
 
 export interface VocabularyWordPageOptions extends VocabularyPageOptions {

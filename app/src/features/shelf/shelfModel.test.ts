@@ -48,18 +48,18 @@ describe('shelf model', () => {
     const items = mergeShelfItems(
       [
         { articleId: 'hero', addedAt: '2026-09-10T08:00:00.000Z' },
-        { articleId: 'a1', addedAt: '2026-09-12T08:00:00.000Z' },
+        { articleId: 'n1', addedAt: '2026-09-12T08:00:00.000Z' },
       ],
       [privateArticle],
     );
 
     expect(items.map(({ kind, id }) => `${kind}:${id}`)).toEqual([
-      'editorial:a1',
+      'editorial:n1',
       `imported:${privateArticle.id}`,
       'editorial:hero',
     ]);
     expect(filterShelfItems(items, 'editorial').map(({ id }) => id)).toEqual([
-      'a1',
+      'n1',
       'hero',
     ]);
     expect(filterShelfItems(items, 'imported').map(({ id }) => id)).toEqual([

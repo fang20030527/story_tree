@@ -29,6 +29,7 @@ import { recordImportedRecentView } from '@/features/library/libraryStorage';
 import {
   InteractiveWordParagraph,
 } from '@/features/practice/ArticleParagraph';
+import { isArticleSectionHeading } from '@/features/practice/articleTypography';
 import { useTranslation } from '@/features/practice/useTranslation';
 
 function messageFor(error: unknown): string {
@@ -294,6 +295,7 @@ function ParagraphBlock({
         />
       </View>
       <InteractiveWordParagraph
+        isHeading={isArticleSectionHeading(text)}
         addedWords={addedWords}
         addedWordColor={theme.accent}
         borderColor={theme.border}
@@ -318,7 +320,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 18, paddingTop: 12 },
   sourcePill: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: 12, flexDirection: 'row', gap: 5, paddingHorizontal: 9, paddingVertical: 5 },
   sourcePillText: { fontSize: 11, fontWeight: weight('medium') },
-  title: { fontSize: 27, fontWeight: weight('bold'), lineHeight: 35, marginTop: 14 },
+  title: { fontSize: 32, fontWeight: weight('bold'), lineHeight: 41, marginTop: 14 },
   meta: { fontSize: 12, marginTop: 8 },
   fullTranslationBox: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, marginTop: 22, padding: 13 },
   translationHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },

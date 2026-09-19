@@ -1,7 +1,7 @@
 import { usePracticeExitGuard } from '@/features/practice/usePracticeExitGuard';
 import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
-import type { ArticleParagraph as ArticleParagraphDto, PracticeDto, TranslationRequest, VocabularyInput } from '@context-reader/contracts';
+import type { ArticleParagraph as ArticleParagraphDto, AssistanceResponse, PracticeDto, TranslationRequest, VocabularyInput } from '@context-reader/contracts';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -128,20 +128,27 @@ function PracticeParagraph({
 }: PracticeParagraphProps) {
   const { theme } = useAppTheme();
 
-  const hintKeys = useRef(new Map<string, string>());
-  const lookupWord = async (term: string, context: string, targetId?: string) => {
-    if (!targetId) return requestWordTranslation({ term, context });
+  const hintKeys = useRef(new Map<string, Promise<string>>());
+  const hintRecords = useRef(new Map<string, Promise<AssistanceResponse>>());
+  const recordTargetLookup = (targetId: string): Promise<AssistanceResponse> => {
+    const existing = hintRecords.current.get(targetId);
+    if (existing) return existing;
     let key = hintKeys.current.get(targetId);
     if (!key) {
-      key = await createIdempotencyKey();
+      key = createIdempotencyKey().catch((error: unknown) => {
+        hintKeys.current.delete(targetId);
+        throw error;
+      });
       hintKeys.current.set(targetId, key);
     }
-    const hint = await recordAssistance(practiceId, { kind: 'word_hint', targetId }, key);
-    const details = await requestWordTranslation({ term, context }).catch((error: unknown) => {
-      if (!hint.hintMeaningZh) throw error;
-      return { partOfSpeech: '—', meaningZh: hint.hintMeaningZh };
+    const recording = key.then((idempotencyKey) =>
+      recordAssistance(practiceId, { kind: 'word_hint', targetId }, idempotencyKey),
+    ).catch((error: unknown) => {
+      hintRecords.current.delete(targetId);
+      throw error;
     });
-    return { ...details, savedSourceSentence: hint.sourceSentence };
+    hintRecords.current.set(targetId, recording);
+    return recording;
   };
 
   return (
@@ -153,7 +160,8 @@ function PracticeParagraph({
         addedWords={addedWords}
         onWordAdded={onWordAdded}
         onAddToVocabulary={addPracticeVocabulary}
-        lookupWord={lookupWord}
+        lookupWord={(term, context) => requestWordTranslation({ term, context })}
+        recordTargetLookup={recordTargetLookup}
         text={paragraph.segments.map((segment) => segment.text).join('')}
         segments={paragraph.segments}
         surfaceColor={theme.surfaceAlt}

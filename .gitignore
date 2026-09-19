@@ -10,3 +10,14 @@ coverage/
 .DS_Store
 .trash-app-tmp/
 .superpowers/
+
+# local URL extract output
+tools/url-extract/out/
+
+# 本地词典原始素材与 Python 构建环境
+/剑桥在线英汉双解词典完美版/
+/牛津高阶英汉双解词典第10版完美版/
+/韦氏高阶英汉双解词典2019完美版/
+.venv/
+__pycache__/
+*.pyc

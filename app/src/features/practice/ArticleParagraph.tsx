@@ -8,6 +8,7 @@ import { abbreviatePartOfSpeech } from '@context-reader/contracts';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  type TextProps,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -331,6 +332,9 @@ export function tokenizeArticleText(text: string): ArticleTextToken[] {
 }
 
 interface ClickableArticleParagraphProps {
+  isHeading?: boolean;
+  playbackRange?: { start: number; end: number; color: string };
+  onTextLayout?: TextProps["onTextLayout"];
   text: string;
   segments?: ArticleSegment[];
   targetColor: string;
@@ -347,6 +351,9 @@ interface ClickableArticleParagraphProps {
  * normal scrolling gesture.
  */
 export function ClickableArticleParagraph({
+  isHeading = false,
+  playbackRange,
+  onTextLayout,
   text,
   segments,
   targetColor,
@@ -370,8 +377,10 @@ export function ClickableArticleParagraph({
   }) ?? tokenizeArticleText(text).map((token) => ({ ...token, targetId: undefined }));
   return (
     <Text
+      onTextLayout={onTextLayout}
       selectable={!onSentenceLongPress}
-      style={[styles.paragraph, { color: unaddedWordColor }]}>
+      accessibilityRole={isHeading ? 'header' : undefined}
+      style={[styles.paragraph, isHeading && styles.sectionHeading, { color: unaddedWordColor, fontWeight: isHeading ? '700' : '600' }]}>
       {tokens.map((token) => token.isWord ? (
         <Text
           key={token.key}
@@ -385,11 +394,13 @@ export function ClickableArticleParagraph({
             { x: event?.nativeEvent?.pageX ?? 0, y: event?.nativeEvent?.pageY ?? 0 },
           )}
           style={{
-            color: token.targetId ? targetColor : unaddedWordColor,
+            color: playbackRange && Number.parseInt(token.key, 10) >= playbackRange.start
+              && Number.parseInt(token.key, 10) < playbackRange.end
+              ? playbackRange.color : token.targetId ? targetColor : unaddedWordColor,
             backgroundColor: addedWords?.has(normalizeWord(token.text))
               ? savedWordHighlight
               : undefined,
-            fontWeight: '600',
+            fontWeight: isHeading ? '700' : '600',
           }}>
           {token.text}
         </Text>
@@ -401,6 +412,9 @@ export function ClickableArticleParagraph({
 }
 
 export interface InteractiveWordParagraphProps {
+  isHeading?: boolean;
+  playbackRange?: { start: number; end: number; color: string };
+  onTextLayout?: TextProps["onTextLayout"];
   text: string;
   segments?: ArticleSegment[];
   targetColor: string;
@@ -416,6 +430,8 @@ export interface InteractiveWordParagraphProps {
     context: string,
     targetId?: string,
   ) => Promise<string | WordLookup>;
+  /** 辅助记录与本地释义独立；失败不阻塞查词，下次点击可重试。 */
+  recordTargetLookup?: (targetId: string) => Promise<AssistanceResponse>;
   onWordAdded?: (term: string) => void;
   onAddToVocabulary?: (
     input: VocabularyInput,
@@ -528,9 +544,12 @@ function isSentenceBoundary(text: string, index: number): boolean {
 
 /**
  * Article-reader variant that looks up any tapped word and can save the
- * resulting contextual meaning through the existing vocabulary API.
+ * resulting dictionary meaning through the existing vocabulary API.
  */
 export function InteractiveWordParagraph({
+  isHeading = false,
+  playbackRange,
+  onTextLayout,
   text,
   segments,
   targetColor,
@@ -540,10 +559,12 @@ export function InteractiveWordParagraph({
   dangerColor = '#dc2626',
   addedWords,
   addedWordColor = '#f3bb31',
+  mutedColor = '#666666',
   lookupWord = (term, context) => requestWordTranslation({ term, context })
     .then((result) => result),
   onWordAdded,
   onAddToVocabulary,
+  recordTargetLookup,
 }: InteractiveWordParagraphProps) {
   const [visibleHint, setVisibleHint] = useState<VisibleWordHint | null>(null);
   const owner = useId();
@@ -597,6 +618,19 @@ export function InteractiveWordParagraph({
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     const cacheKey = wordMeaningCacheKey(term, wordContext);
+    const syncAssistance = () => {
+      if (!targetId || !recordTargetLookup) return;
+      void recordTargetLookup(targetId).then((response) => {
+        const source = response.sourceSentence;
+        if (!source) return;
+        const saved = meaningsRef.current.get(cacheKey);
+        if (saved) meaningsRef.current.set(cacheKey, { ...saved, savedSourceSentence: source });
+        if (!mountedRef.current || requestIdRef.current !== requestId) return;
+        setVisibleHint((current) => current ? { ...current, savedSourceSentence: source } : current);
+      }).catch(() => {
+        // 释义来自离线词典；辅助记录失败时保留词卡，下次点击再次记录。
+      });
+    };
     const cached = meaningsRef.current.get(cacheKey);
     if (cached && (!isWordAdded(term) || cached.savedSourceSentence)) {
       setVisibleHint({
@@ -611,6 +645,7 @@ export function InteractiveWordParagraph({
         added: isWordAdded(term),
         error: null,
       });
+      syncAssistance();
       return;
     }
 
@@ -651,6 +686,7 @@ export function InteractiveWordParagraph({
         added: isWordAdded(term),
         error: null,
       });
+      syncAssistance();
     } catch (error) {
       if (!mountedRef.current || requestIdRef.current !== requestId) return;
       setVisibleHint({
@@ -728,6 +764,9 @@ export function InteractiveWordParagraph({
   return (
     <View>
       <ClickableArticleParagraph
+        playbackRange={playbackRange}
+        onTextLayout={onTextLayout}
+        isHeading={isHeading}
         onSentenceLongPress={(sentence) => {
           overlay?.select(owner);
           requestIdRef.current += 1;
@@ -794,9 +833,12 @@ export function InteractiveWordParagraph({
               </Text>
             ) : null}
             {visibleHint.meaningZh ? (
-              <Text style={styles.hintMeaning}>
-                {visibleHint.meaningZh}
-              </Text>
+              <>
+                <Text style={styles.hintMeaning}>
+                  {visibleHint.meaningZh}
+                </Text>
+                <Text style={[styles.hintPartOfSpeech, { color: mutedColor }]}>剑桥本地词典 · 常用释义</Text>
+              </>
             ) : null}
             <SavedWordContext sentence={visibleHint.savedSourceSentence} />
             {visibleHint.meaningZh && onAddToVocabulary ? (
@@ -859,6 +901,7 @@ export function InteractiveWordParagraph({
 }
 
 const styles = StyleSheet.create({
+  sectionHeading: { fontSize: 23, lineHeight: 32, marginTop: 16, marginBottom: 20 },
   paragraph: { fontSize: 17, lineHeight: 30, marginBottom: 18 },
   hint: {
     borderRadius: 10,

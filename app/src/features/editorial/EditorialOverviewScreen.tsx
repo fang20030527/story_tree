@@ -1,3 +1,4 @@
+import { EditorialAudioPlayer } from './EditorialAudioPlayer';
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -147,6 +148,9 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
         <Text style={[styles.meta, { color: theme.textMuted }]}>
           {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
         </Text>
+        {article.audioAsset || article.audioUrl ? (
+          <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} />
+        ) : null}
 
         <View style={[styles.section, { borderColor: theme.border }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>文章概述</Text>

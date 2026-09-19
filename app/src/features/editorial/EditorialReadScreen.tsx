@@ -1,3 +1,5 @@
+import { EditorialAudioPlayer, type EditorialPlaybackPosition } from './EditorialAudioPlayer';
+import { findAudioCue } from './editorialAudioSync';
 import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -22,7 +24,10 @@ import {
 } from '@/features/editorial/catalog';
 import { recordEditorialRecentView } from '@/features/library/libraryStorage';
 import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
+import { EditorialImage } from './EditorialImage';
 import { markEditorialArticleRead } from './editorialReadStorage';
+import { saveEditorialReadingProgress } from './editorialReadingProgress';
+import { useEditorialReadingProgress } from './useEditorialReadingProgress';
 
 type Props = { articleId: string };
 
@@ -39,10 +44,42 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
   const readingOverlay = useReadingOverlay();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const [showFullTranslation, setShowFullTranslation] = useState(false);
+  const {
+    addedWords, showFullTranslation, loaded, error: progressError, retry,
+    scrollRef, onLayout, onContentSizeChange, onScroll, flush,
+    toggleTranslation, wordAdded,
+  } = useEditorialReadingProgress(article.id);
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const [playback, setPlayback] = useState<EditorialPlaybackPosition>({ currentTime: 0, duration: 0, playing: false });
+  const updatePlayback = useCallback((position: EditorialPlaybackPosition) => {
+    // 进度条高频刷新，正文只在朗读词或播放状态改变时更新。
+    setPlayback((previous) => previous.playing === position.playing
+      && findAudioCue(article.audioCues ?? [], previous.currentTime) === findAudioCue(article.audioCues ?? [], position.currentTime)
+      ? previous : position);
+  }, [article.audioCues]);
+  const [following, setFollowing] = useState(true);
+  const [bodyY, setBodyY] = useState(0);
+  const [paragraphLayouts, setParagraphLayouts] = useState<Record<number, number>>({});
+  const [lineLayouts, setLineLayouts] = useState<Record<number, { start: number; end: number; y: number; height: number }[]>>({});
+  const viewport = useRef({ y: 0, height: 0 });
+  const audioHeight = useRef(170);
+  const cue = findAudioCue(article.audioCues ?? [], playback.currentTime);
+  const cueParagraph = cue?.[0];
+  const cueStart = cue?.[1];
+  useEffect(() => {
+    if (!following || readingOverlay?.activeId || cueParagraph === undefined || cueStart === undefined) return;
+    const paragraphY = paragraphLayouts[cueParagraph];
+    const line = lineLayouts[cueParagraph]?.find((item) => cueStart >= item.start && cueStart < item.end);
+    if (paragraphY === undefined || !line || !viewport.current.height) return;
+    const y = bodyY + paragraphY + line.y;
+    const top = viewport.current.y + audioHeight.current + 16;
+    const bottom = viewport.current.y + viewport.current.height - 48;
+    if (y < top || y + line.height > bottom) {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - audioHeight.current - 28), animated: true });
+    }
+  }, [following, playback.playing, readingOverlay?.activeId, cueParagraph, cueStart, bodyY, paragraphLayouts, lineLayouts, scrollRef]);
   const completeLearning = async () => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -60,20 +97,15 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
     if (router.canGoBack()) router.back();
     else router.replace('/');
   };
-  const [addedWords, setAddedWords] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
   const fullTranslation = useMemo(
     () => editorialTranslation(article.id, article.paragraphs),
     [article.id, article.paragraphs],
   );
-  const handleWordAdded = useCallback((term: string) => {
-    setAddedWords((current) => {
-      const next = new Set(current);
-      next.add(term.trim().toLocaleLowerCase('en-US'));
-      return next;
-    });
-  }, []);
+  const addVocabulary = async (input: VocabularyInput, idempotencyKey: string) => {
+    await addEditorialVocabulary(input, idempotencyKey);
+    // 请求完成时页面可能已经卸载，仍须保存高亮。
+    await saveEditorialReadingProgress(article.id, { addedWords: [input.term] });
+  };
 
   useEffect(() => {
     void recordEditorialRecentView(article.id).catch(() => undefined);
@@ -91,7 +123,23 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         <Text style={[styles.headerTitle, { color: theme.text }]}>平台外刊</Text>
         <View style={styles.headerSpacer} />
       </View>
-      <ScrollView onScrollBeginDrag={() => readingOverlay?.select(null)}
+      {progressError ? (
+        <TouchableOpacity accessibilityRole="button" onPress={retry}>
+          <Text style={{ color: theme.danger, padding: 16 }}>{progressError}</Text>
+        </TouchableOpacity>
+      ) : null}
+      {!loaded ? <Text style={{ color: theme.textMuted, padding: 16 }}>正在恢复阅读进度…</Text> : (
+      <ScrollView
+        ref={scrollRef}
+        testID="editorial-reading-scroll"
+        onLayout={(event) => { viewport.current.height = event.nativeEvent.layout.height; onLayout(event.nativeEvent.layout.height); }}
+        onContentSizeChange={(_, height) => onContentSizeChange(height)}
+        onScroll={(event) => { viewport.current.y = event.nativeEvent.contentOffset.y; onScroll(event); }}
+        stickyHeaderIndices={article.audioAsset || article.audioUrl ? [4] : undefined}
+        scrollEventThrottle={100}
+        onScrollEndDrag={(event) => { onScroll(event); flush(); }}
+        onMomentumScrollEnd={(event) => { onScroll(event); flush(); }}
+        onScrollBeginDrag={() => { readingOverlay?.select(null); setFollowing(false); }}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + 32 },
@@ -108,6 +156,11 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         <Text style={[styles.meta, { color: theme.textMuted }]}>
           {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
         </Text>
+        {article.audioAsset || article.audioUrl ? (
+          <View onLayout={(event) => { audioHeight.current = event.nativeEvent.layout.height; }} style={{ backgroundColor: theme.bg }}>
+            <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} onPositionChange={updatePlayback} />
+          </View>
+        ) : null}
         <View
           style={[
             styles.translationBox,
@@ -122,7 +175,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
               accessibilityRole="button"
               accessibilityState={{ expanded: showFullTranslation }}
               hitSlop={8}
-              onPress={() => setShowFullTranslation((visible) => !visible)}>
+              onPress={toggleTranslation}>
               <Text style={[styles.translationAction, { color: theme.blue }]}>
                 {showFullTranslation ? '隐藏译文' : '查看译文'}
               </Text>
@@ -134,22 +187,44 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
             </Text>
           ) : null}
         </View>
-        <View style={styles.body}>
+        <View testID="editorial-body" style={styles.body} onLayout={(event) => setBodyY(event.nativeEvent.layout.y)}>
           {article.paragraphs.map((paragraph, index) => (
-            <InteractiveWordParagraph
-              key={`${article.id}:${index}`}
-              addedWords={addedWords}
-              addedWordColor={theme.accent}
-              borderColor={theme.border}
-              dangerColor={theme.danger}
-              lookupWord={lookupEditorialWord}
-              onAddToVocabulary={addEditorialVocabulary}
-              onWordAdded={handleWordAdded}
-              surfaceColor={theme.surfaceAlt}
-              targetColor={theme.accent}
-              text={paragraph}
-              textColor={theme.text}
-            />
+            <View testID={`editorial-paragraph-${index}`} key={`${article.id}:${index}`} onLayout={(event) => {
+              const y = event.nativeEvent.layout.y;
+              setParagraphLayouts((current) => current[index] === y ? current : { ...current, [index]: y });
+            }}>
+              <InteractiveWordParagraph
+                playbackRange={cueParagraph === index && cue ? { start: cue[1], end: cue[2], color: theme.blue } : undefined}
+                onTextLayout={(event) => {
+                  let cursor = 0;
+                  const lines = event.nativeEvent.lines.map((line) => {
+                    const start = paragraph.indexOf(line.text, cursor);
+                    const offset = start < 0 ? cursor : start;
+                    cursor = offset + line.text.length;
+                    return { start: offset, end: cursor, y: line.y, height: line.height };
+                  });
+                  setLineLayouts((current) => JSON.stringify(current[index]) === JSON.stringify(lines) ? current : { ...current, [index]: lines });
+                }}
+                isHeading={article.sectionHeadings?.includes(paragraph)}
+                addedWords={addedWords}
+                addedWordColor={theme.accent}
+                borderColor={theme.border}
+                dangerColor={theme.danger}
+                lookupWord={lookupEditorialWord}
+                onAddToVocabulary={addVocabulary}
+                onWordAdded={wordAdded}
+                surfaceColor={theme.surfaceAlt}
+                targetColor={theme.accent}
+                text={paragraph}
+                textColor={theme.text}
+              />
+              {article.figures?.filter((figure) => figure.afterParagraph === index).map((figure) => (
+                <View key={figure.caption}>
+                  <EditorialImage uri={figure.image} style={{ width: '100%', aspectRatio: 976 / 549, borderRadius: 12 }} />
+                  <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18, marginTop: 8 }}>{figure.caption}</Text>
+                </View>
+              ))}
+            </View>
           ))}
         </View>
         <TouchableOpacity
@@ -169,6 +244,14 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           </Text>
         ) : null}
       </ScrollView>
+      )}
+      {!following && playback.playing && article.audioCues?.length ? (
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="恢复跟随朗读"
+          onPress={() => setFollowing(true)}
+          style={{ position: 'absolute', bottom: insets.bottom + 16, alignSelf: 'center', backgroundColor: theme.surface, borderColor: theme.blue, borderWidth: 1, borderRadius: 22, paddingHorizontal: 18, paddingVertical: 12 }}>
+          <Text style={{ color: theme.blue }}>恢复跟随朗读</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -189,38 +272,6 @@ const EDITORIAL_TRANSLATIONS: Record<string, readonly string[]> = {
   hero: [
     '研究者表示，苏拉威西洞穴出土牙齿上的痕迹与化学残留，可能记录了一位生活在 2.5 万年前的狩猎采集者反复使用含兴奋剂植物的行为。',
     '这一发现并不能证明现代意义上的成瘾，但它提示改变神志的植物，可能曾帮助一些早期人类应对疼痛、饥饿或仪式生活。',
-  ],
-  a1: [
-    '在爱尔兰各地，山丘、河流和田野的名称仍然保存着数百年前从景观中消失的鹰、狼和野猪的记忆。',
-    '研究者把这些名称当作动物曾经栖息地的证据，同时追问语言记忆今天能否指导洪水规划与再野化争论。',
-  ],
-  a2: [
-    '文章认为，恐惧可以使社会瘫痪，但对核战争的恐惧也曾约束那些明白升级可能迅速失控的领导人。',
-    '当这种恐惧消退时，危险不在于自信本身，而在于把核威胁当作普通施压工具的诱惑。',
-  ],
-  a3: [
-    '一个关于青少年的吓人标题背后藏着更难的问题：究竟哪些技能在变化，哪些测试只是反映了新的注意力习惯？',
-    '在宣布一代人变得更迟钝之前，读者应区分课程影响、家庭压力、睡眠缺失和测量工具本身的设计。',
-  ],
-  a4: [
-    '在一项芬兰实验中，接触土壤、苔藓和其他富含微生物材料的人，几周内皮肤微生物多样性出现变化。',
-    '这并不意味着泥土就是药；它提示与活体环境的日常接触，可能调节现代室内生活很少触达的免疫反应。',
-  ],
-  a5: [
-    '早在卫星导航出现之前，水手就用六分仪测量恒星与地平线之间的角度来确定位置。',
-    '航天机构重新考虑这一思路，因为远离地球的宇航员可能失去无线电联系，却仍然需要估算自己身在何处。',
-  ],
-  a6: [
-    '一项配合长寿专题的委托调查询问美国人，在更长寿命和更健康岁月之间如何选择，许多人选择健康而非单纯活得久。',
-    '尽管生物技术公司竞相延缓或逆转衰老，只有少数人把衰老本身描述成科学应当治愈的医学问题。',
-  ],
-  a7: [
-    '斑衣蜡蝉已扩散到美国东部大部分地区，促使人们寻找不只是喷洒更多化学药剂的治理方式。',
-    '早期测试显示，取食马利筋的个体可能在一天内死亡，这条线索提示本土植物种植既能压制害虫，也能支持帝王蝶。',
-  ],
-  a8: [
-    '一款实验性疫苗通过阻断一种促使免疫系统过度反应的分子，让小鼠一年内免受过敏性休克。',
-    '这项工作距离人体治疗还很远，但它指向一种预防思路：让过敏患者不再把普通接触变成紧急情况。',
   ],
   n1: [
     '在通胀看似退却一段时间之后，价格压力再次迫使各国央行捍卫自己的信誉。',
@@ -320,7 +371,7 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 26 },
   content: { paddingHorizontal: 18, paddingTop: 16 },
   kicker: { fontSize: 12, fontWeight: weight('semibold') },
-  titleEn: { fontSize: 28, fontWeight: weight('bold'), lineHeight: 36, marginTop: 12 },
+  titleEn: { fontSize: 32, fontWeight: weight('bold'), lineHeight: 41, marginTop: 12 },
   titleZh: { fontSize: 16, lineHeight: 24, marginTop: 10 },
   meta: { fontSize: 12, marginTop: 10 },
   translationBox: {

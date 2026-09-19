@@ -32,6 +32,16 @@ describe('sentence translations', () => {
         expect(response.statusCode).toBe(200);
         expect(response.json()).toEqual({ translatedTextZh: '鸟儿飞翔。' });
         expect(translate).toHaveBeenCalledWith('Birds fly.', expect.any(AbortSignal));
+        translate.mockResolvedValueOnce('{"sourceText":"鸟儿飞翔。"}');
+        const wrappedResponse = await send('Birds fly.');
+        expect(wrappedResponse.statusCode).toBe(200);
+        expect(wrappedResponse.json()).toEqual({ translatedTextZh: '鸟儿飞翔。' });
+        translate.mockResolvedValueOnce('{"sourceText":"鸟儿飞翔。"');
+        const malformedResponse = await send('Birds fly.');
+        expect(malformedResponse.statusCode).toBe(502);
+        expect(malformedResponse.json().error).toMatchObject({
+          code: 'AI_INVALID_OUTPUT', retryable: true,
+        });
         translate.mockResolvedValueOnce('');
         expect((await send('Birds fly.')).statusCode).toBe(502);
       } finally {
