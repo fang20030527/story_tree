@@ -30,4 +30,3 @@ node tools/url-extract/extract.mjs 'https://example.com/article' \
 
 - 依赖仓库已安装的 `@mozilla/readability`、`linkedom`。
 - 拒绝 localhost / 内网地址。
-- 请遵守目标站点条款与版权，仅用于你自己粘贴的公开 URL。

@@ -57,7 +57,6 @@ describe('editorial shelf storage', () => {
     );
 
     expect(await loadEditorialShelf()).toEqual([
-      { articleId: 'n1', addedAt: '2026-09-11T08:00:00.000Z' },
       { articleId: 'hero', addedAt: '2026-09-10T08:00:00.000Z' },
     ]);
   });

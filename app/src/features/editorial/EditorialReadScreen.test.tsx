@@ -86,12 +86,12 @@ it('saves completion before leaving and prevents duplicate submissions', async (
 
 it('stays in the reader on save failure and allows retry', async () => {
   jest.mocked(markEditorialArticleRead).mockRejectedValueOnce(new Error('storage failed'));
-  const view = await render(<EditorialReadScreen articleId="n1" />);
+  const view = await render(<EditorialReadScreen articleId="hero" />);
   await fireEvent.press(view.getByLabelText('完成学习'));
   expect(view.getByText('已读状态保存失败，请重试')).toBeTruthy();
   expect(router.back).not.toHaveBeenCalled();
   await fireEvent.press(view.getByLabelText('完成学习'));
-  expect(markEditorialArticleRead).toHaveBeenLastCalledWith('n1');
+  expect(markEditorialArticleRead).toHaveBeenLastCalledWith('hero');
   expect(router.back).toHaveBeenCalledTimes(1);
 });
 

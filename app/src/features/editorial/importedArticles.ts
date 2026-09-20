@@ -1,0 +1,337 @@
+import type { EditorialArticle } from './catalog';
+
+// 来自用户提供的文章包；未提供发布日期的条目保留为空，朗读使用应用内 TTS。
+export const importedEditorialArticles = [
+  {
+    "id": "deepmind-robot-brains",
+    "titleZh": "让 AI 大脑在不同机器人身体之间切换",
+    "titleEn": "Google DeepMind wants to build an AI brain that can jump between robot bodies",
+    "summaryZh": "谷歌 DeepMind 希望让同一套人工智能控制不同形态的机器人。文章介绍模仿学习与推理模型的作用，以及触觉、灵巧操作和安全方面的挑战。",
+    "keyPointsZh": [
+      "通用模型如何适配不同机器人身体",
+      "模仿学习如何帮助机器人掌握动作",
+      "触觉缺失与日常操作的局限"
+    ],
+    "source": "Scientific American",
+    "sourceUrl": "https://www.scientificamerican.com/article/google-deepmind-wants-gemini-to-power-many-different-robots/",
+    "category": "科技",
+    "wordCount": 2320,
+    "minutes": 16,
+    "level": "雅思 7.0",
+    "image": require('../../../assets/images/editorial/deepmind-robot-brains-001.jpg') as number,
+    "section": "featured",
+    "publishedAt": "",
+    "hasAudio": true,
+    "paragraphs": [
+      "When Kanishka Rao was a kid, robots like the droids from Star Wars and Rosie from The Jetsons got pretty far into his head. And now that he’s a principal software engineer at Google DeepMind, Rao is trying to get pretty far into theirs.",
+      "Rao remembers those bots as “helpful around the house but also sassy.” Today, in an office surrounded by galumphing, fidgeting robots of all kinds, Rao and DeepMind are trying to at least make them helpful. Any chatbot can simulate sass; Rao’s aiming to build general-purpose intelligence that can inhabit many different robot bodies—in pursuit of what roboticists call “physical AI.”",
+      "In late July, DeepMind showed off its latest attempt, Gemini Robotics 2. The previous generation controlled person-shaped robots mostly from the waist up, but the new software can control whole-body movement—legs, torso, arms, fingers. It works across machines ranging from two-armed research platforms to Apptronik’s Apollo 2 humanoid, letting robots fetch snacks on command, change lightbulbs, tie knots. They’re not our robot overlords yet, but they’re starting to act like robot servants.",
+      "The lightbulb is almost beside the point. DeepMind is trying to bring to robotics one of the tricks that make large language models so powerful: feed a model enough data that what it learns in one place still works somewhere else. Here that means carrying a skill from one job, or even one kind of robot body, to the next.",
+      "Google is hardly alone in chasing this possibility. The capital and enthusiasm sloshing through artificial intelligence have spilled over into robotics. A bullish 2025 Morgan Stanley report projected a humanoid market worth upward of $5 trillion by 2050; Elon Musk has made Tesla’s Optimus humanoid a primary focus of the company. BMW has deployed humanoid robots in one of its factories. China, meanwhile, is packed with robot start-ups; one called Unitree is launching a $900-million IPO, having run several of its newest models through U.S. certification about a month before the Federal Communications Commission barred new foreign-built humanoids and robot dogs from the country. An extraordinary amount of money, and now a fenced-off market, is riding on machines that still struggle with everyday chores.",
+      "A lot of that money hinges on “dexterous manipulation.” The robots you’ve seen doing backflips or kung fu have mastered their own gross mobility. Folding laundry or making scrambled eggs means mastering everything they touch. “The key distinction between the backflips and the eggs is this: One of them requires you to deeply understand yourself, your own body,” Rao says. “The other one requires you to understand the world.” That, he says, “is why manipulation is so hard. It’s about how you interact with the world.”",
+      "A decade ago people building robots didn’t talk about “training” the way they do now. Robots were machines capable of complicated sets of motions, useful mainly in highly constrained environments such as automotive assembly lines or specific parts of warehouses. The algorithms that controlled the actions of robotic arms or bodies worked fine—until someone tried to put a robot into any of the messy, unstructured, unpredictable spaces we humans have built for our bodies and ourselves. Then the robot became just another dangerous piece of machinery. “The physical space sometimes needs to be precise to, like, centimeter, millimeter precision because they’re not intelligent,” says Carolina Parada, vice president and head of robotics at Google DeepMind. “All they’re doing is repeating motions.”",
+      "Machine learning offered a way around all that painstaking instruction. Instead of specifying every motion, roboticists could effectively turn the machine loose and let it work out what to do on its own. DeepMind had already made its reputation this way with AlphaGo, the system it built to master the fiendishly complex board game Go. AlphaGo initially learned from thousands of games played by humans, then improved by playing versions of itself repeatedly, using reinforcement learning. Google acquired DeepMind in 2014; the next year AlphaGo beat European champion Fan Hui, and a year after that it defeated Lee Sedol, one of the game’s great players. In 2023 Google combined the division with the Google Brain Team to create Google DeepMind, the organization that would build Gemini.",
+      "Today reinforcement learning is one way to get a robot to acquire new skills: Let it try to do the thing, whatever it is, in the environment where it’d have to do it (or a digital simulation), over and over. Whenever it does the right thing, it gets a little numerical reward. “It’s a massively powerful paradigm because you no longer have to show it how to do the task,” says Matei Ciocarlie, a roboticist at Columbia University. “But it takes a very long time.”",
+      "There’s a quicker way. Humans can “demonstrate” the right movements, often by teleoperating the robot or using GoPro-like cameras to record themselves performing the task—the gig worker’s–eye view of the job. Simulation can add still more examples. This “imitation learning” approach gives data-acquiring robots a leg up (if they have legs), although it also has the disadvantage of humiliating us human meat bags while we train our replacements.",
+      "Tying a trash bag is a deceptively hard test of the dexterous manipulation robot hands need for everyday chores.",
+      "But imitation learning is predicated on the robots’ digital brains being able to fit the data into the context of their own bodies and capabilities. The robot has to be able to emulate a human’s demonstration with its own peculiar collection of joints. Sounds hard, but engineers working on this project have an analogy: language. Train a big enough model on enough varied data, and it can pick up patterns that transfer to things it was never explicitly taught.",
+      "“We have an existence proof that a general-purpose model can control different robot morphologies because that’s what humans do. If you drive a car, once you’re proficient it feels like an extension of yourself,” says James Marshall, director of the Center for Machine Intelligence at the University of Sheffield in England. (He’s also co-founder of Opteran, a company that’s taking a whole other path—reverse engineering insect brains.) “So it’s not surprising that there could be a general technology that could control different morphologies. But moving from a quadruped to a humanoid or to a drone is more challenging and data-intensive because we don’t have a full understanding of how the brain solves that problem yet.”",
+      "Gemini was already multimodal—a model family built with a knack for extracting useful information from words and images. And, of course, Gemini has already seen an absurd amount of the Internet. “There’s a lot of information Gemini already has about how the world works,” Parada says. But “vanilla Gemini models don’t know what it feels like to translate it into action. What we’re doing is teaching them.”",
+      "So when one Googler sends a toddler-size bot to fetch a bag of popcorn from a nearby lounge—Google is famous for good snacks—think of what’s actually going on behind that bot’s eyes, in an entire stack of software. A higher-level reasoning model, Gemini Robotics ER 2, can break down a verbal request to get popcorn into a series of steps; a lower-level model turns what the robot sees and is told into the movements needed to carry the steps out, updating predictions of what’s going to happen next four or five times every second. ER 2 also watches the task unfold and estimates its progress, classifying each moment into one of five ranges of completion. That sounds almost comically basic until you consider how often a robot can execute a perfectly reasonable motion and still fail its overall objective.",
+      "Eventually the robot does bring the popcorn back to the researcher. He has to kind of pry it from the robot’s cold, unliving pincer, but it mostly works. DeepMind reported 57.4 percent accuracy on the progress-classification test, which is better than the results from the models it tested against but nowhere near omniscience.",
+      "The DeepMind researchers know they’re not quite there yet. “Our bet is that if you give [the robot] enough data, intelligence will emerge. That’s the same for language and for motion,” Rao says. “With enough data of the robot interacting with things around it, it will build this implicit thing such that it’ll be able to deal with generalizing to dexterous tasks.”",
+      "They’ve also focused on safety, with protections intended to keep bots from accidentally hurting nearby humans—by having ER 2 bring a robot to a safe stop if someone gets too close, for example. The company also created a new benchmark called Asimov, after the science-fiction writer who famously created three laws to govern robot behavior, which suggests DeepMind is worried about on-purpose hurting, too. Gemini, though, provides one layer of safety; the robot bodies generally come with protections of their own. Texas robotics company Apptronik installs all kinds of sensors and safety systems into its Apollo to stop it from doing anything catastrophically stupid.",
+      "In one Google video, a humanoid robot with a stylized face haltingly brushes detritus from a countertop into a dustpan. In another, a robot puts grapes into a plastic bag. In DeepMind’s own tests, Apollo pulled off the dustpan task just 32 percent of the time. In engineering terms, the bag and the brush bristles are “deformable”; the grapes are simply fragile. The robot has to manipulate objects that fold, bend and bruise.",
+      "An extraordinary amount of money—and now a fenced-off market—rides on machines that still struggle with everyday chores.",
+      "That’s especially important because this type of system, a so-called vision-language-action model, relies on visual input. These robots see a lot—they have more cameras than you or I have eyes—but as far as the Gemini model is concerned, they feel literally nothing. A robotic hand can have 22 degrees of freedom—that’s 22 independent ways to move—and still have almost no sense of what it’s touching. When a Gemini-powered robot lifts those grapes, it gets no fingertip sensation telling it when one is beginning to burst. When it picks up a wine glass, it can’t “feel” how much pressure the glass can take before it shatters or perceive the minimum amount of pressure to exert so that the glass won’t slip through its fingers. Even if we humans aren’t conscious of it, we have tactility and motor coordination wired into not only our brains but also our distal neurons and muscles, tendons, joints and digits. The digital digits don’t have our evolutionary advantages. “Humans are able to get feedback much sooner and be much more reactive,” Parada says. “That is part of what we’re constantly trying to improve.”",
+      "Cutting-edge robot hardware often uses strain gauges and torque sensors to supply exactly that kind of feedback, but then there’s another issue. “The Internet has massive amounts of visual data—gigantic amounts—and it has essentially no tactile data or force data or proprioceptive data,” says Ciocarlie, who also co-founded the robot-hand company Tangent Robotics. Any given real-world task has both semantic and somatic elements. The tasks DeepMind has its models and robots working on are in some ways more intricate than plenty of jobs robots already do reliably. But the tasks DeepMind bots can do still don’t require human levels of dexterity, Ciocarlie says—“the kind of things where the semantic, conscious intelligence needs to be supplemented by motor intelligence.”",
+      "Much of the new money in robotics is chasing machines that are person-shaped. This goal makes some sense; a machine that moves around on caterpillar treads and has 20 multi-degree-of-freedom tentacles bursting from an eight-foot-tall torso might be better at getting places and carrying stuff, but it would be perhaps less capable of operating in an environment built for humans, where, for example, countertops are usually about 25 inches deep and doorways are about 36 inches wide. Ironically, imitation learning has a reinforcement effect here, too. If a human is demonstrating or teleoperating a task, the robot is more likely to learn it if its own parts aren’t too different from the human’s—you want that “embodiment gap” to be as small as possible. It’s as if future robots will inherit technical debt from evolution itself.",
+      "The term “embodiment” carries philosophical baggage, and here the irony doubles back. For decades proponents of the idea of embodied cognition argued against disembodied intelligence. Understanding, in this view, depends on having a body that moves through and responds to the physical world. (Another approach to robot control called a world model—touted by chipmaker Nvidia, among other laboratories—leans heavily on this idea.) By this logic, knowing what an apple is takes a lot more than a calculation of how the word “apple” relates to other words in a multidimensional vector space. It’s the fruit’s feel, its smell and taste, and a person’s preference for Galas over Fujis.",
+      "It might be true. But Rao, at least, isn’t convinced. “Before I joined robotics, I was on the speech-recognition team, and I used to work on language modeling. I thought this would be true where surely you can’t know what an apple is until you’ve held an apple and tasted it,” he says. “I think I was totally wrong. It’s been the other way around. It’s the digital AIs that have really made the physical AI more powerful. It seems like you don’t need to touch all these objects or interact with them or see what they weigh to understand them.”",
+      "About five years ago D. E. Wittkower, a philosopher at Old Dominion University in Virginia, borrowed philosopher Thomas Nagel’s 1974 question about the inner life of a bat for an essay called “What Is It Like to Be a Bot?” DeepMind’s robots suggest almost the opposite question—or at least ask a different one: Who cares? Maybe the machine does not need anything remotely like our experience of an apple to know enough about apples to handle one. Maybe these robots don’t need an inner life. But they could use some nerve endings."
+    ],
+    "figures": [
+      {
+        "afterParagraph": 10,
+        "image": require('../../../assets/images/editorial/deepmind-robot-brains-001.jpg') as number,
+        "caption": "Two robotic hands pull and loop thin blue plastic strips during a knot-tying task. (Credit: Google DeepMind)"
+      }
+    ]
+  },
+  {
+    "id": "new-cat-species",
+    "titleZh": "百年来首次发现的全新猫科物种",
+    "titleEn": "Meet the First New Cat Species Discovered in 100 Years",
+    "summaryZh": "玻利维亚一只外形奇特的小型野生猫，引出了持续多年的基因研究。新的物种划分也让科学家重新思考小型猫科动物的分布与保护。",
+    "keyPointsZh": [
+      "一只神秘小猫如何引发物种研究",
+      "基因组分析如何重绘猫科家族树",
+      "物种细分为何影响保护策略"
+    ],
+    "source": "National Geographic",
+    "sourceUrl": "https://www.nationalgeographic.com/animals/article/meet-the-first-new-cat-species-discovered-in-100-years",
+    "category": "自然",
+    "wordCount": 1494,
+    "minutes": 10,
+    "level": "雅思 6.5",
+    "image": require('../../../assets/images/editorial/new-cat-species-001.jpg') as number,
+    "section": "featured",
+    "publishedAt": "",
+    "hasAudio": true,
+    "paragraphs": [
+      "In 2017, Paola Nogales-Ascarrunz, a biologist and National Geographic Explorer working in Bolivia, received a call from a local wildlife sanctuary that had just been given what they described as “a weird cat.” It came from a local man who found it as a kitten on a road near a forest. The man took the animal home, believing it to be a domestic breed. But after about a year of living with the clearly wild animal, he realized it would be better off at a sanctuary.",
+      "As the lead scientist and founder of the Bolivian Felids Research Program (Programa de Investigación de Félidos Bolivia), Nogales-Ascarrunz was intrigued. The animal had a small, scrunched-up face, short and round ears, and long whiskers. It was, indeed, too small to be a housecat, and, most notably, it was covered in leopard-like spots. So she went to visit the creature at the Senda Verde wildlife sanctuary on the subtropical flank of the Bolivian Andes.",
+      "“I took a hundred pictures of it,” remembers Nogales-Ascarrunz. “I was so fascinated.”",
+      "What she couldn’t know at the time was that this curious cat had a secret. It would become the first new species of felid (i.e. the cat family) discovered in over 100 years, according to a study published today in the journal Current Biology. What’s exciting is the discovery is not a validation of a species proposed in the distant past, nor a previously recognized subspecies raised to species status—which are both more commonly reported and important findings. No, this cat was something totally new to science.",
+      "At the time though, Nogales-Ascarrunz assumed the unusual cat was a member of the species Leopardus tigrinus. Sometimes called tigrinas, oncillas, tigrillos, or little spotted cats, this species was described back in 1775 from a single illustration of an animal seen in French Guiana and was subsequently presumed to exist across Central and South America, including, at the time, Bolivia.",
+      "National Geographic Explorer Paola Nogales-Ascarrunz stands near the cat she first encountered nearly a decade ago. She is co-author on a new paper that establishes it as a new species.",
+      "But then in 2019, while she was preparing a booklet about Bolivia’s cat species, she realized the cat she’d photographed didn’t look like a guidebook reference photo from neighboring Brazil. Her tiger cat had rosettes that were much larger than the ones across the border. “This is so wrong,” she thought.",
+      "It would take another few years before Nogales-Ascarrunz developed her skills in genetic analysis to the point where she could investigate the mystery cat’s genome with any accuracy. Then, working with Eduardo Eizirik, a geneticist at Pontifical Catholic University of Rio Grande do Sul in Brazil, and study co-lead author Jonas Lescroart from the University of Antwerp, the team was able to find its distinct place on the cat family tree.",
+      "In their paper, the researchers propose the cat should be known as Leopardus tilcayo, in honor of the word local people know it by. \"We asked the local people, ‘Why do you call it tilcayo?’” says Nogales-Ascarrunz, who is herself from Bolivia. “And they said, ‘I don’t know! My grandpa called it tilcayo, so I call it tilcayo.” (The name does not appear to mean anything particular in Spanish or the Quechua language spoken in Bolivia.)",
+      "So far, all scientists can say is that L. tilcayo lives in Bolivia’s Yungas forest ecoregion, which lies on the eastern slope of the Andes Mountains. But as to what these cats eat or get eaten by, how they reproduce, and many other facets of their day-to-day lives, much mystery remains. “So many basic things are not known,” says Nogales-Ascarrunz, who is co-lead author of the new study.",
+      "But the discovery is monumental, and not just because it’s the first new cat discovered since the pampas cat in 1923. The new paper doesn’t just name a new species; it redraws the cat family tree to have a lot more branches than previously thought. What’s more, the researchers hope the methods used to identify L. tilcayo may soon be used to find even more cat species spread across the world, and even transform how we protect them.",
+      "While physical differences such as tail length, rosette size, or teeth shape are always important indicators for scientists looking to delineate species, genomic analyses are increasingly the gold standard, simply because they can tell a story hidden from the naked eye.",
+      "“We’ve been working on tiger cats for 25 years or so, trying to sort out the whole genus, Leopardes,” says Eizirik. The deeper these scientists look into these cat’s genomes, the more hidden variation they find.",
+      "In 2013, scientists provided evidence that Leopardus tigrinus — the species Nogales-Ascarrunz originally assumed the new cat to be a member of — were actually made up of two distinct species. Then in 2024, the landscape changed again with the proposal that another genetically distinct species be peeled off from the previous two. Now, the newest study makes five tiger cat species. “What we once thought to be a single species, we’ve started to see that it was actually a species complex,” Eizirik says.",
+      "While scientists first encountered this cat nearly a decade ago, it took recent advanced genomic analysis to confirm it as a new species.",
+      "While this kind of confusion would be unheard of in, say, the Panthera genus — which includes cats such as tigers, snow leopards, and lions — the world’s small wild cats are much less studied. They are also exceptionally good at remaining out of sight. Even photos taken by remote trail cameras may not provide enough evidence to distinguish the species. For instance, one of the museum specimens included in the new study was originally thought to be another small, spotted cat called a margay, until it was later identified as a tiger cat (L. tigrinus) due to the direction of its nape hairs.",
+      "Modern genomics lets scientists see deeper differences photographs and fieldnotes miss. In the new study, when the researchers compared complete genomes from 38 individuals across the Leopardus genus, the results showed that not only was L. tilcayo different from the other tiger cat species, but it had diverged from them around 1.4 million years ago—an evolutionary distance comparable to that between modern lions and extinct cave lions.",
+      "While the discovery of yet another new tiger cat “is itself surprising news, the results obtained profoundly change how small cat specialists group small cat species in genus Leopardus,” says James Sanderson, founder and director of the Small Wild Cat Conservation Foundation who was not an author on the new publication. To that end, the study also provides evidence for a new sub-species of tiger cat in Peru, Leopardus tigrinus antisuyo, and according to Sanderson, its findings also hint that the margay—which scientists have assumed to be one species spread across Mexico through Argentina— is not one species, but four.",
+      "“This study hints that, having split from a common ancestor close to [one million years ago], four distinct margay species exist,” says Sanderson, who is also a member of the IUCN Cat Specialist Group, in an email. For his part, Eizirik says a more focused study of margay genetics will be needed before he’d make such a claim.",
+      "Sanderson says this is likely just the beginning of more discoveries. “It’s by no means a stretch of the imagination that the improved methods used in this study will reveal new species of small wild cats in Africa and Asia,” he says.",
+      "All of these additional branches on the cat family tree will have real world consequences for conservation.",
+      "One of the key factors to establish a species’ conservation status is its geographic distribution. “If you think [the tiger cat] is a single thing from southern Brazil all the way to Costa Rica, you’re going to find it’s not endangered,” says Eizirik. “But if we find that it’s not a single thing, but actually five things, each of them must be assessed separately.”",
+      "According to Sanderson, such distinctions add urgency to conservation efforts. “Once three species become five species, each population is reduced,” he says. “Therefore conservation efforts must increase, perhaps urgently, depending on estimated population sizes.” (For now, scientists are unsure of how many tilcayos exist in the wild.)",
+      "Genetics and questions of taxonomy aside, Nogales-Ascarrunz doesn’t want to lose focus on the wonder. “Our world is extremely complex,” she says. “Sometimes we think that most of it is known, that there's not a whole lot to discover, but in fact, it's the other way around.”",
+      "It is now commonplace for scientists to announce the discovery of new species, though the description of new insects, microbes, and other small organisms dominates the literature. And that makes sense, because they are easily hidden, hard to find, and often evade our understanding. But a five-pound felid?",
+      "“Even in the cats, there are things out there that are undescribed, things that people haven't found yet,” says Nogagles-Ascarrunz. “So let's go out and find them and protect them.”"
+    ],
+    "figures": [
+      {
+        "afterParagraph": 5,
+        "image": require('../../../assets/images/editorial/new-cat-species-001.jpg') as number,
+        "caption": "Fernando Faciole, National Geographic Society"
+      },
+      {
+        "afterParagraph": 14,
+        "image": require('../../../assets/images/editorial/new-cat-species-002.jpg') as number,
+        "caption": "Joel Sartore, National Geographic Photo Ark"
+      }
+    ]
+  },
+  {
+    "id": "food-waste-recycling",
+    "titleZh": "纽约的厨余垃圾难题，韩国如何解决？",
+    "titleEn": "New York has a food waste problem. South Korea has already solved it",
+    "summaryZh": "纽约正在扩大厨余垃圾回收，将有机废弃物转化为肥料和能源。文章以韩国的经验为参照，讨论智能回收箱、居民参与和城市管理面临的难题。",
+    "keyPointsZh": [
+      "纽约如何收集和利用厨余垃圾",
+      "韩国智能回收箱带来的启示",
+      "教育与激励如何提高居民参与度"
+    ],
+    "source": "BBC Future",
+    "sourceUrl": "https://www.bbc.co.uk/future/article/20260916-new-york-has-a-food-waste-problem-south-korea-has-already-solved-it",
+    "category": "环境",
+    "wordCount": 372,
+    "minutes": 3,
+    "level": "雅思 6.5",
+    "image": require('../../../assets/images/editorial/food-waste-recycling-001.webp') as number,
+    "section": "featured",
+    "publishedAt": "2026-09-16",
+    "hasAudio": true,
+    "paragraphs": [
+      "South Korea has cut household food waste going to landfill from 97% to almost nothing. New York City has started sending its scraps the same way.",
+      "In addition to the mandatory curbside composting programme, New York City has placed more than 400 smart composting bins across the five boroughs to make food composting more accessible. Unlike the designated bins collected weekly from homes, these solar-powered bins are accessible around the clock via mobile app and free to use.",
+      "\"I love having these bins because it makes composting a lot more convenient,\" says Grace Fu, a resident of East Village, Manhattan.",
+      "The bins do come with practical challenges. \"They have attracted so many rodents near our apartment that we had to move ours inside the building,\" Fu says. \"More frequent clean-outs would help.\"",
+      "In 2025, New York City Department of Sanitation managed around 140,000 tonnes of the city's residential organic waste – roughly 9% of the approximately 1.5 million tonnes generated by households annually. That is a significant uptick on previous years, but still a long way off South Korea's 97%.",
+      "Once collected, household food waste is sent to one of two destinations, depending on the district: some goes to the Staten Island Compost Facility to become fertiliser, while the rest is co-digested with sewage sludge at the Newtown Creek Wastewater Resource Recovery Facility in Brooklyn to produce biogas and biosolids.",
+      "As about 70% of New Yorkers live in apartments, the South Korean approach has potential, says Steven Cohen, director of the Sustainability Management programme at Columbia Climate School.",
+      "\"South Korea's RFID bins could make each resident directly accountable for their own organic waste,\" says Cohen. \"In a circular economy, organic waste needs to be separated, recycled and reused as energy.\"",
+      "New York still has an extremely long way to go. \"The problem is that most people in this city still don't separate their organic waste properly,\" Cohen says, adding better education on why food waste recycling matters would boost participation, as could incentives.",
+      "Back in Yeouido, Seoul, Hong picks up his empty food waste bin and heads back upstairs to his apartment. The screen on the disposal unit has already gone dark. It's a chore that has simply become a part of life.",
+      "\"Food waste is a collective responsibility,\" Hong says."
+    ],
+    "figures": [
+      {
+        "afterParagraph": 0,
+        "image": require('../../../assets/images/editorial/food-waste-recycling-001.webp') as number,
+        "caption": "Seunghwan Hong empties a week's worth of household food waste into an RFID-enabled bin at his apartment complex in Seoul (Credit: Yeni Kim)"
+      },
+      {
+        "afterParagraph": 0,
+        "image": require('../../../assets/images/editorial/food-waste-recycling-002.webp') as number,
+        "caption": "The Daejeon Bio Energy Centre processes both solid household food waste and food waste leachate collected from across Daejeon province (Credit: Daejeon Bio Energy Centre)"
+      },
+      {
+        "afterParagraph": 0,
+        "image": require('../../../assets/images/editorial/food-waste-recycling-003.jpg') as number,
+        "caption": "Smart Composting Bins are 24/7 drop-off sites where New Yorkers can bring food scraps and plant waste to be composted and reused (Credit: Getty Images)"
+      }
+    ]
+  },
+  {
+    "id": "secret-agent-sketchbook",
+    "titleZh": "拿着速写本的秘密特工",
+    "titleEn": "The Secret Agent With the Sketchbook",
+    "summaryZh": "二战秘密行动参与者杰克·里斯勒被俘后，用漫画、速写和诗歌记录战俘营生活。他的日记呈现了囚禁中的幽默、友谊、求生与重获自由的经历。",
+    "keyPointsZh": [
+      "秘密行动为何以被俘告终",
+      "速写本记录的战俘营日常",
+      "私人日记如何保存战争亲历者的记忆"
+    ],
+    "source": "National Geographic",
+    "sourceUrl": "https://www.nationalgeographic.com/history/graphics/world-war-ii-prisoner-of-war-logbook-cartoons",
+    "category": "历史",
+    "wordCount": 2443,
+    "minutes": 17,
+    "level": "雅思 7.0",
+    "image": require('../../../assets/images/editorial/secret-agent-sketchbook-011.jpg') as number,
+    "section": "featured",
+    "publishedAt": "2026-09-18",
+    "hasAudio": true,
+    "paragraphs": [
+      "He was an ordinary American on an extraordinary WWII mission. And his cartoons of life in a German prisoner of war camp offer a glimpse into what it took to survive.",
+      "The sketches that U.S. Marine paratrooper Jack Risler drew as a POW, after narrowly surviving a clandestine World War II operation, offer a rare perspective on the war. Courtesy the Risler family.",
+      "Two weeks after parachuting into the French Alps on a covert mission to shore up the French Resistance, Sgt. Jack Risler found himself facing death. A convoy of German soldiers surrounded the 23-year-old and two of his fellow U.S. Marines in the small hamlet of Centron, in Nazi-occupied France. They had orders to torture and execute agents like Risler.",
+      "Risler’s mission leader—Marine Major Peter Ortiz, who was on the Gestapo’s most wanted list—decided to surrender, to spare the villagers from murderous German reprisals. In a wild stroke of luck, the Germans took the Americans into captivity instead of slaughtering them, ultimately shipping them off to a prisoner of war camp in northern Germany.",
+      "There, Risler would go on to create an eyewitness account of life in the camp, filling a diary with cartoons, sketches, and poems. He documented everything from the camp’s movie nights and contraband trade to the camaraderie among prisoners and thoughts of escape.",
+      "Risler’s wartime logbook—a blank notebook issued to some prisoners of war by the YMCA and the Red Cross—is among the most notable that Kimberly Guise, associate vice president of curatorial affairs at the National WWII Museum in New Orleans, has ever seen, largely because the story of his service was so unusual. Risler was a parachute instructor for the Office of Strategic Services, or OSS, America’s CIA forerunner. An estimated 7,500 members of the OSS served overseas. Far fewer jumped behind enemy lines, survived capture, and managed to document their imprisonment in real time.",
+      "Now his diary is being shared publicly for the first time in National Geographic. The story that unfolds in its time-worn pages offers a new reading of a WWII secret agent’s remarkable service and a rare look at a chapter of history that few OSS veterans are still alive to tell.",
+      "American Red Cross workers prepare packages to send prisoners of war during World War II. The parcels sometimes included “wartime logs”—blank notebooks for prisoners of war to use to pass the time. FPG/Archive Photos/Getty Images.",
+      "After Jack Risler was captured, he sketched life in a German prisoner of war camp in a journal issued by the Red Cross on behalf of the YMCA. POWs were entitled to receive packages from these relief organizations and from loved ones back home under the Geneva Conventions. Parcels could contain basics like food, clothing, and medical supplies, as well as tobacco, books, candy, sports equipment, musical instruments, and art supplies—including colored pencils.",
+      "Germans had their own reasons to allow prisoners to keep diaries, says Kimberly Guise, associate vice president of curatorial affairs at the National WWII Museum in New Orleans. “The thought was that if the Germans kept [POWs] occupied, there would be less threat of escaping or making trouble.”",
+      "Risler described himself in the logbook as an ordinary guy—raised in Davenport, Iowa, on football and hamburgers. He enlisted in the Marines in 1940, just before the U.S. entered the war. But how he ended up in a German POW camp was truly extraordinary.",
+      "In 1944, just two months after D-Day, Risler took part in a secret mission code-named Operation Union II. Along with other agents from the Office of Strategic Services, or OSS—World War II forerunner to the CIA—he parachuted into Nazi-occupied France to mobilize the Resistance to fight alongside the advancing Allied forces. On August 1, the team flew over the French Alps in B-17s, like the one Risler sketched here, which carried hundreds of containers of supplies and munitions.",
+      "Le grand parachutage, the massive aerial delivery of arms and supplies supporting the Operation Union II mission, arrived in the French Alps on August 1, 1944. Courtesy the Risler family.",
+      "“We were in the air no more than 30 seconds,” Risler recalled in a 1989 oral history he recorded at the request of the U.S. Marine Corps. Members of the French Resistance greeted him with kisses on the cheek. But disaster struck early: One of the agents, Charles Perry, fell to his death when his parachute failed. Another, Robert LaSalle, severely injured himself upon landing. The team held a funeral, placed LaSalle into the care of locals, and pressed on.",
+      "Two weeks later, a German convoy spotted the Operation Union II team and opened fire, splitting the Americans into two groups in the melée. Risler sought cover in the village of Centron with fellow OSS Marine John Bodnar and their leader, Major Peter Ortiz, but the Germans had them cornered. Ortiz decided to surrender on condition the villagers be spared. He offered to cover for Risler and Bodnar to let them escape, but they refused to leave their leader.",
+      "The men expected the worst. Per Hitler’s 1942 Commando Order, secret agents were supposed to be immediately killed, not treated as prisoners of war. But instead, they were packed into hot, crowded trains with little food or water and shuttled through France and Italy before landing at Marlag-Milag Nord, a POW camp near Bremen, in northern Germany, built to imprison British and Canadian naval troops. Marlag was, by Risler’s account, “one of the best camps in Germany.” So began eight months in captivity at Marlag.",
+      "Following several weeks in solitary confinement, Risler and Bodnar were assigned to a wooden barrack within the camp’s compound for enlisted men—along with their comrade from the French Resistance, Joseph Arcelin, who had assumed a fake identity as U.S. Marine “George Andrews” when the Germans caught him hiding in an orchard near the village where the Americans were captured. The prisoners passed the time reading, writing, exercising, and chatting.",
+      "“We all played dirty tricks on some of the guards who were disliked,” Risler said in his 1989 oral history, one of the few times he spoke in detail about his time at Marlag.",
+      "Risler’s drawings reveal the rules and hidden economies that made the camp run. For instance, Risler and fellow enlistees were housed in compound “M,” while their mission’s leader, Ortiz, was held in the compound for officers. “By bribing the guards with cigarettes from the Red Cross parcel, we were able to visit him from time to time,” Risler said.",
+      "POWs were permitted to receive parcels containing tobacco, including in packages that loved ones sent directly from U.S. tobacco companies. “Pretty much every camp had a guard you could bribe for something,” says Guise, the National WWII Museum curator, adding that cigarettes—the main form of currency—were in high demand.",
+      "The drawings also hinted at the prisoners’ secrets, like the forbidden radio that Risler and his fellow POWs kept hidden under the floorboards of their bunk, in a Red Cross plywood box like the one pictured here. It was made from parts acquired by trading cigarettes and other goods. The POWs used the radio once a day to listen to the 9 o’clock BBC newscast. They jotted down the news in shorthand and circulated it around the camp.",
+      "“The Germans knew there was a radio in the compound but were never able to locate it,” Risler said in his oral history. “They were always pulling surprise searches. Sometimes we were even tipped off by a friendly guard.”",
+      "Risler’s sketches show that even in the confines of Marlag he maintained his sense of humor. Guise, who has spent decades collecting POW diaries for the National WWII Museum, notes this drawing of a POW receiving a package and getting a punch in the face. “You open up a parcel expecting something nice from home, and instead a boxing glove comes at you,” she says. “It’s [from] a mother-in-law who is pissed he got himself in this situation.”",
+      "Risler also chronicled the mundane aspects of POW life—like how a sleepy prisoner might make quick use of a bucket. “They’re not leaving in the middle of the night to go to the bathroom, so he’s striking a match to pee,” Guise speculates.",
+      "Drawing wasn’t the only entertainment available to POWs at Marlag. In addition to sports fields and a library, the camp had a space where POWs could perform plays and concerts—and, occasionally, watch YMCA-provided movies like the 1943 comedy Hit the Ice.",
+      "Risler’s logbook also chronicles more perilous moments in the camp, such as this daylight raid over Hamburg that Risler depicted days after his 24th birthday on December 26.",
+      "While the aerial bombing raids signaled that the Allies were fighting to liberate Europe, experiencing the explosions from the confines of a camp could be terrifying for POWs and guards alike. “Sometimes the Allies knew where the camps were and could avoid them, but sometimes not,” says Guise. “You’re always vulnerable in that position.”",
+      "As the Allies fought to liberate Europe, Risler’s drawings suggest his longing to be free—to go home to civilian life and spend a night getting so drunk with friends that their wives would need to escort them home.",
+      "Dreams of prison breaks consumed POWs, in part because of the glamour and thrill, Guise says. Under the Geneva Conventions, POWs had the right to fair treatment if caught attempting to escape, although guards often disregarded those rules. Poems like this one, which Risler likely copied into his logbook, were common.",
+      "The prisoners at Marlag appeared to know about one of the most famous escape attempts of World War II, which Risler memorialized in his logbook. In March 1944, roughly five months before Risler was captured, 76 Allied airmen had tunneled out of Poland’s Stalag Luft III prison in the middle of the night, an event immortalized in the 1963 film The Great Escape starring Steve McQueen. The 50 men listed here were recaptured by the Germans and executed. It’s unclear how Risler knew all their names, but Guise guesses that he copied the list from another source—perhaps from someone else’s log or a radio report.",
+      "Busting out of Marlag had crossed Risler’s mind, but “tunnels were out of the question because of sandy soil,” he said, adding that it would have been hard to go on the lam without encountering Germans: “Unless you could speak German, it was almost impossible.”",
+      "Yet in the end, Risler did end up orchestrating an escape of sorts. In April 1945, as Allied forces approached Marlag, German guards rounded up the prisoners to march them north to another camp. Risler, Bodnar, and Arcelin evaded them by hiding under floorboards in a camp storage building. A merchant marine friend—who was staying behind to cook for the camp as part of a skeleton crew—sprinkled pepper over the boards to throw off their scent from the dogs.",
+      "When the coast was clear, the merchant mariner pulled up the boards and freed the men. The Nazis had left behind their oldest, weakest guards, whom the inmates overpowered. As the Allies drew nearer, the POWs were running the place.",
+      "On April 27, Risler heard the Germans and British exchanging fire overhead. The next day, he detected a more welcome sound: bagpipes signaling that the British 11th Armoured Division had arrived to liberate Marlag. After 255 days in captivity, Risler—who’d shed 20 pounds following bouts with malaria and dysentery—was free.",
+      "Risler, Bodnar, and Arcelin were reunited with their mission leader, Ortiz. The men immediately put in a request to join a Royal Marine officers unit to, in Ortiz’s words, “bag a few more Germans before hunting season closed.” The request was denied. A repatriation officer ordered them to await transportation out of Germany.",
+      "Top row: Bodnar (far right), Arcelin (second from right), and Risler (third from right) in April 1945, after nearly nine months in captivity. Courtesy the Risler family.",
+      "After a stop in Brussels, the four men were flown to Paris. Risler recalled witnessing the jubilant VE Day celebrations from the Champs-Élysées in early May before flying back to London. Risler kept in touch with several members of the Operation Union II team and the French Resistance after the war. He traveled back to France in 1984 with Bodnar and their wives.",
+      "Risler wasn’t allowed to speak much about his exploits until the OSS files were declassified starting in the 1980s. As the restrictions lifted, he began sharing his story with historians, new generations of Marines, and French people in the region he’d fought to liberate. But his logbook is one artifact he never shared, says his son Neil Risler, who only fully read through it after his father’s death 11 years ago.",
+      "“These logbooks were created in the moment. They’re so immediate. They are sharing a look inside that time and that world and these minds,” says Guise, who is excited to add this rare artifact to the museum’s collection and is exploring ways to share it with the public. “I look at these stories as examples of resilience and survival.”",
+      "Fewer than 0.2 percent of the 16.4 million Americans who served during World War II are still alive today—and even fewer were OSS. “With how rapidly we’re losing this first-person perspective, gathering this material becomes ever more important,” Guise says.",
+      "Two of the seven OSS agents who parachuted into France with Risler—Marines Charles Perry and Frederick Brunner—died in the line of duty. The others recovered from their imprisonments and injuries in Europe, then volunteered to jump behind enemy lines in the Pacific. Risler was training for it when the war ended.",
+      "After the war, Risler and his wife, Phyllis, settled in Wisconsin, where he raised two sons and had a long career selling well pumps. He continued to draw and paint for pleasure.",
+      "Among the awards Risler received for his service were the U.S. Silver Star and French Legion of Honour. He returned to France several more times for the anniversary of Operation Union II. He brought his sons to see where he had landed and where he and his team surrendered to spare the people of Centron, an act of self-sacrifice that is still commemorated in the French Alps every August.",
+      "Risler died on September 25, 2015, at age 94. But his story lives on in the colorful pages of his diary, which his son Neil has donated to the National WWII Museum, where it will soon be on display. “I am no Soloman. I’m not even brilliant, damn it,” he wrote in the book’s opening pages. “I’m an ordinary guy with more or less ordinary prejudices. But after all, they’re my memories and my reflections.”"
+    ]
+  },
+  {
+    "id": "viking-word-independence",
+    "titleZh": "藏在美国《独立宣言》中的维京词语",
+    "titleEn": "The Viking word hidden in the Declaration of American Independence",
+    "summaryZh": "从古诺尔斯语中的好运，到拉丁语中的自由，《独立宣言》的关键词承载了跨越千年的思想变迁。文章追溯这些词语的来源与含义。",
+    "keyPointsZh": [
+      "happiness 如何从好运演变为幸福",
+      "liberty 背后的自由与奴役历史",
+      "古老词语如何表达新的政治理想"
+    ],
+    "source": "BBC Future",
+    "sourceUrl": "https://www.bbc.co.uk/future/article/20260625-the-ancient-words-in-declaration-of-independence-and-how-they-arrived-in-english",
+    "category": "文化",
+    "wordCount": 1808,
+    "minutes": 13,
+    "level": "雅思 7.0",
+    "image": require('../../../assets/images/editorial/viking-word-independence-001.webp') as number,
+    "section": "featured",
+    "publishedAt": "2026-06-25",
+    "hasAudio": true,
+    "paragraphs": [
+      "From Roman freedom to Viking happiness, the iconic words in the Declaration of Independence reveal thousands of years of humans wrestling with how to live well together – and the power of language to put those ideas into action.",
+      "\"We hold these truths to be self-evident, that all men are created equal, that they are endowed by their Creator with certain unalienable Rights, that among these are Life, Liberty and the pursuit of Happiness.\"",
+      "When Thomas Jefferson drafted these words in the Declaration of Independence, two things were on his mind. One: he needed to find \"terms so plain and firm as to command their assent\" by the colonies, as he later explained, and justify independence from Great Britain. Two: beyond the practical purpose, he wanted the text to be \"an expression of the American mind, and to give to that expression the proper tone and spirit called for by the occasion\".",
+      "250 years ago, Congress approved the Declaration on 4 July 1776. But the meaning of those seemingly simple terms – \"created equal\", right to \"Life, Liberty and the pursuit of Happiness\" – continue to provoke debate.",
+      "\"These phrases seem always to be running automatically in the American background, rather like software,\" says Michael Ditmore, professor of English at Pepperdine University in Malibu, US, and the author of Texting the Nation: Agencies and Actions in the Declaration of Independence. \"Still, considered purely in their textual wording, we hardly agree on what they mean or obligate us to,\" he adds.",
+      "A closer look at the origins of these words reveals that we're not the first to wonder about their meaning. From pre-Roman cultures to the Vikings, an extraordinary range of civilisations grappled with concepts like \"liberty\" and \"happiness\" – and in the process, coined the words that ended up declaring America's independence.",
+      "A 'mongrel language'",
+      "Let's start with the brief phrase \"Life, Liberty and the pursuit of Happiness\".",
+      "\"This iconic line is actually a great demonstration of what a mongrel language English is,\" says Tom Birkett, a professor of Old English and Old Norse at University College Cork in Ireland.",
+      "\"Life\" is rooted in Old English, a language brought to Britain by Germanic tribes from around AD400-500. \"Liberty\" and \"pursuit\" are Latin-rooted, then evolved into French and arrived in Britain with the Norman French conquest in AD1066.",
+      "And then there is \"happiness\": a word echoing with distant voices telling stories of trolls, battles and seafarers.",
+      "\"Happiness has an interesting etymology, as it comes from Old Norse happ, meaning 'fortune' or 'good luck',\" says Birkett. \"When 'happy' is first attested in Middle English it means 'fortunate', or 'blessed by good luck'.\"",
+      "Old Norse, a Scandinavian language, was spoken by Viking raiders and Scandinavian settlers who brought the word to Britain from around AD800 onwards. Happ appears, for example, in the nickname of the Norse explorer Leif Erikson, who was also known as \"Leif the Lucky\", Leif heppni Erikson. He was a member of an early voyage to North America in the 11th Century, and saved a group of shipwrecked sailors – which may have partly inspired his nickname.",
+      "One way to interpret \"happ\" is as something fixed and fated, which can't be controlled. It still echoes with that meaning in English words such as \"hapless\" – luckless, unfortunate – and \"happen\" – to occur by chance.",
+      "But over time, the English meaning of \"happy\" and \"happiness\" gradually shifted from \"favoured by fortune\" to \"glad, pleased, content\". In the 17th and 18th Centuries, the Enlightenment movement, with its ideals of human rights, fundamentally challenged the idea that one's fortune was fixed or divinely steered: instead, human reason and action took on a central role.",
+      "By the time the Declaration was drafted by Thomas Jefferson, with inspiration from the Virginia Declaration of Rights, \"happiness\" had acquired many layers of meaning. And in the Declaration, its pursuit was presented as a human right – one that was central to the new United States.",
+      "\"The document was both political and philosophical, asserting the 'separate and equal station' of the new United States among the nations of the Earth, while also laying out the philosophical underpinnings for that assertion,\" says Carli Conklin, an associate professor of law and constitutional democracy at the University of Missouri, US, and the author of The Pursuit of Happiness in the Founding Era: An Intellectual History.",
+      "\"As both Thomas Jefferson and fellow drafter John Adams stated, the Declaration was not asserting anything new. It was not intended to do so,\" says Conklin. \"These ideas were commonplace in Enlightenment Era discussions about politics and law, with many of these ideas stretching back millennia.\" What was new was \"the opportunity to practically apply these principles in the formation and establishment of a brand new government in the new United States\", she says.",
+      "The punchy phrasing hid a lot of ambiguity, however.",
+      "That's because on a practical level, the text had to be easy to agree to, says Ditmore: \"It had to speak with a voice and sense common enough across 13 competing, edgy – and in-development – colony states to seal agreement for the publicity of independence.\" As a result, its phrasing was seemingly clear, and easy to endorse, but actually, left a lot of room for conflicting interpretations, he says.",
+      "Those interpretations have only widened since then. For example, how we think of happiness has changed over time, says Conklin.",
+      "\"Our general understanding of happiness today does not seem to be as rich or as expansive as the understanding of the concept in the founding era,\" Conklin says. \"To the founders, to be happy was to experience a state of well-being or human flourishing.\"",
+      "The founders distinguished between what they called \"fleeting and temporal\" happiness, and \"true and substantial\" happiness, she explains. To pursue true happiness was to live a life of virtue, she says: one of wisdom, justice, courage, moderation, industry and benevolence.",
+      "\"As John Adams wrote in a letter to his wife, Abigail, the founders believed 'the virtues that make for a happy private life make for a happy public life', as well,\" says Conklin.",
+      "While the idea of a right to the \"pursuit of happiness\" might seem far removed from the happ in Old Norse sagas, there is a subtle echo of voyages, quests and human persistence in both contexts – along with the idea of an uncertain outcome.",
+      "\"The Declaration does not include a right to attain happiness,\" Conklin points out. \"It contains only the right to pursue.\"",
+      "How exactly might one pursue happiness, then?",
+      "One clue is in the other rights – to life and liberty, Conklin says: \"The founders most frequently talked about liberty as a status – a status from which one could exercise their reason and free will toward action,\" she explains. \"The right to pursue happiness, then, was the right to determine and then to take that action – to exercise one's reason and free will in active pursuit of one's own well-being.\"",
+      "That meaning of liberty – as a state that allows you to actively shape your life – may sound very modern. But as with \"happiness\", the ancient roots of \"liberty\" reveal how humans have wrestled with the idea of freedom, and what it means to be free, for a very long time.",
+      "Freedom and heartbreak in Roman-era Britain",
+      "\"Liberty is a rather old word,\" says Philippa Steele, a research professor in the Faculty of Classics at the University of Cambridge. It is built on an Indo-European root \"which surfaces in numerous languages across Europe and Asia with a meaning connected to 'people',\" she explains.",
+      "This ancient word appears in Greek as eleutheria, in Latin as libertas, and many related, but lesser-known languages. In all cases, it generally related to personal freedom, she says.",
+      "The word, and Latin terms more generally, arrived in Britain several times.",
+      "One of its oldest appearances on British soil is on a 2,000-year-old tombstone from a Roman-era settlement. The stone was put up by a widower, Barates, for his late wife, Regina. The Latin inscription refers to Regina as a \"liberta\", a \"freedwoman\": liberta, or libertus for men, was the Roman term for freed, formerly enslaved people.",
+      "Latin lived on in Britain for some time after the Romans left. But many of the Latin-rooted words used in English today, including \"liberty\", were re-introduced later, with the 1066 Norman French invasion – French being a descendant of Latin.",
+      "\"Liberty\", also spelled \"libertee\" and \"libertie\", appears in various English texts from around 1300AD onwards. It refers to freedom from serfdom, but also, the freedom to do certain things.",
+      "This historical link between the word liberty, and freedom from enslavement, then meets a painful twist in the Declaration of Independence: an early passage condemning slavery, and describing enslavement as a crime against liberty, was deleted from the draft. And Jefferson, as well as other founders, enslaved people themselves. \"They did not apply these rights to all people, in practice,\" says Conklin.",
+      "Steering the ship",
+      "Other words in the Declaration also carry long histories of people trying to express complex ideas, for example, through metaphor. One of them is \"government\", as in: \"it is the Right of the People to alter or to abolish it, and to institute new Government\".",
+      "\"It comes from Latin via Old French,” says Steele, but the Latin verb gubernare is a borrowing from [the Greek word kybernao]\", meaning, to steer a ship. She adds that this Greek root also lives on \"cybernetics\", and other words that feature \"cyber\".",
+      "And then there is the document's title: \"Declaration comes from a root related to light and brightness: claro quite literally means \"illuminate\", and a declaratio is an act of making clear,\" says Steele.",
+      "While it drew on ancient words, the Declaration also marked a linguistic beginning: one of American English as a distinctive voice. That shift became more pronounced in the early decades of independence.",
+      "\"The Declaration of Independence contains spellings that now look British,\" says Anne Curzan, a professor of English language and literature, linguistics and education at the University of Michigan, US. She points to the \"–our\" spelling in: \"He has endeavoured to prevent the population of these States\". In American English, \"endeavoured\" became \"endeavored\".",
+      "So what does the Declaration, this short text squishing together millennia of history, teach us today?",
+      "The answer depends on what we think the Declaration is for, says Ditmore. Is it \"a creedal, maybe a propositional, document, one that so foundationally outlines the boundaries of American character and identity that we can return to them for correction when we stray\"?",
+      "Or was it \"a document that served a specific temporary, limited purpose admirably well, broadcasting independence far and wide, and its surface ought not be scratched further\"?",
+      "In other words: is it a historical artefact – or a kind of manual for a good American life and thriving nation? I'll leave you to find your own answers to that – and join the long chain of human thought filling this document with life."
+    ],
+    "figures": [
+      {
+        "afterParagraph": 5,
+        "image": require('../../../assets/images/editorial/viking-word-independence-002.webp') as number,
+        "caption": "The words used in the Declaration of Independence have a rich history and originate from distant cultures (Credit: Alamy)"
+      },
+      {
+        "afterParagraph": 13,
+        "image": require('../../../assets/images/editorial/viking-word-independence-003.webp') as number,
+        "caption": "Viking raiders and Scandinavian settlers brought the word “happ” - meaning fortune or good luck – to Britain (Credit: Getty Images)"
+      },
+      {
+        "afterParagraph": 18,
+        "image": require('../../../assets/images/editorial/viking-word-independence-004.jpg') as number,
+        "caption": "The founding fathers chose punchy phrasing for the Declaration of Independence that nevertheless hid a lot of ambiguity (Credit: Getty Images)"
+      },
+      {
+        "afterParagraph": 32,
+        "image": require('../../../assets/images/editorial/viking-word-independence-005.jpg') as number,
+        "caption": "English has been heavily influenced by Latin and French, which gave us the word for Liberty (Credit: Alamy)"
+      }
+    ],
+    "sectionHeadings": [
+      "A 'mongrel language'",
+      "Freedom and heartbreak in Roman-era Britain",
+      "Steering the ship"
+    ]
+  }
+] as const satisfies readonly EditorialArticle[];

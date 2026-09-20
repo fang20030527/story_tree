@@ -60,8 +60,6 @@ export function EditorialHomeScreen() {
 
   const hero = getEditorialSection('today')[0];
   const featured = getEditorialSection('featured');
-  const news = getEditorialSection('daily');
-  const kids = getEditorialSection('kids');
   const showSearchResults = searchOpen && query.trim().length > 0;
   const showSection = !showSearchResults && sectionView !== null;
 
@@ -199,39 +197,6 @@ export function EditorialHomeScreen() {
               </>
             ) : null}
 
-            <SectionHeader
-              title="每日快讯"
-              theme={theme}
-              moreLabel="更多"
-              onMore={() => setSectionView('daily')}
-            />
-            <View style={styles.resultsList}>
-              {news.map((article) => (
-                <ArticleCard
-                  key={article.id}
-                  article={article}
-                  theme={theme}
-                  onPress={() => openOverview(article)}
-                />
-              ))}
-            </View>
-
-            <SectionHeader
-              title="Kid News"
-              theme={theme}
-              moreLabel="更多"
-              onMore={() => setSectionView('kids')}
-            />
-            <View style={styles.resultsList}>
-              {kids.map((article) => (
-                <ArticleCard
-                  key={article.id}
-                  article={article}
-                  theme={theme}
-                  onPress={() => openOverview(article)}
-                />
-              ))}
-            </View>
           </>
         )}
       </ScrollView>
@@ -245,10 +210,6 @@ function sectionTitle(section: EditorialSection): string {
       return '今日精选';
     case 'featured':
       return '精选外刊';
-    case 'daily':
-      return '每日快讯';
-    case 'kids':
-      return 'Kid News';
   }
 }
 

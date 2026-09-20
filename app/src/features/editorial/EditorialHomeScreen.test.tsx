@@ -20,11 +20,11 @@ beforeEach(() => jest.clearAllMocks());
 it('shows only the approved discovery sections and opens an overview', async () => {
   const view = await render(<EditorialHomeScreen />);
   expect(view.getByText('外刊')).toBeTruthy();
-  for (const section of ['今日精选', '精选外刊', '每日快讯', 'Kid News']) {
+  for (const section of ['今日精选', '精选外刊']) {
     expect(view.getByText(section)).toBeTruthy();
   }
-  expect(view.getAllByText('更多')).toHaveLength(3);
-  for (const forbidden of ['导入文章', '生词长文练习', '书籍', '活动', '学习讨论']) {
+  expect(view.getAllByText('更多')).toHaveLength(1);
+  for (const forbidden of ['每日快讯', 'Kid News', '导入文章', '生词长文练习', '书籍', '活动', '学习讨论']) {
     expect(view.queryByText(forbidden)).toBeNull();
   }
 
@@ -58,8 +58,6 @@ it('expands search and filters title, source, category, and no-result states', a
 it.each([
   ['ai-arms-race', '人工智能军备竞赛能被叫停吗？'],
   ['hero', '拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母'],
-  ['n1', '通胀在全球回归，抗通胀之战也随之回来'],
-  ['k1', '这只孤儿小象如何逆转发运'],
 ] as const)('opens %s through its overview', async (id, title) => {
   const view = await render(<EditorialHomeScreen />);
   await fireEvent.press(view.getByLabelText(`${title}，查看文章概述`));
