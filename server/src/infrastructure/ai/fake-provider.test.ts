@@ -36,9 +36,9 @@ describe('Fake AI provider', () => {
         (question) => question.targetAlias === target.alias,
       );
       expect(questions).toHaveLength(1);
-      expect(questions[0]?.optionsZh).toHaveLength(4);
-      expect(new Set(questions[0]?.optionsZh).size).toBe(4);
-      expect(questions[0]?.optionsZh).toContain(target.meaningZh);
+      expect(questions[0]?.optionsEn).toHaveLength(4);
+      expect(new Set(questions[0]?.optionsEn).size).toBe(4);
+      expect(questions[0]?.optionsEn).toContain(target.term);
     }
   });
 
@@ -69,5 +69,24 @@ describe('Fake AI provider', () => {
       title: 'Synthetic imported article',
       text: expect.stringMatching(/position 0[\s\S]+position 1/iu),
     });
+  });
+
+  it('does not impose the former two-digit target alias ceiling', async () => {
+    const manyTargets: GeneratePracticeInput = {
+      examPath: 'ielts',
+      targets: Array.from({ length: 100 }, (_, index) => ({
+        alias: `t${index + 1}`,
+        term: `term-${index + 1}`,
+        meaningZh: `义项 ${index + 1}`,
+      })),
+    };
+
+    const generated = await new FakeAiProvider().generatePractice(
+      manyTargets,
+      new AbortController().signal,
+    );
+
+    expect(generated.usages.at(-1)?.targetAlias).toBe('t100');
+    expect(generated.questions).toHaveLength(100);
   });
 });

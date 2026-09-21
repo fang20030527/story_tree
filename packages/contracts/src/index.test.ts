@@ -1,4 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { SharedArticleUrlSchema } from './index';
+
+describe('shared article URLs', () => {
+  const url = 'https://cn.eudic.net/ting/openArticle?id=ede36ef9-5198-44e6-99c4-02805b40ee20';
+  it.each([url, `每日英语分享：${url}。`, `每日英语\n${url}\n推荐阅读`, `[${url}](${url})`])('extracts a single article link from %s', (input) => {
+    expect(SharedArticleUrlSchema.parse(input)).toBe(url);
+    expect(CreateArticleImportRequestSchema.parse({ sourceKind: 'url', url: input })).toEqual({ sourceKind: 'url', url });
+  });
+  it.each(['没有链接', 'eudic://article/123', 'https://user:password@example.com/story', `${url} https://example.com/another`])('rejects invalid or ambiguous share text: %s', (input) => {
+    expect(SharedArticleUrlSchema.safeParse(input).success).toBe(false);
+  });
+  it('preserves query parameters and URL parentheses', () => {
+    const url = 'https://example.com/story_(one)?id=123&app=Ting';
+    expect(SharedArticleUrlSchema.parse(url)).toBe(url);
+  });
+});
 
 import {
   AnonymousAuthRequestSchema,
@@ -24,6 +40,11 @@ import {
   WechatAuthRequestSchema,
   WechatAuthResponseSchema,
   WordTranslationDtoSchema,
+  VocabularyInputSchema,
+  VocabularyTimeZoneSchema,
+  VocabularyWordFilterSchema,
+  VocabularyWordMasterySchema,
+  VocabularyWordPageSchema,
 } from './index';
 
 describe('shared contracts', () => {
@@ -101,7 +122,7 @@ describe('shared contracts', () => {
     ).toBe(true);
   });
 
-  it('accepts one to ten vocabulary inputs', () => {
+  it('accepts manual inputs or a positive vocabulary target count', () => {
     expect(
       CreatePracticeRequestSchema.safeParse({
         items: [{ term: 'resilient', meaningZh: '有韧性的' }],
@@ -114,6 +135,21 @@ describe('shared contracts', () => {
           term: `term-${index}`,
           meaningZh: '义项',
         })),
+      }).success,
+    ).toBe(false);
+    expect(
+      CreatePracticeRequestSchema.parse({ source: 'vocabulary' }),
+    ).toEqual({ source: 'vocabulary', targetCount: 10 });
+    expect(
+      CreatePracticeRequestSchema.safeParse({
+        source: 'vocabulary',
+        targetCount: 16,
+      }).success,
+    ).toBe(true);
+    expect(
+      CreatePracticeRequestSchema.safeParse({
+        source: 'vocabulary',
+        targetCount: 0,
       }).success,
     ).toBe(false);
   });
@@ -282,6 +318,9 @@ describe('shared contracts', () => {
       incompletePracticeId: crypto.randomUUID(),
       vocabularyCount: 12,
       reviewingCount: 4,
+      dueLearningCount: 4,
+      unlearnedCount: 5,
+      todayAddedCount: 2,
       completedPracticeCount: 2,
       remainingFreePractices: 1,
     };
@@ -425,5 +464,80 @@ describe('shared contracts', () => {
       items: Array.from({ length: 101 }, () => item),
       nextCursor: null,
     }).success).toBe(false);
+  });
+});
+
+
+describe('saved word sentences', () => {
+  it('preserves complete sentences beyond the dictionary context limit', () => {
+    const sourceSentence = `A resilient ${'community '.repeat(120)}recovered.`;
+    expect(VocabularyInputSchema.parse({
+      term: 'resilient', meaningZh: '有韧性的', sourceSentence,
+    }).sourceSentence).toBe(sourceSentence);
+  });
+});
+
+describe('vocabulary word hub contracts', () => {
+  it('accepts legacy and category word filters only', () => {
+    for (const filter of ['all', 'due', 'scheduled', 'today', 'learning', 'unlearned', 'mastered']) {
+      expect(VocabularyWordFilterSchema.safeParse(filter).success).toBe(true);
+    }
+    for (const filter of ['', 'learning ', 'archived', 'ALL']) {
+      expect(VocabularyWordFilterSchema.safeParse(filter).success).toBe(false);
+    }
+  });
+
+  it('validates IANA time zones', () => {
+    expect(VocabularyTimeZoneSchema.safeParse('Asia/Shanghai').success).toBe(true);
+    expect(VocabularyTimeZoneSchema.safeParse('UTC').success).toBe(true);
+    expect(VocabularyTimeZoneSchema.safeParse('Mars/Olympus_Mons').success).toBe(false);
+    expect(VocabularyTimeZoneSchema.safeParse('').success).toBe(false);
+  });
+
+  it('requires the full word page summary and per-word mastery flag', () => {
+    const word = {
+      wordId: crypto.randomUUID(),
+      term: 'resilient',
+      meaningZh: '有韧性的',
+      sourceSentence: null,
+      contextCount: 1,
+      reviewReason: 'due',
+      nextReviewAt: new Date().toISOString(),
+      practiceCount: 2,
+      independentCorrectCount: 1,
+      assistedCount: 0,
+      lastPracticedAt: new Date().toISOString(),
+      masteredAt: null,
+    };
+    const summary = {
+      totalCount: 3,
+      todayCount: 1,
+      learningCount: 1,
+      dueLearningCount: 1,
+      unlearnedCount: 1,
+      masteredCount: 1,
+    };
+    expect(VocabularyWordPageSchema.safeParse({
+      items: [word], nextCursor: null,
+      evaluatedAt: new Date().toISOString(), nextRefreshAt: null, summary,
+    }).success).toBe(true);
+    expect(VocabularyWordPageSchema.safeParse({
+      items: [{ ...word, masteredAt: undefined }], nextCursor: null,
+      evaluatedAt: new Date().toISOString(), nextRefreshAt: null, summary,
+    }).success).toBe(false);
+    expect(VocabularyWordPageSchema.safeParse({
+      items: [word], nextCursor: null,
+      evaluatedAt: new Date().toISOString(), nextRefreshAt: null,
+      summary: { totalCount: 3, dueCount: 2, scheduledCount: 1 },
+    }).success).toBe(false);
+  });
+
+  it('validates the mastery mutation response', () => {
+    const wordId = crypto.randomUUID();
+    expect(VocabularyWordMasterySchema.safeParse({
+      wordId, masteredAt: new Date().toISOString(),
+    }).success).toBe(true);
+    expect(VocabularyWordMasterySchema.safeParse({ wordId, masteredAt: null }).success).toBe(true);
+    expect(VocabularyWordMasterySchema.safeParse({ wordId }).success).toBe(false);
   });
 });

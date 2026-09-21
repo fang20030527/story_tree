@@ -10,8 +10,28 @@ import {
   type RequestPinnedPage,
 } from './safe-fetch';
 import type { ResolveHost } from './url-policy';
+import { extractReadableHtml } from './html';
 
 describe('safe bounded HTML fetching', () => {
+  it('recognizes the Eudic share-to-course redirect chain instead of importing the sales page', async () => {
+    const requestPage: RequestPinnedPage = vi.fn()
+      .mockResolvedValueOnce(response(302, '', { location: 'https://dict.eudic.net/webting/play?id=article&app=Ting' }))
+      .mockResolvedValueOnce(response(302, '', { location: '/courses/detail/course?pids=' }))
+      .mockResolvedValueOnce(response(200, '<html><body>精听党 | 每日外刊 立即报名</body></html>', { 'content-type': 'text/html' }));
+    const page = await safeFetchHtml('https://cn.eudic.net/ting/openArticle?id=article', {
+      maxBytes: 1_024,
+      timeoutMs: 1_000,
+      resolveHost: publicResolver,
+      requestPage,
+      signal: new AbortController().signal,
+    });
+    expect(page.finalUrl).toBe('https://dict.eudic.net/courses/detail/course?pids=');
+    expect(() => extractReadableHtml(page.html, page.finalUrl)).toThrow(
+      expect.objectContaining({ code: 'IMPORT_SOURCE_REQUIRES_ACCESS', retryable: false }),
+    );
+    expect(requestPage).toHaveBeenCalledTimes(3);
+  });
+
   it('connects to the single pinned address on auto-family runtimes', async () => {
     const server = createServer((_request, response) => {
       response.writeHead(200, { 'content-type': 'text/html' });

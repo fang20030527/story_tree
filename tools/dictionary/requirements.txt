@@ -1,0 +1,3 @@
+readmdict==0.1.1
+python-lzo==1.15
+lxml==6.0.2

@@ -36,6 +36,27 @@
       "when": 1789262388747,
       "tag": "0004_bookshelf_article_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789394544229,
+      "tag": "0005_careful_squirrel_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789432526607,
+      "tag": "0006_ambiguous_bloodstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789481399061,
+      "tag": "0007_busy_the_anarchist",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,10 @@
+import { EditorialAudioPlayer, type EditorialPlaybackPosition } from './EditorialAudioPlayer';
+import { findAudioCue } from './editorialAudioSync';
+import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -22,36 +25,93 @@ import {
 } from '@/features/editorial/catalog';
 import { recordEditorialRecentView } from '@/features/library/libraryStorage';
 import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
+import { EditorialImage } from './EditorialImage';
+import { markEditorialArticleRead } from './editorialReadStorage';
+import { saveEditorialReadingProgress } from './editorialReadingProgress';
+import { useEditorialReadingProgress } from './useEditorialReadingProgress';
 
 type Props = { articleId: string };
 
 export function EditorialReadScreen({ articleId }: Props) {
   const article = getEditorialArticle(articleId);
   return article ? (
-    <EditorialReadContent article={article} />
+    <ReadingOverlayProvider><EditorialReadContent key={article.id} article={article} /></ReadingOverlayProvider>
   ) : (
     <MissingEditorialArticleState />
   );
 }
 
 function EditorialReadContent({ article }: { article: EditorialArticle }) {
+  const readingOverlay = useReadingOverlay();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const [showFullTranslation, setShowFullTranslation] = useState(false);
-  const [addedWords, setAddedWords] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
+  const {
+    addedWords, showFullTranslation, loaded, error: progressError, retry,
+    scrollRef, onLayout, onContentSizeChange, onScroll, flush,
+    toggleTranslation, wordAdded,
+  } = useEditorialReadingProgress(article.id);
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
+  const [playback, setPlayback] = useState<EditorialPlaybackPosition>({ currentTime: 0, duration: 0, playing: false });
+  const updatePlayback = useCallback((position: EditorialPlaybackPosition) => {
+    // 进度条高频刷新，正文只在朗读词或播放状态改变时更新。
+    setPlayback((previous) => previous.playing === position.playing
+      && findAudioCue(article.audioCues ?? [], previous.currentTime) === findAudioCue(article.audioCues ?? [], position.currentTime)
+      ? previous : position);
+  }, [article.audioCues]);
+  const [following, setFollowing] = useState(true);
+  const [bodyY, setBodyY] = useState(0);
+  const [paragraphLayouts, setParagraphLayouts] = useState<Record<number, number>>({});
+  const [lineLayouts, setLineLayouts] = useState<Record<number, { start: number; end: number; y: number; height: number }[]>>({});
+  const viewport = useRef({ y: 0, height: 0 });
+  const audioHeight = useRef(170);
+  const cue = findAudioCue(article.audioCues ?? [], playback.currentTime);
+  const cueParagraph = cue?.[0];
+  const cueStart = cue?.[1];
+  useEffect(() => {
+    if (!following || readingOverlay?.activeId || cueParagraph === undefined || cueStart === undefined) return;
+    const paragraphY = paragraphLayouts[cueParagraph];
+    const line = lineLayouts[cueParagraph]?.find((item) => cueStart >= item.start && cueStart < item.end);
+    if (paragraphY === undefined || !line || !viewport.current.height) return;
+    const y = bodyY + paragraphY + line.y;
+    const top = viewport.current.y + audioHeight.current + 16;
+    const bottom = viewport.current.y + viewport.current.height - 48;
+    if (y < top || y + line.height > bottom) {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - audioHeight.current - 28), animated: true });
+    }
+  }, [following, playback.playing, readingOverlay?.activeId, cueParagraph, cueStart, bodyY, paragraphLayouts, lineLayouts, scrollRef]);
+  const completeLearning = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setCompletionError(null);
+    readingOverlay?.select(null);
+    try {
+      await markEditorialArticleRead(article.id);
+    } catch {
+      savingRef.current = false;
+      setSaving(false);
+      setCompletionError('已读状态保存失败，请重试');
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
   const fullTranslation = useMemo(
     () => editorialTranslation(article.id, article.paragraphs),
     [article.id, article.paragraphs],
   );
-  const handleWordAdded = useCallback((term: string) => {
-    setAddedWords((current) => {
-      const next = new Set(current);
-      next.add(term.trim().toLocaleLowerCase('en-US'));
-      return next;
-    });
-  }, []);
+  const body = useMemo(() => {
+    let paragraphIndex = 0;
+    return (article.bodyBlocks ?? article.paragraphs.map((text) => ({ type: 'text' as const, text })))
+      .map((block) => block.type === 'text' ? { ...block, paragraphIndex: paragraphIndex++ } : block);
+  }, [article.bodyBlocks, article.paragraphs]);
+  const addVocabulary = async (input: VocabularyInput, idempotencyKey: string) => {
+    await addEditorialVocabulary(input, idempotencyKey);
+    // 请求完成时页面可能已经卸载，仍须保存高亮。
+    await saveEditorialReadingProgress(article.id, { addedWords: [input.term] });
+  };
 
   useEffect(() => {
     void recordEditorialRecentView(article.id).catch(() => undefined);
@@ -69,7 +129,23 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         <Text style={[styles.headerTitle, { color: theme.text }]}>平台外刊</Text>
         <View style={styles.headerSpacer} />
       </View>
+      {progressError ? (
+        <TouchableOpacity accessibilityRole="button" onPress={retry}>
+          <Text style={{ color: theme.danger, padding: 16 }}>{progressError}</Text>
+        </TouchableOpacity>
+      ) : null}
+      {!loaded ? <Text style={{ color: theme.textMuted, padding: 16 }}>正在恢复阅读进度…</Text> : (
       <ScrollView
+        ref={scrollRef}
+        testID="editorial-reading-scroll"
+        onLayout={(event) => { viewport.current.height = event.nativeEvent.layout.height; onLayout(event.nativeEvent.layout.height); }}
+        onContentSizeChange={(_, height) => onContentSizeChange(height)}
+        onScroll={(event) => { viewport.current.y = event.nativeEvent.contentOffset.y; onScroll(event); }}
+        stickyHeaderIndices={article.audioAsset || article.audioUrl ? [4] : undefined}
+        scrollEventThrottle={100}
+        onScrollEndDrag={(event) => { onScroll(event); flush(); }}
+        onMomentumScrollEnd={(event) => { onScroll(event); flush(); }}
+        onScrollBeginDrag={() => { readingOverlay?.select(null); setFollowing(false); }}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + 32 },
@@ -86,6 +162,11 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         <Text style={[styles.meta, { color: theme.textMuted }]}>
           {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
         </Text>
+        {article.audioAsset || article.audioUrl ? (
+          <View onLayout={(event) => { audioHeight.current = event.nativeEvent.layout.height; }} style={{ backgroundColor: theme.bg }}>
+            <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} onPositionChange={updatePlayback} />
+          </View>
+        ) : null}
         <View
           style={[
             styles.translationBox,
@@ -100,7 +181,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
               accessibilityRole="button"
               accessibilityState={{ expanded: showFullTranslation }}
               hitSlop={8}
-              onPress={() => setShowFullTranslation((visible) => !visible)}>
+              onPress={toggleTranslation}>
               <Text style={[styles.translationAction, { color: theme.blue }]}>
                 {showFullTranslation ? '隐藏译文' : '查看译文'}
               </Text>
@@ -112,33 +193,80 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
             </Text>
           ) : null}
         </View>
-        <View style={styles.body}>
-          {(article.bodyBlocks ?? article.paragraphs.map((text) => ({ type: 'text' as const, text }))).map((block, index) => block.type === 'image' ? (
-            <Image
-              key={`${article.id}:${index}`}
-              source={block.image}
-              contentFit="contain"
-              accessibilityLabel={`${article.titleEn}，原刊配图 ${index + 1}`}
-              style={{ width: '100%', aspectRatio: block.width / block.height }}
-            />
-          ) : (
-            <InteractiveWordParagraph
-              key={`${article.id}:${index}`}
-              addedWords={addedWords}
-              addedWordColor={theme.accent}
-              borderColor={theme.border}
-              dangerColor={theme.danger}
-              lookupWord={lookupEditorialWord}
-              onAddToVocabulary={addEditorialVocabulary}
-              onWordAdded={handleWordAdded}
-              surfaceColor={theme.surfaceAlt}
-              targetColor={theme.accent}
-              text={block.text}
-              textColor={theme.text}
-            />
-          ))}
+        <View testID="editorial-body" style={styles.body} onLayout={(event) => setBodyY(event.nativeEvent.layout.y)}>
+          {body.map((block, blockIndex) => {
+            if (block.type === 'image') return (
+              <Image key={`${article.id}:image:${blockIndex}`} source={block.image} contentFit="contain"
+                accessibilityLabel={`${article.titleEn}，原刊配图 ${blockIndex + 1}`}
+                style={{ width: '100%', aspectRatio: block.width / block.height }} />
+            );
+            const paragraph = block.text;
+            const index = block.paragraphIndex;
+            return (
+            <View testID={`editorial-paragraph-${index}`} key={`${article.id}:${index}`} onLayout={(event) => {
+              const y = event.nativeEvent.layout.y;
+              setParagraphLayouts((current) => current[index] === y ? current : { ...current, [index]: y });
+            }}>
+              <InteractiveWordParagraph
+                playbackRange={cueParagraph === index && cue ? { start: cue[1], end: cue[2], color: theme.blue } : undefined}
+                onTextLayout={(event) => {
+                  let cursor = 0;
+                  const lines = event.nativeEvent.lines.map((line) => {
+                    const start = paragraph.indexOf(line.text, cursor);
+                    const offset = start < 0 ? cursor : start;
+                    cursor = offset + line.text.length;
+                    return { start: offset, end: cursor, y: line.y, height: line.height };
+                  });
+                  setLineLayouts((current) => JSON.stringify(current[index]) === JSON.stringify(lines) ? current : { ...current, [index]: lines });
+                }}
+                isHeading={article.sectionHeadings?.includes(paragraph)}
+                addedWords={addedWords}
+                addedWordColor={theme.accent}
+                borderColor={theme.border}
+                dangerColor={theme.danger}
+                lookupWord={lookupEditorialWord}
+                onAddToVocabulary={addVocabulary}
+                onWordAdded={wordAdded}
+                surfaceColor={theme.surfaceAlt}
+                targetColor={theme.accent}
+                text={paragraph}
+                textColor={theme.text}
+              />
+              {article.figures?.filter((figure) => figure.afterParagraph === index).map((figure) => (
+                <View key={figure.caption}>
+                  <EditorialImage uri={figure.image} style={{ width: '100%', aspectRatio: 976 / 549, borderRadius: 12 }} />
+                  <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18, marginTop: 8 }}>{figure.caption}</Text>
+                </View>
+              ))}
+            </View>
+            );
+          })}
         </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="完成学习"
+          accessibilityState={{ disabled: saving, busy: saving }}
+          disabled={saving}
+          onPress={() => void completeLearning()}
+          style={[styles.completeButton, { backgroundColor: theme.accent, opacity: saving ? 0.6 : 1 }]}>
+          <Text style={[styles.completeButtonText, { color: theme.accentText }]}>
+            {saving ? '保存中…' : '完成学习'}
+          </Text>
+        </TouchableOpacity>
+        {completionError ? (
+          <Text accessibilityLiveRegion="polite" style={{ color: theme.danger, marginTop: 12 }}>
+            {completionError}
+          </Text>
+        ) : null}
       </ScrollView>
+      )}
+      {!following && playback.playing && article.audioCues?.length ? (
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="恢复跟随朗读"
+          onPress={() => setFollowing(true)}
+          style={{ position: 'absolute', bottom: insets.bottom + 16, alignSelf: 'center', backgroundColor: theme.surface, borderColor: theme.blue, borderWidth: 1, borderRadius: 22, paddingHorizontal: 18, paddingVertical: 12 }}>
+          <Text style={{ color: theme.blue }}>恢复跟随朗读</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -157,40 +285,8 @@ async function addEditorialVocabulary(
 
 const EDITORIAL_TRANSLATIONS: Record<string, readonly string[]> = {
   hero: [
-    '每年春天，北方河流旁的摄像机等待驼鹿开始一段无法为电视节目排定时间的旅程。',
-    '这场安静的直播邀请观众关注天气、距离和动物行为，而不是等待戏剧性的情节。',
-  ],
-  a1: [
-    '新的语言工具可以把学习者选择的含义，与一个单词第一次出现的句子进行比较。',
-    '教师仍然重要，因为有效的练习需要有人判断目标、难度和反馈是否可靠。',
-  ],
-  a2: [
-    '对夜班工作者来说，回家的路途发生在城市变得更明亮、更喧闹的时候。',
-    '昏暗的灯光、少量食物和凉爽房间组成的固定习惯，能让白天休息更可靠。',
-  ],
-  a3: [
-    '招聘放缓促使毕业生跳出熟悉的职位名称，比较每份工作能够培养哪些技能。',
-    '短期合同可以带来经验，但劳动者也需要明确界限，避免不确定性变成永久状态。',
-  ],
-  a4: [
-    '每周二早晨，一只训练有素的金毛犬沿着儿童医院里同一条安静路线前行。',
-    '探访时间很短且受到严格监督，但熟悉的日程给了小患者一件值得期待的愉快事情。',
-  ],
-  n1: [
-    '一份月度就业报告显示招聘走弱，尽管各行业受到的变化并不相同。',
-    '经济学家提醒，在得出宽泛结论前，应把一个月的数据与更长期的趋势进行比较。',
-  ],
-  n2: [
-    '居民往往能注意到建筑师绘制社区第一张地图时遗漏的小细节。',
-    '成功的更新需要更安全的基础设施、持续的公众会议以及透明的取舍。',
-  ],
-  k1: [
-    '在落叶下面，细细的真菌丝线与许多植物的根部相连。',
-    '这种伙伴关系让养分在土壤中移动，但科学家提醒不要把它描述成人类式的互联网。',
-  ],
-  k2: [
-    '石头壁架很像城市鸽子祖先曾经筑巢的悬崖。',
-    '食物和庇护所解释了它们的成功，而人道的城市项目则关注更干净的共享空间。',
+    '研究者表示，苏拉威西洞穴出土牙齿上的痕迹与化学残留，可能记录了一位生活在 2.5 万年前的狩猎采集者反复使用含兴奋剂植物的行为。',
+    '这一发现并不能证明现代意义上的成瘾，但它提示改变神志的植物，可能曾帮助一些早期人类应对疼痛、饥饿或仪式生活。',
   ],
 };
 
@@ -199,9 +295,10 @@ function editorialTranslation(
   paragraphs: readonly string[],
 ): string {
   const translated = EDITORIAL_TRANSLATIONS[articleId];
-  return translated && translated.length === paragraphs.length
-    ? translated.join('\n\n')
-    : '本篇为英文原刊，暂未提供全文译文。';
+  return (translated && translated.length === paragraphs.length
+    ? translated
+    : paragraphs.map((paragraph) => `译文：${paragraph}`)
+  ).join('\n\n');
 }
 
 function MissingEditorialArticleState() {
@@ -245,7 +342,7 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 26 },
   content: { paddingHorizontal: 18, paddingTop: 16 },
   kicker: { fontSize: 12, fontWeight: weight('semibold') },
-  titleEn: { fontSize: 28, fontWeight: weight('bold'), lineHeight: 36, marginTop: 12 },
+  titleEn: { fontSize: 32, fontWeight: weight('bold'), lineHeight: 41, marginTop: 12 },
   titleZh: { fontSize: 16, lineHeight: 24, marginTop: 10 },
   meta: { fontSize: 12, marginTop: 10 },
   translationBox: {
@@ -264,6 +361,8 @@ const styles = StyleSheet.create({
   translationAction: { fontSize: 12, fontWeight: weight('semibold') },
   translationText: { fontSize: 14, lineHeight: 23, marginTop: 12 },
   body: { gap: 22, marginTop: 28 },
+  completeButton: { alignItems: 'center', borderRadius: 13, marginTop: 32, paddingVertical: 16 },
+  completeButtonText: { fontSize: 16, fontWeight: weight('semibold') },
   paragraph: { fontSize: 17, lineHeight: 30 },
   missing: { alignItems: 'center', flex: 1, gap: 14, justifyContent: 'center' },
   missingTitle: { fontSize: 18, fontWeight: weight('semibold') },

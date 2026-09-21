@@ -69,3 +69,21 @@ it('opens login on top of the profile after logout so it can be dismissed', asyn
   expect(router.push).toHaveBeenCalledWith('/login');
   expect(router.replace).not.toHaveBeenCalled();
 });
+
+it('saves the practice word count and restores it after reopening profile', async () => {
+  const view = await render(<ProfileScreen />);
+  await waitFor(() => expect(view.getByLabelText('每次练习单词数量').props.value).not.toBe(''));
+  await fireEvent.changeText(view.getByLabelText('每次练习单词数量'), '30');
+  await fireEvent.press(view.getByText('保存'));
+  await view.findByText('已保存，下次生成练习时生效');
+  await view.unmount();
+  const reopened = await render(<ProfileScreen />);
+  await waitFor(() => expect(reopened.getByLabelText('每次练习单词数量').props.value).toBe('30'));
+});
+it('rejects zero without changing the saved setting', async () => {
+  const view = await render(<ProfileScreen />);
+  await waitFor(() => expect(view.getByLabelText('每次练习单词数量').props.value).not.toBe(''));
+  await fireEvent.changeText(view.getByLabelText('每次练习单词数量'), '0');
+  await fireEvent.press(view.getByText('保存'));
+  expect(await view.findByText('请输入大于 0 的整数')).toBeTruthy();
+});

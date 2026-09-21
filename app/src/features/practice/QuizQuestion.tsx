@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native';
 
+import { isEnglishSelfTest } from './isEnglishSelfTest';
+
 import { ApiError } from '@/api/client';
 import { createIdempotencyKey } from '@/api/installation';
 import { weight } from '@/constants/theme';
@@ -45,6 +47,7 @@ export function QuizQuestion({
   const [startedAt] = useState(() => Date.now());
   const [idempotencyKey] = useState(() => createIdempotencyKey());
   const submissionRef = useRef<Promise<void> | null>(null);
+  const englishSelfTest = isEnglishSelfTest(question);
   const locked = feedback !== null || submitting;
 
   const submit = (
@@ -84,7 +87,9 @@ export function QuizQuestion({
 
   return (
     <View>
-      <Text style={[styles.term, { color: theme.accent }]}>{question.term}</Text>
+      <Text style={[styles.term, { color: theme.accent }]}>
+        {englishSelfTest ? 'Choose the word that best completes the sentence.' : question.term}
+      </Text>
       <Text style={[styles.prompt, { color: theme.text }]}>{question.prompt}</Text>
 
       <View style={styles.options}>
@@ -150,7 +155,9 @@ export function QuizQuestion({
               styles.feedbackTitle,
               { color: feedback.isCorrect ? theme.green : theme.text },
             ]}>
-            {feedback.isCorrect ? '回答正确' : '正确义项已标出'}
+            {englishSelfTest
+              ? (feedback.isCorrect ? 'Correct!' : 'Correct answer highlighted')
+              : (feedback.isCorrect ? '回答正确' : '正确义项已标出')}
           </Text>
           <Text style={[styles.meaningEn, { color: theme.textSecondary }]}>
             {feedback.meaningEn}
@@ -161,13 +168,13 @@ export function QuizQuestion({
           <TouchableOpacity
             onPress={onContinue}
             style={[styles.primaryButton, { backgroundColor: theme.accent }]}>
-            <Text style={[styles.primaryText, { color: theme.accentText }]}>继续</Text>
+            <Text style={[styles.primaryText, { color: theme.accentText }]}>{englishSelfTest ? 'Continue' : '继续'}</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <>
           <TouchableOpacity
-            accessibilityLabel="提交答案"
+            accessibilityLabel={englishSelfTest ? 'Check answer' : '提交答案'}
             disabled={!selectedOptionId || submitting}
             onPress={() => selectedOptionId
               ? submit({ answerKind: 'option', selectedOptionId })
@@ -183,7 +190,7 @@ export function QuizQuestion({
               <ActivityIndicator color={theme.accentText} />
             ) : (
               <Text style={[styles.primaryText, { color: theme.accentText }]}>
-                提交答案
+                {englishSelfTest ? 'Check answer' : '提交答案'}
               </Text>
             )}
           </TouchableOpacity>
@@ -193,7 +200,7 @@ export function QuizQuestion({
             onPress={() => submit({ answerKind: 'dont_know' })}
             style={styles.dontKnowButton}>
             <Text style={[styles.dontKnowText, { color: theme.textSecondary }]}>
-              我不知道
+              {englishSelfTest ? "I don't know" : '我不知道'}
             </Text>
           </TouchableOpacity>
         </>
@@ -209,7 +216,7 @@ export function QuizQuestion({
 }
 
 const styles = StyleSheet.create({
-  term: { fontSize: 15, fontWeight: weight('bold'), textTransform: 'lowercase' },
+  term: { fontSize: 15, fontWeight: weight('bold') },
   prompt: { fontSize: 22, fontWeight: weight('bold'), lineHeight: 31, marginTop: 8 },
   options: { gap: 10, marginTop: 24 },
   option: {

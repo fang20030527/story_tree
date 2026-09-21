@@ -1,0 +1,1 @@
+ALTER TABLE "vocabulary_words" ADD COLUMN "mastered_at" timestamp with time zone;

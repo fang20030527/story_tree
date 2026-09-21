@@ -16,7 +16,10 @@ import { parseUuidParam, requireIdempotencyKey } from '../../http/validation';
 import { requireAuth } from '../auth/routes';
 import { submitFirstAnswer } from './answer-service';
 import { recordAssistance } from './assistance-service';
-import { createPractice } from './create-service';
+import {
+  createPractice,
+  createPracticeFromVocabulary,
+} from './create-service';
 import { getPracticeForUser } from './get-service';
 
 export interface PracticeRoutesOptions {
@@ -38,16 +41,25 @@ export const practiceRoutes: FastifyPluginAsync<PracticeRoutesOptions> = async (
 
       const parsed = CreatePracticeRequestSchema.safeParse(request.body);
       if (!parsed.success) {
-        throw new AppError('VALIDATION_ERROR', '请检查词义输入', 400);
+        throw new AppError('VALIDATION_ERROR', '请检查练习创建请求', 400);
       }
 
-      const created = await createPractice(options.db, {
+      const commonInput = {
         userId: request.authUser.userId,
         idempotencyKey,
-        items: parsed.data.items,
         freeLimit: options.config.freePracticeLimit,
         generationDeadlineMs: options.config.generationDeadlineMs,
-      });
+        ...(parsed.data.format ? { format: parsed.data.format } : {}),
+      };
+      const created = 'items' in parsed.data
+        ? await createPractice(options.db, {
+            ...commonInput,
+            items: parsed.data.items,
+          })
+        : await createPracticeFromVocabulary(options.db, {
+            ...commonInput,
+            targetCount: parsed.data.targetCount,
+          });
       const body = CreatePracticeAcceptedSchema.parse(created);
       return reply.status(202).send(body);
     },

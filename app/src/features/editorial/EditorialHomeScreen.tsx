@@ -1,3 +1,4 @@
+import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -10,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { ContinuePracticeCard } from '@/features/practice/ContinuePracticeCard';
 
 import { SectionHeader } from '@/components/ui';
 import { weight } from '@/constants/theme';
@@ -57,8 +60,6 @@ export function EditorialHomeScreen() {
 
   const hero = getEditorialSection('today')[0];
   const featured = getEditorialSection('featured').slice(0, 4);
-  const news = getEditorialSection('daily');
-  const kids = getEditorialSection('kids');
   const showSearchResults = searchOpen && query.trim().length > 0;
   const showSection = !showSearchResults && sectionView !== null;
 
@@ -109,6 +110,7 @@ export function EditorialHomeScreen() {
           styles.content,
           { paddingBottom: insets.bottom + 28 },
         ]}>
+        <ContinuePracticeCard />
         {showSearchResults ? (
           <>
             <SectionHeader title="搜索结果" theme={theme} />
@@ -174,56 +176,27 @@ export function EditorialHomeScreen() {
               </>
             ) : null}
 
-            <SectionHeader
-              title="精选外刊"
-              theme={theme}
-              moreLabel="更多"
-              onMore={() => setSectionView('featured')}
-            />
-            <View style={styles.resultsList}>
-              {featured.map((article) => (
-                <ArticleCard
-                  key={article.id}
-                  article={article}
+            {featured.length > 0 ? (
+              <>
+                <SectionHeader
+                  title="精选外刊"
                   theme={theme}
-                  onPress={() => openOverview(article)}
+                  moreLabel="更多"
+                  onMore={() => setSectionView('featured')}
                 />
-              ))}
-            </View>
+                <View style={styles.resultsList}>
+                  {featured.map((article) => (
+                    <ArticleCard
+                      key={article.id}
+                      article={article}
+                      theme={theme}
+                      onPress={() => openOverview(article)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
 
-            <SectionHeader
-              title="每日快讯"
-              theme={theme}
-              moreLabel="更多"
-              onMore={() => setSectionView('daily')}
-            />
-            <View style={styles.resultsList}>
-              {news.map((article) => (
-                <ArticleCard
-                  key={article.id}
-                  article={article}
-                  theme={theme}
-                  onPress={() => openOverview(article)}
-                />
-              ))}
-            </View>
-
-            <SectionHeader
-              title="Kid News"
-              theme={theme}
-              moreLabel="更多"
-              onMore={() => setSectionView('kids')}
-            />
-            <View style={styles.resultsList}>
-              {kids.map((article) => (
-                <ArticleCard
-                  key={article.id}
-                  article={article}
-                  theme={theme}
-                  onPress={() => openOverview(article)}
-                />
-              ))}
-            </View>
           </>
         )}
       </ScrollView>
@@ -237,10 +210,6 @@ function sectionTitle(section: EditorialSection): string {
       return '今日精选';
     case 'featured':
       return '精选外刊';
-    case 'daily':
-      return '每日快讯';
-    case 'kids':
-      return 'Kid News';
   }
 }
 
@@ -264,6 +233,7 @@ function HeroCard({
         <View style={styles.heroShade} />
         <View style={styles.heroOverlay}>
           <Text style={styles.heroSource}>{article.source} · {article.category}</Text>
+          <EditorialReadBadge articleId={article.id} />
           <Text style={styles.heroTitle}>{article.titleZh}</Text>
           <Text style={styles.heroMeta}>{article.level} · {article.wordCount} 词 · {article.minutes} 分钟</Text>
         </View>
@@ -290,8 +260,9 @@ function ArticleCard({
       style={[styles.articleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <EditorialImage uri={article.image} style={styles.articleImage} />
       <View style={styles.articleInfo}>
+        <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.articleTitle, { color: theme.text }]} numberOfLines={2}>{article.titleZh}</Text>
-        <Text style={[styles.articleSource, { color: theme.textMuted }]} numberOfLines={1}>{article.source} · {article.issueDate ? `${article.issueDate} · ` : ''}{article.category}</Text>
+        <Text style={[styles.articleSource, { color: theme.textMuted }]} numberOfLines={1}>{article.source} · {article.category}</Text>
         <Text style={[styles.articleMeta, { color: theme.textSecondary }]}>{article.level} · {article.wordCount} 词 · {article.minutes} 分钟</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />

@@ -71,8 +71,12 @@ function ResultContent({ practiceId }: { practiceId: string }) {
     setLeaving(true);
     setError(null);
     try {
-      await clearActivePracticeId();
-      router.replace('/');
+      if (practice?.group) {
+        router.replace({ pathname: '/practice/[id]/topics', params: { id: practice.group.id } });
+      } else {
+        await clearActivePracticeId();
+        router.replace('/');
+      }
     } catch {
       setError('暂时无法保存完成状态，请重试');
     } finally {
@@ -96,7 +100,7 @@ function ResultContent({ practiceId }: { practiceId: string }) {
             </TouchableOpacity>
           </>
         ) : (
-          <ActivityIndicator color={theme.accent} />
+          <ActivityIndicator accessibilityLabel="正在加载练习结果" color={theme.accent} />
         )}
       </View>
     );
@@ -164,7 +168,7 @@ function ResultContent({ practiceId }: { practiceId: string }) {
             <ActivityIndicator color={theme.accentText} />
           ) : (
             <Text style={[styles.finishText, { color: theme.accentText }]}>
-              返回阅读首页
+              {practice.group ? '返回主题选择' : '返回阅读首页'}
             </Text>
           )}
         </TouchableOpacity>
@@ -185,7 +189,7 @@ export default function PracticeResultScreen() {
       </View>
     );
   }
-  return <ResultContent practiceId={practiceId} />;
+  return <ResultContent key={practiceId} practiceId={practiceId} />;
 }
 
 const styles = StyleSheet.create({

@@ -28,7 +28,7 @@
 - Keep the global JSON body limit at 32 KiB; only preview editing gets 128 KiB and source uploads use scoped streaming limits.
 - Every `/v1` mutation except raw asset PUT requires an `Idempotency-Key`; raw asset replay uses `(importId, position, server-computed SHA-256)` instead of an idempotency record.
 - Authenticate ownership again inside every mutating transaction; return `NOT_FOUND` for another user's resource.
-- Use original synthetic prose in tests; no copyrighted article fixture or user file may enter the repository.
+- Use synthetic prose in tests; no user file may enter the repository.
 - Never drop, truncate, or recreate the configured database's `public` schema; integration tests stay inside random `app_test_*` schemas.
 - Use `apply_patch` for hand-written changes, preserve unrelated user edits, and make one focused commit after each green task.
 

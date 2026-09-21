@@ -1,3 +1,4 @@
+import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   ImportedArticleDto,
@@ -28,6 +29,7 @@ import { recordImportedRecentView } from '@/features/library/libraryStorage';
 import {
   InteractiveWordParagraph,
 } from '@/features/practice/ArticleParagraph';
+import { isArticleSectionHeading } from '@/features/practice/articleTypography';
 import { useTranslation } from '@/features/practice/useTranslation';
 
 function messageFor(error: unknown): string {
@@ -51,6 +53,11 @@ function sourceLabel(sourceKind: ImportedArticleDto['sourceKind']): string {
 }
 
 export default function ArticleReadScreen() {
+  return <ReadingOverlayProvider><ArticleReadScreenContent /></ReadingOverlayProvider>;
+}
+
+function ArticleReadScreenContent() {
+  const readingOverlay = useReadingOverlay();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
@@ -126,7 +133,7 @@ export default function ArticleReadScreen() {
         <View style={styles.headerSpacer} />
       </View>
       {article ? (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView onScrollBeginDrag={() => readingOverlay?.select(null)} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]} showsVerticalScrollIndicator={false}>
           <View style={[styles.sourcePill, { backgroundColor: theme.accentSoft }]}><Ionicons name="cloud-done-outline" size={14} color={theme.accent} /><Text style={[styles.sourcePillText, { color: theme.textSecondary }]}>{sourceLabel(article.sourceKind)} · 私人文章</Text></View>
           <Text style={[styles.title, { color: theme.text }]}>{article.title}</Text>
           <Text style={[styles.meta, { color: theme.textMuted }]}>{article.wordCount} 词 · {new Date(article.importedAt).toLocaleDateString('zh-CN')}</Text>
@@ -141,6 +148,7 @@ export default function ArticleReadScreen() {
             />
           </View>
 
+          <Text style={[styles.meta, { color: theme.textMuted }]}>点按单词查词 · 长按单词翻译整句</Text>
           <View style={styles.articleBody}>
             {article.paragraphs.map((paragraph, index) => (
               <ParagraphBlock
@@ -169,6 +177,7 @@ interface ArticleTranslationControlProps {
   request: TranslationRequest;
   label: string;
   actionLabel?: string;
+  showLabel?: boolean;
   onMissingArticle: () => void;
 }
 
@@ -177,6 +186,7 @@ function ArticleTranslationControl({
   request,
   label,
   actionLabel = label,
+  showLabel = true,
   onMissingArticle,
 }: ArticleTranslationControlProps) {
   const { theme } = useAppTheme();
@@ -206,7 +216,11 @@ function ArticleTranslationControl({
       <View style={styles.translationHeader}>
         <View style={styles.translationHeading}>
           <Ionicons name="language-outline" size={18} color={theme.blue} />
-          <Text style={[styles.translationTitle, { color: theme.text }]}>{label}</Text>
+          {showLabel ? (
+            <Text style={[styles.translationTitle, { color: theme.text }]}>
+              {label}
+            </Text>
+          ) : null}
         </View>
         <TouchableOpacity
           accessibilityRole="button"
@@ -277,9 +291,11 @@ function ParagraphBlock({
           label="翻译本段"
           onMissingArticle={onMissingArticle}
           request={{ scope: 'paragraph', paragraphId }}
+          showLabel={false}
         />
       </View>
       <InteractiveWordParagraph
+        isHeading={isArticleSectionHeading(text)}
         addedWords={addedWords}
         addedWordColor={theme.accent}
         borderColor={theme.border}
@@ -304,7 +320,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 18, paddingTop: 12 },
   sourcePill: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: 12, flexDirection: 'row', gap: 5, paddingHorizontal: 9, paddingVertical: 5 },
   sourcePillText: { fontSize: 11, fontWeight: weight('medium') },
-  title: { fontSize: 27, fontWeight: weight('bold'), lineHeight: 35, marginTop: 14 },
+  title: { fontSize: 32, fontWeight: weight('bold'), lineHeight: 41, marginTop: 14 },
   meta: { fontSize: 12, marginTop: 8 },
   fullTranslationBox: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, marginTop: 22, padding: 13 },
   translationHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },

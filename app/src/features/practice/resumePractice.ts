@@ -3,6 +3,7 @@ import type { PracticeDto } from '@context-reader/contracts';
 import { getPractice } from '@/api/practices';
 
 export type PracticeDestination =
+  | 'topics'
   | 'generating'
   | 'read'
   | 'quiz'
@@ -19,6 +20,7 @@ export function preferredResumePracticeId(
 export function destinationForPractice(
   practice: PracticeDto,
 ): PracticeDestination {
+  if (practice.group) return 'topics';
   switch (practice.status) {
     case 'queued':
     case 'generating':

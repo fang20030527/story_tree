@@ -10,6 +10,7 @@ import {
   normalizeTerm,
   vocabularyFingerprint,
 } from './normalize';
+import { lockVocabulary, syncVocabularyWords } from './word-state';
 
 interface PreparedVocabularyItem {
   term: string;
@@ -26,6 +27,7 @@ export async function upsertExactVocabularyItems(
   items: readonly VocabularyInput[],
 ): Promise<string[]> {
   if (items.length === 0) return [];
+  await lockVocabulary(tx, userId);
 
   const prepared: PreparedVocabularyItem[] = items.map((item) => ({
     term: item.term.trim(),
@@ -62,6 +64,7 @@ export async function upsertExactVocabularyItems(
   const idsByFingerprint = new Map(
     activeItems.map((item) => [item.fingerprint, item.id]),
   );
+  await syncVocabularyWords(tx, userId);
 
   return prepared.map(({ fingerprint }) => {
     const id = idsByFingerprint.get(fingerprint);

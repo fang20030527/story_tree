@@ -30,6 +30,17 @@ export function countEnglishWords(value: string): number {
   return value.match(ENGLISH_WORD)?.length ?? 0;
 }
 
+export function normalizePastedContent(text: string): NormalizedImportContent {
+  // Clipboard paragraphs often use a single newline. Extracted documents can
+  // use those for visual wrapping, so preserve this distinction at ingestion.
+  const paragraphs = text
+    .replace(/&(?:#x0*(?:20|a0)|#0*(?:32|160)|nbsp);/giu, ' ')
+    .replace(/\r\n?|[\u2028\u2029]/gu, '\n')
+    .split('\n')
+    .join('\n\n');
+  return normalizeImportContent({ title: null, text: paragraphs });
+}
+
 export function normalizeImportContent(input: {
   title: string | null;
   text: string;

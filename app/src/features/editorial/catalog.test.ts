@@ -6,6 +6,42 @@ import {
 } from './catalog';
 
 describe('editorial catalog', () => {
+  it('uses unique stable IDs and complete overview/reader content', () => {
+    expect(new Set(editorialArticles.map(({ id }) => id)).size).toBe(
+      editorialArticles.length,
+    );
+    expect(editorialArticles.filter((article) => !article.issueDate).map(({ id }) => id)).toEqual([
+      'hero',
+      'ai-arms-race',
+      'deepmind-robot-brains',
+      'new-cat-species',
+      'food-waste-recycling',
+      'secret-agent-sketchbook',
+      'viking-word-independence',
+
+    ]);
+    for (const article of editorialArticles) {
+      expect(article.titleZh).not.toHaveLength(0);
+      expect(article.titleEn).not.toHaveLength(0);
+      expect(article.summaryZh).not.toHaveLength(0);
+      expect(article.keyPointsZh.length).toBeGreaterThanOrEqual(2);
+      expect(article.bodyBlocks?.length ?? article.paragraphs.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('retrieves sections and searches title, source, and category', () => {
+    expect(getEditorialArticle('hero')?.source).toBe('BBC Future');
+    expect(getEditorialArticle('missing')).toBeUndefined();
+    expect(getEditorialSection('today').map(({ id }) => id)).toEqual(['hero']);
+    expect(getEditorialSection('featured').filter((article) => !article.issueDate).map(({ id }) => id)).toEqual(["ai-arms-race", "deepmind-robot-brains", "new-cat-species", "food-waste-recycling", "secret-agent-sketchbook", "viking-word-independence"]);
+    expect(searchEditorialArticles('自然').map(({ id }) => id)).toContain('hero');
+    expect(searchEditorialArticles('bbc future').map(({ id }) => id)).toContain(
+      'hero',
+    );
+    expect(getEditorialArticle('a1')).toBeUndefined();
+    expect(searchEditorialArticles('   ')).toEqual(editorialArticles);
+  });
+});
   it('includes every entry of the September 19 issue, including image-only indicators', () => {
     const issue = getEditorialSection('featured').filter((article) => article.issueDate === '2026-09-19');
     expect(issue).toHaveLength(76);
@@ -21,48 +57,3 @@ describe('editorial catalog', () => {
       expect(article.paragraphs.join(' ')).not.toContain('This article was downloaded by');
     }
   });
-
-  it('uses unique stable IDs and complete overview/reader content', () => {
-    expect(new Set(editorialArticles.map(({ id }) => id)).size).toBe(
-      editorialArticles.length,
-    );
-    expect(editorialArticles.filter((article) => !article.issueDate).map(({ id }) => id)).toEqual([
-      'hero',
-      'a1',
-      'a2',
-      'a3',
-      'a4',
-      'n1',
-      'n2',
-      'k1',
-      'k2',
-    ]);
-    for (const article of editorialArticles) {
-      expect(article.titleZh).not.toHaveLength(0);
-      expect(article.titleEn).not.toHaveLength(0);
-      expect(article.summaryZh).not.toHaveLength(0);
-      expect(article.keyPointsZh.length).toBeGreaterThanOrEqual(2);
-      expect(article.bodyBlocks?.length ?? article.paragraphs.length).toBeGreaterThanOrEqual(2);
-    }
-  });
-
-  it('retrieves sections and searches title, source, and category', () => {
-    expect(getEditorialArticle('hero')?.source).toBe('The Guardian');
-    expect(getEditorialArticle('missing')).toBeUndefined();
-    expect(getEditorialSection('today').map(({ id }) => id)).toEqual(['hero']);
-    expect(getEditorialSection('featured').slice(0, 4).map(({ id }) => id)).toEqual([
-      'a1',
-      'a2',
-      'a3',
-      'a4',
-    ]);
-    expect(getEditorialSection('daily').map(({ id }) => id)).toEqual(['n1', 'n2']);
-    expect(getEditorialSection('kids').map(({ id }) => id)).toEqual(['k1', 'k2']);
-    expect(searchEditorialArticles('科技').map(({ id }) => id)).toContain('a1');
-    expect(searchEditorialArticles('the atlantic').map(({ id }) => id)).toContain(
-      'a2',
-    );
-    expect(searchEditorialArticles('动物').map(({ id }) => id)).toContain('a4');
-    expect(searchEditorialArticles('   ')).toEqual(editorialArticles);
-  });
-});

@@ -149,7 +149,21 @@ async function throwPublicResponseError(
   response: Response,
   token: string,
 ): Promise<never> {
-  throw redactApiError(ApiError.fromUnknown(await readJson(response)), token);
+  let error: ApiError;
+  try {
+    error = ApiError.fromUnknown(await readJson(response));
+  } catch {
+    error = invalidServerResponse();
+  }
+  // Proxies may return HTML instead of our JSON error envelope.
+  if (error.code === 'INVALID_SERVER_RESPONSE') {
+    if (response.status >= 500) {
+      error = new ApiError('SERVER_UNAVAILABLE', '服务暂时不可用，请稍后重试', true);
+    } else if (response.status === 429) {
+      error = new ApiError('RATE_LIMITED', '请求过于频繁，请稍后重试', true);
+    }
+  }
+  throw redactApiError(error, token);
 }
 
 function redactApiError(error: ApiError, secret: string): ApiError {

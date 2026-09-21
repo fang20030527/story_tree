@@ -21,6 +21,28 @@ import {
 } from './generation-handler';
 
 describe('practice generation', () => {
+  it('revises rejected content using review feedback before publishing', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const user = await registerAnonymous(db, '79'.repeat(32), true);
+      const created = await createPractice(db, {
+        userId: user.userId, idempotencyKey: 'generation-revision-0001',
+        items: [{ term: 'resilient', meaningZh: '有韧性的' }],
+        freeLimit: 3, generationDeadlineMs: 120_000,
+      });
+      const job = await claimNextJob(db, 'revision-worker', 120_000, ['practice_generation']);
+      const provider = new FakeAiProvider();
+      const generate = vi.spyOn(provider, 'generatePractice');
+      const verify = vi.spyOn(provider, 'verifyPractice')
+        .mockResolvedValueOnce({ approved: false, issues: ['Make the distractors unambiguous.'] })
+        .mockResolvedValueOnce({ approved: true, issues: [] });
+      await handlePracticeGeneration({ db, provider, modelName: 'fake' }, job!, { signal: new AbortController().signal });
+      expect(generate).toHaveBeenCalledTimes(2);
+      expect(generate.mock.calls[1]![0].revision?.issues).toEqual(['Make the distractors unambiguous.']);
+      expect(verify).toHaveBeenCalledTimes(2);
+      expect(await practiceState(db, created.practiceId)).toBe('ready');
+    });
+  }, 120_000);
+
   it('persists one immutable validated artifact and commits reserved quota', async () => {
     await withTestDatabase(async ({ db }) => {
       const user = await registerAnonymous(db, '71'.repeat(32), true);
@@ -64,7 +86,7 @@ describe('practice generation', () => {
       expect(practice).toMatchObject({
         status: 'ready',
         modelName: 'fake-ielts-v1',
-        promptVersion: 'ielts-generation-v1',
+        promptVersion: 'ielts-generation-english-cloze-v3',
       });
       expect(practice?.articleWordCount).toBeGreaterThanOrEqual(700);
       expect(practice?.articleWordCount).toBeLessThanOrEqual(1_000);
@@ -125,7 +147,8 @@ describe('practice generation', () => {
         const job = await claimNextJob(
           db,
           `${label}-worker`,
-          60_000,
+          // Keep earlier failed scenarios leased until this multi-scenario test ends.
+          180_000,
           ['practice_generation'],
         );
         expect(job?.resourceId).toBe(created.practiceId);

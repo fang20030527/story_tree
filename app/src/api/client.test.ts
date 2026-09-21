@@ -94,6 +94,12 @@ describe('API client', () => {
     });
   });
 
+  it('reports an HTML gateway failure as temporarily unavailable', async () => {
+    mockedGetInstallationToken.mockResolvedValue('ab'.repeat(32));
+    fetchMock.mockResolvedValue({ ok: false, status: 502, json: jest.fn().mockRejectedValue(new SyntaxError('HTML')) });
+    await expect(registerAnonymous(true)).rejects.toMatchObject({ code: 'SERVER_UNAVAILABLE', retryable: true });
+  });
+
   it('accepts an authenticated 204 response without parsing JSON', async () => {
     mockedGetInstallationToken.mockResolvedValue('ab'.repeat(32));
     const json = jest.fn();
@@ -232,6 +238,33 @@ describe('API client', () => {
     expect(sentKeys).toEqual([idempotencyKey, idempotencyKey]);
   });
 
+  it('requests a server-side random vocabulary selection with an adjustable count', async () => {
+    mockedGetInstallationToken.mockResolvedValue('fb'.repeat(32));
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 202,
+      json: jest.fn().mockResolvedValue({
+        practiceId: '34343434-3434-4434-8434-343434343434',
+        status: 'queued',
+        remainingFreePractices: 2,
+        pollAfterMs: 1_500,
+      }),
+    });
+    const request = { source: 'vocabulary' as const, targetCount: 16 };
+
+    await expect(
+      createPractice(request, 'random_vocabulary_key_123'),
+    ).resolves.toMatchObject({ status: 'queued' });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.example.test/v1/practices',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
+    );
+  });
+
   it('loads a practice through its validated durable resource route', async () => {
     mockedGetInstallationToken.mockResolvedValue('0b'.repeat(32));
     const practiceId = '44444444-4444-4444-8444-444444444444';
@@ -356,34 +389,19 @@ describe('API client', () => {
     );
   });
 
-  it('looks up a selected word with its reading context', async () => {
-    mockedGetInstallationToken.mockResolvedValue('3f'.repeat(32));
+  it('looks up a selected word locally without authentication or a translation request', async () => {
     const request = {
       term: 'resilient',
       context: 'A resilient reader updates context.',
     };
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: jest.fn().mockResolvedValue({
-        term: request.term,
-        partOfSpeech: '形容词',
-        meaningZh: '有韧性的；能复原的',
-      }),
-    });
-
-    await expect(requestWordTranslation(request)).resolves.toEqual({
+    await expect(requestWordTranslation(request)).resolves.toMatchObject({
       term: request.term,
-      partOfSpeech: '形容词',
-      meaningZh: '有韧性的；能复原的',
+      partOfSpeech: 'adj.',
+      meaningZh: expect.stringContaining('有弹性的'),
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.example.test/v1/word-translations',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify(request),
-      }),
-    );
+    await expect(requestWordTranslation({ term: 'zzmissingwordzz' })).rejects.toThrow('本地词典未收录这个词');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mockedGetInstallationToken).not.toHaveBeenCalled();
   });
 
   it('saves a selected word as an idempotent vocabulary item', async () => {
@@ -495,6 +513,9 @@ describe('API client', () => {
         incompletePracticeId: null,
         vocabularyCount: 4,
         reviewingCount: 2,
+        dueLearningCount: 2,
+        unlearnedCount: 1,
+        todayAddedCount: 1,
         completedPracticeCount: 1,
         remainingFreePractices: 2,
       }),
@@ -504,11 +525,14 @@ describe('API client', () => {
       incompletePracticeId: null,
       vocabularyCount: 4,
       reviewingCount: 2,
+      dueLearningCount: 2,
+      unlearnedCount: 1,
+      todayAddedCount: 1,
       completedPracticeCount: 1,
       remainingFreePractices: 2,
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.example.test/v1/dashboard',
+      `https://api.example.test/v1/dashboard?${new URLSearchParams({ timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }).toString()}`,
       expect.objectContaining({}),
     );
   });

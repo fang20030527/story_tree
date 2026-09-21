@@ -384,7 +384,7 @@ extractArticleText(
 
 The EvoLink implementation uses a user content array containing an OCR instruction and ordered `image_url` data URIs. Response parsing goes through a strict schema. It rejects blank output and does not accept model-supplied word counts, hashes, source URLs, or ownership fields.
 
-The fake provider produces deterministic OCR text for tests. The real-provider smoke test uses a small synthetic image containing non-copyright test prose and prints only status, counts, model, and timing.
+The fake provider produces deterministic OCR text for tests. The real-provider smoke test uses a small synthetic image containing test prose and prints only status, counts, model, and timing.
 
 Official EvoLink references used for this design:
 

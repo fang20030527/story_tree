@@ -64,6 +64,7 @@ interface BuildAppOptions {
   readinessTimeoutMs?: number;
   securityLimits?: Partial<SecurityLimits>;
   wechatClient?: WechatClient;
+  sentenceTranslationProvider?: Pick<AiProvider, 'translate'>;
   wordTranslationProvider?: Pick<AiProvider, 'lookupWord'>;
 }
 
@@ -144,6 +145,9 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   app.register(translationRoutes, {
     config: options.config,
     db: options.db,
+    ...(options.sentenceTranslationProvider
+      ? { sentenceProvider: options.sentenceTranslationProvider }
+      : {}),
     ...(options.wordTranslationProvider
       ? { wordProvider: options.wordTranslationProvider }
       : {}),

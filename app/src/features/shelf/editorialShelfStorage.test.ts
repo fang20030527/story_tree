@@ -49,7 +49,7 @@ describe('editorial shelf storage', () => {
       JSON.stringify([
         { articleId: 'hero', addedAt: '2026-09-10T08:00:00.000Z' },
         { articleId: 'missing', addedAt: '2026-09-12T08:00:00.000Z' },
-        { articleId: 'a1', addedAt: '2026-09-11T08:00:00.000Z' },
+        { articleId: 'n1', addedAt: '2026-09-11T08:00:00.000Z' },
         { articleId: 'hero', addedAt: '2026-09-09T08:00:00.000Z' },
         { articleId: 'a2', addedAt: 'not-a-date' },
         { nope: true },
@@ -57,7 +57,6 @@ describe('editorial shelf storage', () => {
     );
 
     expect(await loadEditorialShelf()).toEqual([
-      { articleId: 'a1', addedAt: '2026-09-11T08:00:00.000Z' },
       { articleId: 'hero', addedAt: '2026-09-10T08:00:00.000Z' },
     ]);
   });

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { SharedArticleUrlSchema } from '@context-reader/contracts';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
@@ -359,7 +360,12 @@ export default function ImportScreen() {
     try {
       const sourceKind = SERVER_IMPORT_KIND[source.id as Exclude<SourceId, 'computer'>];
       if (sourceKind === 'url') {
-        const importId = await ensureCreated({ sourceKind, url: url.trim() });
+        const parsedUrl = SharedArticleUrlSchema.safeParse(url);
+        if (!parsedUrl.success) {
+          setMessage(parsedUrl.error.issues[0]?.message ?? '请粘贴一条完整的文章链接');
+          return;
+        }
+        const importId = await ensureCreated({ sourceKind, url: parsedUrl.data });
         await goToProcessing(importId);
         return;
       }
@@ -473,12 +479,12 @@ export default function ImportScreen() {
                 autoCorrect={false}
                 keyboardType="url"
                 onChangeText={setUrl}
-                placeholder="https://example.com/article"
+                placeholder="粘贴文章链接或 App 分享内容"
                 placeholderTextColor={theme.textMuted}
                 style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
                 value={url}
               />
-              <Text style={[styles.helper, { color: theme.textMuted }]}>仅支持无需登录、可公开访问的网页；读取失败时可改用粘贴正文。</Text>
+              <Text style={[styles.helper, { color: theme.textMuted }]}>可直接粘贴含标题的分享内容。需要登录或购买的文章，请在原 App 中复制英文正文或截图导入。</Text>
             </View>
           ) : null}
 

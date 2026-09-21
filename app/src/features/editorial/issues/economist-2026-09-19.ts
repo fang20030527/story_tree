@@ -135,6 +135,7 @@ const images: Record<string, number> = {
 export const economistSeptember19: EditorialArticle[] = entries.map<EditorialArticle>((entry) => ({
   ...entry,
   section: 'featured',
+  hasAudio: false,
   image: images[entry.image]!,
   bodyBlocks: entry.bodyBlocks.map((block) => block.type === "image"
     ? { type: "image", image: images[block.asset!]!, width: block.width!, height: block.height! }

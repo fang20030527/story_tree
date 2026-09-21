@@ -37,13 +37,13 @@ describe('EvoLink AI provider', () => {
       (requestBody.messages as Array<{ content: string }>)[0]?.content,
     );
     expect(systemPrompt).toContain(
-      '"paragraphs":[{"key":"p1","text":"..."}]',
+      '"paragraphs":[{"key":"p1","text":"..."},{"key":"p2","text":"..."}',
     );
     expect(systemPrompt).toContain(
       '"usages":[{"targetAlias":"t1","paragraphKey":"p1","surfaceForm":"..."}]',
     );
     expect(systemPrompt).toContain(
-      '"questions":[{"targetAlias":"t1","prompt":"...","optionsZh":["...","...","...","..."],"meaningEn":"...","explanationZh":"...","optionExplanationsZh":["...","...","...","..."]}]',
+      '"questions":[{"targetAlias":"t1","prompt":"...","optionsEn":["...","...","...","..."],"correctOptionIndex":0,"meaningEn":"...","explanationEn":"...","optionExplanationsEn":["...","...","...","..."]}]',
     );
     expect(systemPrompt).toContain(
       'Return exactly seven paragraphs with keys p1 through p7.',
@@ -54,6 +54,48 @@ describe('EvoLink AI provider', () => {
     expect(systemPrompt).toContain(
       'The combined article must contain 735-945 English words.',
     );
+  });
+
+  it('repairs malformed generation with field feedback and still validates the result', async () => {
+    const malformed = { ...generatedPractice(), questions: [{ ...generatedPractice().questions[0], optionsEn: ['one'] }] };
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: JSON.stringify(malformed) } }] }))
+      .mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: JSON.stringify(generatedPractice()) } }] }));
+    await expect(createProvider(fetchImpl).generatePractice({ examPath: 'ielts', targets: [] }, new AbortController().signal)).resolves.toEqual(generatedPractice());
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const correction = JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body));
+    expect(correction.messages[3].content).toContain('optionsEn');
+    expect(correction.messages[3].content).toContain('too_small');
+  });
+
+  it('stops after one correction if the generated structure is still invalid', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => jsonResponse({ choices: [{ message: { content: '{"title":null}' } }] }));
+    await expect(createProvider(fetchImpl).generatePractice({ examPath: 'ielts', targets: [] }, new AbortController().signal)).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT' });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('scales the output budget instead of imposing a fixed target-count ceiling', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({
+        model: config.textModel,
+        choices: [{ message: { content: JSON.stringify(generatedPractice()) } }],
+      }),
+    );
+    const provider = createProvider(fetchImpl);
+
+    await provider.generatePractice(
+      {
+        examPath: 'ielts',
+        targets: Array.from({ length: 100 }, (_, index) => ({
+          alias: `t${index + 1}`,
+          term: `term-${index + 1}`,
+          meaningZh: `义项 ${index + 1}`,
+        })),
+      },
+      new AbortController().signal,
+    );
+
+    expect(requestJson(fetchImpl).max_completion_tokens).toBe(25_000);
   });
 
   it('uses the dedicated vision model, timeout, and strict multimodal JSON request', async () => {
@@ -143,7 +185,7 @@ describe('EvoLink AI provider', () => {
     expect(requestBody).toMatchObject({
       model: config.textModel,
       stream: false,
-      max_completion_tokens: 200,
+      max_completion_tokens: 400,
       reasoning_effort: 'low',
     });
     const messages = requestBody.messages as Array<{ role: string; content: string }>;
@@ -155,7 +197,7 @@ describe('EvoLink AI provider', () => {
     });
   });
 
-  it('parses a structured part-of-speech and meaning response', async () => {
+  it('parses a structured dictionary response including both IPA transcriptions', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({
         model: config.textModel,
@@ -164,6 +206,8 @@ describe('EvoLink AI provider', () => {
             content: JSON.stringify({
               partOfSpeech: '形容词',
               meaningZh: '有韧性的；能复原的',
+              phoneticUk: '/rɪˈzɪliənt/',
+              phoneticUs: '/rɪˈzɪliənt/',
             }),
           },
         }],
@@ -179,6 +223,8 @@ describe('EvoLink AI provider', () => {
     ).resolves.toEqual({
       partOfSpeech: '形容词',
       meaningZh: '有韧性的；能复原的',
+      phoneticUk: '/rɪˈzɪliənt/',
+      phoneticUs: '/rɪˈzɪliənt/',
     });
 
     const requestBody = requestJson(fetchImpl);
@@ -237,15 +283,16 @@ function generatedPractice() {
     questions: [
       {
         targetAlias: 't1',
-        prompt: 'What does the word mean here?',
-        optionsZh: ['脆弱的', '有韧性的', '短暂的', '含糊的'],
+        prompt: 'Despite repeated setbacks, the team remained ____ and quickly recovered.',
+        optionsEn: ['fragile', 'resilient', 'temporary', 'ambiguous'],
+        correctOptionIndex: 1,
         meaningEn: 'able to recover',
-        explanationZh: '上下文强调恢复能力。',
-        optionExplanationsZh: [
-          '含义相反。',
-          '符合语境。',
-          '与语境无关。',
-          '与语境无关。',
+        explanationEn: 'The ability to recover after setbacks shows resilience.',
+        optionExplanationsEn: [
+          'Suggests weakness.',
+          'Fits recovery.',
+          'Does not describe recovery.',
+          'Does not describe recovery.',
         ],
       },
     ],

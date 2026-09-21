@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export { abbreviatePartOfSpeech } from './part-of-speech';
+
 export const UuidSchema = z.uuid();
 
 export const AnonymousAuthRequestSchema = z
@@ -72,15 +74,29 @@ export const VocabularyInputSchema = z
   .object({
     term: z.string().trim().min(1).max(80),
     meaningZh: z.string().trim().min(1).max(200),
-    sourceSentence: z.string().trim().min(1).max(1_000).optional(),
+    sourceSentence: z.string().trim().min(1).max(10_000).optional(),
   })
   .strict();
 
-export const CreatePracticeRequestSchema = z
+export const CreatePracticeWithItemsRequestSchema = z
   .object({
     items: z.array(VocabularyInputSchema).min(1).max(10),
+    format: z.literal('topic_set').optional(),
   })
   .strict();
+
+export const CreatePracticeFromVocabularyRequestSchema = z
+  .object({
+    source: z.literal('vocabulary'),
+    format: z.literal('topic_set').optional(),
+    targetCount: z.number().int().positive().default(10),
+  })
+  .strict();
+
+export const CreatePracticeRequestSchema = z.union([
+  CreatePracticeWithItemsRequestSchema,
+  CreatePracticeFromVocabularyRequestSchema,
+]);
 
 export const CreatePracticeAcceptedSchema = z
   .object({
@@ -174,8 +190,26 @@ export const PublicQuestionSchema = z
   })
   .strict();
 
+export const PracticeTopicSchema = z.enum([
+  '经济', '文化', '政治', '科技', '教育', '环境', '社会',
+]);
+export type PracticeTopic = z.infer<typeof PracticeTopicSchema>;
+
+export const PracticeGroupSchema = z.object({
+  id: UuidSchema,
+  articles: z.array(z.object({
+    id: UuidSchema,
+    topic: PracticeTopicSchema,
+    status: PracticeStatusSchema,
+    title: z.string().nullable(),
+    wordCount: z.number().int().positive().nullable(),
+    failureMessage: z.string().nullable(),
+  }).strict()).length(4),
+}).strict();
+
 export const PracticeDtoSchema = z
   .object({
+    group: PracticeGroupSchema.optional(),
     id: UuidSchema,
     status: PracticeStatusSchema,
     modelName: z.string().nullable(),
@@ -224,6 +258,7 @@ export const AssistanceResponseSchema = z
   .object({
     recorded: z.literal(true),
     hintMeaningZh: z.string().nullable(),
+    sourceSentence: z.string().nullable().optional(),
   })
   .strict();
 
@@ -245,6 +280,8 @@ export const WordTranslationResultSchema = z
   .object({
     partOfSpeech: z.string().trim().min(1).max(40),
     meaningZh: z.string().trim().min(1).max(200),
+    phoneticUk: z.string().trim().min(1).max(200).nullable().optional(),
+    phoneticUs: z.string().trim().min(1).max(200).nullable().optional(),
   })
   .strict();
 
@@ -252,6 +289,7 @@ export const WordTranslationDtoSchema = z
   .object({
     term: z.string().trim().min(1).max(80),
     ...WordTranslationResultSchema.shape,
+    savedSourceSentence: z.string().nullable().optional(),
   })
   .strict();
 
@@ -366,13 +404,32 @@ const LocalFileAssetsSchema = z
     }
   });
 
+// Sharing apps often copy a title and description together with the URL.
+export const SharedArticleUrlSchema = z.string().trim().max(8_192)
+  .transform((value, context) => {
+    const candidates = [...new Set(
+      (value.replace(/\[[^\]\n]*\]\((https?:\/\/[^\s]+)\)/giu, '$1')
+        .match(/https?:\/\/[^\s<>"“”「」【】]+/giu) ?? [])
+        .map((candidate) => candidate.replace(/[，。！？；、）】》」”]+$/gu, '')),
+    )];
+    if (candidates.length !== 1) {
+      context.addIssue({ code: 'custom', message: '请粘贴一条完整的 http 或 https 文章链接' });
+      return z.NEVER;
+    }
+    return candidates[0]!;
+  })
+  .pipe(z.url().max(2_048).refine((value) => {
+    const url = new URL(value);
+    return /^https?:$/u.test(url.protocol) && !url.username && !url.password;
+  }, '请使用无需账号密码的 http 或 https 链接'));
+
 export const CreateArticleImportRequestSchema = z.discriminatedUnion(
   'sourceKind',
   [
     z
       .object({
         sourceKind: z.literal('url'),
-        url: z.url().max(2_048),
+        url: SharedArticleUrlSchema,
       })
       .strict(),
     z.object({ sourceKind: z.literal('paste') }).strict(),
@@ -572,11 +629,79 @@ export const VocabularyPageSchema = z
   })
   .strict();
 
+export const VocabularyTimeZoneSchema = z.string().trim().min(1).max(64).refine((value) => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}, '时区格式无效');
+
+export const VocabularyWordFilterSchema = z.enum([
+  'all',
+  'due',
+  'scheduled',
+  'today',
+  'learning',
+  'unlearned',
+  'mastered',
+]);
+export const VocabularyWordSchema = z.object({
+  wordId: UuidSchema,
+  term: z.string(),
+  meaningZh: z.string(),
+  sourceSentence: z.string().nullable(),
+  contextCount: z.number().int().positive(),
+  reviewReason: z.enum(['new', 'relearn', 'due', 'scheduled']),
+  nextReviewAt: z.iso.datetime(),
+  practiceCount: z.number().int().nonnegative(),
+  independentCorrectCount: z.number().int().nonnegative(),
+  assistedCount: z.number().int().nonnegative(),
+  lastPracticedAt: z.iso.datetime().nullable(),
+  masteredAt: z.iso.datetime().nullable(),
+}).strict();
+export const VocabularyWordPageSchema = z.object({
+  items: z.array(VocabularyWordSchema),
+  nextCursor: z.string().nullable(),
+  evaluatedAt: z.iso.datetime(),
+  nextRefreshAt: z.iso.datetime().nullable(),
+  summary: z.object({
+    totalCount: z.number().int().nonnegative(),
+    todayCount: z.number().int().nonnegative(),
+    learningCount: z.number().int().nonnegative(),
+    dueLearningCount: z.number().int().nonnegative(),
+    unlearnedCount: z.number().int().nonnegative(),
+    masteredCount: z.number().int().nonnegative(),
+  }).strict(),
+}).strict();
+export const VocabularyWordContextsSchema = z.object({
+  wordId: UuidSchema,
+  contexts: z.array(z.object({
+    id: UuidSchema,
+    meaningZh: z.string(),
+    sourceSentence: z.string().nullable(),
+  }).strict()),
+}).strict();
+export const VocabularyWordMasterySchema = z.object({
+  wordId: UuidSchema,
+  masteredAt: z.iso.datetime().nullable(),
+}).strict();
+export type VocabularyWordFilter = z.infer<typeof VocabularyWordFilterSchema>;
+export type VocabularyWord = z.infer<typeof VocabularyWordSchema>;
+export type VocabularyWordPage = z.infer<typeof VocabularyWordPageSchema>;
+export type VocabularyWordContexts = z.infer<typeof VocabularyWordContextsSchema>;
+export type VocabularyWordMastery = z.infer<typeof VocabularyWordMasterySchema>;
+
 export const DashboardDtoSchema = z
   .object({
     incompletePracticeId: UuidSchema.nullable(),
     vocabularyCount: z.number().int().nonnegative(),
+    /** @deprecated 使用 dueLearningCount；旧客户端仍读取该字段。 */
     reviewingCount: z.number().int().nonnegative(),
+    dueLearningCount: z.number().int().nonnegative(),
+    unlearnedCount: z.number().int().nonnegative(),
+    todayAddedCount: z.number().int().nonnegative(),
     completedPracticeCount: z.number().int().nonnegative(),
     remainingFreePractices: z.number().int().nonnegative(),
   })
@@ -587,6 +712,12 @@ export type AnonymousAuthRequest = z.infer<typeof AnonymousAuthRequestSchema>;
 export type AnonymousAuthResponse = z.infer<typeof AnonymousAuthResponseSchema>;
 export type VocabularyStatus = z.infer<typeof VocabularyStatusSchema>;
 export type VocabularyInput = z.infer<typeof VocabularyInputSchema>;
+export type CreatePracticeWithItemsRequest = z.infer<
+  typeof CreatePracticeWithItemsRequestSchema
+>;
+export type CreatePracticeFromVocabularyRequest = z.infer<
+  typeof CreatePracticeFromVocabularyRequestSchema
+>;
 export type CreatePracticeRequest = z.infer<typeof CreatePracticeRequestSchema>;
 export type CreatePracticeAccepted = z.infer<typeof CreatePracticeAcceptedSchema>;
 export type PublicError = z.infer<typeof PublicErrorSchema>;
@@ -641,3 +772,11 @@ export type DashboardDto = z.infer<typeof DashboardDtoSchema>;
 export type PublicQuestion = z.infer<typeof PublicQuestionSchema>;
 export type ArticleSegment = z.infer<typeof ArticleSegmentSchema>;
 export type ArticleParagraph = z.infer<typeof ArticleParagraphSchema>;
+
+export const SentenceTranslationRequestSchema = z.object({
+  text: z.string().trim().min(1).max(10_000),
+}).strict();
+
+export const SentenceTranslationDtoSchema = z.object({
+  translatedTextZh: z.string().trim().min(1),
+}).strict();

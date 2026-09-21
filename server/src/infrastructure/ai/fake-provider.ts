@@ -48,7 +48,7 @@ export class FakeAiProvider implements AiProvider {
       (total, surface) => total + words(surface),
       0,
     );
-    const fillerWordCount = Math.max(0, 760 - targetWordCount);
+    const fillerWordCount = Math.max(0, (input.topic ? 250 : 760) - targetWordCount);
     const targetsByParagraph = Array.from({ length: 3 }, () => [] as number[]);
     input.targets.forEach((_target, index) => {
       targetsByParagraph[index % 3]!.push(index);
@@ -69,7 +69,7 @@ export class FakeAiProvider implements AiProvider {
     });
 
     return GeneratedPracticeSchema.parse({
-      title: 'A Measured Study of Everyday Learning',
+      title: input.topic ? `${input.topic}: A Measured Study` : 'A Measured Study of Everyday Learning',
       paragraphs,
       usages: input.targets.map((target, index) => ({
         targetAlias: target.alias,
@@ -77,15 +77,16 @@ export class FakeAiProvider implements AiProvider {
         surfaceForm: surfaces[index],
       })),
       questions: input.targets.map((target, index) => {
-        const optionsZh = createOptions(target.meaningZh, index);
+        const optionsEn = createOptions(target.term, index);
         return {
           targetAlias: target.alias,
-          prompt: `${target.term} 在本文语境中的含义是什么？`,
-          optionsZh,
+          prompt: 'For this synthetic vocabulary exercise, choose ____ to complete the example.',
+          optionsEn,
+          correctOptionIndex: optionsEn.indexOf(target.term),
           meaningEn: `${target.term} in its intended context`,
-          explanationZh: `本文语境对应“${target.meaningZh}”。`,
-          optionExplanationsZh: optionsZh.map((option) =>
-            option === target.meaningZh ? '符合本文语境。' : '不符合本文语境。',
+          explanationEn: 'This is synthetic test feedback for the intended usage.',
+          optionExplanationsEn: optionsEn.map((option) =>
+            option === target.term ? 'Fits the intended context.' : 'Does not fit the intended context.',
           ),
         };
       }),
@@ -159,9 +160,9 @@ function selectFiller(surfaces: string[]): string {
   );
 }
 
-function createOptions(meaningZh: string, index: number): string[] {
-  const distractors = ['无关义项甲', '无关义项乙', '无关义项丙', '无关义项丁'];
-  const options = [meaningZh];
+function createOptions(term: string, index: number): string[] {
+  const distractors = ['fragile', 'temporary', 'unclear', 'careless'];
+  const options = [term];
   for (const distractor of distractors) {
     if (!options.includes(distractor)) options.push(distractor);
     if (options.length === 4) break;

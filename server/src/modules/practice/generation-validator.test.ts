@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { FakeAiProvider } from '../../infrastructure/ai/fake-provider';
+import { generationMessages, verificationMessages } from '../../infrastructure/ai/prompts';
+
 import type { GeneratedPractice } from '../../infrastructure/ai/generated-schemas';
 import {
   segmentParagraph,
@@ -14,6 +17,24 @@ const target: GenerationTarget = {
 };
 
 describe('generated practice validation', () => {
+  it('enforces 200–300 words for topic articles and retains legacy long validation', async () => {
+    const input = { examPath: 'ielts' as const, topic: '科技' as const, targets: [{ alias: 't1', term: 'resilient', meaningZh: target.meaningZh }] };
+    const generated = await new FakeAiProvider().generatePractice(input, new AbortController().signal);
+    expect(validateGeneratedPractice(generated, [target], 'short').wordCount).toBe(250);
+    expect(() => validateGeneratedPractice(generated, [target])).toThrow();
+    expect(generationMessages(input)[0]!.content).toContain('200-300');
+    expect(generationMessages(input)[0]!.content).toContain('科技');
+    expect(verificationMessages({ ...input, generated })[0]!.content).toContain('科技');
+    for (const count of [199, 301]) {
+      const altered = structuredClone(generated);
+      altered.paragraphs = [
+        { key: 'p1', text: `resilient ${'study '.repeat(count - 3)}` },
+        { key: 'p2', text: 'study' }, { key: 'p3', text: 'study' },
+      ];
+      expect(() => validateGeneratedPractice(altered, [target], 'short')).toThrow();
+    }
+  });
+
   it('maps exact target usages and supplied meanings into safe persistence data', () => {
     const generated = validGeneratedPractice();
 
@@ -41,10 +62,21 @@ describe('generated practice validation', () => {
     ['missing question alias', (value: GeneratedPractice) => value.questions.splice(0, 1)],
     ['duplicate question alias', (value: GeneratedPractice) => value.questions.push(value.questions[0]!)],
     ['duplicate options', (value: GeneratedPractice) => {
-      value.questions[0]!.optionsZh[2] = value.questions[0]!.optionsZh[1]!;
+      value.questions[0]!.optionsEn[2] = value.questions[0]!.optionsEn[1]!;
     }],
-    ['missing supplied meaning', (value: GeneratedPractice) => {
-      value.questions[0]!.optionsZh[1] = '并非给定义项';
+    ['Chinese option', (value: GeneratedPractice) => {
+      value.questions[0]!.optionsEn[1] = '并非给定义项';
+    }],
+    ['Chinese prompt', (value: GeneratedPractice) => { value.questions[0]!.prompt = '选择 ____。'; }],
+    ['Chinese explanation', (value: GeneratedPractice) => { value.questions[0]!.explanationEn = '这是正确答案。'; }],
+    ['missing blank', (value: GeneratedPractice) => { value.questions[0]!.prompt = 'Which word fits?'; }],
+    ['multiple blanks', (value: GeneratedPractice) => { value.questions[0]!.prompt = 'The ____ team remained ____.'; }],
+    ['invalid answer index', (value: GeneratedPractice) => { value.questions[0]!.correctOptionIndex = 4; }],
+    ['fractional answer index', (value: GeneratedPractice) => { value.questions[0]!.correctOptionIndex = 1.5; }],
+    ['answer leaked in prompt', (value: GeneratedPractice) => { value.questions[0]!.prompt = 'A resilient team is ____.'; }],
+    ['case-insensitive duplicate', (value: GeneratedPractice) => { value.questions[0]!.optionsEn[0] = ' RESILIENT '; }],
+    ['copied article sentence', (value: GeneratedPractice) => {
+      value.paragraphs[0]!.text = value.paragraphs[0]!.text.replace('resilient', 'Despite repeated setbacks, the team remained resilient and quickly recovered.');
     }],
     ['too few words', (value: GeneratedPractice) => {
       value.paragraphs[0]!.text = `resilient ${'study '.repeat(200)}`;
@@ -86,10 +118,11 @@ describe('generated practice validation', () => {
     generated.questions.push({
       targetAlias: 't2',
       prompt: 'What does the partial form mean?',
-      optionsZh: ['无关甲', '局部词形', '无关乙', '无关丙'],
+      optionsEn: ['fragile', 'silient', 'temporary', 'ambiguous'],
+      correctOptionIndex: 1,
       meaningEn: 'a partial surface',
-      explanationZh: '测试重叠范围。',
-      optionExplanationsZh: ['不符合。', '符合。', '不符合。', '不符合。'],
+      explanationEn: '测试重叠范围。',
+      optionExplanationsEn: ['不符合。', '符合。', '不符合。', '不符合。'],
     });
 
     expect(() =>
@@ -126,11 +159,12 @@ function validGeneratedPractice(): GeneratedPractice {
     questions: [
       {
         targetAlias: 't1',
-        prompt: 'What does resilient mean here?',
-        optionsZh: ['脆弱的', '有韧性的', '短暂的', '含糊的'],
+        prompt: 'Despite repeated setbacks, the team remained ____ and quickly recovered.',
+        optionsEn: ['fragile', 'resilient', 'temporary', 'ambiguous'],
+        correctOptionIndex: 1,
         meaningEn: 'able to recover',
-        explanationZh: '上下文强调恢复能力。',
-        optionExplanationsZh: ['相反含义。', '符合语境。', '无关含义。', '无关含义。'],
+        explanationEn: 'The ability to recover after setbacks shows resilience.',
+        optionExplanationsEn: ['Suggests weakness.', 'Fits recovery.', 'Describes duration.', 'Describes uncertainty.'],
       },
     ],
   };

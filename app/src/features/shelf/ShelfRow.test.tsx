@@ -28,7 +28,7 @@ const importedItem: ShelfItem = {
 };
 
 it.each([
-  [editorialItem, '移出书架', 'The Guardian', '年度最治愈直播：看瑞典北部驼鹿迁徙'],
+  [editorialItem, '移出书架', 'BBC Future', '拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母'],
   [importedItem, '删除文章', '粘贴正文', 'Private article'],
 ] as const)('renders and dispatches the %s row', async (item, action, meta, title) => {
   const onOpen = jest.fn();
@@ -49,3 +49,5 @@ it.each([
   await fireEvent.press(view.getByText(action));
   expect(onManage).toHaveBeenCalledWith(item);
 });
+
+jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'));

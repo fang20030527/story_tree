@@ -1,3 +1,5 @@
+import { EditorialAudioPlayer } from './EditorialAudioPlayer';
+import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -140,11 +142,15 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
           </View>
         </EditorialImage>
 
+        <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.titleZh, { color: theme.text }]}>{article.titleZh}</Text>
         <Text style={[styles.titleEn, { color: theme.textSecondary }]}>{article.titleEn}</Text>
         <Text style={[styles.meta, { color: theme.textMuted }]}>
           {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
         </Text>
+        {article.audioAsset || article.audioUrl ? (
+          <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} />
+        ) : null}
 
         <View style={[styles.section, { borderColor: theme.border }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>文章概述</Text>

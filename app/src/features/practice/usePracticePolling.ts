@@ -40,6 +40,8 @@ export function usePracticePolling(
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let appState = AppState.currentState;
+    let consecutiveErrors = 0;
+    let inFlight = false;
 
     const clearTimer = () => {
       if (timer === undefined) return;
@@ -48,22 +50,35 @@ export function usePracticePolling(
     };
 
     const poll = async () => {
-      if (appState !== 'active') return;
-      setError(null);
+      if (cancelled || appState !== 'active' || inFlight) return;
+      clearTimer();
+      inFlight = true;
 
       let nextPractice: PracticeDto;
       try {
         nextPractice = await getPractice(practiceId);
       } catch (nextError) {
-        if (!cancelled) setError(toPollingError(nextError));
+        if (!cancelled) {
+          const pollingError = toPollingError(nextError);
+          setError(pollingError);
+          consecutiveErrors += 1;
+          if (pollingError.retryable && appState === 'active') {
+            timer = setTimeout(() => void poll(), Math.min(30_000, 2_000 * 2 ** Math.min(consecutiveErrors - 1, 4)));
+          }
+        }
         return;
+      } finally {
+        inFlight = false;
       }
 
       if (cancelled) return;
+      consecutiveErrors = 0;
+      setError(null);
       setPractice(nextPractice);
       if (
         appState === 'active'
-        && POLLING_STATUSES.has(nextPractice.status)
+        && (POLLING_STATUSES.has(nextPractice.status)
+          || nextPractice.group?.articles.some((article) => POLLING_STATUSES.has(article.status)))
       ) {
         timer = setTimeout(
           () => void poll(),

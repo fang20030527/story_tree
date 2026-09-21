@@ -21,13 +21,21 @@ import {
   type VocabularyInput,
   VocabularyItemDtoSchema,
   type VocabularyItemDto,
-  WordTranslationDtoSchema,
   type WordTranslationDto,
   type WordTranslationRequest,
   VocabularyPageSchema,
   type VocabularyPage,
+  VocabularyWordPageSchema,
+  type VocabularyWordPage,
+  type VocabularyWordFilter,
+  VocabularyWordContextsSchema,
+  type VocabularyWordContexts,
+  VocabularyWordMasterySchema,
+  type VocabularyWordMastery,
 } from '@context-reader/contracts';
 import type { ZodType } from 'zod';
+
+import { lookupLocalWord } from '@/features/dictionary/lookup';
 
 import { apiRequest } from './client';
 
@@ -105,14 +113,11 @@ export function recordAssistance(
   );
 }
 
-/** Translate one selected word/phrase in the context supplied by the reader. */
+/** 查随应用打包的本地词典，保留旧入口供阅读页共用，不发送翻译请求。 */
 export function requestWordTranslation(
   request: WordTranslationRequest,
 ): Promise<WordTranslationDto> {
-  return apiRequest('/v1/word-translations', WordTranslationDtoSchema, {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
+  return lookupLocalWord(request);
 }
 
 /** Add a contextual word/phrase to the durable vocabulary. */
@@ -162,5 +167,64 @@ export function getVocabulary(
 }
 
 export function getDashboard(): Promise<DashboardDto> {
-  return apiRequest('/v1/dashboard', DashboardDtoSchema);
+  const query = new URLSearchParams({
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
+  return apiRequest(`/v1/dashboard?${query.toString()}`, DashboardDtoSchema);
+}
+
+export interface VocabularyWordPageOptions extends VocabularyPageOptions {
+  filter?: VocabularyWordFilter;
+  /** IANA time zone used by the server to compute the local "today" filter. */
+  timeZone?: string;
+}
+
+export function getVocabularyWords(
+  options: VocabularyWordPageOptions = {},
+): Promise<VocabularyWordPage> {
+  const query = new URLSearchParams();
+  if (options.filter !== undefined) query.set('filter', options.filter);
+  if (options.timeZone !== undefined) query.set('timeZone', options.timeZone);
+  if (options.cursor !== undefined) query.set('cursor', options.cursor);
+  if (options.limit !== undefined) query.set('limit', String(options.limit));
+  const serializedQuery = query.toString();
+  return apiRequest(
+    `/v1/vocabulary-words${serializedQuery ? `?${serializedQuery}` : ''}`,
+    VocabularyWordPageSchema,
+  );
+}
+
+/** Mark a word as manually mastered so it leaves future auto selection. */
+export function markVocabularyWordMastered(
+  wordId: string,
+  idempotencyKey: string,
+): Promise<VocabularyWordMastery> {
+  return postIdempotentJson(
+    `/v1/vocabulary-words/${encodeURIComponent(wordId)}/mastered`,
+    VocabularyWordMasterySchema,
+    {},
+    idempotencyKey,
+  );
+}
+
+/** Restore a mastered word to learning without touching its review evidence. */
+export function restoreVocabularyWord(
+  wordId: string,
+  idempotencyKey: string,
+): Promise<VocabularyWordMastery> {
+  return postIdempotentJson(
+    `/v1/vocabulary-words/${encodeURIComponent(wordId)}/unmaster`,
+    VocabularyWordMasterySchema,
+    {},
+    idempotencyKey,
+  );
+}
+
+export function getVocabularyWordContexts(
+  wordId: string,
+): Promise<VocabularyWordContexts> {
+  return apiRequest(
+    `/v1/vocabulary-words/${encodeURIComponent(wordId)}/contexts`,
+    VocabularyWordContextsSchema,
+  );
 }

@@ -1,3 +1,4 @@
+import { PracticePreferencesCard } from '@/features/practice/PracticePreferencesCard';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -220,6 +221,8 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </Card>
+
+          <PracticePreferencesCard />
 
           {/* 外观模式 */}
           <Card theme={theme} style={styles.appearanceCard}>

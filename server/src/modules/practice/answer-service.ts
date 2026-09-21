@@ -24,6 +24,7 @@ import {
   finishIdempotentOperation,
 } from '../idempotency/service';
 import { assertPracticeTransition } from './state';
+import { lockVocabulary, syncVocabularyWords } from '../vocabulary/word-state';
 
 export type SubmitAnswerInput =
   | {
@@ -90,6 +91,7 @@ export async function submitFirstAnswer(
       );
     }
 
+    await lockVocabulary(tx, input.userId);
     const practice = await lockOwnedPractice(
       tx,
       input.userId,
@@ -150,6 +152,7 @@ export async function submitFirstAnswer(
       answer,
       submittedAt,
     );
+    await syncVocabularyWords(tx, input.userId);
     await updatePracticeProgress(
       tx,
       input.userId,

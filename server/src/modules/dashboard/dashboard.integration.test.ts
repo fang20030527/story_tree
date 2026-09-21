@@ -115,10 +115,52 @@ describe('vocabulary and dashboard queries', () => {
         expect(DashboardDtoSchema.parse(dashboardResponse.json())).toEqual({
           incompletePracticeId: practiceIds.newestIncomplete,
           vocabularyCount: 3,
-          reviewingCount: 1,
+          reviewingCount: 0,
+          dueLearningCount: 0,
+          unlearnedCount: 3,
+          todayAddedCount: 0,
           completedPracticeCount: 1,
           remainingFreePractices: 2,
         });
+      } finally {
+        await app.close();
+      }
+    });
+  }, 120_000);
+
+  it('counts today-added words in the requested IANA time zone and rejects invalid ones', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const token = 'b3'.repeat(32);
+      const owner = await registerAnonymous(db, token, true);
+      await db.insert(vocabularyItems).values({
+        userId: owner.userId,
+        term: 'fresh',
+        meaningZh: '刚录入的',
+        normalizedTerm: normalizeTerm('fresh'),
+        normalizedMeaningZh: normalizeMeaningZh('刚录入的'),
+        fingerprint: vocabularyFingerprint('fresh', '刚录入的'),
+      });
+      const app = buildApp({ config, db, logger: false });
+      try {
+        const headers = { authorization: `Bearer ${token}` };
+        const utc = await app.inject({ method: 'GET', url: '/v1/dashboard', headers });
+        expect(utc.statusCode).toBe(200);
+        expect(DashboardDtoSchema.parse(utc.json())).toMatchObject({
+          vocabularyCount: 1,
+          dueLearningCount: 0,
+          unlearnedCount: 1,
+          todayAddedCount: 1,
+        });
+        const shanghai = await app.inject({
+          method: 'GET', url: '/v1/dashboard?timeZone=Asia%2FShanghai', headers,
+        });
+        expect(shanghai.statusCode).toBe(200);
+        expect(DashboardDtoSchema.parse(shanghai.json()).todayAddedCount).toBe(1);
+        const invalid = await app.inject({
+          method: 'GET', url: '/v1/dashboard?timeZone=Mars%2FOlympus', headers,
+        });
+        expect(invalid.statusCode).toBe(400);
+        expect(PublicErrorSchema.parse(invalid.json()).error.code).toBe('VALIDATION_ERROR');
       } finally {
         await app.close();
       }

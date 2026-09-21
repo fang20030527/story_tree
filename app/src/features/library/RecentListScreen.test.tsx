@@ -44,7 +44,7 @@ it('routes editorial and imported recent rows to their respective readers', asyn
   const view = await render(<RecentListScreen load={load} />);
 
   await waitFor(() => expect(view.getByText('Private article')).toBeTruthy());
-  await fireEvent.press(view.getByText('年度最治愈直播：看瑞典北部驼鹿迁徙'));
+  await fireEvent.press(view.getByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母'));
   expect(router.push).toHaveBeenCalledWith({
     pathname: '/editorial/[id]/read',
     params: { id: 'hero' },

@@ -1,6 +1,8 @@
 # 黑洞英语
 
-这是一个云端生词长文练习工作区：Expo 客户端录入具体词义，Fastify 服务端使用 Neon PostgreSQL 持久化数据，并由内置任务处理器通过 EvoLink 生成阅读练习、导入英文文章和翻译。
+这是一个云端生词长文练习工作区：Expo 客户端按单词查看复习安排并设置目标词数，Fastify 服务端使用 FSRS 优先选择待复习单词，在文章语境中练习具体含义，使用 Neon PostgreSQL 持久化数据，并由内置任务处理器通过 EvoLink 生成阅读练习、导入英文文章和翻译。
+
+同词不同释义共享一份复习计划，词库显示“全部／待复习／未到时间”，待复习数量来自整个词库。升级时先运行数据库迁移，再启动服务端和客户端；旧释义、例句和历史答案保留，服务端首次读取或作答时按历史重建单词进度。
 
 ## 工作区
 
@@ -60,3 +62,9 @@ RUN_IMPORT_LIVE_SMOKE=1 npm run smoke:imports --workspace=@context-reader/server
 数据库集成测试优先使用 `TEST_DATABASE_URL`。未提供时才使用 `DATABASE_URL`，且只创建并清理名称以 `app_test_*` 开头的随机隔离 Schema；不会删除、截断或重建 `public` Schema。
 
 服务端运行方式、API 状态和真实服务冒烟流程见 [`server/README.md`](server/README.md)。
+
+## 英文语境自测
+
+新生成的 AI 文章为每个目标词配一道英文语境填空题：使用不同于文章的新句子、四个英文词或短语选项，以及提交后显示的英文用法与干扰项解析。自测页隐藏目标词标题和原文定位，避免直接提示答案。历史练习保留原题和答题记录。
+
+生成器输出 `optionsEn`、`correctOptionIndex`、`explanationEn` 和 `optionExplanationsEn`。结构检查拒绝中文内容、重复选项、无效空缺和答案索引；独立 AI 审核目标义项、搭配和答案唯一性。为兼容历史数据，英文总解析仍保存并通过原有 `explanationZh` 字段返回，无需数据库迁移。服务端和客户端需一起更新，新题型只影响更新后生成的练习。

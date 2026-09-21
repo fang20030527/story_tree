@@ -96,6 +96,9 @@ export default function NewPracticeScreen() {
   const restorePendingOperation = async () => {
     const operation = await loadCreatePracticeOperation();
     if (!operation) return;
+    if (!('items' in operation.request)) {
+      throw new PendingCreateOperationError();
+    }
     const submittedRows = requestToVocabularyDraft(operation.request);
     setRows(submittedRows);
     await saveVocabularyDraft(submittedRows);
@@ -106,14 +109,14 @@ export default function NewPracticeScreen() {
     setMessage(null);
     const validation = validateVocabularyDraft(rows);
     if (!validation.success) {
-      setMessage(validation.formError ?? '请修正标出的义项后再提交');
+      setMessage(validation.formError ?? '请修正标出的单词后再提交');
       return;
     }
 
     setSubmitting(true);
     try {
       const operation = await prepareCreatePracticeOperation(
-        validation.request,
+        { ...validation.request, format: 'topic_set' },
       );
       await registerAnonymous(true);
       const accepted = await createPractice(
@@ -167,7 +170,7 @@ export default function NewPracticeScreen() {
             onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={26} color={theme.text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>创建长文练习</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>创建主题短文练习</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -182,7 +185,7 @@ export default function NewPracticeScreen() {
             </View>
             <Text style={[styles.ageTitle, { color: theme.text }]}>使用前请确认年龄</Text>
             <Text style={[styles.ageBody, { color: theme.textSecondary }]}>
-              AI 长文练习仅面向年满 14 周岁的用户，内容会经过安全检查。
+              AI 主题短文练习仅面向年满 14 周岁的用户，内容会经过安全检查。
             </Text>
             <TouchableOpacity
               disabled={submitting}
@@ -223,9 +226,9 @@ export default function NewPracticeScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <Text style={[styles.title, { color: theme.text }]}>你想复习哪些义项？</Text>
+        <Text style={[styles.title, { color: theme.text }]}>你想复习哪些单词？</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          录入 1–10 个单词或短语，并写下它在原文中的具体中文含义。
+          录入 1–10 个单词或短语及原文中的中文含义，生成 4 篇不同主题的短文，自选阅读顺序。
         </Text>
 
         <VocabularyInputList
@@ -254,7 +257,7 @@ export default function NewPracticeScreen() {
           ) : (
             <>
               <Text style={[styles.primaryButtonText, { color: theme.accentText }]}>
-                生成长文练习
+                生成 4 篇主题短文
               </Text>
               <Ionicons name="sparkles" size={18} color={theme.accentText} />
             </>

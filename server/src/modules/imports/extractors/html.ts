@@ -25,6 +25,18 @@ export function extractReadableHtml(
   sourceUrl: string,
 ): ExtractedArticle {
   const { document } = parseHTML(html);
+  const source = new URL(sourceUrl);
+  if (
+    (source.hostname === 'eudic.net' || source.hostname.endsWith('.eudic.net')) &&
+    (/^\/courses\/(?:detail|index)(?:\/|$)/iu.test(source.pathname) ||
+      /^\/account\/login(?:\/|$)/iu.test(source.pathname))
+  ) {
+    throw new AppError(
+      'IMPORT_SOURCE_REQUIRES_ACCESS',
+      '分享链接未提供公开正文，请在原 App 中复制英文正文或截图导入',
+      422,
+    );
+  }
   for (const element of document.querySelectorAll(
     'script,style,noscript,template,iframe,object,embed',
   )) {

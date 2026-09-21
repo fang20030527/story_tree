@@ -40,7 +40,7 @@ it('keeps local editorial items visible when cloud loading fails', async () => {
     setEditorialShelved: jest.fn(), listImported,
     deleteImported: jest.fn(),
   }} />);
-  await waitFor(() => expect(view.getByText('年度最治愈直播：看瑞典北部驼鹿迁徙')).toBeTruthy());
+  await waitFor(() => expect(view.getByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母')).toBeTruthy());
   expect(view.getByText('暂时无法加载我的导入')).toBeTruthy();
   await fireEvent.press(view.getByText('重试'));
   expect(listImported).toHaveBeenCalledTimes(2);
@@ -96,16 +96,16 @@ it('paginates, de-duplicates, filters, and opens each kind correctly', async () 
   });
 
   await fireEvent.press(view.getByText('平台外刊'));
-  expect(view.getByText('年度最治愈直播：看瑞典北部驼鹿迁徙')).toBeTruthy();
+  expect(view.getByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母')).toBeTruthy();
   expect(view.queryByText('Private B')).toBeNull();
   await fireEvent.press(view.getByText('我的导入'));
-  expect(view.queryByText('年度最治愈直播：看瑞典北部驼鹿迁徙')).toBeNull();
+  expect(view.queryByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母')).toBeNull();
   await fireEvent.press(view.getByText('Private B'));
   expect(router.push).toHaveBeenCalledWith({
     pathname: '/article-read', params: { id: articleB.id },
   });
   await fireEvent.press(view.getByText('全部'));
-  await fireEvent.press(view.getByText('年度最治愈直播：看瑞典北部驼鹿迁徙'));
+  await fireEvent.press(view.getByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母'));
   expect(router.push).toHaveBeenCalledWith({
     pathname: '/editorial/[id]', params: { id: 'hero' },
   });
@@ -206,7 +206,7 @@ it('removes an editorial row locally and shows the empty discovery action', asyn
     listImported: jest.fn().mockResolvedValue({ items: [], nextCursor: null }),
     deleteImported: jest.fn(),
   }} />);
-  await waitFor(() => expect(view.getByText('年度最治愈直播：看瑞典北部驼鹿迁徙')).toBeTruthy());
+  await waitFor(() => expect(view.getByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母')).toBeTruthy());
   await fireEvent.press(view.getByLabelText('管理书架'));
   expect(view.getByText('移出书架')).toBeTruthy();
   await fireEvent.press(view.getByText('移出书架'));
