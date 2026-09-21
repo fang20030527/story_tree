@@ -32,20 +32,20 @@ function GeneratingPractice({ practiceId }: { practiceId: string }) {
   const finishingReady = useRef(false);
   const clearingFailure = useRef(false);
 
-  const openReader = useCallback(async () => {
+  const openReader = useCallback(() => {
     if (finishingReady.current) return;
     finishingReady.current = true;
-    setStorageError(null);
-    try {
-      await clearReadyPracticeCreation();
-      router.replace({
-        pathname: '/practice/[id]/read',
-        params: { id: practiceId },
+    return clearReadyPracticeCreation()
+      .then(() => {
+        router.replace({
+          pathname: '/practice/[id]/read',
+          params: { id: practiceId },
+        });
+      })
+      .catch(() => {
+        finishingReady.current = false;
+        setStorageError('练习已生成，但本地状态清理失败，请重试');
       });
-    } catch {
-      finishingReady.current = false;
-      setStorageError('练习已生成，但本地状态清理失败，请重试');
-    }
   }, [practiceId]);
 
   useEffect(() => {
@@ -149,7 +149,10 @@ function GeneratingPractice({ practiceId }: { practiceId: string }) {
             </Text>
             {practice?.status === 'ready' ? (
               <TouchableOpacity
-                onPress={() => void openReader()}
+                onPress={() => {
+                  setStorageError(null);
+                  void openReader();
+                }}
                 style={[styles.secondaryButton, { borderColor: theme.border }]}>
                 <Text style={[styles.secondaryText, { color: theme.text }]}>重试</Text>
               </TouchableOpacity>

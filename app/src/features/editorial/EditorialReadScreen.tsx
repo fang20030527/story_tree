@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -112,7 +113,15 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           ) : null}
         </View>
         <View style={styles.body}>
-          {article.paragraphs.map((paragraph, index) => (
+          {(article.bodyBlocks ?? article.paragraphs.map((text) => ({ type: 'text' as const, text }))).map((block, index) => block.type === 'image' ? (
+            <Image
+              key={`${article.id}:${index}`}
+              source={block.image}
+              contentFit="contain"
+              accessibilityLabel={`${article.titleEn}，原刊配图 ${index + 1}`}
+              style={{ width: '100%', aspectRatio: block.width / block.height }}
+            />
+          ) : (
             <InteractiveWordParagraph
               key={`${article.id}:${index}`}
               addedWords={addedWords}
@@ -124,7 +133,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
               onWordAdded={handleWordAdded}
               surfaceColor={theme.surfaceAlt}
               targetColor={theme.accent}
-              text={paragraph}
+              text={block.text}
               textColor={theme.text}
             />
           ))}
@@ -190,10 +199,9 @@ function editorialTranslation(
   paragraphs: readonly string[],
 ): string {
   const translated = EDITORIAL_TRANSLATIONS[articleId];
-  return (translated && translated.length === paragraphs.length
-    ? translated
-    : paragraphs.map((paragraph) => `译文：${paragraph}`)
-  ).join('\n\n');
+  return translated && translated.length === paragraphs.length
+    ? translated.join('\n\n')
+    : '本篇为英文原刊，暂未提供全文译文。';
 }
 
 function MissingEditorialArticleState() {

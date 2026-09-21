@@ -33,7 +33,6 @@ function ResultContent({ practiceId }: { practiceId: string }) {
 
   useEffect(() => {
     let mounted = true;
-    setError(null);
     getPractice(practiceId)
       .then((nextPractice) => {
         if (!mounted) return;
@@ -88,7 +87,10 @@ function ResultContent({ practiceId }: { practiceId: string }) {
           <>
             <Text style={[styles.errorText, { color: theme.danger }]}>{error}</Text>
             <TouchableOpacity
-              onPress={() => setLoadAttempt((attempt) => attempt + 1)}
+              onPress={() => {
+                setError(null);
+                setLoadAttempt((attempt) => attempt + 1);
+              }}
               style={[styles.retryButton, { borderColor: theme.border }]}>
               <Text style={[styles.retryText, { color: theme.text }]}>重试</Text>
             </TouchableOpacity>

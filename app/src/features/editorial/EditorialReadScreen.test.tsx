@@ -48,3 +48,10 @@ it('does not record an invalid ID', async () => {
   expect(isEditorialArticleShelved).not.toHaveBeenCalled();
   expect(setEditorialArticleShelved).not.toHaveBeenCalled();
 });
+
+it('renders all four original economic indicator charts', async () => {
+  const view = await render(
+    <EditorialReadScreen articleId="economist-2026-09-19-0b132742-d39d-4c6b-86ad-d3a6c738c04b" />,
+  );
+  expect(view.getAllByLabelText(/Economic data, commodities and markets，原刊配图/)).toHaveLength(4);
+});

@@ -10,7 +10,7 @@ import {
 import { useAppTheme } from '@/context/ThemeContext';
 
 type Props = {
-  uri: string;
+  uri: string | number;
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
 };
@@ -23,7 +23,7 @@ export function EditorialImage({ uri, style, children }: Props) {
       {!failed ? (
         <Image
           testID="editorial-image"
-          source={{ uri }}
+          source={typeof uri === 'string' ? { uri } : uri}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           transition={150}

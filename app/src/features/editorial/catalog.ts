@@ -1,4 +1,10 @@
+import { economistSeptember19 } from './issues/economist-2026-09-19';
+
 export type EditorialSection = 'today' | 'featured' | 'daily' | 'kids';
+
+export type EditorialBodyBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; image: number; width: number; height: number };
 
 export interface EditorialArticle {
   id: string;
@@ -11,7 +17,10 @@ export interface EditorialArticle {
   wordCount: number;
   minutes: number;
   level: string;
-  image: string;
+  image: string | number;
+  issueDate?: string;
+  sourceUrl?: string;
+  bodyBlocks?: readonly EditorialBodyBlock[];
   section: EditorialSection;
   publishedAt: string;
   paragraphs: readonly string[];
@@ -20,7 +29,7 @@ export interface EditorialArticle {
 const image = (id: string) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=900&q=70`;
 
-export const editorialArticles = [
+export const editorialArticles: readonly EditorialArticle[] = [
   {
     id: 'hero',
     titleZh: '年度最治愈直播：看瑞典北部驼鹿迁徙',
@@ -192,7 +201,8 @@ export const editorialArticles = [
       'Food and shelter explain their success, while humane city programs focus on cleaner shared spaces.',
     ],
   },
-] as const satisfies readonly EditorialArticle[];
+  ...economistSeptember19,
+];
 
 export function getEditorialArticle(id: string): EditorialArticle | undefined {
   return editorialArticles.find((article) => article.id === id);

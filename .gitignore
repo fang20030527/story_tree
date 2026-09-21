@@ -10,3 +10,4 @@ coverage/
 .DS_Store
 .trash-app-tmp/
 .superpowers/
+.local-test-results/

@@ -34,8 +34,6 @@ function QuizContent({ practiceId }: { practiceId: string }) {
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
-    setError(null);
     getPractice(practiceId)
       .then((nextPractice) => {
         if (!mounted) return;
@@ -73,6 +71,12 @@ function QuizContent({ practiceId }: { practiceId: string }) {
       mounted = false;
     };
   }, [loadAttempt, practiceId]);
+
+  const reload = () => {
+    setLoading(true);
+    setError(null);
+    setLoadAttempt((attempt) => attempt + 1);
+  };
 
   const question = practice?.questions.find(
     (candidate) => candidate.submittedAnswer === null,
@@ -128,7 +132,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
           {error ?? '暂时无法加载题目'}
         </Text>
         <TouchableOpacity
-          onPress={() => setLoadAttempt((attempt) => attempt + 1)}
+          onPress={reload}
           style={[styles.retryButton, { borderColor: theme.border }]}>
           <Text style={[styles.retryText, { color: theme.text }]}>重试</Text>
         </TouchableOpacity>
@@ -162,7 +166,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
         showsVerticalScrollIndicator={false}>
         <QuizQuestion
           key={question.id}
-          onContinue={() => setLoadAttempt((attempt) => attempt + 1)}
+          onContinue={reload}
           onSubmit={submitCurrentAnswer}
           question={question}
         />

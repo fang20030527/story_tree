@@ -150,13 +150,10 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const lastSavedIndexRef = useRef<number | null>(null);
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 35 }).current;
-  const practiceIdRef = useRef(practiceId);
-  practiceIdRef.current = practiceId;
+  const viewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 35 }), []);
 
   useEffect(() => {
     let mounted = true;
-    setLoadError(null);
     getPractice(practiceId)
       .then((nextPractice) => {
         if (!mounted) return;
@@ -197,7 +194,7 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
     [practice?.questions],
   );
 
-  const onViewableItemsChanged = useRef((info: {
+  const onViewableItemsChanged = useCallback((info: {
     viewableItems: ViewToken<ArticleParagraphDto>[];
   }) => {
     const visibleIndex = info.viewableItems
@@ -207,10 +204,10 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
       return;
     }
     lastSavedIndexRef.current = visibleIndex;
-    void saveReadingPosition(practiceIdRef.current, visibleIndex).catch(
+    void saveReadingPosition(practiceId, visibleIndex).catch(
       () => undefined,
     );
-  }).current;
+  }, [practiceId]);
 
   const renderParagraph = useCallback(({ item }: {
     item: ArticleParagraphDto;
@@ -237,7 +234,10 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
           {loadError ?? '暂时无法加载这篇练习'}
         </Text>
         <TouchableOpacity
-          onPress={() => setLoadAttempt((attempt) => attempt + 1)}
+          onPress={() => {
+            setLoadError(null);
+            setLoadAttempt((attempt) => attempt + 1);
+          }}
           style={[styles.retryButton, { borderColor: theme.border }]}>
           <Text style={[styles.retryText, { color: theme.text }]}>重试</Text>
         </TouchableOpacity>

@@ -56,7 +56,7 @@ export function EditorialHomeScreen() {
   };
 
   const hero = getEditorialSection('today')[0];
-  const featured = getEditorialSection('featured');
+  const featured = getEditorialSection('featured').slice(0, 4);
   const news = getEditorialSection('daily');
   const kids = getEditorialSection('kids');
   const showSearchResults = searchOpen && query.trim().length > 0;
@@ -291,7 +291,7 @@ function ArticleCard({
       <EditorialImage uri={article.image} style={styles.articleImage} />
       <View style={styles.articleInfo}>
         <Text style={[styles.articleTitle, { color: theme.text }]} numberOfLines={2}>{article.titleZh}</Text>
-        <Text style={[styles.articleSource, { color: theme.textMuted }]} numberOfLines={1}>{article.source} · {article.category}</Text>
+        <Text style={[styles.articleSource, { color: theme.textMuted }]} numberOfLines={1}>{article.source} · {article.issueDate ? `${article.issueDate} · ` : ''}{article.category}</Text>
         <Text style={[styles.articleMeta, { color: theme.textSecondary }]}>{article.level} · {article.wordCount} 词 · {article.minutes} 分钟</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />

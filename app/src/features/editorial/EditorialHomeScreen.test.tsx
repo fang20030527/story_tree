@@ -22,6 +22,7 @@ it('shows only the approved discovery sections and opens an overview', async () 
     expect(view.getByText(section)).toBeTruthy();
   }
   expect(view.getAllByText('更多')).toHaveLength(3);
+  expect(view.queryByText('Gloria Steinem changed the world for American women')).toBeNull();
   for (const forbidden of ['导入文章', '生词长文练习', '书籍', '活动', '学习讨论']) {
     expect(view.queryByText(forbidden)).toBeNull();
   }
@@ -36,6 +37,11 @@ it('shows only the approved discovery sections and opens an overview', async () 
 
   await fireEvent.press(view.getAllByText('更多')[0]!);
   expect(view.getByText('返回全部栏目')).toBeTruthy();
+  await fireEvent.press(view.getByLabelText('Gloria Steinem changed the world for American women，查看文章概述'));
+  expect(router.push).toHaveBeenLastCalledWith({
+    pathname: '/editorial/[id]',
+    params: { id: 'economist-2026-09-19-0c23ddbe-988f-4b85-adff-aa7431415ebf' },
+  });
 });
 
 it('expands search and filters title, source, category, and no-result states', async () => {
