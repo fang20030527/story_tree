@@ -30,6 +30,12 @@ def by_class(root, name):
 def main(path):
     OUT.mkdir(parents=True, exist_ok=True)
     ASSETS.mkdir(parents=True, exist_ok=True)
+    # 重导入原刊时保留人工校订的中文标题、主题分类及估计阅读难度。
+    issue_path = OUT / f'economist-{ISSUE}.json'
+    existing = {
+        article['id']: article
+        for article in json.loads(issue_path.read_text(encoding='utf-8'))
+    } if issue_path.exists() else {}
     articles, assets, report = [], {}, []
     with zipfile.ZipFile(path) as archive:
         def asset(src):
@@ -84,6 +90,11 @@ def main(path):
                     category=section, wordCount=words, minutes=max(1, math.ceil(words/180)), level='英文原版',
                     image=cover, section='featured', publishedAt=published, issueDate=ISSUE,
                     sourceUrl=origin.get('href') if origin is not None else '', paragraphs=paragraphs, bodyBlocks=blocks)
+                previous = existing.get(article['id'])
+                if previous and previous.get('titleEn') == title:
+                    for field in ('titleZh', 'category', 'level'):
+                        if previous.get(field):
+                            article[field] = previous[field]
                 articles.append(article)
                 report.append(dict(file=href, title=title, paragraphs=len(paragraphs), images=len(images), words=words))
         expected = [n for n in archive.namelist() if n.endswith('.html') and by_class(ET.fromstring(archive.read(n)), 'te_article_title') is not None]

@@ -1,5 +1,6 @@
 import { importedEditorialArticles } from './importedArticles';
 import { economistSeptember19 } from './issues/economist-2026-09-19';
+import { epubArticles } from './epubCatalog';
 import type { EditorialAudioCue } from './editorialAudioSync';
 import { aiArmsRaceAudioCues } from './audio/aiArmsRaceAudioCues';
 
@@ -7,7 +8,7 @@ export type EditorialSection = 'today' | 'featured';
 
 export type EditorialBodyBlock =
   | { type: 'text'; text: string }
-  | { type: 'image'; image: number; width: number; height: number };
+  | { type: 'image'; image: string | number; width: number; height: number };
 
 export interface EditorialArticle {
   id: string;
@@ -163,10 +164,13 @@ export const editorialArticles: readonly EditorialArticle[] = [
   },
   ...importedEditorialArticles,
   ...economistSeptember19,
+  ...epubArticles,
 ];
 
+const articlesById = new Map(editorialArticles.map((article) => [article.id, article]));
+
 export function getEditorialArticle(id: string): EditorialArticle | undefined {
-  return editorialArticles.find((article) => article.id === id);
+  return articlesById.get(id);
 }
 
 export function getEditorialSection(section: EditorialSection): EditorialArticle[] {
@@ -177,7 +181,7 @@ export function searchEditorialArticles(query: string): EditorialArticle[] {
   const normalized = query.trim().toLocaleLowerCase();
   if (!normalized) return [...editorialArticles];
   return editorialArticles.filter((article) =>
-    [article.titleZh, article.titleEn, article.source, article.category].some(
+    [article.titleZh, article.titleEn, article.source, article.category, article.issueDate ?? ''].some(
       (value) => value.toLocaleLowerCase().includes(normalized),
     ),
   );

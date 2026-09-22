@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
 import { PublicErrorSchema } from '@context-reader/contracts';
 import Fastify, {
@@ -18,6 +19,7 @@ import type { WechatClient } from './modules/auth/wechat-client';
 import type { AiProvider } from './infrastructure/ai/types';
 import { computerUploadRoutes } from './modules/computer-upload/routes';
 import { dashboardRoutes } from './modules/dashboard/routes';
+import { editorialImageRoutes } from './modules/editorial/routes';
 import { importsRoutes } from './modules/imports/routes';
 import { practiceRoutes } from './modules/practice/routes';
 import { translationRoutes } from './modules/translation/routes';
@@ -130,6 +132,9 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     reply.header('x-request-id', request.id);
   });
   registerSecurity(app, options.config, options.securityLimits);
+  app.register(editorialImageRoutes, {
+    assetDirectory: fileURLToPath(new URL('../assets/editorial/epub/', import.meta.url)),
+  });
   app.register(authPlugin, {
     config: options.config,
     db: options.db,

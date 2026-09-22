@@ -156,9 +156,11 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         <Text selectable style={[styles.titleEn, { color: theme.text }]}>
           {article.titleEn}
         </Text>
-        <Text style={[styles.titleZh, { color: theme.textSecondary }]}>
-          {article.titleZh}
-        </Text>
+        {article.titleZh !== article.titleEn ? (
+          <Text style={[styles.titleZh, { color: theme.textSecondary }]}>
+            {article.titleZh}
+          </Text>
+        ) : null}
         <Text style={[styles.meta, { color: theme.textMuted }]}>
           {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
         </Text>

@@ -144,7 +144,9 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
 
         <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.titleZh, { color: theme.text }]}>{article.titleZh}</Text>
-        <Text style={[styles.titleEn, { color: theme.textSecondary }]}>{article.titleEn}</Text>
+        {article.titleEn !== article.titleZh ? (
+          <Text style={[styles.titleEn, { color: theme.textSecondary }]}>{article.titleEn}</Text>
+        ) : null}
         <Text style={[styles.meta, { color: theme.textMuted }]}>
           {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
         </Text>

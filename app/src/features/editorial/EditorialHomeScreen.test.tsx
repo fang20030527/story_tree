@@ -26,7 +26,7 @@ it('shows only the approved discovery sections and opens an overview', async () 
   expect(view.getAllByText('更多')).toHaveLength(1);
   expect(view.queryByText('年度最治愈直播：看瑞典北部驼鹿迁徙')).toBeNull();
   expect(view.queryByText('AI 正在如何改变语言学习的底层逻辑')).toBeNull();
-  expect(view.queryByText('Gloria Steinem changed the world for American women')).toBeNull();
+  expect(view.queryByText('格洛丽亚·斯泰纳姆改变了美国女性的世界')).toBeNull();
   for (const forbidden of ['每日快讯', 'Kid News', '导入文章', '生词长文练习', '书籍', '活动', '学习讨论']) {
     expect(view.queryByText(forbidden)).toBeNull();
   }
@@ -41,7 +41,11 @@ it('shows only the approved discovery sections and opens an overview', async () 
 
   await fireEvent.press(view.getAllByText('更多')[0]!);
   expect(view.getByText('返回全部栏目')).toBeTruthy();
-  await fireEvent.press(view.getByLabelText('Gloria Steinem changed the world for American women，查看文章概述'));
+  // “更多”按页展示；原有整期最后一篇仍可从列表进入。
+  for (let page = 0; page < 3; page += 1) {
+    await fireEvent.press(view.getByLabelText('下一页'));
+  }
+  await fireEvent.press(view.getByLabelText('格洛丽亚·斯泰纳姆改变了美国女性的世界，查看文章概述'));
   expect(router.push).toHaveBeenLastCalledWith({
     pathname: '/editorial/[id]',
     params: { id: 'economist-2026-09-19-0c23ddbe-988f-4b85-adff-aa7431415ebf' },
@@ -76,3 +80,18 @@ it.each([
 });
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+
+it('filters the imported library and resets pagination when switching publications', async () => {
+  const view = await render(<EditorialHomeScreen />);
+  await fireEvent.press(view.getByText('更多'));
+  await fireEvent.press(view.getByLabelText('筛选The New Yorker'));
+  expect(view.getByText(/第 1 \/ \d+ 页/)).toBeTruthy();
+  await fireEvent.press(view.getByLabelText('下一页'));
+  expect(view.getByText(/第 2 \/ \d+ 页/)).toBeTruthy();
+  await fireEvent.press(view.getByLabelText('筛选WIRED'));
+  expect(view.getByText(/第 1 \/ \d+ 页/)).toBeTruthy();
+  await fireEvent.press(view.getByLabelText('筛选2025'));
+  expect(view.getByText('没有找到相关外刊')).toBeTruthy();
+  await fireEvent.press(view.getByLabelText('筛选全部年份'));
+  expect(view.queryByText('没有找到相关外刊')).toBeNull();
+});

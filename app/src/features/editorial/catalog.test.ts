@@ -4,6 +4,9 @@ import {
   getEditorialSection,
   searchEditorialArticles,
 } from './catalog';
+import { epubArticles } from './epubCatalog';
+
+const importedIds = new Set(epubArticles.map((article) => article.id));
 
 describe('editorial catalog', () => {
   it('uses unique stable IDs and complete overview/reader content', () => {
@@ -20,7 +23,8 @@ describe('editorial catalog', () => {
       'viking-word-independence',
 
     ]);
-    for (const article of editorialArticles) {
+    // 批量原刊正文的完整性由导入校验和 epubCatalog.test 覆盖；这里保留原栏目回归。
+    for (const article of editorialArticles.filter((entry) => !importedIds.has(entry.id))) {
       expect(article.titleZh).not.toHaveLength(0);
       expect(article.titleEn).not.toHaveLength(0);
       expect(article.summaryZh).not.toHaveLength(0);

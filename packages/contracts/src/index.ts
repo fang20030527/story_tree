@@ -4,6 +4,10 @@ export { abbreviatePartOfSpeech } from './part-of-speech';
 
 export const UuidSchema = z.uuid();
 
+export const EditorialImageParamsSchema = z.object({
+  id: z.string().regex(/^[a-f0-9]{24}\.webp$/u),
+}).strict();
+
 export const AnonymousAuthRequestSchema = z
   .object({
     ageConfirmed14Plus: z.literal(true),

@@ -1,7 +1,7 @@
 [
   {
     "id": "economist-2026-09-19-46d87df9-b660-49c8-bc28-94b8a3071ca3",
-    "titleZh": "Politics",
+    "titleZh": "本周全球政治要闻",
     "titleEn": "Politics",
     "summaryZh": "Ursula von der Leyen, the European Commission’s president, invited Canada to become the European Union’s first associate member. In the Eu’s state-of-the-union address she told Canadian prime minister Mark Carney that the partnership would be “for our common strength”. Canada has sought closer ties to the bloc as its trade war with America worsens. Donald Trump called the proposal “laughable” and threatened the EU with “serious tariffs”.",
     "keyPointsZh": [
@@ -9,10 +9,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "The world this week",
+    "category": "时政",
     "wordCount": 990,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "0114b6e0a0645b27f7808ff3ead29da7.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -122,7 +122,7 @@
   },
   {
     "id": "economist-2026-09-19-be22b44c-868e-4db5-9beb-556b355a45b7",
-    "titleZh": "Business",
+    "titleZh": "本周商业要闻",
     "titleEn": "Business",
     "summaryZh": "The Federal Reserve raised its benchmark interest rate by 0.25 percentage points, to 3.75-4%. It was the first increase since July 2023. All 12 rate-setters backed the move. Inflation remains stubbornly high, fuelled by tariffs and soaring energy prices. The decision is Kevin Warsh’s first change in monetary policy since becoming chairman in May. An angry Donald Trump responded by demanding that the Fed cut rates to 1%.",
     "keyPointsZh": [
@@ -130,10 +130,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "The world this week",
+    "category": "商业",
     "wordCount": 702,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "3db7c86b488e86f95fbfb5e71c4c47e2.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -218,7 +218,7 @@
   },
   {
     "id": "economist-2026-09-19-8eb32c1e-7ce7-4848-baf9-527fca0d5a2f",
-    "titleZh": "Cartoon: America’s AI-safety debate",
+    "titleZh": "漫画：美国的人工智能安全之争",
     "titleEn": "Cartoon: America’s AI-safety debate",
     "summaryZh": "A lighter take on the news",
     "keyPointsZh": [
@@ -226,10 +226,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "The world this week",
+    "category": "科技",
     "wordCount": 38,
     "minutes": 1,
-    "level": "英文原版",
+    "level": "雅思 6.5",
     "image": "d843bfe61addb53bbc1c09f781218bfa.png",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -273,7 +273,7 @@
   },
   {
     "id": "economist-2026-09-19-99d1a5e6-03c8-4b46-a896-cc8c0c8379fa",
-    "titleZh": "Can the AI arms race be stopped?",
+    "titleZh": "人工智能军备竞赛能被叫停吗？",
     "titleEn": "Can the AI arms race be stopped?",
     "summaryZh": "America will struggle to make the technology safe while staying ahead of China",
     "keyPointsZh": [
@@ -281,10 +281,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Leaders",
+    "category": "科技",
     "wordCount": 970,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "d2b1bff4a0d137d1102c6e4da7d26cf9.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -368,7 +368,7 @@
   },
   {
     "id": "economist-2026-09-19-3dcca006-a510-47b1-ab42-b023e93eadbd",
-    "titleZh": "The selfish case for helping Ukraine has never been stronger",
+    "titleZh": "从自身利益出发，援助乌克兰的理由从未如此充分",
     "titleEn": "The selfish case for helping Ukraine has never been stronger",
     "summaryZh": "Rapidly changing technology, wielded by a lawless enemy, may be the future of war",
     "keyPointsZh": [
@@ -376,10 +376,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Leaders",
+    "category": "国际",
     "wordCount": 642,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "951f4c51ee7ddb869a4cb9e08caa9ff8.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -438,7 +438,7 @@
   },
   {
     "id": "economist-2026-09-19-a4d57957-4089-41f7-874e-bf08590b080b",
-    "titleZh": "Markets are waking up to the rich world’s reckless borrowing",
+    "titleZh": "市场开始警觉富裕国家的无节制举债",
     "titleEn": "Markets are waking up to the rich world’s reckless borrowing",
     "summaryZh": "Governments are still, alas, asleep",
     "keyPointsZh": [
@@ -446,10 +446,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Leaders",
+    "category": "经济",
     "wordCount": 787,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "e150f3abc1700d367e89247962c583eb.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -524,7 +524,7 @@
   },
   {
     "id": "economist-2026-09-19-3b2e7142-3b2d-4064-9e29-aaa9821f08e8",
-    "titleZh": "How South Africa can avoid becoming a mobster state",
+    "titleZh": "南非如何避免沦为黑帮国家",
     "titleEn": "How South Africa can avoid becoming a mobster state",
     "summaryZh": "Organised crime can be beaten, given political will",
     "keyPointsZh": [
@@ -532,10 +532,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Leaders",
+    "category": "社会",
     "wordCount": 669,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "a12fa10f0842ed89743777a32a94da24.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -594,7 +594,7 @@
   },
   {
     "id": "economist-2026-09-19-086d89f9-2953-41c4-8835-3e071c1ce7ae",
-    "titleZh": "There is too little money in British politics, not too much",
+    "titleZh": "英国政治资金不是太多，而是太少",
     "titleEn": "There is too little money in British politics, not too much",
     "summaryZh": "Parties come to office hopelessly unprepared",
     "keyPointsZh": [
@@ -602,10 +602,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Leaders",
+    "category": "政治",
     "wordCount": 661,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "e0ae89b8a9a32f51d5919487d4d1b2b0.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -679,7 +679,7 @@
   },
   {
     "id": "economist-2026-09-19-c16e0774-be87-458b-a09e-6543a1e36778",
-    "titleZh": "How do you improve your gut microbiome?",
+    "titleZh": "如何改善你的肠道微生物群？",
     "titleEn": "How do you improve your gut microbiome?",
     "summaryZh": "Also this week, Swedish wine, Norway’s new king, Britain’s hot summers, Charles de Gaulle and the Bayeux tapestry",
     "keyPointsZh": [
@@ -687,10 +687,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Letters",
+    "category": "健康",
     "wordCount": 1218,
     "minutes": 7,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "1bc271ad1e37ddc0276fa8d4c01fd566.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -820,7 +820,7 @@
   },
   {
     "id": "economist-2026-09-19-796fbbcf-0336-42c7-be85-b35c15ebc317",
-    "titleZh": "Don’t fear the inheritocracy",
+    "titleZh": "不必害怕财富继承者主导的社会",
     "titleEn": "Don’t fear the inheritocracy",
     "summaryZh": "Self-correcting forces will ensure that the coming wealth transfer doesn’t hurt American capitalism, write Eric Zwick and Owen Zidar",
     "keyPointsZh": [
@@ -828,10 +828,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "By Invitation",
+    "category": "经济",
     "wordCount": 913,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "8252af0ad49467c7549aa24ed2571871.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -930,7 +930,7 @@
   },
   {
     "id": "economist-2026-09-19-68c5c1a9-ef76-4e10-a05d-bd6cc2af1e32",
-    "titleZh": "Bond markets aren’t just running a temperature",
+    "titleZh": "债券市场的问题不只是“发烧”",
     "titleEn": "Bond markets aren’t just running a temperature",
     "summaryZh": "Scott Bessent’s misdiagnosis is dangerous, writes Mohamed El-Erian",
     "keyPointsZh": [
@@ -938,10 +938,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "By Invitation",
+    "category": "金融",
     "wordCount": 984,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "657f0fa8dbe2d775ffa462d9964c066e.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -1030,7 +1030,7 @@
   },
   {
     "id": "economist-2026-09-19-bb63a5d5-4c45-47b8-b2ef-a399ad71d5aa",
-    "titleZh": "Russia has entered a new phase of total war",
+    "titleZh": "俄罗斯的全面战争进入新阶段",
     "titleEn": "Russia has entered a new phase of total war",
     "summaryZh": "Ukrainians are feeling the heat",
     "keyPointsZh": [
@@ -1038,10 +1038,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Briefing",
+    "category": "军事",
     "wordCount": 2687,
     "minutes": 15,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "9b1f2a06d1c4fba1296c61ddf5c87633.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -1261,7 +1261,7 @@
   },
   {
     "id": "economist-2026-09-19-32347ada-9643-4ddf-8117-f232983d143f",
-    "titleZh": "China would face a “hellscape” in a war over Taiwan",
+    "titleZh": "台海战争可能让中国面临“地狱景象”",
     "titleEn": "China would face a “hellscape” in a war over Taiwan",
     "summaryZh": "Drones and artificial intelligence may give America an edge",
     "keyPointsZh": [
@@ -1269,10 +1269,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Asia",
+    "category": "军事",
     "wordCount": 1379,
     "minutes": 8,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "a3195d63d6083ad30e07d5f0ff533456.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -1383,7 +1383,7 @@
   },
   {
     "id": "economist-2026-09-19-9493dfb1-b342-4cd8-910e-30710f0c53ee",
-    "titleZh": "An electoral result that helps Japan’s defence buildup",
+    "titleZh": "一场有利于日本扩充防务的选举",
     "titleEn": "An electoral result that helps Japan’s defence buildup",
     "summaryZh": "The country’s south-western islands go conservative",
     "keyPointsZh": [
@@ -1391,10 +1391,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Asia",
+    "category": "政治",
     "wordCount": 566,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "75e91cb6a78fabf2b66301626d247466.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -1453,7 +1453,7 @@
   },
   {
     "id": "economist-2026-09-19-abc384c6-9b1d-439f-84b5-e4e04b2cb128",
-    "titleZh": "To keep out “infiltrators”, India is trapping its own citizens",
+    "titleZh": "为阻挡“渗透者”，印度困住了本国公民",
     "titleEn": "To keep out “infiltrators”, India is trapping its own citizens",
     "summaryZh": "A buffer zone has become a miserable limbo",
     "keyPointsZh": [
@@ -1461,10 +1461,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Asia",
+    "category": "社会",
     "wordCount": 748,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "45f6e247e6509b3e2ed7aa23c7f34a11.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -1539,7 +1539,7 @@
   },
   {
     "id": "economist-2026-09-19-6144d2c4-83a3-4321-b5db-80f6289b50ca",
-    "titleZh": "Why Indians are unhappy about 7.8% economic growth",
+    "titleZh": "经济增长 7.8%，印度人为何仍不满意？",
     "titleEn": "Why Indians are unhappy about 7.8% economic growth",
     "summaryZh": "A row over GDP numbers is really about how people feel",
     "keyPointsZh": [
@@ -1547,10 +1547,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Asia",
+    "category": "经济",
     "wordCount": 754,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "ceb2156a7baed11b06f3852550615eb0.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -1609,7 +1609,7 @@
   },
   {
     "id": "economist-2026-09-19-afba79fd-5de2-454d-a69f-b77e470c579c",
-    "titleZh": "Real co-operation on AI is likely to elude China and America",
+    "titleZh": "中美恐难在人工智能领域真正合作",
     "titleEn": "Real co-operation on AI is likely to elude China and America",
     "summaryZh": "Mutual suspicions run too deep",
     "keyPointsZh": [
@@ -1617,10 +1617,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "China",
+    "category": "科技",
     "wordCount": 1453,
     "minutes": 9,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "9b3e20098a651dfa57f49f7fcccb0c3e.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -1740,7 +1740,7 @@
   },
   {
     "id": "economist-2026-09-19-2384ff6a-0fe9-4a82-b296-640be7b806de",
-    "titleZh": "China and America are likely to keep the trade peace",
+    "titleZh": "中美有望维持贸易休战",
     "titleEn": "China and America are likely to keep the trade peace",
     "summaryZh": "Each side now understands its vulnerability to the other",
     "keyPointsZh": [
@@ -1748,10 +1748,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "China",
+    "category": "经济",
     "wordCount": 740,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "2773567140825c4c1c7a008d21a9cfd2.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -1826,7 +1826,7 @@
   },
   {
     "id": "economist-2026-09-19-d047b314-fb58-4a61-b31c-abc7971d95c7",
-    "titleZh": "Unemployment is becoming a way of life for China’s young",
+    "titleZh": "失业正成为中国年轻人的生活常态",
     "titleEn": "Unemployment is becoming a way of life for China’s young",
     "summaryZh": "Some are pretending to work to keep up appearances",
     "keyPointsZh": [
@@ -1834,10 +1834,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "China",
+    "category": "社会",
     "wordCount": 746,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "bc02d318b0c85330025a4e27f7f564aa.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -1907,7 +1907,7 @@
   },
   {
     "id": "economist-2026-09-19-5de812db-b2c4-4a00-8357-017a26ab064e",
-    "titleZh": "China’s new exit rules stoke fears of ever-tighter border controls",
+    "titleZh": "中国出境新规引发边境管控收紧担忧",
     "titleEn": "China’s new exit rules stoke fears of ever-tighter border controls",
     "summaryZh": "Officials say they want to monitor overseas travel, not stop it",
     "keyPointsZh": [
@@ -1915,10 +1915,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "China",
+    "category": "社会",
     "wordCount": 514,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "69e1b2dbbe53d5dfbe7c5408edcd9a60.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -1977,7 +1977,7 @@
   },
   {
     "id": "economist-2026-09-19-584321eb-8cbe-4ec0-b49a-f26fa9fff2f2",
-    "titleZh": "China’s tutoring crackdown has created a black market",
+    "titleZh": "中国的教培整治催生了地下市场",
     "titleEn": "China’s tutoring crackdown has created a black market",
     "summaryZh": "The academic system has become more unfair but just as pressure-filled",
     "keyPointsZh": [
@@ -1985,10 +1985,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "China",
+    "category": "教育",
     "wordCount": 953,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "2f5bafb7c6c81f42e7f532eefb31be1f.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2057,7 +2057,7 @@
   },
   {
     "id": "economist-2026-09-19-d941e886-e906-4e68-b2a7-c52fa8fdc68e",
-    "titleZh": "The debate over AI has taken over Washington",
+    "titleZh": "人工智能之争席卷华盛顿",
     "titleEn": "The debate over AI has taken over Washington",
     "summaryZh": "Whether it will act is another matter",
     "keyPointsZh": [
@@ -2065,10 +2065,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "United States",
+    "category": "科技",
     "wordCount": 1024,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "a686c8ad4ec6bd9a830fda2e3e55e513.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2152,7 +2152,7 @@
   },
   {
     "id": "economist-2026-09-19-63c6867d-8de7-473c-b77f-03a237084faf",
-    "titleZh": "Donald Trump’s attacks on postal voting are failing",
+    "titleZh": "特朗普对邮寄投票的攻势正在失效",
     "titleEn": "Donald Trump’s attacks on postal voting are failing",
     "summaryZh": "But he has other ways to snarl the midterm elections",
     "keyPointsZh": [
@@ -2160,10 +2160,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "United States",
+    "category": "政治",
     "wordCount": 543,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "9bd4659f679e3405f64d04d94eeb4025.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2233,7 +2233,7 @@
   },
   {
     "id": "economist-2026-09-19-0d10caf7-b378-4d9a-a913-9c428c152ece",
-    "titleZh": "How House Republicans might fend off defeat",
+    "titleZh": "众议院共和党人如何避免败选",
     "titleEn": "How House Republicans might fend off defeat",
     "summaryZh": "A polling error and a few good breaks could be enough",
     "keyPointsZh": [
@@ -2241,10 +2241,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "United States",
+    "category": "政治",
     "wordCount": 813,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "2a1a152c5c2ac34c3a3f18c16b95197e.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2319,7 +2319,7 @@
   },
   {
     "id": "economist-2026-09-19-9ae53655-cf48-4646-9086-3fa02361d76e",
-    "titleZh": "Pro-family proposals offer a glimpse at a post-Trump agenda",
+    "titleZh": "支持家庭的政策勾勒出后特朗普时代议程",
     "titleEn": "Pro-family proposals offer a glimpse at a post-Trump agenda",
     "summaryZh": "Conservative policy circles are mulling ideas to support two-parent households",
     "keyPointsZh": [
@@ -2327,10 +2327,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "United States",
+    "category": "社会",
     "wordCount": 902,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "534c0b0307468a7bd50d995e5ca18aee.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2409,7 +2409,7 @@
   },
   {
     "id": "economist-2026-09-19-91a262d4-efb9-417f-af39-74b2e42af63b",
-    "titleZh": "Developers are learning to love Zohran Mamdani",
+    "titleZh": "开发商开始拥抱佐赫兰·马姆达尼",
     "titleEn": "Developers are learning to love Zohran Mamdani",
     "summaryZh": "New York’s socialist mayor wants a housing boom",
     "keyPointsZh": [
@@ -2417,10 +2417,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "United States",
+    "category": "商业",
     "wordCount": 916,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "17dc611d9de32cf1b63f754e937665fe.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2504,7 +2504,7 @@
   },
   {
     "id": "economist-2026-09-19-64cf089b-cec0-46fe-99fd-2a1ad67b1dbe",
-    "titleZh": "What Donald Trump understands about character in public life",
+    "titleZh": "特朗普如何理解公众人物的品格问题",
     "titleEn": "What Donald Trump understands about character in public life",
     "summaryZh": "And why it could be Ken Paxton’s path to victory in Texas",
     "keyPointsZh": [
@@ -2512,10 +2512,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "United States",
+    "category": "政治",
     "wordCount": 1033,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "c9d4cd868c38a6464f0bbbe920f87b7b.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2584,7 +2584,7 @@
   },
   {
     "id": "economist-2026-09-19-3d7cfd2e-da1a-45d2-9b2e-ecb2bc8f0171",
-    "titleZh": "Brazil’s gangsters: less murder, more money",
+    "titleZh": "巴西黑帮：少杀人，多赚钱",
     "titleEn": "Brazil’s gangsters: less murder, more money",
     "summaryZh": "Crime is softer, but it affects more Brazilians than ever before",
     "keyPointsZh": [
@@ -2592,10 +2592,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "The Americas",
+    "category": "社会",
     "wordCount": 1087,
     "minutes": 7,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "a80bc6a3fa1fdb3ea42833030cbd8d4b.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2685,7 +2685,7 @@
   },
   {
     "id": "economist-2026-09-19-69a567af-0949-44b1-9ed6-e28a3a8f4463",
-    "titleZh": "Jamaica’s churches have become climate activists",
+    "titleZh": "牙买加教会成为气候行动者",
     "titleEn": "Jamaica’s churches have become climate activists",
     "summaryZh": "They are powerful, conservative, and green",
     "keyPointsZh": [
@@ -2693,10 +2693,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "The Americas",
+    "category": "环境",
     "wordCount": 373,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "534f2d107a39f286906c36c7f3bfe937.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2745,7 +2745,7 @@
   },
   {
     "id": "economist-2026-09-19-941d24dd-4e20-4dad-9b7f-f678fb3b05ef",
-    "titleZh": "Women lead brutal lives in Colombia’s illegal gold-mining regions",
+    "titleZh": "哥伦比亚非法采金区女性的残酷生活",
     "titleEn": "Women lead brutal lives in Colombia’s illegal gold-mining regions",
     "summaryZh": "They survive on what men discard, and are exploited by them",
     "keyPointsZh": [
@@ -2753,10 +2753,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "The Americas",
+    "category": "社会",
     "wordCount": 850,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "44ada1f031bddbf9154e7b48a7e3b36f.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2847,7 +2847,7 @@
   },
   {
     "id": "economist-2026-09-19-7721db0b-c2cb-4138-856d-f413e0d28ddb",
-    "titleZh": "South Africa is at risk of becoming a mafia state",
+    "titleZh": "南非面临沦为黑手党国家的风险",
     "titleEn": "South Africa is at risk of becoming a mafia state",
     "summaryZh": "An extraordinary public inquiry is confirming the country’s worst fears about organised crime",
     "keyPointsZh": [
@@ -2855,10 +2855,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Middle East & Africa",
+    "category": "社会",
     "wordCount": 1097,
     "minutes": 7,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "dd6c85471c0b79b6e04f687ea59e426a.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -2952,7 +2952,7 @@
   },
   {
     "id": "economist-2026-09-19-e82a1a84-4080-4e1c-9c18-fe0da84ae47e",
-    "titleZh": "The maverick cop disrupting South African policing",
+    "titleZh": "一位特立独行的警察搅动南非警界",
     "titleEn": "The maverick cop disrupting South African policing",
     "summaryZh": "Nhlanhla Mkhwanazi’s popularity reflects a country crying out for a hero",
     "keyPointsZh": [
@@ -2960,10 +2960,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Middle East & Africa",
+    "category": "社会",
     "wordCount": 375,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "622ce4924f4a1a07cbb4cb85cbd87bf5.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3012,7 +3012,7 @@
   },
   {
     "id": "economist-2026-09-19-5369fd39-2958-47a0-b7ea-af401c3dcc06",
-    "titleZh": "Iran’s allies now menace a second maritime choke point",
+    "titleZh": "伊朗盟友正威胁第二处海上咽喉",
     "titleEn": "Iran’s allies now menace a second maritime choke point",
     "summaryZh": "But the Houthis have been here before, and lost it",
     "keyPointsZh": [
@@ -3020,10 +3020,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Middle East & Africa",
+    "category": "国际",
     "wordCount": 942,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "a522096e46822feed2600f9533e98de2.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3118,7 +3118,7 @@
   },
   {
     "id": "economist-2026-09-19-39b67105-91c5-4dc3-87f0-a29ab20e2e85",
-    "titleZh": "A Turkish visit to Syria has Israel worried",
+    "titleZh": "土耳其访问叙利亚令以色列担忧",
     "titleEn": "A Turkish visit to Syria has Israel worried",
     "summaryZh": "But Israelis officials disagree about Turkey’s intentions",
     "keyPointsZh": [
@@ -3126,10 +3126,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Middle East & Africa",
+    "category": "国际",
     "wordCount": 607,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "a1655dcff3e70db4440c536e48b9c454.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3188,7 +3188,7 @@
   },
   {
     "id": "economist-2026-09-19-94d38c9d-ecb4-4976-8de5-932931403db3",
-    "titleZh": "In Morocco, scandal is weakening the king’s shaky rule",
+    "titleZh": "丑闻削弱摩洛哥国王本已不稳的统治",
     "titleEn": "In Morocco, scandal is weakening the king’s shaky rule",
     "summaryZh": "Forthcoming elections will do little to shore it up",
     "keyPointsZh": [
@@ -3196,10 +3196,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Middle East & Africa",
+    "category": "政治",
     "wordCount": 692,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "a89232b275e04087481f5a620bceb06f.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3258,7 +3258,7 @@
   },
   {
     "id": "economist-2026-09-19-b9a0e56d-b313-46b3-aa22-5d264ff9de6f",
-    "titleZh": "France’s centre has one question: who can beat Marine Le Pen?",
+    "titleZh": "法国中间派之问：谁能击败玛丽娜·勒庞？",
     "titleEn": "France’s centre has one question: who can beat Marine Le Pen?",
     "summaryZh": "Seven months out, presidential candidates are lacklustre and there are too many of them",
     "keyPointsZh": [
@@ -3266,10 +3266,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Europe",
+    "category": "政治",
     "wordCount": 1175,
     "minutes": 7,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "75ffe3056f89a7fa671e71fe3565b617.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3370,7 +3370,7 @@
   },
   {
     "id": "economist-2026-09-19-c1dadfda-82fa-45e1-8eab-78b980d53335",
-    "titleZh": "Sweden’s left seems to have eked out a narrow victory",
+    "titleZh": "瑞典左翼似乎以微弱优势赢得选举",
     "titleEn": "Sweden’s left seems to have eked out a narrow victory",
     "summaryZh": "A modest loss for the hard-right Sweden Democrats",
     "keyPointsZh": [
@@ -3378,10 +3378,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Europe",
+    "category": "政治",
     "wordCount": 688,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "48d179210a4446085925515079ec4cdc.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3457,7 +3457,7 @@
   },
   {
     "id": "economist-2026-09-19-4c843d95-b803-491d-8005-7826add11ade",
-    "titleZh": "Turkey defies European orders to free political prisoners",
+    "titleZh": "土耳其拒绝遵从欧洲释放政治犯的要求",
     "titleEn": "Turkey defies European orders to free political prisoners",
     "summaryZh": "If the European Court on Human Rights persists, the Turks may quit the human-rights convention",
     "keyPointsZh": [
@@ -3465,10 +3465,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Europe",
+    "category": "政治",
     "wordCount": 514,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "b51333d5ccce4773c7511f35d83f131b.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3517,7 +3517,7 @@
   },
   {
     "id": "economist-2026-09-19-2b5f2f1b-2921-42c4-8593-33c856441d6e",
-    "titleZh": "The AfD could stumble in another state election",
+    "titleZh": "德国选择党可能在另一场州选举中受挫",
     "titleEn": "The AfD could stumble in another state election",
     "summaryZh": "A late surge by the ruling Social Democrats in an eastern state could slow the far right’s momentum",
     "keyPointsZh": [
@@ -3525,10 +3525,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Europe",
+    "category": "政治",
     "wordCount": 430,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "17a5be447323e3f607927949bb2466d6.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3578,7 +3578,7 @@
   },
   {
     "id": "economist-2026-09-19-35a2f8bc-7972-47bf-aebf-8ea6fc7cd0cb",
-    "titleZh": "Russia’s sham election is descending into farce",
+    "titleZh": "俄罗斯的虚假选举正沦为闹剧",
     "titleEn": "Russia’s sham election is descending into farce",
     "summaryZh": "The parliamentary vote may be followed by a bigger mobilisation for war",
     "keyPointsZh": [
@@ -3586,10 +3586,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Europe",
+    "category": "政治",
     "wordCount": 1061,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "41495b83e3fd602b99358f9d7ca32edb.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3679,7 +3679,7 @@
   },
   {
     "id": "economist-2026-09-19-0636f889-39d9-49a3-ad69-3a0669d351d6",
-    "titleZh": "Why Europe’s populists forget to bash China",
+    "titleZh": "欧洲民粹主义者为何不再抨击中国？",
     "titleEn": "Why Europe’s populists forget to bash China",
     "summaryZh": "An ideal target gets a free pass from the demagogues",
     "keyPointsZh": [
@@ -3687,10 +3687,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Europe",
+    "category": "政治",
     "wordCount": 964,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "88e306f1fd0e42d6551ca63939e7e74a.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3749,7 +3749,7 @@
   },
   {
     "id": "economist-2026-09-19-2eacb53c-43fb-4e55-9ecd-a7b4587f3d3d",
-    "titleZh": "More and more Britons are refusing to engage with the state",
+    "titleZh": "越来越多英国人拒绝与政府打交道",
     "titleEn": "More and more Britons are refusing to engage with the state",
     "summaryZh": "The covid-19 pandemic didn’t help",
     "keyPointsZh": [
@@ -3757,10 +3757,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Britain",
+    "category": "社会",
     "wordCount": 1071,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "e567d9b46af4eae43a6525a2cf6fe18f.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3866,7 +3866,7 @@
   },
   {
     "id": "economist-2026-09-19-2dbd08a8-c7ea-4b73-98d2-429858bbd74a",
-    "titleZh": "Britain’s epidemic of school shirking is shocking, but fixable",
+    "titleZh": "英国逃学潮令人震惊，但并非无解",
     "titleEn": "Britain’s epidemic of school shirking is shocking, but fixable",
     "summaryZh": "High time to take a history lesson",
     "keyPointsZh": [
@@ -3874,10 +3874,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Britain",
+    "category": "教育",
     "wordCount": 634,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "035110b5a6d52b06bb7c3f15be1c712f.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -3936,7 +3936,7 @@
   },
   {
     "id": "economist-2026-09-19-8c4c1271-eb1c-45b2-bf0a-8ec18b3c1bbc",
-    "titleZh": "Reform UK’s cash windfall should not frighten its opponents",
+    "titleZh": "英国改革党获巨额捐款，对手不必害怕",
     "titleEn": "Reform UK’s cash windfall should not frighten its opponents",
     "summaryZh": "Big money, little effect",
     "keyPointsZh": [
@@ -3944,10 +3944,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Britain",
+    "category": "政治",
     "wordCount": 512,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "afecb7f1ab84ec02edf2f7cbb885c019.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4001,7 +4001,7 @@
   },
   {
     "id": "economist-2026-09-19-2fe5d502-1427-4db8-b105-cbe9fed191a4",
-    "titleZh": "Northern Ireland cannot balance its budget. Nobody cares",
+    "titleZh": "北爱尔兰预算失衡，却无人关心",
     "titleEn": "Northern Ireland cannot balance its budget. Nobody cares",
     "summaryZh": "The most expensive part of Britain",
     "keyPointsZh": [
@@ -4009,10 +4009,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Britain",
+    "category": "经济",
     "wordCount": 654,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "99194cb8182a5917982f25e0cf44a83b.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4087,7 +4087,7 @@
   },
   {
     "id": "economist-2026-09-19-2d03ff67-f3bb-4a03-b4e4-864c3a4e4d10",
-    "titleZh": "What Manchester reveals about Andy Burnham’s tech ambitions",
+    "titleZh": "从曼彻斯特看安迪·伯纳姆的科技雄心",
     "titleEn": "What Manchester reveals about Andy Burnham’s tech ambitions",
     "summaryZh": "His two priorities sit awkwardly together",
     "keyPointsZh": [
@@ -4095,10 +4095,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Britain",
+    "category": "科技",
     "wordCount": 653,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "c46761164c475279e05862021186ff22.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4157,7 +4157,7 @@
   },
   {
     "id": "economist-2026-09-19-12c1d8b3-0979-4296-af9d-4c21bb59cf2d",
-    "titleZh": "The “Up” series, an epic of ordinary life, comes to an end",
+    "titleZh": "记录普通人一生的《人生七年》系列迎来终章",
     "titleEn": "The “Up” series, an epic of ordinary life, comes to an end",
     "summaryZh": "A serious ancestor of reality TV",
     "keyPointsZh": [
@@ -4165,10 +4165,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Britain",
+    "category": "文化",
     "wordCount": 423,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "b28d38acd09d0b5d4fb55cacfb9e36e6.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4222,7 +4222,7 @@
   },
   {
     "id": "economist-2026-09-19-98083594-25db-4c1d-a3d9-455241918645",
-    "titleZh": "A big-state prime minister meets a small-minded British public",
+    "titleZh": "主张大政府的首相遇上不愿买账的英国公众",
     "titleEn": "A big-state prime minister meets a small-minded British public",
     "summaryZh": "Taxed Enough Already",
     "keyPointsZh": [
@@ -4230,10 +4230,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Britain",
+    "category": "政治",
     "wordCount": 971,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "ad8442b7efab52098703cc23c050341b.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4307,7 +4307,7 @@
   },
   {
     "id": "economist-2026-09-19-b3550d6e-c712-4659-bec2-0e5b42baf9b0",
-    "titleZh": "Agreeing to make AI safer may be impossible",
+    "titleZh": "让人工智能更安全，为何难以达成共识？",
     "titleEn": "Agreeing to make AI safer may be impossible",
     "summaryZh": "It is technically feasible, but American labs and the American authorities are at odds, as are America and China",
     "keyPointsZh": [
@@ -4315,10 +4315,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "International",
+    "category": "科技",
     "wordCount": 1708,
     "minutes": 10,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "dc9fe53a68752e2f7cf3192e5ba49175.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4448,7 +4448,7 @@
   },
   {
     "id": "economist-2026-09-19-e96c14cc-2de2-47bf-8622-b32b533ad96b",
-    "titleZh": "China is not ready for a post-American world",
+    "titleZh": "中国尚未准备好迎接后美国时代",
     "titleEn": "China is not ready for a post-American world",
     "summaryZh": "Donald Trump’s disaster in Iran has come too soon for China to take full advantage",
     "keyPointsZh": [
@@ -4456,10 +4456,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "International",
+    "category": "国际",
     "wordCount": 978,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "2b65307bcca313cdcbdd4859680959a5.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4543,7 +4543,7 @@
   },
   {
     "id": "economist-2026-09-19-459f71c4-4d6a-482e-a1c4-0c1eee4aefd0",
-    "titleZh": "Should Anthropic press pause on a potential $2trn IPO?",
+    "titleZh": "Anthropic 应暂停可能估值两万亿美元的首次公开募股吗？",
     "titleEn": "Should Anthropic press pause on a potential $2trn IPO?",
     "summaryZh": "Amid a safety freakout, it wants to slow down AI development",
     "keyPointsZh": [
@@ -4551,10 +4551,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Business",
+    "category": "商业",
     "wordCount": 1068,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "0f91e2c437432ffc2519f4e955c78baf.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4638,7 +4638,7 @@
   },
   {
     "id": "economist-2026-09-19-4018423c-e6a9-4632-9769-0be093c00df8",
-    "titleZh": "How an oil-supply crisis could bring about an investment boom",
+    "titleZh": "石油供应危机如何催生投资热潮",
     "titleEn": "How an oil-supply crisis could bring about an investment boom",
     "summaryZh": "The windfall from the Gulf war has shored up balance-sheets and enriched shareholders. Next comes expansion",
     "keyPointsZh": [
@@ -4646,10 +4646,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Business",
+    "category": "能源",
     "wordCount": 1245,
     "minutes": 7,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "20765c1482ed9a86c530c1a22694ffaa.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4756,7 +4756,7 @@
   },
   {
     "id": "economist-2026-09-19-62e4fd05-25f9-4473-877a-bc3f7289b859",
-    "titleZh": "Nannying for the ultra-rich is increasingly demanding—and lucrative",
+    "titleZh": "为超级富豪当保姆：要求更高，收入也更高",
     "titleEn": "Nannying for the ultra-rich is increasingly demanding—and lucrative",
     "summaryZh": "Life for rota-nannies can be glamorous and gruelling",
     "keyPointsZh": [
@@ -4764,10 +4764,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Business",
+    "category": "社会",
     "wordCount": 836,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "ae63c5432379d0a9ce80dc38746a28bb.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4831,7 +4831,7 @@
   },
   {
     "id": "economist-2026-09-19-564db0e4-a951-418c-8552-81fab09180bc",
-    "titleZh": "Alternatives to milk are losing moomentum",
+    "titleZh": "植物奶热潮正在退去",
     "titleEn": "Alternatives to milk are losing moomentum",
     "summaryZh": "Consumers are switching back to normal dairy",
     "keyPointsZh": [
@@ -4839,10 +4839,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Business",
+    "category": "商业",
     "wordCount": 466,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 6.5",
     "image": "24cf900477ad3e4b300affceca4aa89a.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4896,7 +4896,7 @@
   },
   {
     "id": "economist-2026-09-19-52e3e315-4dc3-4cca-9c1f-23699e85eb80",
-    "titleZh": "Sleep like a pro",
+    "titleZh": "像专业人士一样睡个好觉",
     "titleEn": "Sleep like a pro",
     "summaryZh": "One firm’s attempt to create a more rested workforce",
     "keyPointsZh": [
@@ -4904,10 +4904,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Business",
+    "category": "职场",
     "wordCount": 767,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 6.5",
     "image": "615ff3d9bf27a2fdb85c54dbcfd980cc.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -4981,7 +4981,7 @@
   },
   {
     "id": "economist-2026-09-19-8e7be82c-d7e6-4383-875d-f1f4fc1e92d6",
-    "titleZh": "At last, India is getting serious about selling state assets",
+    "titleZh": "印度终于开始认真出售国有资产",
     "titleEn": "At last, India is getting serious about selling state assets",
     "summaryZh": "But proper privatisation is another matter",
     "keyPointsZh": [
@@ -4989,10 +4989,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Business",
+    "category": "经济",
     "wordCount": 880,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "fd04843bdc306b9db71a8a1307e3ebfe.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5056,7 +5056,7 @@
   },
   {
     "id": "economist-2026-09-19-547ca78d-03df-445f-a604-828c23801623",
-    "titleZh": "Olympiad Man has displaced Davos Man",
+    "titleZh": "奥数精英取代了达沃斯精英",
     "titleEn": "Olympiad Man has displaced Davos Man",
     "summaryZh": "How maths geeks became market gods",
     "keyPointsZh": [
@@ -5064,10 +5064,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Business",
+    "category": "商业",
     "wordCount": 961,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "66026783e0a7bb4a0fc7b049b167cd2a.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5131,7 +5131,7 @@
   },
   {
     "id": "economist-2026-09-19-a375a944-3126-48bf-8983-b89635582a7f",
-    "titleZh": "Soaring bond yields, gaping deficits and towering debts: what could go wrong?",
+    "titleZh": "债券收益率飙升、赤字扩大、债务高企：风险何在？",
     "titleEn": "Soaring bond yields, gaping deficits and towering debts: what could go wrong?",
     "summaryZh": "The rich world is flirting with fiscal disaster",
     "keyPointsZh": [
@@ -5139,10 +5139,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Finance & economics",
+    "category": "金融",
     "wordCount": 1661,
     "minutes": 10,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "f3f98817223e6db81af3c2fdbc3e9466.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5285,7 +5285,7 @@
   },
   {
     "id": "economist-2026-09-19-45ea54e1-af05-4277-b956-1d8582a19a05",
-    "titleZh": "Scott Bessent should stop blaming the bond market",
+    "titleZh": "斯科特·贝森特应停止责怪债券市场",
     "titleEn": "Scott Bessent should stop blaming the bond market",
     "summaryZh": "It is working just fine; his interventions, less so",
     "keyPointsZh": [
@@ -5293,10 +5293,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Finance & economics",
+    "category": "金融",
     "wordCount": 718,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "aa6be87d8fadf6ef7574691b8da29fea.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5360,7 +5360,7 @@
   },
   {
     "id": "economist-2026-09-19-fe87d33d-c5a2-4292-98db-14e46f78b59d",
-    "titleZh": "What Africa’s biggest IPO can do for its stock markets",
+    "titleZh": "非洲最大规模首次公开募股能为当地股市带来什么？",
     "titleEn": "What Africa’s biggest IPO can do for its stock markets",
     "summaryZh": "A new generation of investors is buying up African stocks",
     "keyPointsZh": [
@@ -5368,10 +5368,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Finance & economics",
+    "category": "金融",
     "wordCount": 813,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "1930564d08ae20147dbfcfe2da443172.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5435,7 +5435,7 @@
   },
   {
     "id": "economist-2026-09-19-2919f110-b6c7-4947-b37a-8ddd58eb3901",
-    "titleZh": "The trickle-down economics of the AI boom",
+    "titleZh": "人工智能繁荣的涓滴效应",
     "titleEn": "The trickle-down economics of the AI boom",
     "summaryZh": "How fast are AI investments translating into broader gains? Taiwan and South Korea offer hints",
     "keyPointsZh": [
@@ -5443,10 +5443,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Finance & economics",
+    "category": "经济",
     "wordCount": 860,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "a0e1e597e3d213a968117fa4363c0d22.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5537,7 +5537,7 @@
   },
   {
     "id": "economist-2026-09-19-dc617d38-4e77-43d9-a4c5-4a6ebea55daf",
-    "titleZh": "The GDP-per-person slowdown threatens global living standards",
+    "titleZh": "人均国内生产总值增长放缓威胁全球生活水平",
     "titleEn": "The GDP-per-person slowdown threatens global living standards",
     "summaryZh": "Brazil, China, Germany and Russia have recently joined an unfortunate club",
     "keyPointsZh": [
@@ -5545,10 +5545,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Finance & economics",
+    "category": "经济",
     "wordCount": 1059,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "7fc9496e1999244495834d6b3e5f36f4.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5639,7 +5639,7 @@
   },
   {
     "id": "economist-2026-09-19-394d4a34-eb7e-432c-ad17-38f2be42cd2c",
-    "titleZh": "Ricardo Reis was too frank for the IMF",
+    "titleZh": "里卡多·雷斯对国际货币基金组织而言太过直率",
     "titleEn": "Ricardo Reis was too frank for the IMF",
     "summaryZh": "It can still benefit from the economist’s ideas",
     "keyPointsZh": [
@@ -5647,10 +5647,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Finance & economics",
+    "category": "经济",
     "wordCount": 971,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "d54a09a3ba17b039ea8577192df4ae7d.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5729,7 +5729,7 @@
   },
   {
     "id": "economist-2026-09-19-a058dbc9-0926-42ec-8964-3bfa55e35fdf",
-    "titleZh": "Artificial intelligence now beats some of the best human forecasters",
+    "titleZh": "人工智能已击败部分顶尖人类预测专家",
     "titleEn": "Artificial intelligence now beats some of the best human forecasters",
     "summaryZh": "Crystal balls give way to LLMs",
     "keyPointsZh": [
@@ -5737,10 +5737,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Science & technology",
+    "category": "科技",
     "wordCount": 1050,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "a0abfa9b878673a440289f171c299492.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5851,7 +5851,7 @@
   },
   {
     "id": "economist-2026-09-19-26e160d9-8ae8-4d30-a693-f4f189aff328",
-    "titleZh": "Top mathematicians are outraged by OpenAI’s methods",
+    "titleZh": "顶尖数学家为何对 OpenAI 的做法感到愤怒",
     "titleEn": "Top mathematicians are outraged by OpenAI’s methods",
     "summaryZh": "24 Fields Medal winners have written a letter of objection",
     "keyPointsZh": [
@@ -5859,10 +5859,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Science & technology",
+    "category": "科技",
     "wordCount": 760,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "f046307f86c66681a773f06f394d03bf.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5926,7 +5926,7 @@
   },
   {
     "id": "economist-2026-09-19-6605faa1-4622-4b9e-aeb7-2797d0ebe25b",
-    "titleZh": "Researchers have created a mouse with a partly human brain",
+    "titleZh": "研究人员培育出大脑部分由人类细胞构成的小鼠",
     "titleEn": "Researchers have created a mouse with a partly human brain",
     "summaryZh": "It will help the development of drugs for neurological illnesses",
     "keyPointsZh": [
@@ -5934,10 +5934,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Science & technology",
+    "category": "科学",
     "wordCount": 563,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "01b09854e0721dbbc5240371ff8ea21d.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -5996,7 +5996,7 @@
   },
   {
     "id": "economist-2026-09-19-0e56e770-be45-4a69-bf0b-8dad821861e5",
-    "titleZh": "A new device helps severely paralysed patients communicate",
+    "titleZh": "新设备帮助重度瘫痪患者交流",
     "titleEn": "A new device helps severely paralysed patients communicate",
     "summaryZh": "Eventually they might be able to control robots or exoskeletons",
     "keyPointsZh": [
@@ -6004,10 +6004,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Science & technology",
+    "category": "科技",
     "wordCount": 377,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "fb6cd0fefed2707de8a85a0241cea513.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -6051,7 +6051,7 @@
   },
   {
     "id": "economist-2026-09-19-cf3e760d-cc94-4baf-941d-5086c12ed74c",
-    "titleZh": "Hot coffee could cause oesophageal cancer",
+    "titleZh": "过烫的咖啡可能导致食管癌",
     "titleEn": "Hot coffee could cause oesophageal cancer",
     "summaryZh": "The cooler it is, the safer",
     "keyPointsZh": [
@@ -6059,10 +6059,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Science & technology",
+    "category": "健康",
     "wordCount": 611,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 6.5",
     "image": "3e9012100ddc4eb7f0cc07926623dec4.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -6121,7 +6121,7 @@
   },
   {
     "id": "economist-2026-09-19-19a77073-e752-444f-b85b-dd4f071e9d68",
-    "titleZh": "The right way to learn from Genghis Khan",
+    "titleZh": "如何正确借鉴成吉思汗的领导经验",
     "titleEn": "The right way to learn from Genghis Khan",
     "summaryZh": "What biography and natural experiments reveal about leadership",
     "keyPointsZh": [
@@ -6129,10 +6129,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Culture",
+    "category": "历史",
     "wordCount": 1089,
     "minutes": 7,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "7b4b7a04de3374d0fa6b65ed045a6ac9.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -6221,7 +6221,7 @@
   },
   {
     "id": "economist-2026-09-19-3307a9d1-a000-4ff2-b295-8f91392559bb",
-    "titleZh": "The rise of the phone-free concert",
+    "titleZh": "不带手机的演唱会正在兴起",
     "titleEn": "The rise of the phone-free concert",
     "summaryZh": "A growing band of musicians wants fans to experience gigs the old-fashioned way",
     "keyPointsZh": [
@@ -6229,10 +6229,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Culture",
+    "category": "文化",
     "wordCount": 469,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 6.5",
     "image": "a62e76119ba9cf190aed0b03c11dc190.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -6286,7 +6286,7 @@
   },
   {
     "id": "economist-2026-09-19-5cb6fa7b-e4da-425b-8bce-e2d68be763e7",
-    "titleZh": "The world’s most essential habitat does not get its proper due",
+    "titleZh": "世界上最重要的生境为何被忽视？",
     "titleEn": "The world’s most essential habitat does not get its proper due",
     "summaryZh": "A new book, “The World Beneath Our Feet”, digs into the significance of soil",
     "keyPointsZh": [
@@ -6294,10 +6294,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Culture",
+    "category": "自然",
     "wordCount": 567,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "d5cc2a1073b8f9a356dd8cf07af95692.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -6361,7 +6361,7 @@
   },
   {
     "id": "economist-2026-09-19-1e9669a6-cccd-4117-952d-0a66e69021db",
-    "titleZh": "Is Francis Fukuyama the most misunderstood public intellectual?",
+    "titleZh": "弗朗西斯·福山是被误解最深的公共知识分子吗？",
     "titleEn": "Is Francis Fukuyama the most misunderstood public intellectual?",
     "summaryZh": "“The End of History” was not the end of him. The oft-cited, and criticised, professor is back with a new memoir",
     "keyPointsZh": [
@@ -6369,10 +6369,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Culture",
+    "category": "文化",
     "wordCount": 716,
     "minutes": 4,
-    "level": "英文原版",
+    "level": "雅思 7.5",
     "image": "ee293e9a8cefb6a5f7ee7770636be30a.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -6436,7 +6436,7 @@
   },
   {
     "id": "economist-2026-09-19-54a05178-f927-4836-a2b9-723d26736677",
-    "titleZh": "The Emmy winners worth your time (and one that isn’t)",
+    "titleZh": "哪些艾美奖获奖剧值得看，哪部不值得？",
     "titleEn": "The Emmy winners worth your time (and one that isn’t)",
     "summaryZh": "Take our word for it",
     "keyPointsZh": [
@@ -6444,10 +6444,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Culture",
+    "category": "文化",
     "wordCount": 477,
     "minutes": 3,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "e5ad36356b4f73f24e48c1448f9b40dc.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -6534,7 +6534,7 @@
   },
   {
     "id": "economist-2026-09-19-83cd4bcc-663c-43fc-814d-73ae63cc1090",
-    "titleZh": "Is it still worthwhile to teach cursive in school?",
+    "titleZh": "学校还值得教连笔字吗？",
     "titleEn": "Is it still worthwhile to teach cursive in school?",
     "summaryZh": "The comeback of joined-up handwriting reflects research as well as culture",
     "keyPointsZh": [
@@ -6542,10 +6542,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Culture",
+    "category": "教育",
     "wordCount": 841,
     "minutes": 5,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "ee5c0afddf94e88d60b339dfd25ba38c.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -6624,7 +6624,7 @@
   },
   {
     "id": "economist-2026-09-19-0b132742-d39d-4c6b-86ad-d3a6c738c04b",
-    "titleZh": "Economic data, commodities and markets",
+    "titleZh": "经济数据、大宗商品与市场",
     "titleEn": "Economic data, commodities and markets",
     "summaryZh": "本篇为原刊经济数据图表，请在正文中查看。",
     "keyPointsZh": [
@@ -6632,10 +6632,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Economic & financial indicators",
+    "category": "经济",
     "wordCount": 0,
     "minutes": 1,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "f7dba6069e9c5d076347e3e7e1f6bb41.png",
     "section": "featured",
     "publishedAt": "2026-09-17",
@@ -6671,7 +6671,7 @@
   },
   {
     "id": "economist-2026-09-19-0c23ddbe-988f-4b85-adff-aa7431415ebf",
-    "titleZh": "Gloria Steinem changed the world for American women",
+    "titleZh": "格洛丽亚·斯泰纳姆改变了美国女性的世界",
     "titleEn": "Gloria Steinem changed the world for American women",
     "summaryZh": "The journalist and campaigner for liberation died on September 2nd, aged 92",
     "keyPointsZh": [
@@ -6679,10 +6679,10 @@
       "《经济学人》2026 年 9 月 19 日刊 · 原文"
     ],
     "source": "The Economist",
-    "category": "Obituary",
+    "category": "人物",
     "wordCount": 1063,
     "minutes": 6,
-    "level": "英文原版",
+    "level": "雅思 7.0",
     "image": "271d19e48d481b201cf311b652f2e758.jpg",
     "section": "featured",
     "publishedAt": "2026-09-17",
