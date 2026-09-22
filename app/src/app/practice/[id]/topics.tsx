@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { clearActivePracticeId, saveActivePracticeId } from '@/features/practice/practiceStorage';
+import { TopicGenerationProgress } from '@/features/practice/TopicGenerationProgress';
 import { usePracticePolling } from '@/features/practice/usePracticePolling';
 
 const topicIcons: Record<PracticeTopic, keyof typeof Ionicons.glyphMap> = {
@@ -29,12 +30,8 @@ function TopicSelection({ practiceId, vocabularyOrigin }: { practiceId: string; 
   const [opening, setOpening] = useState(false);
   useFocusEffect(useCallback(() => { retry(); }, [retry]));
   const group = practice?.group;
-  usePracticeExitGuard(practiceId, !group || group.articles.some((article) => article.status !== 'completed' && article.status !== 'failed'));
+  usePracticeExitGuard(practiceId, !group || group.articles.some((article) => article.status !== 'completed' && article.status !== 'failed'), true);
   const completed = group?.articles.filter((article) => article.status === 'completed').length ?? 0;
-  const readyCount = group?.articles.filter((article) => readable.has(article.status)).length ?? 0;
-  const failedCount = group?.articles.filter((article) => article.status === 'failed').length ?? 0;
-  const total = group?.articles.length ?? 4;
-  const settled = readyCount + failedCount;
   const pending = group?.articles.some((article) => !readable.has(article.status) && article.status !== 'failed');
 
   const openArticle = async (id: string) => {
@@ -76,24 +73,7 @@ function TopicSelection({ practiceId, vocabularyOrigin }: { practiceId: string; 
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           4 个主题，4 篇短文。按兴趣选择，随时回来继续。
         </Text>
-        {group ? (
-          <View style={styles.progressSection}>
-            <View style={styles.progressHeading}>
-              <Text style={[styles.actionText, { color: theme.text }]}>
-                {pending ? `生成进度 ${settled}/${total}` : '生成已结束'}
-              </Text>
-              <Text style={[styles.meta, { color: theme.textSecondary }]}>
-                {readyCount} 篇可阅读{failedCount ? ` · ${failedCount} 篇未成功` : ''}
-              </Text>
-            </View>
-            <View accessibilityRole="progressbar" accessibilityLabel="短文生成进度"
-              accessibilityValue={{ min: 0, max: total, now: settled, text: `${readyCount} 篇可阅读，${failedCount} 篇未成功，${total - settled} 篇处理中` }}
-              style={[styles.progressTrack, { backgroundColor: theme.border }]}>
-              <View style={{ width: `${readyCount / total * 100}%`, backgroundColor: theme.accent }} />
-              <View style={{ width: `${failedCount / total * 100}%`, backgroundColor: theme.danger }} />
-            </View>
-          </View>
-        ) : null}
+        {group ? <TopicGenerationProgress group={group} unavailable={Boolean(error)} /> : null}
         {pending ? (
           <View style={[styles.notice, { backgroundColor: theme.accentSoft }]}>
             <ActivityIndicator size="small" color={theme.accent} />
@@ -161,9 +141,6 @@ const styles = StyleSheet.create({
   eyebrow: { marginTop: 12, fontSize: 11, letterSpacing: 2, fontWeight: weight('bold') },
   title: { fontSize: 27, lineHeight: 36, fontWeight: weight('bold') },
   subtitle: { fontSize: 14, lineHeight: 23, marginBottom: 8 },
-  progressSection: { gap: 9 },
-  progressHeading: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  progressTrack: { height: 8, borderRadius: 4, overflow: 'hidden', flexDirection: 'row' },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12 },
   noticeText: { flex: 1, fontSize: 13, lineHeight: 20 },
   card: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 19, gap: 16 },

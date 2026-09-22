@@ -8,6 +8,7 @@ import { abbreviatePartOfSpeech } from '@context-reader/contracts';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  type TextLayoutLine,
   type TextProps,
   StyleSheet,
   Text,
@@ -37,7 +38,6 @@ interface ArticleParagraphProps {
 
 export function ArticleParagraph({
   segments,
-  targetColor,
   textColor,
   onTargetPress,
 }: ArticleParagraphProps) {
@@ -48,10 +48,7 @@ export function ArticleParagraph({
         return (
           <Text
             key={`${index}-${targetId ?? 'plain'}`}
-            onPress={targetId ? () => onTargetPress(targetId) : undefined}
-            style={targetId
-              ? { color: targetColor, fontWeight: '600' }
-              : undefined}>
+            onPress={targetId ? () => onTargetPress(targetId) : undefined}>
             {segment.text}
           </Text>
         );
@@ -332,6 +329,7 @@ export function tokenizeArticleText(text: string): ArticleTextToken[] {
 }
 
 interface ClickableArticleParagraphProps {
+  textStyle?: TextProps["style"];
   isHeading?: boolean;
   playbackRange?: { start: number; end: number; color: string };
   onTextLayout?: TextProps["onTextLayout"];
@@ -341,7 +339,8 @@ interface ClickableArticleParagraphProps {
   textColor?: string;
   addedWords?: ReadonlySet<string>;
   addedWordColor?: string;
-  onSentenceLongPress?: (sentence: string) => void;
+  onSentenceLongPress?: (sentence: string, anchor: WordAnchor) => void;
+  onSentenceAnchorChange?: (anchor: WordAnchor) => void;
   onWordPress: (term: string, context: string, targetId?: string, anchor?: WordAnchor) => void;
 }
 
@@ -351,18 +350,23 @@ interface ClickableArticleParagraphProps {
  * normal scrolling gesture.
  */
 export function ClickableArticleParagraph({
+  textStyle,
   isHeading = false,
   playbackRange,
   onTextLayout,
   text,
   segments,
-  targetColor,
   addedWords,
   addedWordColor,
   onWordPress,
   onSentenceLongPress,
+  onSentenceAnchorChange,
 }: ClickableArticleParagraphProps) {
-  const unaddedWordColor = '#000000';
+  const paragraphRef = useRef<Text>(null);
+  const linesRef = useRef<TextLayoutLine[]>([]);
+  const selectionRef = useRef(0);
+  const customTextStyle = StyleSheet.flatten(textStyle);
+  const unaddedWordColor = customTextStyle?.color ?? '#000000';
   const savedWordHighlight = addedWordColor ?? '#f3bb31';
   let offset = 0;
   const tokens = segments?.flatMap<ArticleTextToken & { targetId?: string }>((segment) => {
@@ -377,30 +381,49 @@ export function ClickableArticleParagraph({
   }) ?? tokenizeArticleText(text).map((token) => ({ ...token, targetId: undefined }));
   return (
     <Text
-      onTextLayout={onTextLayout}
+      ref={paragraphRef}
+      onTextLayout={(event) => {
+        linesRef.current = event.nativeEvent.lines;
+        onTextLayout?.(event);
+      }}
       selectable={!onSentenceLongPress}
       accessibilityRole={isHeading ? 'header' : undefined}
-      style={[styles.paragraph, isHeading && styles.sectionHeading, { color: unaddedWordColor, fontWeight: isHeading ? '700' : '600' }]}>
+      style={[styles.paragraph, isHeading && styles.sectionHeading, { color: unaddedWordColor, fontWeight: isHeading ? '700' : '600' }, textStyle]}>
       {tokens.map((token) => token.isWord ? (
         <Text
           key={token.key}
-          onLongPress={onSentenceLongPress ? () => onSentenceLongPress(
-            sentenceAtOffset(text, Number.parseInt(token.key, 10)),
-          ) : undefined}
-          onPress={(event) => onWordPress(
-            token.text,
-            sentenceAtOffset(text, Number.parseInt(token.key, 10)),
-            token.targetId,
-            { x: event?.nativeEvent?.pageX ?? 0, y: event?.nativeEvent?.pageY ?? 0 },
-          )}
+          onLongPress={onSentenceLongPress ? (event) => {
+            const selection = ++selectionRef.current;
+            const offset = Number.parseInt(token.key, 10);
+            const x = event?.nativeEvent?.pageX ?? 0;
+            onSentenceLongPress(sentenceAtOffset(text, offset), {
+              x, y: event?.nativeEvent?.pageY ?? 0,
+            });
+            const line = sentenceEndLine(text, offset, linesRef.current);
+            if (line) paragraphRef.current?.measureInWindow((_x, y) => {
+              if (selection === selectionRef.current) {
+                onSentenceAnchorChange?.({ x, y: y + line.y + line.height });
+              }
+            });
+          } : undefined}
+          onPress={(event) => {
+            selectionRef.current += 1;
+            onWordPress(
+              token.text,
+              sentenceAtOffset(text, Number.parseInt(token.key, 10)),
+              token.targetId,
+              { x: event?.nativeEvent?.pageX ?? 0, y: event?.nativeEvent?.pageY ?? 0 },
+            );
+          }}
           style={{
             color: playbackRange && Number.parseInt(token.key, 10) >= playbackRange.start
               && Number.parseInt(token.key, 10) < playbackRange.end
-              ? playbackRange.color : token.targetId ? targetColor : unaddedWordColor,
-            backgroundColor: addedWords?.has(normalizeWord(token.text))
+              ? playbackRange.color : unaddedWordColor,
+            // 目标词保持正文样式，避免收藏高亮提前透露自测内容。
+            backgroundColor: !token.targetId && addedWords?.has(normalizeWord(token.text))
               ? savedWordHighlight
               : undefined,
-            fontWeight: isHeading ? '700' : '600',
+            fontWeight: customTextStyle?.fontWeight ?? (isHeading ? '700' : '600'),
           }}>
           {token.text}
         </Text>
@@ -412,6 +435,7 @@ export function ClickableArticleParagraph({
 }
 
 export interface InteractiveWordParagraphProps {
+  textStyle?: TextProps["style"];
   isHeading?: boolean;
   playbackRange?: { start: number; end: number; color: string };
   onTextLayout?: TextProps["onTextLayout"];
@@ -483,6 +507,19 @@ export function sentenceAtOffset(text: string, offset: number): string {
   return text.slice(findSentenceStart(text, offset), findSentenceEnd(text, offset)).trim();
 }
 
+/** 按字符位置找到句末所在行，重复句子和跨行句子均使用实际排版。 */
+export function sentenceEndLine(text: string, offset: number, lines: TextLayoutLine[]) {
+  const end = findSentenceEnd(text, offset);
+  let cursor = 0;
+  for (const line of lines) {
+    const start = text.indexOf(line.text, cursor);
+    if (start < 0) return undefined;
+    cursor = start + line.text.length;
+    if (cursor >= end) return line;
+  }
+  return undefined;
+}
+
 const MAX_WORD_CONTEXT_LENGTH = 1_000;
 const SENTENCE_BOUNDARY_PATTERN = /[.!?。！？]/u;
 
@@ -547,6 +584,7 @@ function isSentenceBoundary(text: string, index: number): boolean {
  * resulting dictionary meaning through the existing vocabulary API.
  */
 export function InteractiveWordParagraph({
+  textStyle,
   isHeading = false,
   playbackRange,
   onTextLayout,
@@ -611,7 +649,6 @@ export function InteractiveWordParagraph({
   const showWord = async (term: string, context: string, targetId?: string, nextAnchor?: WordAnchor) => {
     overlay?.select(owner);
     if (nextAnchor) setAnchor(nextAnchor);
-    setSelectedSentence(null);
     const normalized = normalizeWord(term);
     if (!normalized) return;
     const wordContext = context.trim();
@@ -761,17 +798,42 @@ export function InteractiveWordParagraph({
     }
   };
 
+  const sentenceCard = (sentence: string, onClose: () => void) => (
+    <SentenceTranslation
+      key={`${owner}:${sentence}`}
+      sentence={sentence}
+      cache={sentenceCache}
+      color={textColor ?? '#000000'}
+      surfaceColor={surfaceColor}
+      borderColor={borderColor}
+      dangerColor={dangerColor}
+      onClose={onClose}
+    />
+  );
+
   return (
     <View>
       <ClickableArticleParagraph
+        textStyle={textStyle}
         playbackRange={playbackRange}
         onTextLayout={onTextLayout}
         isHeading={isHeading}
-        onSentenceLongPress={(sentence) => {
-          overlay?.select(owner);
+        onSentenceAnchorChange={(nextAnchor) => {
+          if (overlay) overlay.moveSentence(owner, nextAnchor);
+          else setAnchor(nextAnchor);
+        }}
+        onSentenceLongPress={(sentence, nextAnchor) => {
           requestIdRef.current += 1;
           setVisibleHint(null);
-          setSelectedSentence(sentence);
+          if (overlay) {
+            overlay.showSentence({
+              owner, anchor: nextAnchor,
+              children: sentenceCard(sentence, overlay.closeSentence),
+            });
+          } else {
+            setAnchor(nextAnchor);
+            setSelectedSentence(sentence);
+          }
         }}
         segments={segments}
         onWordPress={(term, context, targetId, nextAnchor) => void showWord(term, context, targetId, nextAnchor)}
@@ -784,17 +846,10 @@ export function InteractiveWordParagraph({
         text={text}
         textColor={textColor ?? '#000000'}
       />
-      {selectedSentence && isActive ? (
-        <SentenceTranslation
-          key={selectedSentence}
-          sentence={selectedSentence}
-          cache={sentenceCache}
-          color={textColor ?? '#000000'}
-          surfaceColor={surfaceColor}
-          borderColor={borderColor}
-          dangerColor={dangerColor}
-          onClose={() => setSelectedSentence(null)}
-        />
+      {selectedSentence && !overlay ? (
+        <ReadingOverlay owner={owner} anchor={anchor} kind="sentence">
+          {sentenceCard(selectedSentence, () => setSelectedSentence(null))}
+        </ReadingOverlay>
       ) : null}
       {visibleHint && isActive ? (
         <ReadingOverlay owner={owner} anchor={anchor}>

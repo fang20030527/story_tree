@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 
 import TopicSelectionScreen from '@/app/practice/[id]/topics';
 import GeneratingScreen from '@/app/practice/[id]/generating';
+import { ApiError } from '@/api/client';
 import { usePracticePolling } from '@/features/practice/usePracticePolling';
 import { clearReadyPracticeCreation, saveActivePracticeId } from '@/features/practice/practiceStorage';
 
@@ -48,7 +49,7 @@ beforeEach(() => {
 
 it('shows four articles without navigating until the user chooses any topic', async () => {
   const view = await render(<TopicSelectionScreen />);
-  for (const topic of ['经济', '文化', '政治', '科技']) expect(view.getByText(topic)).toBeTruthy();
+  for (const topic of ['经济', '文化', '政治', '科技']) expect(view.getAllByText(topic)).toHaveLength(2);
   expect(router.push).not.toHaveBeenCalled();
   expect(router.replace).not.toHaveBeenCalled();
   await fireEvent.press(view.getByLabelText('科技，开始阅读'));
@@ -102,6 +103,36 @@ it('opens the first ready article while the other three are still generating', a
   expect(view.getByLabelText('短文生成进度').props.accessibilityValue.now).toBe(1);
   await fireEvent.press(view.getByLabelText('政治，开始阅读'));
   await waitFor(() => expect(router.push).toHaveBeenCalledWith({ pathname: '/practice/[id]/read', params: { id: partial.group!.articles[2]!.id } }));
+});
+
+it('refreshes actual completion progress and marks stale status during a network error', async () => {
+  const pending = structuredClone(practice);
+  pending.group!.articles.forEach((article) => { article.status = 'queued'; });
+  const retry = jest.fn();
+  jest.mocked(usePracticePolling).mockReturnValue({ practice: pending, error: null, retry });
+  const view = await render(<TopicSelectionScreen />);
+  expect(view.getByText('0%')).toBeTruthy();
+
+  pending.group!.articles[0]!.status = 'ready';
+  pending.group!.articles[1]!.status = 'validating';
+  pending.group!.articles[2]!.status = 'generating';
+  await view.rerender(<TopicSelectionScreen />);
+  expect(view.getByText('25%')).toBeTruthy();
+  expect(view.getByLabelText('短文生成进度').props.accessibilityValue.now).toBe(1);
+
+  jest.mocked(usePracticePolling).mockReturnValue({ practice: pending,
+    error: new ApiError('NETWORK_ERROR', '网络暂时不可用', true), retry });
+  await view.rerender(<TopicSelectionScreen />);
+  expect(view.getByText('进度更新暂时中断，当前显示上次获取的状态。')).toBeTruthy();
+  expect(view.getByText('25%')).toBeTruthy();
+  await fireEvent.press(view.getByText('重新加载'));
+  expect(retry).toHaveBeenCalled();
+
+  jest.mocked(usePracticePolling).mockReturnValue({ practice, error: null, retry });
+  await view.rerender(<TopicSelectionScreen />);
+  expect(view.getByText('100%')).toBeTruthy();
+  expect(view.getByText('四篇短文已生成')).toBeTruthy();
+  expect(view.queryByText('进度更新暂时中断，当前显示上次获取的状态。')).toBeNull();
 });
 
 it('returns home by default when leaving topic selection', async () => {

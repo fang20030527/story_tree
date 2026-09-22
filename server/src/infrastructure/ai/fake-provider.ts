@@ -84,7 +84,10 @@ export class FakeAiProvider implements AiProvider {
           optionsEn,
           correctOptionIndex: optionsEn.indexOf(target.term),
           meaningEn: `${target.term} in its intended context`,
-          explanationEn: 'This is synthetic test feedback for the intended usage.',
+          explanationZh: '该词表达了目标含义，符合句子语境。',
+          optionExplanationsZh: optionsEn.map((option) =>
+            option === target.term ? '符合句子所需的含义。' : '不符合句子所需的含义。',
+          ),
           optionExplanationsEn: optionsEn.map((option) =>
             option === target.term ? 'Fits the intended context.' : 'Does not fit the intended context.',
           ),

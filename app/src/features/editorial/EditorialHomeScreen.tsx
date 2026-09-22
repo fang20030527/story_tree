@@ -22,9 +22,9 @@ import {
   getEditorialSection,
   searchEditorialArticles,
   type EditorialArticle,
-  type EditorialSection,
 } from './catalog';
 import { EditorialImage } from './EditorialImage';
+import { FeaturedLibrary } from './FeaturedLibrary';
 
 const PAGE_SIZE = 24;
 const SOURCES = ['全部刊物', 'The Economist', 'The New Yorker', 'The Atlantic', 'WIRED'];
@@ -34,7 +34,6 @@ export function EditorialHomeScreen() {
   const insets = useSafeAreaInsets();
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [sectionView, setSectionView] = useState<EditorialSection | null>(null);
   const [source, setSource] = useState('全部刊物');
   const [year, setYear] = useState('全部年份');
   const [page, setPage] = useState(0);
@@ -45,12 +44,6 @@ export function EditorialHomeScreen() {
       (source === '全部刊物' || article.source === source)
       && (year === '全部年份' || article.issueDate?.startsWith(year))),
     [query, source, year],
-  );
-  const sectionResults = useMemo(
-    () => (sectionView ? getEditorialSection(sectionView).filter((article) =>
-      (source === '全部刊物' || article.source === source)
-      && (year === '全部年份' || article.issueDate?.startsWith(year))) : []),
-    [sectionView, source, year],
   );
   const years = useMemo(() => ['全部年份', ...new Set(getEditorialSection('featured')
     .flatMap((article) => article.issueDate ? [article.issueDate.slice(0, 4)] : []).sort().reverse())], []);
@@ -64,7 +57,6 @@ export function EditorialHomeScreen() {
 
   const openSearch = () => {
     setSearchOpen((open) => !open);
-    setSectionView(null);
     setPage(0);
     setSource('全部刊物');
     setYear('全部年份');
@@ -76,10 +68,8 @@ export function EditorialHomeScreen() {
   };
 
   const hero = getEditorialSection('today')[0];
-  const featured = getEditorialSection('featured').slice(0, 4);
   const showSearchResults = searchOpen && query.trim().length > 0;
-  const showSection = !showSearchResults && sectionView !== null;
-  const resultCount = showSearchResults ? searchResults.length : sectionResults.length;
+  const resultCount = searchResults.length;
   const pageCount = Math.max(1, Math.ceil(resultCount / PAGE_SIZE));
   const changePage = (next: number) => {
     setPage(next);
@@ -195,34 +185,6 @@ export function EditorialHomeScreen() {
             )}
             {pagination}
           </>
-        ) : showSection ? (
-          <>
-            <TouchableOpacity
-              onPress={() => setSectionView(null)}
-              accessibilityRole="button"
-              accessibilityLabel="返回全部栏目"
-              style={styles.backToSections}>
-              <Ionicons name="chevron-back" size={17} color={theme.blue} />
-              <Text style={[styles.backToSectionsText, { color: theme.blue }]}>返回全部栏目</Text>
-            </TouchableOpacity>
-            <SectionHeader
-              title={sectionTitle(sectionView!)}
-              theme={theme}
-            />
-            {filters}
-            {sectionResults.length === 0 ? <Text style={{ color: theme.textMuted }}>没有找到相关外刊</Text> : null}
-            <View style={styles.resultsList}>
-              {sectionResults.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((article) => (
-                <ArticleCard
-                  key={article.id}
-                  article={article}
-                  theme={theme}
-                  onPress={() => openOverview(article)}
-                />
-              ))}
-            </View>
-            {pagination}
-          </>
         ) : (
           <>
             {hero ? (
@@ -236,41 +198,19 @@ export function EditorialHomeScreen() {
               </>
             ) : null}
 
-            {featured.length > 0 ? (
-              <>
-                <SectionHeader
-                  title="精选外刊"
-                  theme={theme}
-                  moreLabel="更多"
-                  onMore={() => { setSectionView('featured'); setPage(0); setSource('全部刊物'); setYear('全部年份'); }}
-                />
-                <View style={styles.resultsList}>
-                  {featured.map((article) => (
-                    <ArticleCard
-                      key={article.id}
-                      article={article}
-                      theme={theme}
-                      onPress={() => openOverview(article)}
-                    />
-                  ))}
-                </View>
-              </>
-            ) : null}
+            <FeaturedLibrary
+              renderArticle={(article) => (
+                <ArticleCard key={article.id} article={article} theme={theme}
+                  onPress={() => openOverview(article)} />
+              )}
+              onNavigate={() => scrollRef.current?.scrollTo({ y: 0, animated: false })}
+            />
 
           </>
         )}
       </ScrollView>
     </View>
   );
-}
-
-function sectionTitle(section: EditorialSection): string {
-  switch (section) {
-    case 'today':
-      return '今日精选';
-    case 'featured':
-      return '精选外刊';
-  }
 }
 
 function HeroCard({

@@ -1,8 +1,9 @@
+import { useStudyTimer } from '@/features/study/useStudyTimer';
 import { usePracticeExitGuard } from '@/features/practice/usePracticeExitGuard';
 import { Ionicons } from '@expo/vector-icons';
 import type { AnswerResult, PracticeDto } from '@context-reader/contracts';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -19,6 +20,7 @@ import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { QuizArticleReference } from '@/features/practice/QuizArticleReference';
 import { isEnglishSelfTest } from '@/features/practice/isEnglishSelfTest';
+import { ReadingOverlayProvider } from '@/features/practice/ReadingOverlay';
 import { QuizQuestion } from '@/features/practice/QuizQuestion';
 
 function safeLoadError(error: unknown): string {
@@ -31,8 +33,16 @@ function QuizContent({ practiceId }: { practiceId: string }) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [practice, setPractice] = useState<PracticeDto | null>(null);
-  const allowNavigation = usePracticeExitGuard(practiceId);
+  const completed = Boolean(practice?.questions.length
+    && practice.questions.every((question) => question.submittedAnswer !== null));
+  const allowNavigation = usePracticeExitGuard(practiceId, practice !== null && !completed);
+  const [mode, setMode] = useState<'review' | 'retry'>('review');
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [retryAnswers, setRetryAnswers] = useState<Record<string, AnswerResult>>({});
+  const [retryScore, setRetryScore] = useState<number | null>(null);
+  const advancingFirstAttempt = useRef(false);
   const [loading, setLoading] = useState(true);
+  useStudyTimer(practice !== null && !loading);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
 
@@ -62,7 +72,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
         const nextQuestion = nextPractice.questions.find(
           (question) => question.submittedAnswer === null,
         );
-        if (!nextQuestion) {
+        if (!nextQuestion && advancingFirstAttempt.current) {
           allowNavigation(() => router.replace({
             pathname: '/practice/[id]/result',
             params: { id: practiceId },
@@ -82,9 +92,12 @@ function QuizContent({ practiceId }: { practiceId: string }) {
     };
   }, [allowNavigation, loadAttempt, practiceId]);
 
-  const question = practice?.questions.find(
-    (candidate) => candidate.submittedAnswer === null,
-  );
+  const storedQuestion = completed
+    ? practice?.questions[questionIndex]
+    : practice?.questions.find((candidate) => candidate.submittedAnswer === null);
+  const question = storedQuestion && completed && mode === 'retry'
+    ? { ...storedQuestion, submittedAnswer: retryAnswers[storedQuestion.id] ?? null }
+    : storedQuestion;
   const answeredCount = practice?.questions.filter(
     (candidate) => candidate.submittedAnswer !== null,
   ).length ?? 0;
@@ -98,6 +111,21 @@ function QuizContent({ practiceId }: { practiceId: string }) {
   ): Promise<AnswerResult> => {
     if (!question) {
       throw new ApiError('STATE_CONFLICT', '题目状态已变化', false);
+    }
+    if (completed && mode === 'retry' && storedQuestion?.submittedAnswer) {
+      const original = storedQuestion.submittedAnswer;
+      const feedback = {
+        wasAssisted: false,
+        correctOptionId: original.correctOptionId,
+        meaningEn: original.meaningEn,
+        explanationZh: original.explanationZh,
+        optionExplanations: original.optionExplanations,
+      };
+      const result: AnswerResult = answer.answerKind === 'option'
+        ? { ...feedback, ...answer, isCorrect: answer.selectedOptionId === original.correctOptionId }
+        : { ...feedback, answerKind: 'dont_know', selectedOptionId: null, isCorrect: false };
+      setRetryAnswers((answers) => ({ ...answers, [question.id]: result }));
+      return result;
     }
     return answer.answerKind === 'option'
       ? submitAnswer(
@@ -156,7 +184,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: theme.text }]}>{isEnglishSelfTest(question) ? 'Vocabulary self-test' : '词义测验'}</Text>
           <Text style={[styles.progress, { color: theme.textMuted }]}>
-            {answeredCount + 1}/{practice.questions.length}
+            {completed ? questionIndex + 1 : answeredCount + 1}/{practice.questions.length}
           </Text>
         </View>
         <View style={styles.headerSpacer} />
@@ -181,12 +209,56 @@ function QuizContent({ practiceId }: { practiceId: string }) {
               styles.questionContent,
               { paddingBottom: insets.bottom + 28 },
             ]}
-            key={question.id}
+            key={`${mode}-${question.id}`}
             showsVerticalScrollIndicator={false}
             style={styles.questionScroll}
             testID="quiz-question-scroll">
+            {completed && (
+              <View style={styles.reviewControls}>
+                <Text style={{ color: theme.textSecondary }}>
+                  {mode === 'retry' ? '重新自测 · 本轮结果不覆盖首次成绩' : '回看题目 · 首次作答与解析'}
+                </Text>
+                {retryScore !== null && <Text style={{ color: theme.green }}>
+                  本轮完成，答对 {retryScore}/{practice.questions.length} 题
+                </Text>}
+                {mode === 'review' && <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setRetryAnswers({});
+                    setRetryScore(null);
+                    setQuestionIndex(0);
+                    setMode('retry');
+                  }}
+                  style={[styles.retryButton, { borderColor: theme.accent }]}>
+                  <Text style={[styles.retryText, { color: theme.accent }]}>再练一次</Text>
+                </TouchableOpacity>}
+                {mode === 'review' && questionIndex > 0 && <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => setQuestionIndex((index) => index - 1)}
+                  style={[styles.retryButton, { borderColor: theme.border }]}>
+                  <Text style={{ color: theme.text }}>上一题</Text>
+                </TouchableOpacity>}
+              </View>
+            )}
             <QuizQuestion
-              onContinue={reloadPractice}
+              continueLabel={completed
+                ? (questionIndex < practice.questions.length - 1 ? '下一题' : mode === 'retry' ? '完成本轮' : '查看结果')
+                : undefined}
+              onContinue={() => {
+                if (!completed) {
+                  advancingFirstAttempt.current = true;
+                  return reloadPractice();
+                }
+                if (questionIndex < practice.questions.length - 1) {
+                  setQuestionIndex((index) => index + 1);
+                } else if (mode === 'retry') {
+                  setRetryScore(Object.values(retryAnswers).filter((answer) => answer.isCorrect).length);
+                  setMode('review');
+                  setQuestionIndex(0);
+                } else {
+                  allowNavigation(() => router.replace({ pathname: '/practice/[id]/result', params: { id: practiceId } }));
+                }
+              }}
               onSubmit={submitCurrentAnswer}
               question={question}
             />
@@ -209,11 +281,12 @@ export default function PracticeQuizScreen() {
       </View>
     );
   }
-  return <QuizContent practiceId={practiceId} />;
+  return <ReadingOverlayProvider><QuizContent key={practiceId} practiceId={practiceId} /></ReadingOverlayProvider>;
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  reviewControls: { gap: 8, marginBottom: 24 },
   centered: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 24 },
   header: {
     alignItems: 'center',

@@ -18,6 +18,7 @@ import { EditorialReadScreen } from './EditorialReadScreen';
 import { getEditorialArticle } from './catalog';
 import { themes } from '@/constants/theme';
 
+jest.mock('@/features/study/useStudyTimer', () => ({ useStudyTimer: jest.fn() }));
 jest.mock('expo-router', () => ({ router: { back: jest.fn(), canGoBack: jest.fn(() => true), replace: jest.fn() } }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),

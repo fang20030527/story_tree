@@ -2,12 +2,13 @@ import type { PracticeDto } from '@context-reader/contracts';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
-import { createVocabularyItem, recordAssistance, requestWordTranslation, getPractice } from '@/api/practices';
+import { createVocabularyItem, recordAssistance, requestWordTranslation, getPractice, getVocabularyWords } from '@/api/practices';
 import PracticeReaderScreen from '@/app/practice/[id]/read';
 import PracticeResultScreen from '@/app/practice/[id]/result';
 import { createIdempotencyKey } from '@/api/installation';
 import { loadReadingPosition, saveReadingPosition } from '@/features/practice/practiceStorage';
 
+jest.mock('@/features/study/useStudyTimer', () => ({ useStudyTimer: jest.fn() }));
 jest.mock('@/features/practice/usePracticeExitGuard', () => ({ usePracticeExitGuard: () => jest.requireActual('react').useCallback((action: () => void) => action(), []) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 jest.mock('expo-router', () => ({
@@ -25,6 +26,7 @@ jest.mock('@/context/ThemeContext', () => ({
 jest.mock('@/api/practices', () => ({
   getPractice: jest.fn(), createVocabularyItem: jest.fn(),
   recordAssistance: jest.fn(), requestWordTranslation: jest.fn(),
+  getVocabularyWords: jest.fn(),
 }));
 jest.mock('@/api/installation', () => ({ createIdempotencyKey: jest.fn().mockResolvedValue('practice-word-key') }));
 jest.mock('expo-speech', () => ({ speak: jest.fn(), stop: jest.fn(), getAvailableVoicesAsync: jest.fn() }));
@@ -75,6 +77,10 @@ beforeEach(() => {
   jest.mocked(getPractice).mockResolvedValue(first);
   jest.mocked(saveReadingPosition).mockResolvedValue();
   jest.mocked(loadReadingPosition).mockResolvedValue(0);
+  jest.mocked(getVocabularyWords).mockResolvedValue({
+    items: [], nextCursor: null, evaluatedAt: '2026-09-22T00:00:00Z', nextRefreshAt: null,
+    summary: { totalCount: 0, todayCount: 0, learningCount: 0, dueLearningCount: 0, unlearnedCount: 0, masteredCount: 0 },
+  });
 });
 
 it('clears the previous error immediately and shows loading while retrying', async () => {
@@ -260,4 +266,20 @@ it('restores the saved paragraph when reopening the reader', async () => {
   const view = await render(<PracticeReaderScreen />);
   await view.findByText('First article');
   expect(view.getByTestId('practice-reader-list').props.initialScrollIndex).toBe(1);
+});
+
+it('restores cloud vocabulary highlights when reopening a completed article', async () => {
+  jest.mocked(getPractice).mockResolvedValue({ ...first, status: 'completed' });
+  const empty = await getVocabularyWords();
+  jest.mocked(getVocabularyWords).mockResolvedValue({ ...empty, items: [{
+    wordId: FIRST_ID, term: 'Reader', meaningZh: '读者', sourceSentence: null, contextCount: 1,
+    reviewReason: 'new', nextReviewAt: '2026-09-22T00:00:00Z', practiceCount: 0,
+    independentCorrectCount: 0, assistedCount: 0, lastPracticedAt: null, masteredAt: null,
+  }] });
+  const view = await render(<PracticeReaderScreen />);
+  await waitFor(() => expect(view.getByText('reader')).toHaveStyle({ backgroundColor: '#f3bb31' }));
+  await view.unmount();
+  const reopened = await render(<PracticeReaderScreen />);
+  await waitFor(() => expect(reopened.getByText('reader')).toHaveStyle({ backgroundColor: '#f3bb31' }));
+  expect(createVocabularyItem).not.toHaveBeenCalled();
 });

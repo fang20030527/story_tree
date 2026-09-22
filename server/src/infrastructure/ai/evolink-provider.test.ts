@@ -43,7 +43,7 @@ describe('EvoLink AI provider', () => {
       '"usages":[{"targetAlias":"t1","paragraphKey":"p1","surfaceForm":"..."}]',
     );
     expect(systemPrompt).toContain(
-      '"questions":[{"targetAlias":"t1","prompt":"...","optionsEn":["...","...","...","..."],"correctOptionIndex":0,"meaningEn":"...","explanationEn":"...","optionExplanationsEn":["...","...","...","..."]}]',
+      '"questions":[{"targetAlias":"t1","prompt":"...","optionsEn":["...","...","...","..."],"correctOptionIndex":0,"meaningEn":"...","explanationZh":"...","optionExplanationsZh":["...","...","...","..."],"optionExplanationsEn":["...","...","...","..."]}]',
     );
     expect(systemPrompt).toContain(
       'Return exactly seven paragraphs with keys p1 through p7.',
@@ -287,7 +287,8 @@ function generatedPractice() {
         optionsEn: ['fragile', 'resilient', 'temporary', 'ambiguous'],
         correctOptionIndex: 1,
         meaningEn: 'able to recover',
-        explanationEn: 'The ability to recover after setbacks shows resilience.',
+        explanationZh: '从挫折中恢复的能力体现了韧性。',
+        optionExplanationsZh: ['表示脆弱。', '符合恢复能力。', '描述持续时间。', '描述不确定性。'],
         optionExplanationsEn: [
           'Suggests weakness.',
           'Fits recovery.',

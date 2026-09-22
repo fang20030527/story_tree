@@ -186,7 +186,7 @@ function generationFormatIssues(text: string): string {
     // Only schema paths and codes, never model content or unknown key values.
     const fields = new Set(['title', 'paragraphs', 'key', 'text', 'usages', 'targetAlias',
       'paragraphKey', 'surfaceForm', 'questions', 'prompt', 'optionsEn',
-      'correctOptionIndex', 'meaningEn', 'explanationEn', 'optionExplanationsEn']);
+      'correctOptionIndex', 'meaningEn', 'explanationZh', 'optionExplanationsZh', 'optionExplanationsEn']);
     return JSON.stringify(parsed.error.issues.slice(0, 20).map((issue) => ({
       path: issue.path.map((part) => typeof part === 'number' || fields.has(String(part)) ? part : '?'),
       code: issue.code,

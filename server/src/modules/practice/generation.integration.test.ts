@@ -21,6 +21,51 @@ import {
 } from './generation-handler';
 
 describe('practice generation', () => {
+  it('repairs short article structure and review issues in one request without publishing failed drafts', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const user = await registerAnonymous(db, '80'.repeat(32), true);
+      const created = await createPractice(db, {
+        userId: user.userId, idempotencyKey: 'generation-structure-0001',
+        items: [{ term: 'resilient', meaningZh: '有韧性的' }],
+        format: 'topic_set', freeLimit: 3, generationDeadlineMs: 120_000,
+      });
+      const job = (await claimNextJob(db, 'structure-worker', 120_000, ['practice_generation']))!;
+      const provider = new FakeAiProvider();
+      const originalGenerate = provider.generatePractice.bind(provider);
+      const generate = vi.spyOn(provider, 'generatePractice')
+        .mockImplementationOnce(async (input, signal) => {
+          const draft = await originalGenerate(input, signal);
+          draft.paragraphs[0]!.text += ` ${'study '.repeat(100)}`;
+          return draft;
+        })
+        .mockImplementationOnce(async (input, signal) => {
+          expect(input.revision?.issues[0]).toContain('200-300');
+          const draft = await originalGenerate(input, signal);
+          draft.questions[0]!.prompt = 'Missing blank.';
+          return draft;
+        })
+        .mockImplementation(async (input, signal) => {
+          expect(await practiceState(db, job.resourceId)).not.toBe('failed');
+          expect(await db.select().from(practiceParagraphs)).toHaveLength(0);
+          return originalGenerate(input, signal);
+        });
+      const verify = vi.spyOn(provider, 'verifyPractice')
+        .mockResolvedValueOnce({ approved: false, issues: ['Make the distractors unambiguous.'] })
+        .mockResolvedValueOnce({ approved: true, issues: [] });
+
+      await handlePracticeGeneration({ db, provider, modelName: 'fake' }, job, { signal: new AbortController().signal });
+
+      expect(generate).toHaveBeenCalledTimes(4);
+      expect(generate.mock.calls[2]![0].revision?.issues[0]).toContain('____');
+      expect(generate.mock.calls[3]![0].revision?.issues).toEqual(['Make the distractors unambiguous.']);
+      expect(verify).toHaveBeenCalledTimes(2);
+      expect(await practiceState(db, job.resourceId)).toBe('ready');
+      expect(await db.select().from(practiceParagraphs)).toHaveLength(3);
+      const ledger = await db.select().from(usageLedger).where(eq(usageLedger.practiceSessionId, created.practiceId));
+      expect(ledger.map((entry) => entry.kind)).toEqual(['reserve']);
+    });
+  }, 120_000);
+
   it('revises rejected content using review feedback before publishing', async () => {
     await withTestDatabase(async ({ db }) => {
       const user = await registerAnonymous(db, '79'.repeat(32), true);
@@ -86,7 +131,7 @@ describe('practice generation', () => {
       expect(practice).toMatchObject({
         status: 'ready',
         modelName: 'fake-ielts-v1',
-        promptVersion: 'ielts-generation-english-cloze-v3',
+        promptVersion: 'ielts-generation-bilingual-feedback-v4',
       });
       expect(practice?.articleWordCount).toBeGreaterThanOrEqual(700);
       expect(practice?.articleWordCount).toBeLessThanOrEqual(1_000);
@@ -111,7 +156,18 @@ describe('practice generation', () => {
           endOffset: expect.any(Number),
         });
       }
-      expect(await db.select().from(practiceQuestions)).toHaveLength(3);
+      const questions = await db.select().from(practiceQuestions);
+      expect(questions).toHaveLength(3);
+      for (const question of questions) {
+        expect(question.explanationZh).toMatch(/\p{Script=Han}/u);
+        expect(question.explanationZh).not.toMatch(/[a-z]/i);
+        for (const option of question.optionsJson) {
+          const [zh, en] = question.optionExplanationsJson[option.id]!.split('\n');
+          expect(zh).toMatch(/\p{Script=Han}/u);
+          expect(en).toMatch(/[a-z]/i);
+          expect(en).not.toMatch(/\p{Script=Han}/u);
+        }
+      }
       expect(
         await db
           .select({ kind: usageLedger.kind })

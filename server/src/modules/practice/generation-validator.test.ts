@@ -68,7 +68,8 @@ describe('generated practice validation', () => {
       value.questions[0]!.optionsEn[1] = '并非给定义项';
     }],
     ['Chinese prompt', (value: GeneratedPractice) => { value.questions[0]!.prompt = '选择 ____。'; }],
-    ['Chinese explanation', (value: GeneratedPractice) => { value.questions[0]!.explanationEn = '这是正确答案。'; }],
+    ['English summary', (value: GeneratedPractice) => { value.questions[0]!.explanationZh = 'This is correct.'; }],
+    ['Missing Chinese option explanation', (value: GeneratedPractice) => { value.questions[0]!.optionExplanationsZh[0] = 'English only.'; }],
     ['missing blank', (value: GeneratedPractice) => { value.questions[0]!.prompt = 'Which word fits?'; }],
     ['multiple blanks', (value: GeneratedPractice) => { value.questions[0]!.prompt = 'The ____ team remained ____.'; }],
     ['invalid answer index', (value: GeneratedPractice) => { value.questions[0]!.correctOptionIndex = 4; }],
@@ -121,7 +122,8 @@ describe('generated practice validation', () => {
       optionsEn: ['fragile', 'silient', 'temporary', 'ambiguous'],
       correctOptionIndex: 1,
       meaningEn: 'a partial surface',
-      explanationEn: '测试重叠范围。',
+      explanationZh: '测试重叠范围。',
+      optionExplanationsZh: ['不符合。', '符合。', '不符合。', '不符合。'],
       optionExplanationsEn: ['不符合。', '符合。', '不符合。', '不符合。'],
     });
 
@@ -163,7 +165,8 @@ function validGeneratedPractice(): GeneratedPractice {
         optionsEn: ['fragile', 'resilient', 'temporary', 'ambiguous'],
         correctOptionIndex: 1,
         meaningEn: 'able to recover',
-        explanationEn: 'The ability to recover after setbacks shows resilience.',
+        explanationZh: '从挫折中恢复的能力体现了韧性。',
+        optionExplanationsZh: ['表示脆弱。', '符合恢复能力。', '描述持续时间。', '描述不确定性。'],
         optionExplanationsEn: ['Suggests weakness.', 'Fits recovery.', 'Describes duration.', 'Describes uncertainty.'],
       },
     ],

@@ -23,13 +23,15 @@ import type {
 import type { ClaimedJob } from '../jobs/types';
 import { commitQuota, releaseQuota } from '../quota/service';
 import {
+  PracticeValidationError,
   validateGeneratedPractice,
   type GenerationTarget,
   type ValidatedGeneratedPractice,
 } from './generation-validator';
 import { assertPracticeTransition } from './state';
 
-const DEFAULT_PROMPT_VERSION = 'ielts-generation-english-cloze-v3';
+const DEFAULT_PROMPT_VERSION = 'ielts-generation-bilingual-feedback-v4';
+const MAX_GENERATION_DRAFTS = 4;
 const successfulTerminalStatuses = new Set<PracticeStatus>([
   'ready',
   'in_progress',
@@ -68,17 +70,30 @@ export async function handlePracticeGeneration(
   if (!(await moveToGenerating(dependencies.db, job, context.signal))) return;
 
   let generationInput = loaded.providerInput;
-  for (let revision = 0; revision < 2; revision += 1) {
+  for (let revision = 0; revision < MAX_GENERATION_DRAFTS; revision += 1) {
     assertProviderCallAllowed(job, context.signal);
     const generated = await dependencies.provider.generatePractice(
       generationInput,
       context.signal,
     );
-    const validated = validateGeneratedPractice(
-      generated,
-      loaded.validationTargets,
-      loaded.providerInput.topic ? 'short' : 'long',
-    );
+    let validated: ValidatedGeneratedPractice;
+    try {
+      validated = validateGeneratedPractice(
+        generated,
+        loaded.validationTargets,
+        loaded.providerInput.topic ? 'short' : 'long',
+      );
+    } catch (error) {
+      if (!(error instanceof PracticeValidationError)
+        || revision === MAX_GENERATION_DRAFTS - 1) throw error;
+      // Repair the rejected draft within the same job. Never publish it or
+      // discard the concrete feedback in favor of a blind queue retry.
+      generationInput = {
+        ...loaded.providerInput,
+        revision: { generated, issues: [error.repairIssue] },
+      };
+      continue;
+    }
 
     if (!(await moveToValidating(dependencies.db, job, context.signal))) return;
 
@@ -88,7 +103,7 @@ export async function handlePracticeGeneration(
       context.signal,
     );
     if (!verification.approved) {
-      if (revision === 1) throw invalidGeneratedContent();
+      if (revision === MAX_GENERATION_DRAFTS - 1) throw invalidGeneratedContent();
       generationInput = {
         ...loaded.providerInput,
         revision: { generated, issues: verification.issues },
@@ -296,7 +311,7 @@ async function persistGeneratedPractice(
         const optionExplanations: OptionExplanations = Object.fromEntries(
           options.map((option, index) => [
             option.id,
-            question.optionExplanationsEn[index]!,
+            `${question.optionExplanationsZh[index]!}\n${question.optionExplanationsEn[index]!}`,
           ]),
         );
         return {
@@ -306,8 +321,7 @@ async function persistGeneratedPractice(
           optionsJson: options,
           correctOptionId,
           meaningEn: question.meaningEn,
-          // Keep the legacy storage column compatible with historical answers.
-          explanationZh: question.explanationEn,
+          explanationZh: question.explanationZh,
           optionExplanationsJson: optionExplanations,
         };
       }),

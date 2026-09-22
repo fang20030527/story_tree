@@ -27,6 +27,7 @@ export default function RootLayout() {
         <Stack.Screen name="favorites" />
         <Stack.Screen name="feature-guide" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="pro" />
       </Stack>
     </AppThemeProvider>
   );

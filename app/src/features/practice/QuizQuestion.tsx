@@ -11,6 +11,10 @@ import {
   View,
 } from 'react-native';
 
+import { InteractiveWordParagraph } from './ArticleParagraph';
+import { useSavedVocabularyWords } from './useSavedVocabularyWords';
+import { createVocabularyItem } from '@/api/practices';
+
 import { isEnglishSelfTest } from './isEnglishSelfTest';
 
 import { ApiError } from '@/api/client';
@@ -28,12 +32,14 @@ interface QuizQuestionProps {
     idempotencyKey: string,
   ) => Promise<AnswerResult>;
   onContinue: () => void;
+  continueLabel?: string | undefined;
 }
 
 export function QuizQuestion({
   question,
   onContinue,
   onSubmit,
+  continueLabel,
 }: QuizQuestionProps) {
   const { theme } = useAppTheme();
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(
@@ -49,6 +55,22 @@ export function QuizQuestion({
   const submissionRef = useRef<Promise<void> | null>(null);
   const englishSelfTest = isEnglishSelfTest(question);
   const locked = feedback !== null || submitting;
+  const { addedWords, handleWordAdded } = useSavedVocabularyWords(feedback ? question.id : undefined);
+  const feedbackText = (text: string, style: React.ComponentProps<typeof Text>['style']) => (
+    <InteractiveWordParagraph
+      text={text}
+      textStyle={[{ marginBottom: 0 }, style]}
+      addedWords={addedWords}
+      onWordAdded={handleWordAdded}
+      onAddToVocabulary={async (input, key) => { await createVocabularyItem(input, key); }}
+      targetColor={theme.accent}
+      addedWordColor={theme.accent}
+      surfaceColor={theme.surfaceAlt}
+      borderColor={theme.border}
+      mutedColor={theme.textSecondary}
+      dangerColor={theme.danger}
+    />
+  );
 
   const submit = (
     answer:
@@ -90,7 +112,9 @@ export function QuizQuestion({
       <Text style={[styles.term, { color: theme.accent }]}>
         {englishSelfTest ? 'Choose the word that best completes the sentence.' : question.term}
       </Text>
-      <Text style={[styles.prompt, { color: theme.text }]}>{question.prompt}</Text>
+      {feedback
+        ? feedbackText(question.prompt, [styles.prompt, { color: theme.text }])
+        : <Text style={[styles.prompt, { color: theme.text }]}>{question.prompt}</Text>}
 
       <View style={styles.options}>
         {question.options.map((option) => {
@@ -101,13 +125,14 @@ export function QuizQuestion({
             && selected
             && !correct,
           );
+          const OptionContainer = feedback ? View : TouchableOpacity;
           return (
-            <TouchableOpacity
-              accessibilityRole="radio"
-              accessibilityState={{ disabled: locked, selected }}
-              disabled={locked}
+            <OptionContainer
+              accessibilityRole={feedback ? undefined : 'radio'}
+              accessibilityState={feedback ? undefined : { disabled: locked, selected }}
+              disabled={feedback ? undefined : locked}
               key={option.id}
-              onPress={() => setSelectedOptionId(option.id)}
+              onPress={feedback ? undefined : () => setSelectedOptionId(option.id)}
               style={[
                 styles.option,
                 {
@@ -127,19 +152,15 @@ export function QuizQuestion({
                         : theme.border,
                 },
               ]}>
-              <Text style={[styles.optionText, { color: theme.text }]}>
-                {option.label}
-              </Text>
+              {feedback
+                ? feedbackText(option.label, [styles.optionText, { color: theme.text }])
+                : <Text style={[styles.optionText, { color: theme.text }]}>{option.label}</Text>}
               {feedback?.optionExplanations[option.id] ? (
-                <Text
-                  style={[
-                    styles.optionExplanation,
-                    { color: theme.textSecondary },
-                  ]}>
-                  {feedback.optionExplanations[option.id]}
-                </Text>
+                feedbackText(feedback.optionExplanations[option.id]!, [
+                  styles.optionExplanation, { color: theme.textSecondary },
+                ])
               ) : null}
-            </TouchableOpacity>
+            </OptionContainer>
           );
         })}
       </View>
@@ -155,20 +176,20 @@ export function QuizQuestion({
               styles.feedbackTitle,
               { color: feedback.isCorrect ? theme.green : theme.text },
             ]}>
-            {englishSelfTest
-              ? (feedback.isCorrect ? 'Correct!' : 'Correct answer highlighted')
-              : (feedback.isCorrect ? '回答正确' : '正确义项已标出')}
+            {feedback.isCorrect ? '回答正确' : (englishSelfTest ? '正确答案已标出' : '正确义项已标出')}
           </Text>
-          <Text style={[styles.meaningEn, { color: theme.textSecondary }]}>
-            {feedback.meaningEn}
-          </Text>
+          {!englishSelfTest ? (
+            <Text style={[styles.meaningEn, { color: theme.textSecondary }]}>
+              {feedback.meaningEn}
+            </Text>
+          ) : null}
           <Text style={[styles.explanation, { color: theme.text }]}>
             {feedback.explanationZh}
           </Text>
           <TouchableOpacity
             onPress={onContinue}
             style={[styles.primaryButton, { backgroundColor: theme.accent }]}>
-            <Text style={[styles.primaryText, { color: theme.accentText }]}>{englishSelfTest ? 'Continue' : '继续'}</Text>
+            <Text style={[styles.primaryText, { color: theme.accentText }]}>{continueLabel ?? '继续'}</Text>
           </TouchableOpacity>
         </View>
       ) : (

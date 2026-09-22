@@ -3,6 +3,7 @@ import { economistSeptember19 } from './issues/economist-2026-09-19';
 import { epubArticles } from './epubCatalog';
 import type { EditorialAudioCue } from './editorialAudioSync';
 import { aiArmsRaceAudioCues } from './audio/aiArmsRaceAudioCues';
+import duplicateArticles from './duplicateArticles.json';
 
 export type EditorialSection = 'today' | 'featured';
 
@@ -39,7 +40,7 @@ export interface EditorialArticle {
   audioCues?: readonly EditorialAudioCue[];
 }
 
-export const editorialArticles: readonly EditorialArticle[] = [
+const allEditorialArticles: readonly EditorialArticle[] = [
   {
     "id": "hero",
     sectionHeadings: [
@@ -167,7 +168,13 @@ export const editorialArticles: readonly EditorialArticle[] = [
   ...epubArticles,
 ];
 
-const articlesById = new Map(editorialArticles.map((article) => [article.id, article]));
+// 按来源链接、正文及合刊内容核对的重复项；列表去重不触发 EPUB 正文懒加载。
+const duplicateIds = new Set(Object.keys(duplicateArticles));
+export const editorialArticles: readonly EditorialArticle[] = allEditorialArticles.filter(
+  (article) => !duplicateIds.has(article.id),
+);
+// 已有收藏和阅读记录仍可通过原 ID 打开，避免清理列表后历史入口失效。
+const articlesById = new Map(allEditorialArticles.map((article) => [article.id, article]));
 
 export function getEditorialArticle(id: string): EditorialArticle | undefined {
   return articlesById.get(id);

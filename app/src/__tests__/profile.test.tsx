@@ -1,4 +1,5 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
 
 import { router } from 'expo-router';
@@ -7,6 +8,28 @@ import { clearAuthUser, loadAuthUser } from '@/features/auth/authStorage';
 import { loadRecentViews } from '@/features/library/libraryStorage';
 
 import ProfileScreen from '@/app/(tabs)/profile';
+
+it('显示实际本地日期、累计学习时长和十分钟打卡，并跨年刷新', async () => {
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date(2026, 11, 31, 23, 59, 55));
+  jest.mocked(loadAuthUser).mockResolvedValue(null);
+  jest.mocked(loadRecentViews).mockResolvedValue([]);
+  await AsyncStorage.setItem('study-time:v1:guest', JSON.stringify({ '2026-12-31': 660_000 }));
+  const view = await render(<ProfileScreen />);
+  try {
+    await waitFor(() => expect(view.getByText('今日已学 11min')).toBeTruthy());
+    expect(view.getByText('学习日历 2026.12')).toBeTruthy();
+    expect(view.getByLabelText('2026-12-31 今日 已打卡')).toBeTruthy();
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+    await waitFor(() => expect(view.getByText('学习日历 2027.01')).toBeTruthy());
+    expect(view.getByLabelText('2027-01-01 今日')).toBeTruthy();
+    expect(view.getByText('今日已学 0min')).toBeTruthy();
+  } finally {
+    await view.unmount();
+    jest.useRealTimers();
+    await AsyncStorage.removeItem('study-time:v1:guest');
+  }
+});
 
 jest.mock(
   '@react-native-async-storage/async-storage',
@@ -37,6 +60,15 @@ jest.mock('@/features/library/libraryStorage', () => ({
   loadFavorites: jest.fn().mockResolvedValue([]),
   loadRecentViews: jest.fn(),
 }));
+
+it('opens the Pro detail page from the upgrade entry', async () => {
+  jest.mocked(loadAuthUser).mockResolvedValue(null);
+  jest.mocked(loadRecentViews).mockResolvedValue([]);
+  const view = await render(<ProfileScreen />);
+  await fireEvent.press(view.getByLabelText('升级为 Pro 版'));
+  expect(router.push).toHaveBeenCalledWith('/pro');
+  expect(view.queryByText('2025 特惠')).toBeNull();
+});
 
 it('keeps recent learning statistics but removes favorite concepts', async () => {
   jest.mocked(loadAuthUser).mockResolvedValue(null);

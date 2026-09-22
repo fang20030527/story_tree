@@ -1,3 +1,4 @@
+import { useStudyTimer } from '@/features/study/useStudyTimer';
 import { EditorialAudioPlayer, type EditorialPlaybackPosition } from './EditorialAudioPlayer';
 import { findAudioCue } from './editorialAudioSync';
 import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
@@ -42,6 +43,7 @@ export function EditorialReadScreen({ articleId }: Props) {
 }
 
 function EditorialReadContent({ article }: { article: EditorialArticle }) {
+  useStudyTimer(true);
   const readingOverlay = useReadingOverlay();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
@@ -140,9 +142,13 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         testID="editorial-reading-scroll"
         onLayout={(event) => { viewport.current.height = event.nativeEvent.layout.height; onLayout(event.nativeEvent.layout.height); }}
         onContentSizeChange={(_, height) => onContentSizeChange(height)}
-        onScroll={(event) => { viewport.current.y = event.nativeEvent.contentOffset.y; onScroll(event); }}
+        onScroll={(event) => {
+          viewport.current.y = event.nativeEvent.contentOffset.y;
+          readingOverlay?.onScroll(event.nativeEvent.contentOffset.y);
+          onScroll(event);
+        }}
         stickyHeaderIndices={article.audioAsset || article.audioUrl ? [4] : undefined}
-        scrollEventThrottle={100}
+        scrollEventThrottle={16}
         onScrollEndDrag={(event) => { onScroll(event); flush(); }}
         onMomentumScrollEnd={(event) => { onScroll(event); flush(); }}
         onScrollBeginDrag={() => { readingOverlay?.select(null); setFollowing(false); }}

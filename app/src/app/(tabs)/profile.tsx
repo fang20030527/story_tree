@@ -1,8 +1,9 @@
+import { calendarDays, DAILY_GOAL_MS, loadStudyTotals, localDateKey, type StudyTotals } from '@/features/study/studyStorage';
 import { PracticePreferencesCard } from '@/features/practice/PracticePreferencesCard';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui';
@@ -38,16 +39,6 @@ async function openAppReview() {
   Alert.alert('感谢支持', '应用尚未上架应用商店，先收下这份鼓励吧！');
 }
 
-// 2026-09 的日历（9月1日是周二），周日开头
-const CAL_DAYS: (number | null)[] = [
-  30, 31, 1, 2, 3, 4, 5,
-  6, 7, 8, 9, 10, 11, 12,
-  13, 14, 15, 16, 17, 18, 19,
-  20, 21, 22, 23, 24, 25, 26,
-  27, 28, 29, 30, null, null, null,
-];
-const TODAY = 5;
-
 const APPEARANCE_OPTIONS: { key: 'system' | ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'system', label: '跟随系统', icon: 'phone-portrait-outline' },
   { key: 'light', label: '浅色', icon: 'sunny-outline' },
@@ -60,6 +51,35 @@ export default function ProfileScreen() {
   const [isRegistered, setIsRegistered] = useState(false);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [recentCount, setRecentCount] = useState(0);
+  const [now, setNow] = useState(() => new Date());
+  const [studyTotals, setStudyTotals] = useState<StudyTotals>({});
+  const [studyError, setStudyError] = useState(false);
+
+  useFocusEffect(useCallback(() => {
+    let mounted = true;
+    const refresh = () => {
+      setNow(new Date());
+      void loadStudyTotals().then((totals) => {
+        if (!mounted) return;
+        setStudyTotals(totals);
+        setStudyError(false);
+      }).catch(() => { if (mounted) setStudyError(true); });
+    };
+    refresh();
+    const timer = setInterval(refresh, 10_000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+      subscription.remove();
+    };
+  }, []));
+  const todayMs = studyTotals[localDateKey(now)] ?? 0;
+  const todayDuration = todayMs > 0 && todayMs < 60_000
+    ? `${Math.floor(todayMs / 1_000)}秒`
+    : `${Math.floor(todayMs / 60_000)}min`;
 
   useFocusEffect(
     useCallback(() => {
@@ -91,6 +111,7 @@ export default function ProfileScreen() {
       await authStorage.clearAuthUser();
       setIsRegistered(false);
       setAuthEmail(null);
+      setStudyTotals({});
       // Keep the profile screen underneath the login modal so the back button
       // can dismiss it after logout instead of leaving the user on a dead-end
       // route created by replacing the only stack entry.
@@ -103,7 +124,7 @@ export default function ProfileScreen() {
   const stats = [
     { label: '生词', value: 6 },
     { label: '学习篇数', value: recentCount },
-    { label: '打卡天数', value: 0 },
+    { label: '打卡天数', value: Object.values(studyTotals).filter((ms) => ms >= DAILY_GOAL_MS).length },
   ];
 
   return (
@@ -140,19 +161,21 @@ export default function ProfileScreen() {
           </View>
 
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="升级为 Pro 版"
             activeOpacity={0.85}
-            onPress={() => Alert.alert('敬请期待', 'Pro 版即将上线，敬请期待更多高级功能。')}>
+            onPress={() => router.push('/pro')}>
             <Card theme={theme} style={styles.vipCard}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.vipTitle, { color: theme.accent }]}>
                   升级为 Pro 版
                 </Text>
                 <Text style={[styles.vipSub, { color: theme.textSecondary }]}>
-                  解锁全部高级功能 · 畅读外刊与长文复习
+                  探索进阶阅读与长文复习
                 </Text>
               </View>
               <View style={[styles.vipBadge, { backgroundColor: theme.danger }]}>
-                <Text style={styles.vipBadgeText}>2025 特惠</Text>
+                <Text style={styles.vipBadgeText}>了解权益</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
             </Card>
@@ -175,7 +198,7 @@ export default function ProfileScreen() {
           <Card theme={theme} style={styles.calendarCard}>
             <View style={styles.calendarHeader}>
               <Text style={[styles.calendarTitle, { color: theme.text }]}>
-                学习日历 2026.09
+                学习日历 {now.getFullYear()}.{String(now.getMonth() + 1).padStart(2, '0')}
               </Text>
               <Ionicons name="chevron-down" size={14} color={theme.textMuted} />
             </View>
@@ -187,15 +210,20 @@ export default function ProfileScreen() {
               ))}
             </View>
             <View style={styles.daysGrid}>
-              {CAL_DAYS.map((d, i) => {
-                const isToday = d === TODAY && i < 7;
-                const isCurrentMonth = i > 1 && d !== null;
+              {calendarDays(now).map((date, i) => {
+                const d = date.getDate();
+                const dayKey = localDateKey(date);
+                const isToday = dayKey === localDateKey(now);
+                const isCurrentMonth = date.getMonth() === now.getMonth();
+                const checkedIn = (studyTotals[dayKey] ?? 0) >= DAILY_GOAL_MS;
                 return (
                   <View key={i} style={styles.dayCell}>
                     {d !== null ? (
                       <View
+                        accessibilityLabel={`${dayKey}${isToday ? ' 今日' : ''}${checkedIn ? ' 已打卡' : ''}`}
                         style={[
                           styles.dayCircle,
+                          checkedIn && { backgroundColor: theme.accentSoft },
                           isToday && { borderColor: theme.accent, borderWidth: 2 },
                         ]}>
                         <Text
@@ -217,7 +245,7 @@ export default function ProfileScreen() {
                 完成 10 分钟学习
               </Text>
               <Text style={{ color: theme.text, fontSize: 13, fontWeight: weight('semibold') }}>
-                今日已学 0min
+                {studyError ? '学习时长读取失败' : `今日已学 ${todayDuration}`}
               </Text>
             </View>
           </Card>

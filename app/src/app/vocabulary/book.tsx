@@ -32,6 +32,7 @@ import {
 import { Card } from '@/components/ui';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { VocabularyLoadingProgress } from '@/features/library/VocabularyLoadingProgress';
 import {
   localReviewTime,
   mergeVocabularyWords,
@@ -253,6 +254,7 @@ export default function VocabularyBookScreen() {
   const [timing, setTiming] = useState<RefreshTiming | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingStartedAt, setLoadingStartedAt] = useState(Date.now);
   const [listError, setListError] = useState<ListError | null>(null);
   const focusedRef = useRef(false);
   const requestVersionRef = useRef(0);
@@ -263,6 +265,7 @@ export default function VocabularyBookScreen() {
     pendingMoreRef.current = false;
     setLoadingMore(false);
     setInitialLoading(true);
+    setLoadingStartedAt(Date.now());
     setListError(null);
     setNextCursor(null);
     setTiming(null);
@@ -320,6 +323,7 @@ export default function VocabularyBookScreen() {
     const isCurrent = () => focusedRef.current && requestVersionRef.current === version;
     pendingMoreRef.current = true;
     setLoadingMore(true);
+    setLoadingStartedAt(Date.now());
     setListError(null);
     try {
       const page = await getVocabularyWords({
@@ -397,8 +401,10 @@ export default function VocabularyBookScreen() {
         </View>
         {initialLoading ? (
           <View style={items.length ? styles.inlineError : styles.stateArea}>
-            <ActivityIndicator color={theme.accent} />
-            <Text style={[styles.stateText, { color: theme.textMuted }]}>{items.length ? '正在更新复习安排…' : '正在加载词库…'}</Text>
+            <VocabularyLoadingProgress
+              label={items.length ? '正在更新复习安排…' : '正在加载词库…'}
+              startedAt={loadingStartedAt}
+            />
           </View>
         ) : null}
         {listError ? (
@@ -428,9 +434,14 @@ export default function VocabularyBookScreen() {
             onMasteryChanged={() => void loadFirstPage()}
           />
         ))}
-        {nextCursor ? (
-          <TouchableOpacity disabled={loadingMore || initialLoading} onPress={() => void loadMore()} style={[styles.loadMoreButton, { borderColor: theme.border, opacity: loadingMore ? 0.65 : 1 }]}>
-            {loadingMore ? <ActivityIndicator color={theme.accent} size="small" /> : <Text style={[styles.loadMoreText, { color: theme.text }]}>加载更多</Text>}
+        {loadingMore ? (
+          <View style={styles.inlineError}>
+            <VocabularyLoadingProgress label="正在加载更多单词…" startedAt={loadingStartedAt} />
+          </View>
+        ) : null}
+        {nextCursor && !loadingMore ? (
+          <TouchableOpacity disabled={initialLoading} onPress={() => void loadMore()} style={[styles.loadMoreButton, { borderColor: theme.border }]}>
+            <Text style={[styles.loadMoreText, { color: theme.text }]}>加载更多</Text>
           </TouchableOpacity>
         ) : null}
       </ScrollView>

@@ -4,6 +4,7 @@ import React from 'react';
 import { router } from 'expo-router';
 
 import { EditorialHomeScreen } from './EditorialHomeScreen';
+import { getEditorialSection } from './catalog';
 
 jest.mock('@/features/practice/ContinuePracticeCard', () => ({ ContinuePracticeCard: () => null }));
 
@@ -23,7 +24,7 @@ it('shows only the approved discovery sections and opens an overview', async () 
   for (const section of ['今日精选', '精选外刊']) {
     expect(view.getByText(section)).toBeTruthy();
   }
-  expect(view.getAllByText('更多')).toHaveLength(1);
+  expect(view.getByLabelText('查看The Economist')).toBeTruthy();
   expect(view.queryByText('年度最治愈直播：看瑞典北部驼鹿迁徙')).toBeNull();
   expect(view.queryByText('AI 正在如何改变语言学习的底层逻辑')).toBeNull();
   expect(view.queryByText('格洛丽亚·斯泰纳姆改变了美国女性的世界')).toBeNull();
@@ -39,9 +40,10 @@ it('shows only the approved discovery sections and opens an overview', async () 
     params: { id: 'hero' },
   });
 
-  await fireEvent.press(view.getAllByText('更多')[0]!);
-  expect(view.getByText('返回全部栏目')).toBeTruthy();
-  // “更多”按页展示；原有整期最后一篇仍可从列表进入。
+  await fireEvent.press(view.getByLabelText('查看The Economist'));
+  await fireEvent.press(view.getByLabelText('查看2026-09-19'));
+  expect(view.getByText('返回日期分类')).toBeTruthy();
+  // 同一期内分页，末页文章仍可打开。
   for (let page = 0; page < 3; page += 1) {
     await fireEvent.press(view.getByLabelText('下一页'));
   }
@@ -72,6 +74,10 @@ it.each([
   ['hero', '拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母'],
 ] as const)('opens %s through its overview', async (id, title) => {
   const view = await render(<EditorialHomeScreen />);
+  if (id === 'ai-arms-race') {
+    await fireEvent.press(view.getByLabelText('查看The Economist'));
+    await fireEvent.press(view.getByLabelText('查看日期未标注'));
+  }
   await fireEvent.press(view.getByLabelText(`${title}，查看文章概述`));
   expect(router.push).toHaveBeenLastCalledWith({
     pathname: '/editorial/[id]',
@@ -81,17 +87,24 @@ it.each([
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 
-it('filters the imported library and resets pagination when switching publications', async () => {
+it('browses publication then dates, and resets pagination when returning', async () => {
   const view = await render(<EditorialHomeScreen />);
-  await fireEvent.press(view.getByText('更多'));
-  await fireEvent.press(view.getByLabelText('筛选The New Yorker'));
-  expect(view.getByText(/第 1 \/ \d+ 页/)).toBeTruthy();
+  await fireEvent.press(view.getByLabelText('查看The Economist'));
+  const expectedDates = [...new Set(getEditorialSection('featured')
+    .filter((article) => article.source === 'The Economist' && article.issueDate)
+    .map((article) => article.issueDate!))].sort().reverse();
+  const dateButtons = view.getAllByRole('button').filter((button) =>
+    /^查看\d{4}-\d{2}-\d{2}$/.test(button.props.accessibilityLabel ?? ''));
+  expect(dateButtons.map((button) => button.props.accessibilityLabel)).toEqual(expectedDates.map((date) => '查看' + date));
+  await fireEvent.press(view.getByLabelText('查看2026-09-19'));
   await fireEvent.press(view.getByLabelText('下一页'));
   expect(view.getByText(/第 2 \/ \d+ 页/)).toBeTruthy();
-  await fireEvent.press(view.getByLabelText('筛选WIRED'));
+  await fireEvent.press(view.getByLabelText('返回日期分类'));
+  await fireEvent.press(view.getByLabelText('查看2026-09-19'));
   expect(view.getByText(/第 1 \/ \d+ 页/)).toBeTruthy();
-  await fireEvent.press(view.getByLabelText('筛选2025'));
-  expect(view.getByText('没有找到相关外刊')).toBeTruthy();
-  await fireEvent.press(view.getByLabelText('筛选全部年份'));
-  expect(view.queryByText('没有找到相关外刊')).toBeNull();
+  await fireEvent.press(view.getByLabelText('返回日期分类'));
+  await fireEvent.press(view.getByLabelText('返回外刊分类'));
+  await fireEvent.press(view.getByLabelText('查看WIRED'));
+  expect(view.queryByLabelText('查看日期未标注')).toBeNull();
+  expect(view.queryByLabelText('下一页')).toBeNull();
 });

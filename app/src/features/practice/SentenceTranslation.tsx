@@ -30,7 +30,7 @@ export function SentenceTranslation({ sentence, cache, color, surfaceColor, bord
   }, [sentence, cache, attempt]);
 
   return (
-    <View style={{ marginTop: 10, padding: 14, borderRadius: 12, borderWidth: 1, borderColor, backgroundColor: surfaceColor }}>
+    <View style={{ padding: 14, borderRadius: 14, borderWidth: 1, borderColor, backgroundColor: surfaceColor }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={{ color, fontWeight: '600' }}>单句翻译</Text>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭单句翻译" hitSlop={8} onPress={onClose}>
