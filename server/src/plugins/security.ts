@@ -10,12 +10,14 @@ import { AppError } from '../core/errors';
 export interface SecurityLimits {
   globalMax: number;
   sensitiveMax: number;
+  sentenceMax: number;
   timeWindowMs: number;
 }
 
 const defaultLimits: SecurityLimits = {
   globalMax: 600,
   sensitiveMax: 30,
+  sentenceMax: 60,
   timeWindowMs: 60_000,
 };
 
@@ -78,7 +80,19 @@ export function registerSecurity(
 
   let sensitiveLimiter: ReturnType<FastifyInstance['createRateLimit']> | null =
     null;
+  let sentenceLimiter: ReturnType<FastifyInstance['createRateLimit']> | null =
+    null;
   app.addHook('preHandler', async (request, reply) => {
+    if (request.method === 'POST'
+      && request.routeOptions.url === '/v1/sentence-translations') {
+      sentenceLimiter ??= app.createRateLimit({
+        max: limits.sentenceMax,
+        timeWindow: limits.timeWindowMs,
+        keyGenerator: tokenBucketKey,
+      });
+      await enforceLimit(sentenceLimiter, request, reply);
+      return;
+    }
     if (!isTokenLimitedRequest(request)) return;
     sensitiveLimiter ??= app.createRateLimit({
       max: limits.sensitiveMax,

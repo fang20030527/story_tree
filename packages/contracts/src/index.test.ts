@@ -34,6 +34,8 @@ import {
   ImportedArticleSummaryDtoSchema,
   PublicErrorSchema,
   PublicQuestionSchema,
+  RetryFailedTopicsRequestSchema,
+  RetryFailedTopicsResponseSchema,
   SubmitAnswerRequestSchema,
   TranslationRequestSchema,
   UpdateImportPreviewRequestSchema,
@@ -48,6 +50,13 @@ import {
 } from './index';
 
 describe('shared contracts', () => {
+  it('accepts only an empty retry request and returns its group ID', () => {
+    const groupId = crypto.randomUUID();
+    expect(RetryFailedTopicsRequestSchema.parse({})).toEqual({});
+    expect(RetryFailedTopicsRequestSchema.safeParse({ retryAll: true }).success).toBe(false);
+    expect(RetryFailedTopicsResponseSchema.parse({ groupId })).toEqual({ groupId });
+  });
+
   it('requires an explicit 14+ confirmation for anonymous identity', () => {
     expect(
       AnonymousAuthRequestSchema.safeParse({ ageConfirmed14Plus: true }).success,

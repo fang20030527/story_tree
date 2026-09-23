@@ -243,6 +243,7 @@ export const practiceSessions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     examPath: examPath('exam_path').default('ielts').notNull(),
     status: practiceStatus('status').default('queued').notNull(),
+    generationProgress: integer('generation_progress').default(0).notNull(),
     topicGroupId: uuid('topic_group_id'),
     topic: text('topic'),
     topicPosition: integer('topic_position'),

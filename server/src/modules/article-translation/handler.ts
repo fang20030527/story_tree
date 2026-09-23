@@ -33,6 +33,7 @@ export async function handleArticleTranslation(
   assertWithinDeadline(job, context.signal);
   const translatedText = validateTranslationText(
     await dependencies.provider.translate(loaded.sourceText, context.signal),
+    loaded.sourceText,
   );
   assertWithinDeadline(job, context.signal);
   const moderation = await dependencies.provider.moderate(

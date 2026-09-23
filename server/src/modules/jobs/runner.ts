@@ -32,8 +32,13 @@ export function assertJobRegistrations(
 
 export function startJobRunner(options: RunnerOptions): { stop(): Promise<void> } {
   assertJobRegistrations(options.enabledKinds, options.registrations);
+  const concurrency = options.concurrency ?? 1;
+  if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
+    throw new RangeError('concurrency must be a positive integer');
+  }
   const controller = new AbortController();
-  const done = runLoop(options, controller.signal);
+  const done = Promise.all(Array.from({ length: concurrency }, () => runLoop(options, controller.signal)))
+    .then(() => undefined);
   let stopPromise: Promise<void> | undefined;
 
   return {

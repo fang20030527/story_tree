@@ -104,9 +104,9 @@ export class FakeAiProvider implements AiProvider {
     return { approved: true, issues: [] };
   }
 
-  async translate(text: string, signal: AbortSignal): Promise<string> {
+  async translate(_text: string, signal: AbortSignal): Promise<string> {
     signal.throwIfAborted();
-    return `译文：${text}`;
+    return '译文：这是供测试使用的中文内容。';
   }
 
   async lookupWord(

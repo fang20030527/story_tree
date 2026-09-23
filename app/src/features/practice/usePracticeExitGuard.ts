@@ -6,7 +6,12 @@ import { Alert } from 'react-native';
 import { saveActivePracticeId } from './practiceStorage';
 
 /** 返回前保存续练入口，仅退出主题短文组时需要确认。 */
-export function usePracticeExitGuard(practiceId: string, enabled = true, confirmExit = false) {
+export function usePracticeExitGuard(
+  practiceId: string,
+  enabled = true,
+  confirmExit = false,
+  preventRemoval = true,
+) {
   const navigation = useNavigation();
   const focused = useIsFocused();
   const prompting = useRef(false);
@@ -16,7 +21,7 @@ export function usePracticeExitGuard(practiceId: string, enabled = true, confirm
     if (focused && enabled) void saveActivePracticeId(practiceId).catch(() => undefined);
   }, [enabled, focused, practiceId]);
 
-  usePreventRemove(enabled && focused && !continuation, ({ data }) => {
+  usePreventRemove(enabled && focused && preventRemoval && !continuation, ({ data }) => {
     if (prompting.current) return;
     prompting.current = true;
     const saveAndReturn = () => {

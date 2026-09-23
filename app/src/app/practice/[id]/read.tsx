@@ -189,7 +189,8 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
   const insets = useSafeAreaInsets();
   const [practice, setPractice] = useState<PracticeDto | null>(null);
   useStudyTimer(Boolean(practice?.article));
-  const allowNavigation = usePracticeExitGuard(practiceId);
+  // 阅读入口已在页面聚焦时保存，避免为异步存储拦截系统侧滑返回。
+  const allowNavigation = usePracticeExitGuard(practiceId, true, false, false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const listRef = useRef<FlatList<ArticleParagraphDto>>(null);

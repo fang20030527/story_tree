@@ -98,6 +98,42 @@ describe('EvoLink AI provider', () => {
     expect(requestJson(fetchImpl).max_completion_tokens).toBe(25_000);
   });
 
+  it('lets translation use its configured generation deadline instead of the short default AI timeout', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse({ choices: [{ message: { content: '这是真正的中文译文。' } }] }),
+    );
+    const client = new EvolinkClient(config, fetchImpl);
+    const generateText = vi.spyOn(client, 'generateText');
+    const signal = new AbortController().signal;
+    const provider = new EvolinkAiProvider(client, {
+      visionModel: 'test-vision-model',
+      visionTimeoutMs: 120_000,
+      translationTimeoutMs: 120_000,
+    });
+
+    await expect(provider.translate('This is an English sentence.', signal))
+      .resolves.toBe('这是真正的中文译文。');
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({ timeoutMs: 120_000 }),
+      signal,
+    );
+  });
+
+  it('reports a model timeout as retryable before the overall translation deadline', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation((_url, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      }),
+    );
+    const provider = new EvolinkAiProvider(new EvolinkClient(config, fetchImpl), {
+      visionModel: 'test-vision-model',
+      visionTimeoutMs: 120_000,
+      translationTimeoutMs: 10,
+    });
+    await expect(provider.translate('Translate me.', AbortSignal.timeout(100)))
+      .rejects.toMatchObject({ code: 'AI_UNAVAILABLE', retryable: true });
+  });
+
   it('uses the dedicated vision model, timeout, and strict multimodal JSON request', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({

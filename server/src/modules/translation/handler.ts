@@ -40,6 +40,7 @@ export async function handleTranslation(
   assertProviderCallAllowed(job, context.signal);
   const translatedText = validateTranslationText(
     await dependencies.provider.translate(loaded.sourceText, context.signal),
+    loaded.sourceText,
   );
 
   assertProviderCallAllowed(job, context.signal);

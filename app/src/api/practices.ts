@@ -13,6 +13,8 @@ import {
   type DashboardDto,
   PracticeDtoSchema,
   type PracticeDto,
+  RetryFailedTopicsResponseSchema,
+  type RetryFailedTopicsResponse,
   type SubmitAnswerRequest,
   TranslationDtoSchema,
   type TranslationDto,
@@ -75,8 +77,17 @@ export function createPractice(
 
 export function getPractice(practiceId: string): Promise<PracticeDto> {
   return apiRequest(
-    `/v1/practices/${encodeURIComponent(practiceId)}`,
+    `/v1/practices/${encodeURIComponent(practiceId)}?includeProgress=1`,
     PracticeDtoSchema,
+  );
+}
+
+export function retryFailedTopics(groupId: string, idempotencyKey: string): Promise<RetryFailedTopicsResponse> {
+  return postIdempotentJson(
+    `/v1/practices/${encodeURIComponent(groupId)}/retry-failed`,
+    RetryFailedTopicsResponseSchema,
+    {},
+    idempotencyKey,
   );
 }
 

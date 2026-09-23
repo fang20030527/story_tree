@@ -5,6 +5,8 @@ import {
   CreatePracticeAcceptedSchema,
   CreatePracticeRequestSchema,
   PracticeDtoSchema,
+  RetryFailedTopicsRequestSchema,
+  RetryFailedTopicsResponseSchema,
   SubmitAnswerRequestSchema,
 } from '@context-reader/contracts';
 import type { FastifyPluginAsync } from 'fastify';
@@ -21,6 +23,7 @@ import {
   createPracticeFromVocabulary,
 } from './create-service';
 import { getPracticeForUser } from './get-service';
+import { retryFailedTopicArticles } from './retry-failed-service';
 
 export interface PracticeRoutesOptions {
   config: ServerConfig;
@@ -133,7 +136,44 @@ export const practiceRoutes: FastifyPluginAsync<PracticeRoutesOptions> = async (
         practiceId,
         freeLimit: options.config.freePracticeLimit,
       });
-      return reply.send(PracticeDtoSchema.parse(practice));
+      const response = PracticeDtoSchema.parse(practice);
+      if ((request.query as { includeProgress?: unknown }).includeProgress === '1' || !response.group) {
+        return reply.send(response);
+      }
+      // Installed clients reject unknown group fields, so keep their original shape.
+      return reply.send({
+        ...response,
+        group: {
+          id: response.group.id,
+          articles: response.group.articles.map((article) => ({
+            id: article.id,
+            topic: article.topic,
+            status: article.status,
+            title: article.title,
+            wordCount: article.wordCount,
+            failureMessage: article.failureMessage,
+          })),
+        },
+      });
+    },
+  );
+
+  app.post(
+    '/v1/practices/:id/retry-failed',
+    { preHandler: requireAuth(options.db) },
+    async (request, reply) => {
+      const groupId = parseUuidParam(request.params, 'id', '主题练习编号格式无效');
+      const idempotencyKey = requireIdempotencyKey(request.headers['idempotency-key']);
+      if (!RetryFailedTopicsRequestSchema.safeParse(request.body).success) {
+        throw new AppError('VALIDATION_ERROR', '请检查重试请求', 400);
+      }
+      const result = await retryFailedTopicArticles(options.db, {
+        userId: request.authUser.userId,
+        groupId,
+        idempotencyKey,
+        generationDeadlineMs: options.config.generationDeadlineMs,
+      });
+      return reply.send(RetryFailedTopicsResponseSchema.parse(result));
     },
   );
 };

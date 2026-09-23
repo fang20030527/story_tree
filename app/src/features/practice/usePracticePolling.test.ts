@@ -72,9 +72,9 @@ describe('usePracticePolling', () => {
   it('continues polling siblings after the first article is ready', async () => {
     const grouped: PracticeDto = {
       ...practice('ready', 500),
-      group: { id: practiceId, articles: (['经济', '文化', '政治', '科技'] as const).map((topic, index) => ({
+      group: { id: practiceId, canRetryFailed: false, articles: (['经济', '文化', '政治', '科技'] as const).map((topic, index) => ({
         id: practiceId, topic, status: index === 0 ? 'ready' : 'generating',
-        title: null, wordCount: null, failureMessage: null,
+        generationProgress: index === 0 ? 100 : 10, title: null, wordCount: null, failureMessage: null,
       })) },
     };
     mockedGetPractice.mockResolvedValue(grouped);
@@ -89,13 +89,14 @@ describe('usePracticePolling', () => {
   it('recovers from malformed data after the first article failed and discovers a ready sibling', async () => {
     const grouped: PracticeDto = {
       ...practice('failed', 500),
-      group: { id: practiceId, articles: (['经济', '文化', '政治', '科技'] as const).map((topic, index) => ({
+      group: { id: practiceId, canRetryFailed: false, articles: (['经济', '文化', '政治', '科技'] as const).map((topic, index) => ({
         id: practiceId, topic, status: index === 0 ? 'failed' : 'generating',
-        title: null, wordCount: null, failureMessage: null,
+        generationProgress: 10, title: null, wordCount: null, failureMessage: null,
       })) },
     };
     const done = structuredClone(grouped);
     done.group!.articles.slice(1).forEach((article) => { article.status = 'ready'; });
+    done.group!.canRetryFailed = true;
     mockedGetPractice.mockResolvedValueOnce(grouped)
       .mockRejectedValueOnce(new ApiError('INVALID_SERVER_RESPONSE', '服务返回了无法识别的数据', true))
       .mockResolvedValueOnce(done);
@@ -109,6 +110,27 @@ describe('usePracticePolling', () => {
     expect(result.current.error).toBeNull();
     await act(async () => { jest.advanceTimersByTime(30_000); });
     expect(mockedGetPractice).toHaveBeenCalledTimes(3);
+  });
+
+  it('refreshes a settled partial group until the failed job exposes its retry action', async () => {
+    const grouped: PracticeDto = {
+      ...practice('failed'),
+      group: { id: practiceId, canRetryFailed: false, articles: (['经济', '文化', '政治', '科技'] as const).map((topic, index) => ({
+        id: practiceId, topic, status: index === 0 ? 'ready' : 'failed',
+        generationProgress: index === 0 ? 100 : 40,
+        title: null, wordCount: null, failureMessage: null,
+      })) },
+    };
+    const retryable = structuredClone(grouped);
+    retryable.group!.canRetryFailed = true;
+    mockedGetPractice.mockResolvedValueOnce(grouped).mockResolvedValue(retryable);
+    const { result } = await renderHook(() => usePracticePolling(practiceId));
+    await flushPromises();
+    expect(result.current.practice?.group?.canRetryFailed).toBe(false);
+    await act(async () => { jest.advanceTimersByTime(1_000); });
+    expect(result.current.practice?.group?.canRetryFailed).toBe(true);
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+    expect(mockedGetPractice).toHaveBeenCalledTimes(2);
   });
 
   it('does not retry authorization failures automatically', async () => {

@@ -51,7 +51,7 @@ describe('Fake AI provider', () => {
       provider.verifyPractice({ ...input, generated }, signal),
     ).resolves.toEqual({ approved: true, issues: [] });
     await expect(provider.translate('Source text.', signal)).resolves.toBe(
-      '译文：Source text.',
+      '译文：这是供测试使用的中文内容。',
     );
     await expect(provider.moderate('Safe text.', signal)).resolves.toEqual({
       riskLevel: 'low',

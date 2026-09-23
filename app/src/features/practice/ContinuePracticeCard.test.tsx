@@ -19,8 +19,8 @@ jest.mock('@/context/ThemeContext', () => ({
 const id = '11111111-1111-4111-8111-111111111111';
 const practice: PracticeDto = {
   id, status: 'completed', modelName: null, remainingFreePractices: 2, failure: null, article: null, questions: [],
-  group: { id, articles: (['经济', '文化', '政治', '科技'] as const).map((topic, index) => ({
-    id, topic, status: index === 0 ? 'completed' : 'ready', title: topic, wordCount: 250, failureMessage: null,
+  group: { id, canRetryFailed: false, articles: (['经济', '文化', '政治', '科技'] as const).map((topic, index) => ({
+    id, topic, status: index === 0 ? 'completed' : 'ready', generationProgress: 100, title: topic, wordCount: 250, failureMessage: null,
   })) },
 };
 beforeEach(() => {
@@ -35,7 +35,7 @@ it('resumes a group even after its first article has been completed', async () =
 });
 it('hides finished groups', async () => {
   jest.mocked(getPractice).mockResolvedValue({ ...practice, group: {
-    id, articles: practice.group!.articles.map((article) => ({ ...article, status: 'completed' })),
+    id, canRetryFailed: false, articles: practice.group!.articles.map((article) => ({ ...article, status: 'completed' })),
   } });
   const view = await render(<ContinuePracticeCard />);
   await waitFor(() => expect(getPractice).toHaveBeenCalled());

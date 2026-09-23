@@ -14,6 +14,49 @@ import {
 import { startJobRunner } from './runner';
 
 describe('database job leases', () => {
+  it('runs four practice jobs concurrently so one article does not consume the others\' deadlines', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const userId = crypto.randomUUID();
+      await db.insert(users).values({ id: userId, kind: 'guest', ageConfirmedAt: new Date() });
+      const practiceIds = Array.from({ length: 4 }, () => crypto.randomUUID());
+      await db.insert(practiceSessions).values(practiceIds.map((id) => ({ id, userId, status: 'queued' as const })));
+      await db.insert(jobs).values(practiceIds.map((resourceId) => ({
+        id: crypto.randomUUID(), kind: 'practice_generation' as const, resourceId,
+        deadlineAt: new Date(Date.now() + 120_000),
+      })));
+      let active = 0;
+      let peak = 0;
+      let release: () => void = () => undefined;
+      let notifyAllStarted: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      const allStarted = new Promise<void>((resolve) => { notifyAllStarted = resolve; });
+      const runner = startJobRunner({
+        db, workerId: 'parallel-practice-worker', concurrency: 4,
+        leaseMs: 30_000, pollIntervalMs: 10, enabledKinds: ['practice_generation'],
+        registrations: { practice_generation: {
+          handle: async () => {
+            active += 1;
+            peak = Math.max(peak, active);
+            if (active === 4) notifyAllStarted();
+            await gate;
+            active -= 1;
+          },
+          onPermanentFailure: async () => undefined,
+        } },
+      });
+      try {
+        await Promise.race([
+          allStarted,
+          new Promise<never>((_resolve, reject) => setTimeout(() => reject(new Error('Four jobs did not start')), 5_000)),
+        ]);
+        expect(peak).toBe(4);
+      } finally {
+        release();
+        await runner.stop();
+      }
+    });
+  }, 120_000);
+
   it('claims atomically, recovers leases, and finalizes expired work once', async () => {
     await withTestDatabase(async ({ db }) => {
       const userId = crypto.randomUUID();

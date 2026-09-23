@@ -117,5 +117,5 @@ it('rejects zero without changing the saved setting', async () => {
   await waitFor(() => expect(view.getByLabelText('每次练习单词数量').props.value).not.toBe(''));
   await fireEvent.changeText(view.getByLabelText('每次练习单词数量'), '0');
   await fireEvent.press(view.getByText('保存'));
-  expect(await view.findByText('请输入大于 0 的整数')).toBeTruthy();
+  expect(await view.findByText('请输入 1–32 的整数')).toBeTruthy();
 });

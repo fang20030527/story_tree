@@ -404,6 +404,20 @@ describe('sentence translation', () => {
     expect(requestSentenceTranslation).toHaveBeenCalledTimes(1);
   });
 
+  it('continues a pending translation after closing and reopening the sentence card', async () => {
+    let resolveTranslation!: (value: string) => void;
+    jest.mocked(requestSentenceTranslation).mockImplementation(() =>
+      new Promise((resolve) => { resolveTranslation = resolve; }));
+    const view = await render(<InteractiveWordParagraph text="Birds fly." targetColor="#123456" />);
+    await fireEvent(view.getByText('Birds'), 'longPress');
+    expect(view.getByText('正在翻译…')).toBeTruthy();
+    await fireEvent.press(view.getByLabelText('关闭单句翻译'));
+    await fireEvent(view.getByText('Birds'), 'longPress');
+    expect(requestSentenceTranslation).toHaveBeenCalledTimes(1);
+    await act(async () => resolveTranslation('鸟儿飞翔。'));
+    expect(view.getByText('鸟儿飞翔。')).toBeTruthy();
+  });
+
   it('ignores a late translation after changing sentences and allows retry', async () => {
     let resolveFirst!: (value: string) => void;
     jest.mocked(requestSentenceTranslation).mockReset()

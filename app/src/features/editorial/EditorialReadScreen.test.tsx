@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadEditorialReadingProgress, saveEditorialReadingProgress } from './editorialReadingProgress';
 import { createVocabularyItem, requestWordTranslation } from '@/api/practices';
+import { requestSentenceTranslation } from '@/api/sentences';
 import { AppState, ScrollView } from 'react-native';
 import { EditorialAudioPlayer } from './EditorialAudioPlayer';
 import { router } from 'expo-router';
@@ -16,6 +17,7 @@ import {
 
 import { EditorialReadScreen } from './EditorialReadScreen';
 import { getEditorialArticle } from './catalog';
+import { loadEditorialTranslation } from './editorialTranslation';
 import { themes } from '@/constants/theme';
 
 jest.mock('@/features/study/useStudyTimer', () => ({ useStudyTimer: jest.fn() }));
@@ -39,12 +41,29 @@ jest.mock('./editorialReadStorage', () => ({ markEditorialArticleRead: jest.fn()
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 jest.mock('@/api/practices', () => ({ createVocabularyItem: jest.fn(), requestWordTranslation: jest.fn() }));
+jest.mock('@/api/sentences', () => ({ requestSentenceTranslation: jest.fn() }));
 
 beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks();
   jest.mocked(router.canGoBack).mockReturnValue(true);
   jest.mocked(markEditorialArticleRead).mockResolvedValue(undefined);
+  jest.mocked(requestSentenceTranslation).mockResolvedValue('真实的中文译文。');
+});
+
+it('generates an actual Chinese full translation and reuses the saved result', async () => {
+  const article = getEditorialArticle('hero')!;
+  const first = await render(<EditorialReadScreen articleId="hero" />);
+  await fireEvent.press(first.getByText('查看译文'));
+  await waitFor(() => expect(first.getByText(/真实的中文译文。/u)).toBeTruthy());
+  expect(requestSentenceTranslation).toHaveBeenCalled();
+  expect(first.queryByText(/译文：Scarlet macaws/u)).toBeNull();
+  const requestCount = jest.mocked(requestSentenceTranslation).mock.calls.length;
+  await waitFor(async () => expect(await loadEditorialTranslation(article.id, article.paragraphs)).not.toBeNull());
+  await first.unmount();
+  const reopened = await render(<EditorialReadScreen articleId="hero" />);
+  await waitFor(() => expect(reopened.getByText(/真实的中文译文。/u)).toBeTruthy());
+  expect(requestSentenceTranslation).toHaveBeenCalledTimes(requestCount);
 });
 
 it('renders catalog prose and records one editorial recent view', async () => {
@@ -104,6 +123,7 @@ it('returns to the editorial list when opened without navigation history', async
 });
 
 jest.mock('./EditorialAudioPlayer', () => ({ EditorialAudioPlayer: jest.fn(() => null) }));
+jest.mock('./EditorialSpeechPlayer', () => ({ EditorialSpeechPlayer: jest.fn(() => null) }));
 
 it('connects the supplied recording to the AI article', async () => {
   const view = await render(<EditorialReadScreen articleId="ai-arms-race" />);
@@ -116,6 +136,7 @@ it('restores saved highlights, translation visibility and scroll position after 
   await saveEditorialReadingProgress('hero', { addedWords: ['parker'], scrollY: 820, showFullTranslation: true });
   const view = await render(<EditorialReadScreen articleId="hero" />);
   await waitFor(() => expect(view.getByTestId('editorial-reading-scroll')).toBeTruthy());
+  await waitFor(() => expect(view.getByTestId(`editorial-paragraph-${getEditorialArticle('hero')!.paragraphs.length - 1}`)).toBeTruthy());
   expect(view.getAllByText('Parker')[0]).toHaveStyle({ backgroundColor: '#F3BB31' });
   expect(view.getByText('隐藏译文')).toBeTruthy();
   const scroll = view.getByTestId('editorial-reading-scroll');
@@ -127,6 +148,7 @@ it('restores saved highlights, translation visibility and scroll position after 
   expect((await loadEditorialReadingProgress('hero')).scrollY).toBe(1460);
   const reopened = await render(<EditorialReadScreen articleId="hero" />);
   await waitFor(() => expect(reopened.getByTestId('editorial-reading-scroll')).toBeTruthy());
+  await waitFor(() => expect(reopened.getByTestId(`editorial-paragraph-${getEditorialArticle('hero')!.paragraphs.length - 1}`)).toBeTruthy());
   await fireEvent(reopened.getByTestId('editorial-reading-scroll'), 'contentSizeChange', 390, 8000);
   await fireEvent(reopened.getByTestId('editorial-reading-scroll'), 'layout', { nativeEvent: { layout: { height: 600 } } });
   expect(scrollTo).toHaveBeenLastCalledWith({ y: 1460, animated: false });
@@ -164,6 +186,7 @@ it('flushes the latest reading position when the app moves to the background', a
   const listener = jest.mocked(AppState.addEventListener);
   const view = await render(<EditorialReadScreen articleId="hero" />);
   await waitFor(() => expect(view.getByTestId('editorial-reading-scroll')).toBeTruthy());
+  await waitFor(() => expect(view.getByTestId(`editorial-paragraph-${getEditorialArticle('hero')!.paragraphs.length - 1}`)).toBeTruthy());
   const scroll = view.getByTestId('editorial-reading-scroll');
   await fireEvent(scroll, 'layout', { nativeEvent: { layout: { height: 600 } } });
   await fireEvent(scroll, 'contentSizeChange', 390, 8000);
@@ -211,8 +234,19 @@ it('highlights the spoken word, follows it, and lets manual scrolling suspend fo
   scrollTo.mockRestore();
 });
 it('renders all four original economic indicator charts', async () => {
+  const articleId = 'economist-2026-09-19-0b132742-d39d-4c6b-86ad-d3a6c738c04b';
   const view = await render(
-    <EditorialReadScreen articleId="economist-2026-09-19-0b132742-d39d-4c6b-86ad-d3a6c738c04b" />,
+    <EditorialReadScreen articleId={articleId} />,
   );
   expect(view.getAllByLabelText(/Economic data, commodities and markets，原刊配图/)).toHaveLength(4);
+});
+
+it('shows the start of a long back-issue article before the whole body is mounted', async () => {
+  const articleId = 'new-yorker-2026-07-20-a97e6e55e0285ff6';
+  const article = getEditorialArticle(articleId)!;
+  expect(article.bodyBlocks!.length).toBeGreaterThan(64);
+  const view = await render(<EditorialReadScreen articleId={articleId} />);
+  expect(view.getByTestId('editorial-paragraph-0')).toBeTruthy();
+  expect(view.queryByTestId(`editorial-paragraph-${article.paragraphs.length - 1}`)).toBeNull();
+  await view.unmount();
 });

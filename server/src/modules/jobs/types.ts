@@ -40,6 +40,7 @@ export interface JobRegistration {
 export interface RunnerOptions {
   db: AppDatabase;
   workerId: string;
+  concurrency?: number;
   leaseMs: number;
   pollIntervalMs: number;
   enabledKinds: readonly JobKind[];

@@ -1,7 +1,7 @@
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ContinuePracticeCard } from '@/features/practice/ContinuePracticeCard';
+import { getApiBaseUrl } from '@/api/client';
 
 import { SectionHeader } from '@/components/ui';
 import { weight } from '@/constants/theme';
@@ -28,6 +29,7 @@ import { FeaturedLibrary } from './FeaturedLibrary';
 
 const PAGE_SIZE = 24;
 const SOURCES = ['全部刊物', 'The Economist', 'The New Yorker', 'The Atlantic', 'WIRED'];
+let imageHostWakeRequested = false;
 
 export function EditorialHomeScreen() {
   const { theme } = useAppTheme();
@@ -38,6 +40,20 @@ export function EditorialHomeScreen() {
   const [year, setYear] = useState('全部年份');
   const [page, setPage] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (imageHostWakeRequested) return;
+    let baseUrl: string;
+    try {
+      baseUrl = getApiBaseUrl();
+    } catch {
+      return;
+    }
+    imageHostWakeRequested = true;
+    // EPUB covers are served by the API. Wake an idle host while the reader
+    // browses locally bundled issue dates, before the first cover request.
+    void fetch(`${baseUrl}/health/live`).catch(() => undefined);
+  }, []);
 
   const searchResults = useMemo(
     () => searchEditorialArticles(query).filter((article) =>
@@ -258,7 +274,7 @@ function ArticleCard({
       accessibilityRole="button"
       accessibilityLabel={`${article.titleZh}，查看文章概述`}
       style={[styles.articleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <EditorialImage uri={article.image} style={styles.articleImage} />
+      <EditorialImage uri={article.image} style={styles.articleImage} priority="high" />
       <View style={styles.articleInfo}>
         <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.articleTitle, { color: theme.text }]} numberOfLines={2}>{article.titleZh}</Text>

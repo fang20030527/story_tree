@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -9,6 +10,17 @@ import { getEditorialSection, type EditorialArticle } from './catalog';
 
 const PAGE_SIZE = 24;
 const UNDATED = '日期未标注';
+
+// 官网品牌资源随应用打包，外刊列表无需联网加载标识。
+const PUBLICATION_LOGOS: Record<string, number> = {
+  'The Economist': require('../../../assets/images/publications/economist.png'),
+  'Scientific American': require('../../../assets/images/publications/scientific-american.png'),
+  'National Geographic': require('../../../assets/images/publications/national-geographic.png'),
+  'BBC Future': require('../../../assets/images/publications/bbc.png'),
+  'The New Yorker': require('../../../assets/images/publications/new-yorker.png'),
+  WIRED: require('../../../assets/images/publications/wired.png'),
+  'The Atlantic': require('../../../assets/images/publications/atlantic.png'),
+};
 
 export function FeaturedLibrary({ renderArticle, onNavigate }: {
   renderArticle: (article: EditorialArticle) => React.ReactNode;
@@ -45,7 +57,14 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
   const categoryRow = (label: string, detail: string, onPress: () => void) => (
     <TouchableOpacity key={label} accessibilityRole="button" accessibilityLabel={`查看${label}`}
       onPress={onPress} style={[styles.row, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <Ionicons name={source ? 'calendar-outline' : 'book-outline'} size={22} color={theme.blue} />
+      {!source && PUBLICATION_LOGOS[label] ? (
+        <View style={styles.logoFrame}>
+          <Image source={PUBLICATION_LOGOS[label]} style={styles.logo} contentFit="contain"
+            accessibilityLabel={`${label} 标识`} />
+        </View>
+      ) : (
+        <Ionicons name={source ? 'calendar-outline' : 'book-outline'} size={22} color={theme.blue} />
+      )}
       <View style={styles.info}>
         <Text style={[styles.title, { color: theme.text }]}>{label}</Text>
         <Text style={[styles.detail, { color: theme.textMuted }]}>{detail}</Text>
@@ -95,6 +114,8 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth },
   info: { flex: 1 },
+  logoFrame: { width: 40, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 6 },
+  logo: { width: 36, height: 36 },
   title: { fontSize: 16, fontWeight: weight('semibold') },
   detail: { fontSize: 12, marginTop: 6 },
   context: { fontSize: 13, marginBottom: 14 },

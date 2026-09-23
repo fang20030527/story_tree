@@ -178,8 +178,9 @@ it('clears result-page errors during retry and resets results when switching pra
 it('returns from a completed topic to its group instead of leaving the other articles', async () => {
   const group: NonNullable<PracticeDto['group']> = {
     id: FIRST_ID,
+    canRetryFailed: false,
     articles: (['经济', '文化', '政治', '科技'] as const).map((topic) => ({
-      id: SECOND_ID, topic, status: 'ready', title: topic, wordCount: 250, failureMessage: null,
+      id: SECOND_ID, topic, status: 'ready', generationProgress: 100, title: topic, wordCount: 250, failureMessage: null,
     })),
   };
   jest.mocked(getPractice).mockResolvedValue({ ...first, status: 'completed', group });

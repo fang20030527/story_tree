@@ -49,6 +49,10 @@ const aiProvider = new EvolinkAiProvider(
   {
     visionModel: config.EVOLINK_VISION_MODEL,
     visionTimeoutMs: config.EVOLINK_VISION_TIMEOUT_MS,
+    // Leave time for response validation, moderation and persistence before
+    // the job or HTTP request deadline cancels the whole operation.
+    translationTimeoutMs: Math.max(1, config.generationDeadlineMs
+      - Math.min(15_000, Math.floor(config.generationDeadlineMs / 5))),
   },
 );
 const generationDependencies = {
@@ -118,13 +122,14 @@ async function checkDatabaseReadiness(): Promise<boolean> {
 
 let app: FastifyInstance | undefined;
 let cleanup: { stop(): Promise<void> } | undefined;
-let worker: { stop(): Promise<void> } | undefined;
+let practiceWorker: { stop(): Promise<void> } | undefined;
+let otherWorker: { stop(): Promise<void> } | undefined;
 let shutdownPromise: Promise<void> | undefined;
 
 function shutdown(): Promise<void> {
   shutdownPromise ??= (async () => {
     await cleanup?.stop();
-    await worker?.stop();
+    await Promise.all([practiceWorker?.stop(), otherWorker?.stop()]);
     await app?.close();
     await database.close();
     process.exitCode = 0;
@@ -154,12 +159,21 @@ try {
         assetTtlMs: config.IMPORT_ASSET_TTL_MS,
       }),
   });
-  worker = startJobRunner({
+  practiceWorker = startJobRunner({
+    db: database.db,
+    workerId: randomUUID(),
+    concurrency: 4,
+    leaseMs: config.JOB_LEASE_MS,
+    pollIntervalMs: config.JOB_POLL_INTERVAL_MS,
+    enabledKinds: ['practice_generation'],
+    registrations,
+  });
+  otherWorker = startJobRunner({
     db: database.db,
     workerId: randomUUID(),
     leaseMs: config.JOB_LEASE_MS,
     pollIntervalMs: config.JOB_POLL_INTERVAL_MS,
-    enabledKinds,
+    enabledKinds: ['translation', 'article_import', 'article_translation'],
     registrations,
   });
 } catch {

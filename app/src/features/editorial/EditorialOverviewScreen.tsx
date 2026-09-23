@@ -1,4 +1,5 @@
 import { EditorialAudioPlayer } from './EditorialAudioPlayer';
+import { EditorialSpeechPlayer } from './EditorialSpeechPlayer';
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -113,7 +114,7 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
           styles.content,
           { paddingBottom: insets.bottom + 120 },
         ]}>
-        <EditorialImage uri={article.image} style={styles.cover}>
+        <EditorialImage uri={article.image} style={styles.cover} priority="high">
           <View style={styles.coverShade} />
           <View style={styles.coverActionWrap}>
             <TouchableOpacity
@@ -152,6 +153,8 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
         </Text>
         {article.audioAsset || article.audioUrl ? (
           <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} />
+        ) : article.wordCount > 0 ? (
+          <EditorialSpeechPlayer loadText={() => article.paragraphs} />
         ) : null}
 
         <View style={[styles.section, { borderColor: theme.border }]}>

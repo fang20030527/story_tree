@@ -1,6 +1,10 @@
 import { editorialCanListen, getEditorialArticle, searchEditorialArticles } from './catalog';
 import { epubArticles, getEpubImageUrl } from './epubCatalog';
-import { issueLoaders } from './epub/loaders';
+import { epubMetadata, issueLoaders } from './epub/loaders';
+
+const localizedMetadata = require('./epub/metadata-zh.json') as Record<string, {
+  titleEn: string; titleZh: string; category: string; level: string;
+}>;
 
 // 使用 require 避免 TypeScript 为大型生成数据展开字面量类型。
 const report = require('./epub/import-report.json') as {
@@ -46,6 +50,22 @@ it('does not load an issue body when searching its metadata', () => {
   searchEditorialArticles('WIRED');
   expect(load).not.toHaveBeenCalled();
   load.mockRestore();
+});
+
+it('gives every bulk EPUB article a Chinese title, topic and difficulty', () => {
+  expect(Object.keys(localizedMetadata)).toHaveLength(epubArticles.length);
+  for (const [index, article] of epubArticles.entries()) {
+    const localized = localizedMetadata[article.id];
+    expect(localized?.titleEn).toBe(epubMetadata[index]?.titleEn);
+    expect(article.titleZh).toMatch(/[\u3400-\u9fff]/);
+    expect(article.category).toMatch(/^[\u3400-\u9fff]+$/);
+    expect(article.level).toMatch(/^(雅思 [678]\.\d|难度待评估)$/);
+  }
+  const politics = epubArticles.find((article) => article.titleEn === 'Politics');
+  expect(politics?.titleZh).toBe('政治');
+  expect(searchEditorialArticles('政治')).toContain(politics);
+  const titleWithMarkup = epubMetadata.find((entry) => entry.titleEn.includes('<em'))!;
+  expect(getEditorialArticle(titleWithMarkup.id)?.titleEn).not.toMatch(/<[^>]+>|&amp;/);
 });
 
 it('attaches all repository recordings to the matching issue and article', () => {

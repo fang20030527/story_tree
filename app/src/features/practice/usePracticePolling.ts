@@ -42,6 +42,7 @@ export function usePracticePolling(
     let appState = AppState.currentState;
     let consecutiveErrors = 0;
     let inFlight = false;
+    let terminalRefreshes = 0;
 
     const clearTimer = () => {
       if (timer === undefined) return;
@@ -75,14 +76,24 @@ export function usePracticePolling(
       consecutiveErrors = 0;
       setError(null);
       setPractice(nextPractice);
+      const pending = POLLING_STATUSES.has(nextPractice.status)
+        || Boolean(nextPractice.group?.articles.some((article) => POLLING_STATUSES.has(article.status)));
+      // The article can become failed just before its job is marked failed. Refresh
+      // the settled group briefly so the retry action becomes available.
+      const partialFailureWithoutRetry = !pending && !nextPractice.group?.canRetryFailed
+        && Boolean(nextPractice.group?.articles.some((article) => article.status === 'failed'))
+        && Boolean(nextPractice.group?.articles.some((article) =>
+          article.status === 'ready' || article.status === 'in_progress' || article.status === 'completed'));
+      if (pending) terminalRefreshes = 0;
+      const refreshSettledGroup = partialFailureWithoutRetry && terminalRefreshes < 2;
+      if (refreshSettledGroup) terminalRefreshes += 1;
       if (
         appState === 'active'
-        && (POLLING_STATUSES.has(nextPractice.status)
-          || nextPractice.group?.articles.some((article) => POLLING_STATUSES.has(article.status)))
+        && (pending || refreshSettledGroup)
       ) {
         timer = setTimeout(
           () => void poll(),
-          nextPractice.pollAfterMs ?? 1_000,
+          pending ? nextPractice.pollAfterMs ?? 1_000 : 1_000,
         );
       }
     };

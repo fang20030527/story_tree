@@ -57,6 +57,13 @@
       "when": 1789481399061,
       "tag": "0007_busy_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790171750354,
+      "tag": "0008_high_bromley",
+      "breakpoints": true
     }
   ]
 }

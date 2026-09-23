@@ -8,6 +8,7 @@ import { idempotencyRecords } from '../../db/schema';
 
 export type IdempotencyOperation =
   | 'create_practice'
+  | 'retry_failed_topics'
   | 'request_translation'
   | 'record_assistance'
   | 'submit_answer'
@@ -26,6 +27,7 @@ export type IdempotencyOperation =
 
 const resourceTypes: Record<IdempotencyOperation, string> = {
   create_practice: 'practice',
+  retry_failed_topics: 'practice',
   request_translation: 'translation',
   record_assistance: 'assistance',
   submit_answer: 'answer',

@@ -1,5 +1,6 @@
 import { getInstallationToken } from './installation';
 import { apiRequestNoContent, ApiError, API_REQUEST_TIMEOUT_MS } from './client';
+import { requestSentenceTranslation, SENTENCE_TRANSLATION_TIMEOUT_MS } from './sentences';
 import {
   createPractice,
   getDashboard,
@@ -41,6 +42,20 @@ describe('API client', () => {
     await jest.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
     expect(await result).toMatchObject({ code: 'REQUEST_TIMEOUT', retryable: true });
     expect((fetchMock.mock.calls[0]?.[1] as RequestInit).signal?.aborted).toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('keeps AI translation requests open beyond the normal API deadline', async () => {
+    jest.useFakeTimers();
+    mockedGetInstallationToken.mockResolvedValue('ab'.repeat(32));
+    let complete!: (response: unknown) => void;
+    fetchMock.mockImplementation(() => new Promise((resolve) => { complete = resolve; }));
+    const result = requestSentenceTranslation('Birds fly.');
+    await jest.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).signal?.aborted).toBe(false);
+    complete({ ok: true, status: 200, json: async () => ({ translatedTextZh: '鸟儿飞翔。' }) });
+    await expect(result).resolves.toBe('鸟儿飞翔。');
+    expect(SENTENCE_TRANSLATION_TIMEOUT_MS).toBeGreaterThan(API_REQUEST_TIMEOUT_MS);
     expect(jest.getTimerCount()).toBe(0);
   });
 
@@ -336,7 +351,7 @@ describe('API client', () => {
       status: 'generating',
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      `https://api.example.test/v1/practices/${practiceId}`,
+      `https://api.example.test/v1/practices/${practiceId}?includeProgress=1`,
       expect.objectContaining({}),
     );
   });

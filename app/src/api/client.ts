@@ -38,6 +38,7 @@ export const API_REQUEST_TIMEOUT_MS = 30_000;
 async function withRequestDeadline<T>(
   init: RequestInit,
   operation: (request: RequestInit) => Promise<T>,
+  timeoutMs = API_REQUEST_TIMEOUT_MS,
 ): Promise<T> {
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -48,7 +49,7 @@ async function withRequestDeadline<T>(
     timer = setTimeout(() => {
       reject(new ApiError('REQUEST_TIMEOUT', '连接超时，服务可能正在启动，请稍后重试', true));
       controller.abort();
-    }, API_REQUEST_TIMEOUT_MS);
+    }, timeoutMs);
   });
   try {
     return await Promise.race([operation({ ...init, signal: controller.signal }), deadline]);
@@ -207,6 +208,7 @@ export async function apiRequest<T>(
   path: string,
   schema: ZodType<T>,
   init: RequestInit = {},
+  timeoutMs = API_REQUEST_TIMEOUT_MS,
 ): Promise<T> {
   return withRequestDeadline(init, async (request) => {
     const { response, token } = await sendAuthenticatedRequest(path, request);
@@ -215,7 +217,7 @@ export async function apiRequest<T>(
     const parsed = schema.safeParse(json);
     if (!parsed.success) throw invalidServerResponse();
     return parsed.data;
-  });
+  }, timeoutMs);
 }
 
 export async function apiRequestNoContent(

@@ -39,7 +39,7 @@ const OcrArticleTextSchema = z
 export class EvolinkAiProvider implements AiProvider {
   constructor(
     private readonly client: EvolinkClient,
-    private readonly vision: { visionModel: string; visionTimeoutMs: number },
+    private readonly vision: { visionModel: string; visionTimeoutMs: number; translationTimeoutMs?: number },
   ) {}
 
   async generatePractice(
@@ -106,6 +106,9 @@ export class EvolinkAiProvider implements AiProvider {
         messages: translationMessages(text),
         maxCompletionTokens: 6_000,
         reasoningEffort: 'low',
+        ...(this.vision.translationTimeoutMs === undefined
+          ? {}
+          : { timeoutMs: this.vision.translationTimeoutMs }),
       },
       signal,
     );

@@ -20,18 +20,18 @@ export function TopicGenerationProgress({ group, unavailable }: {
   const failed = group.articles.filter((article) => article.status === 'failed').length;
   const settled = ready + failed;
   const pending = settled < total;
-  const percent = Math.round(settled / total * 100);
+  const percent = Math.round(ready / total * 100);
 
   return (
     <View style={[styles.panel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.heading}>
         <Text style={[styles.title, { color: theme.text }]}>
-          {pending ? `生成进度 ${settled}/${total}` : failed ? '生成已结束' : '四篇短文已生成'}
+          {pending ? `已生成 ${ready}/${total}` : failed ? `生成结束 · ${ready}/${total} 篇可读` : '四篇短文已生成'}
         </Text>
         <Text style={[styles.percent, { color: theme.accent }]}>{percent}%</Text>
       </View>
       <View accessibilityRole="progressbar" accessibilityLabel="短文生成进度"
-        accessibilityValue={{ min: 0, max: total, now: settled, text: `${ready} 篇可阅读，${failed} 篇未成功，${total - settled} 篇处理中` }}
+        accessibilityValue={{ min: 0, max: total, now: ready, text: `${ready} 篇可阅读，${failed} 篇未成功，${total - settled} 篇处理中` }}
         style={styles.segments}>
         {group.articles.map((article) => (
           <View key={article.id} style={[styles.segment, { backgroundColor: readable.has(article.status)
@@ -59,7 +59,7 @@ export function TopicGenerationProgress({ group, unavailable }: {
       </View>
       <Text style={[styles.hint, { color: theme.textMuted }]}>
         {unavailable ? '进度更新暂时中断，当前显示上次获取的状态。'
-          : pending ? '按实际完成篇数更新，已生成的短文可以先读。'
+          : pending ? '可阅读比例按实际生成篇数更新；单篇进度按服务端完成步骤更新。'
             : failed ? '未成功的短文已标记，其他短文可以正常阅读。' : '全部准备好了，选择感兴趣的主题开始阅读。'}
       </Text>
     </View>

@@ -19,6 +19,37 @@ const config = loadConfig({
 });
 
 describe('practice retrieval', () => {
+  it('keeps the original group response for installed clients and serves progress on request', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const ownerToken = '83'.repeat(32);
+      const owner = await registerAnonymous(db, ownerToken, true);
+      const created = await createPractice(db, {
+        userId: owner.userId,
+        idempotencyKey: 'get-topic-progress-0001',
+        items: [{ term: 'resilient', meaningZh: '有韧性的' }],
+        format: 'topic_set', freeLimit: 3, generationDeadlineMs: 120_000,
+      });
+      const app = buildApp({ config, db, logger: false });
+      try {
+        const url = `/v1/practices/${created.practiceId}`;
+        const headers = { authorization: `Bearer ${ownerToken}` };
+        const legacy = await app.inject({ method: 'GET', url, headers });
+        expect(legacy.statusCode).toBe(200);
+        expect(legacy.json().group).toHaveProperty('id', created.practiceId);
+        expect(legacy.json().group).not.toHaveProperty('canRetryFailed');
+        expect(legacy.json().group.articles[0]).not.toHaveProperty('generationProgress');
+
+        const current = await app.inject({ method: 'GET', url: `${url}?includeProgress=1`, headers });
+        expect(current.statusCode).toBe(200);
+        const parsed = PracticeDtoSchema.parse(current.json());
+        expect(parsed.group?.canRetryFailed).toBe(false);
+        expect(parsed.group?.articles.map((article) => article.generationProgress)).toEqual([0, 0, 0, 0]);
+      } finally {
+        await app.close();
+      }
+    });
+  }, 120_000);
+
   it('returns durable status and never exposes unanswered feedback', async () => {
     await withTestDatabase(async ({ db }) => {
       const ownerToken = '81'.repeat(32);

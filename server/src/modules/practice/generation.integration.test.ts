@@ -21,6 +21,41 @@ import {
 } from './generation-handler';
 
 describe('practice generation', () => {
+  it('reports persisted generation milestones instead of a timer estimate', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const user = await registerAnonymous(db, '81'.repeat(32), true);
+      await createPractice(db, {
+        userId: user.userId, idempotencyKey: 'generation-progress-0001',
+        items: [{ term: 'resilient', meaningZh: '有韧性的' }],
+        format: 'topic_set', freeLimit: 3, generationDeadlineMs: 120_000,
+      });
+      const job = (await claimNextJob(db, 'progress-worker', 120_000, ['practice_generation']))!;
+      const provider = new FakeAiProvider();
+      const progress = async () => (await db.select({ value: practiceSessions.generationProgress })
+        .from(practiceSessions).where(eq(practiceSessions.id, job.resourceId)))[0]?.value;
+      const generate = provider.generatePractice.bind(provider);
+      const verify = provider.verifyPractice.bind(provider);
+      const moderate = provider.moderate.bind(provider);
+      vi.spyOn(provider, 'generatePractice').mockImplementation(async (input, signal) => {
+        expect(await progress()).toBe(10);
+        return generate(input, signal);
+      });
+      vi.spyOn(provider, 'verifyPractice').mockImplementation(async (input, signal) => {
+        expect(await progress()).toBe(60);
+        return verify(input, signal);
+      });
+      let moderationCalls = 0;
+      vi.spyOn(provider, 'moderate').mockImplementation(async (text, signal) => {
+        moderationCalls += 1;
+        if (moderationCalls === 2) expect(await progress()).toBe(80);
+        return moderate(text, signal);
+      });
+      await handlePracticeGeneration({ db, provider, modelName: 'fake' }, job, { signal: new AbortController().signal });
+      expect(moderationCalls).toBe(2);
+      expect(await progress()).toBe(100);
+    });
+  }, 120_000);
+
   it('repairs short article structure and review issues in one request without publishing failed drafts', async () => {
     await withTestDatabase(async ({ db }) => {
       const user = await registerAnonymous(db, '80'.repeat(32), true);

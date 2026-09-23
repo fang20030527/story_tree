@@ -1,9 +1,9 @@
 import { useStudyTimer } from '@/features/study/useStudyTimer';
+import { ApiError } from '@/api/client';
 import { EditorialAudioPlayer, type EditorialPlaybackPosition } from './EditorialAudioPlayer';
 import { findAudioCue } from './editorialAudioSync';
 import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -27,6 +27,12 @@ import {
 import { recordEditorialRecentView } from '@/features/library/libraryStorage';
 import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
 import { EditorialImage } from './EditorialImage';
+import { EditorialSpeechPlayer } from './EditorialSpeechPlayer';
+import {
+  loadEditorialTranslation,
+  requestEditorialTranslation,
+  saveEditorialTranslation,
+} from './editorialTranslation';
 import { markEditorialArticleRead } from './editorialReadStorage';
 import { saveEditorialReadingProgress } from './editorialReadingProgress';
 import { useEditorialReadingProgress } from './useEditorialReadingProgress';
@@ -48,13 +54,55 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const {
-    addedWords, showFullTranslation, loaded, error: progressError, retry,
+    addedWords, showFullTranslation, error: progressError, retry,
     scrollRef, onLayout, onContentSizeChange, onScroll, flush,
-    toggleTranslation, wordAdded,
+    toggleTranslation, wordAdded, onUserScrollStart,
   } = useEditorialReadingProgress(article.id);
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const [fullTranslation, setFullTranslation] = useState<string | null>(null);
+  const [translationLoading, setTranslationLoading] = useState(false);
+  const [translationProgress, setTranslationProgress] = useState<{ completed: number; total: number } | null>(null);
+  const [translationError, setTranslationError] = useState<string | null>(null);
+  const translationInFlight = useRef(false);
+  const translationMounted = useRef(true);
+  useEffect(() => {
+    translationMounted.current = true;
+    return () => { translationMounted.current = false; };
+  }, []);
+  const loadTranslation = useCallback(async () => {
+    if (translationInFlight.current || fullTranslation) return;
+    translationInFlight.current = true;
+    setTranslationLoading(true);
+    setTranslationProgress(null);
+    setTranslationError(null);
+    try {
+      let translated = await loadEditorialTranslation(article.id, article.paragraphs)
+        .catch(() => null);
+      if (!translated) {
+        translated = await requestEditorialTranslation(article.paragraphs, (completed, total) => {
+          if (translationMounted.current) setTranslationProgress({ completed, total });
+        });
+        void saveEditorialTranslation(article.id, article.paragraphs, translated)
+          .catch(() => undefined);
+      }
+      if (translationMounted.current) setFullTranslation(translated);
+    } catch (reason) {
+      if (translationMounted.current) setTranslationError(
+        reason instanceof ApiError ? reason.message : '译文生成失败，请重试',
+      );
+    } finally {
+      translationInFlight.current = false;
+      if (translationMounted.current) setTranslationLoading(false);
+    }
+  }, [article.id, article.paragraphs, fullTranslation]);
+  useEffect(() => {
+    if (showFullTranslation && !fullTranslation && !translationLoading && !translationError) {
+      const timer = setTimeout(() => { void loadTranslation(); }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [showFullTranslation, fullTranslation, translationLoading, translationError, loadTranslation]);
   const [playback, setPlayback] = useState<EditorialPlaybackPosition>({ currentTime: 0, duration: 0, playing: false });
   const updatePlayback = useCallback((position: EditorialPlaybackPosition) => {
     // 进度条高频刷新，正文只在朗读词或播放状态改变时更新。
@@ -100,15 +148,20 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
     if (router.canGoBack()) router.back();
     else router.replace('/');
   };
-  const fullTranslation = useMemo(
-    () => editorialTranslation(article.id, article.paragraphs),
-    [article.id, article.paragraphs],
-  );
   const body = useMemo(() => {
     let paragraphIndex = 0;
     return (article.bodyBlocks ?? article.paragraphs.map((text) => ({ type: 'text' as const, text })))
       .map((block) => block.type === 'text' ? { ...block, paragraphIndex: paragraphIndex++ } : block);
   }, [article.bodyBlocks, article.paragraphs]);
+  const [visibleBlockCount, setVisibleBlockCount] = useState(() => body.length <= 64 ? body.length : 8);
+  const bodyComplete = visibleBlockCount >= body.length;
+  useEffect(() => {
+    if (bodyComplete) return;
+    const timer = setTimeout(() => {
+      setVisibleBlockCount((count) => Math.min(count + 8, body.length));
+    }, 24);
+    return () => clearTimeout(timer);
+  }, [bodyComplete, visibleBlockCount, body.length]);
   const addVocabulary = async (input: VocabularyInput, idempotencyKey: string) => {
     await addEditorialVocabulary(input, idempotencyKey);
     // 请求完成时页面可能已经卸载，仍须保存高亮。
@@ -136,22 +189,21 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           <Text style={{ color: theme.danger, padding: 16 }}>{progressError}</Text>
         </TouchableOpacity>
       ) : null}
-      {!loaded ? <Text style={{ color: theme.textMuted, padding: 16 }}>正在恢复阅读进度…</Text> : (
       <ScrollView
         ref={scrollRef}
         testID="editorial-reading-scroll"
         onLayout={(event) => { viewport.current.height = event.nativeEvent.layout.height; onLayout(event.nativeEvent.layout.height); }}
-        onContentSizeChange={(_, height) => onContentSizeChange(height)}
+        onContentSizeChange={(_, height) => { if (bodyComplete) onContentSizeChange(height); }}
         onScroll={(event) => {
           viewport.current.y = event.nativeEvent.contentOffset.y;
           readingOverlay?.onScroll(event.nativeEvent.contentOffset.y);
           onScroll(event);
         }}
-        stickyHeaderIndices={article.audioAsset || article.audioUrl ? [4] : undefined}
+        stickyHeaderIndices={article.audioAsset || article.audioUrl || article.wordCount > 0 ? [4] : undefined}
         scrollEventThrottle={16}
         onScrollEndDrag={(event) => { onScroll(event); flush(); }}
         onMomentumScrollEnd={(event) => { onScroll(event); flush(); }}
-        onScrollBeginDrag={() => { readingOverlay?.select(null); setFollowing(false); }}
+        onScrollBeginDrag={() => { onUserScrollStart(); readingOverlay?.select(null); setFollowing(false); }}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + 32 },
@@ -174,6 +226,10 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           <View onLayout={(event) => { audioHeight.current = event.nativeEvent.layout.height; }} style={{ backgroundColor: theme.bg }}>
             <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} onPositionChange={updatePlayback} />
           </View>
+        ) : article.wordCount > 0 ? (
+          <View style={{ backgroundColor: theme.bg }}>
+            <EditorialSpeechPlayer loadText={() => article.paragraphs} />
+          </View>
         ) : null}
         <View
           style={[
@@ -195,16 +251,29 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
               </Text>
             </TouchableOpacity>
           </View>
-          {showFullTranslation ? (
+          {showFullTranslation && fullTranslation ? (
             <Text style={[styles.translationText, { color: theme.textSecondary }]}>
               {fullTranslation}
             </Text>
           ) : null}
+          {showFullTranslation && translationLoading ? (
+            <Text style={[styles.translationText, { color: theme.textMuted }]}>
+              {translationProgress
+                ? `正在生成译文… ${translationProgress.completed}/${translationProgress.total}`
+                : '正在生成译文…'}
+            </Text>
+          ) : null}
+          {showFullTranslation && translationError ? (
+            <TouchableOpacity accessibilityRole="button" onPress={() => void loadTranslation()}>
+              <Text style={[styles.translationText, { color: theme.danger }]}>{translationError} · 重试</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
         <View testID="editorial-body" style={styles.body} onLayout={(event) => setBodyY(event.nativeEvent.layout.y)}>
-          {body.map((block, blockIndex) => {
+          {body.slice(0, visibleBlockCount).map((block, blockIndex) => {
             if (block.type === 'image') return (
-              <Image key={`${article.id}:image:${blockIndex}`} source={block.image} contentFit="contain"
+              <EditorialImage key={`${article.id}:image:${blockIndex}`} uri={block.image} contentFit="contain"
+                priority="low"
                 accessibilityLabel={`${article.titleEn}，原刊配图 ${blockIndex + 1}`}
                 style={{ width: '100%', aspectRatio: block.width / block.height }} />
             );
@@ -267,7 +336,6 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           </Text>
         ) : null}
       </ScrollView>
-      )}
       {!following && playback.playing && article.audioCues?.length ? (
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="恢复跟随朗读"
           onPress={() => setFollowing(true)}
@@ -289,24 +357,6 @@ async function addEditorialVocabulary(
   idempotencyKey: string,
 ): Promise<void> {
   await createVocabularyItem(input, idempotencyKey);
-}
-
-const EDITORIAL_TRANSLATIONS: Record<string, readonly string[]> = {
-  hero: [
-    '研究者表示，苏拉威西洞穴出土牙齿上的痕迹与化学残留，可能记录了一位生活在 2.5 万年前的狩猎采集者反复使用含兴奋剂植物的行为。',
-    '这一发现并不能证明现代意义上的成瘾，但它提示改变神志的植物，可能曾帮助一些早期人类应对疼痛、饥饿或仪式生活。',
-  ],
-};
-
-function editorialTranslation(
-  articleId: string,
-  paragraphs: readonly string[],
-): string {
-  const translated = EDITORIAL_TRANSLATIONS[articleId];
-  return (translated && translated.length === paragraphs.length
-    ? translated
-    : paragraphs.map((paragraph) => `译文：${paragraph}`)
-  ).join('\n\n');
 }
 
 function MissingEditorialArticleState() {

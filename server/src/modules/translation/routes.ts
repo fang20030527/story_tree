@@ -50,6 +50,7 @@ export const translationRoutes: FastifyPluginAsync<
           parsed.data.text,
           AbortSignal.timeout(options.config.generationDeadlineMs),
         ),
+        parsed.data.text,
       );
       return reply.send(SentenceTranslationDtoSchema.parse({ translatedTextZh }));
     },

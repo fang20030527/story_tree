@@ -201,15 +201,21 @@ export type PracticeTopic = z.infer<typeof PracticeTopicSchema>;
 
 export const PracticeGroupSchema = z.object({
   id: UuidSchema,
+  canRetryFailed: z.boolean(),
   articles: z.array(z.object({
     id: UuidSchema,
     topic: PracticeTopicSchema,
     status: PracticeStatusSchema,
+    generationProgress: z.number().int().min(0).max(100),
     title: z.string().nullable(),
     wordCount: z.number().int().positive().nullable(),
     failureMessage: z.string().nullable(),
   }).strict()).length(4),
 }).strict();
+
+export const RetryFailedTopicsRequestSchema = z.object({}).strict();
+export const RetryFailedTopicsResponseSchema = z.object({ groupId: UuidSchema }).strict();
+export type RetryFailedTopicsResponse = z.infer<typeof RetryFailedTopicsResponseSchema>;
 
 export const PracticeDtoSchema = z
   .object({

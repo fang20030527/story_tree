@@ -76,6 +76,7 @@ export async function handlePracticeGeneration(
       generationInput,
       context.signal,
     );
+    await recordGenerationProgress(dependencies.db, job, 40, context.signal);
     let validated: ValidatedGeneratedPractice;
     try {
       validated = validateGeneratedPractice(
@@ -111,6 +112,7 @@ export async function handlePracticeGeneration(
       if (!(await moveToGenerating(dependencies.db, job, context.signal))) return;
       continue;
     }
+    await recordGenerationProgress(dependencies.db, job, 80, context.signal);
 
     assertProviderCallAllowed(job, context.signal);
     const outputModeration = await dependencies.provider.moderate(
@@ -118,6 +120,7 @@ export async function handlePracticeGeneration(
       context.signal,
     );
     assertModerationAccepted(outputModeration, true);
+    await recordGenerationProgress(dependencies.db, job, 90, context.signal);
 
     assertWithinDeadline(job, context.signal);
     await persistGeneratedPractice(
@@ -230,7 +233,7 @@ async function moveToGenerating(
     if (successfulTerminalStatuses.has(status)) return false;
     if (status === 'generating') return true;
     assertPracticeTransition(status, 'generating');
-    await setPracticeStatus(tx, job.resourceId, 'generating');
+    await setPracticeStatus(tx, job.resourceId, 'generating', 10);
     return true;
   });
 }
@@ -247,7 +250,7 @@ async function moveToValidating(
     if (successfulTerminalStatuses.has(status)) return false;
     if (status === 'validating') return true;
     assertPracticeTransition(status, 'validating');
-    await setPracticeStatus(tx, job.resourceId, 'validating');
+    await setPracticeStatus(tx, job.resourceId, 'validating', 60);
     return true;
   });
 }
@@ -331,6 +334,7 @@ async function persistGeneratedPractice(
       .update(practiceSessions)
       .set({
         status: 'ready',
+        generationProgress: 100,
         articleTitle: generated.title,
         articleWordCount: generated.wordCount,
         modelName: dependencies.modelName,
@@ -394,13 +398,29 @@ async function setPracticeStatus(
   tx: AppTransaction,
   practiceId: string,
   status: PracticeStatus,
+  progress: number,
 ): Promise<void> {
   const [updated] = await tx
     .update(practiceSessions)
-    .set({ status })
+    .set({ status, generationProgress: sql`greatest(${practiceSessions.generationProgress}, ${progress})` })
     .where(eq(practiceSessions.id, practiceId))
     .returning({ id: practiceSessions.id });
   if (!updated) throw stateConflict();
+}
+
+async function recordGenerationProgress(
+  db: AppDatabase,
+  job: ClaimedJob,
+  progress: number,
+  signal: AbortSignal,
+): Promise<void> {
+  signal.throwIfAborted();
+  await db.transaction(async (tx) => {
+    await requireActiveLease(tx, job);
+    await tx.update(practiceSessions)
+      .set({ generationProgress: sql`greatest(${practiceSessions.generationProgress}, ${progress})` })
+      .where(eq(practiceSessions.id, job.resourceId));
+  });
 }
 
 function assertProviderCallAllowed(job: ClaimedJob, signal: AbortSignal): void {
@@ -450,7 +470,7 @@ function publicGenerationFailure(error: AppError): {
     case 'AI_CONTENT_REJECTED':
       return { code: error.code, message: '内容未通过安全检查，请调整输入后重试' };
     case 'GENERATION_DEADLINE_EXCEEDED':
-      return { code: error.code, message: '练习生成超时，请重新提交' };
+      return { code: error.code, message: '练习生成超时，请重试' };
     case 'AI_INVALID_OUTPUT':
       return { code: error.code, message: '生成内容未通过质量检查，请重试' };
     case 'AI_UNAVAILABLE':

@@ -612,6 +612,7 @@ export function InteractiveWordParagraph({
 
   const [selectedSentence, setSelectedSentence] = useState<string | null>(null);
   const [sentenceCache] = useState(() => new Map<string, string>());
+  const [sentenceRequests] = useState(() => new Map<string, Promise<string>>());
 
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
@@ -803,6 +804,7 @@ export function InteractiveWordParagraph({
       key={`${owner}:${sentence}`}
       sentence={sentence}
       cache={sentenceCache}
+      inFlight={sentenceRequests}
       color={textColor ?? '#000000'}
       surfaceColor={surfaceColor}
       borderColor={borderColor}

@@ -3,6 +3,16 @@ import { getApiBaseUrl } from '@/api/client';
 import { epubMetadata, issueLoaders } from './epub/loaders';
 
 const audioUrls = require('./epub/audio.json') as Record<string, string>;
+const localizedMetadata = require('./epub/metadata-zh.json') as Record<string, {
+  titleEn: string;
+  titleZh: string;
+  category: string;
+  level: string;
+}>;
+
+function displayTitle(value: string): string {
+  return value.replace(/<[^>]*>/g, '').replace(/&amp;/gi, '&');
+}
 
 export function getEpubImageUrl(id: string): string {
   try {
@@ -34,6 +44,8 @@ export interface EpubMetadata {
 
 // 索引只含概述；首次打开正文时才读取该期 JSON 和原刊插图。
 export const epubArticles: readonly EditorialArticle[] = epubMetadata.map((entry) => {
+  const candidate = localizedMetadata[entry.id];
+  const localized = candidate?.titleEn === entry.titleEn ? candidate : undefined;
   let blocks: readonly EditorialBodyBlock[] | undefined;
   let paragraphs: readonly string[] | undefined;
   function readBody(): readonly EditorialBodyBlock[] {
@@ -48,15 +60,15 @@ export const epubArticles: readonly EditorialArticle[] = epubMetadata.map((entry
   }
   const article: EditorialArticle = {
     id: entry.id,
-    titleZh: entry.titleEn,
-    titleEn: entry.titleEn,
+    titleZh: localized?.titleZh ?? entry.titleEn,
+    titleEn: displayTitle(entry.titleEn),
     summaryZh: entry.summary,
-    keyPointsZh: [entry.category, `${entry.source} · ${entry.issueDate} · 原文`],
+    keyPointsZh: [localized?.category ?? entry.category, `${entry.source} · ${entry.issueDate} · 原文`],
     source: entry.source,
-    category: entry.category,
+    category: localized?.category ?? entry.category,
     wordCount: entry.wordCount,
     minutes: entry.minutes,
-    level: '英文原版',
+    level: localized?.level ?? '难度待评估',
     get image() { return getEpubImageUrl(entry.image); },
     section: 'featured',
     issueDate: entry.issueDate,
