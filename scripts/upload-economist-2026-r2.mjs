@@ -70,7 +70,7 @@ const client = new S3Client({
   endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
   credentials: { accessKeyId, secretAccessKey },
   forcePathStyle: true,
-  maxAttempts: 4,
+  maxAttempts: 8,
 });
 
 async function remoteHead(key) {
@@ -88,7 +88,8 @@ let skipped = 0;
 let failure;
 async function uploadWorker() {
   while (next < entries.length && !failure) {
-    const entry = entries[next++];
+    const index = next++;
+    const entry = entries[index];
     try {
       const data = await readFile(entry.source);
       const digest = createHash('sha256').update(data).digest('hex');
@@ -114,12 +115,12 @@ async function uploadWorker() {
         process.stdout.write(`${JSON.stringify({ completed: uploaded + skipped, uploaded, skipped })}\n`);
       }
     } catch (error) {
-      failure = error;
+      failure = { index, name: error?.name ?? 'UnknownError', status: error?.$metadata?.httpStatusCode };
     }
   }
 }
 
 await Promise.all(Array.from({ length: 4 }, () => uploadWorker()));
 client.destroy();
-if (failure) throw new Error(`R2 上传中断：${failure.name ?? 'UnknownError'}`);
+if (failure) throw new Error(`R2 上传中断：序号 ${failure.index + 1}，${failure.name}，HTTP ${failure.status ?? '未知'}`);
 process.stdout.write(`${JSON.stringify({ completed: uploaded + skipped, uploaded, skipped, bytes: totalBytes })}\n`);
