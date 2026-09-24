@@ -15,7 +15,7 @@ const RawEnvSchema = z.object({
     );
   }, '必须是不含路径的 HTTP(S) origin'),
   EVOLINK_BASE_URL: z.url().default('https://direct.evolink.ai/v1'),
-  EVOLINK_TEXT_MODEL: z.string().min(1).default('gemini-3.8-flash'),
+  EVOLINK_TEXT_MODEL: z.string().min(1).default('gpt-6-luna'),
   EVOLINK_MODERATION_MODEL: z.string().min(1).default('evolink-moderation-1.0'),
   EVOLINK_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
   EVOLINK_VISION_MODEL: z

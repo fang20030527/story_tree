@@ -18,6 +18,8 @@ services:
         value: 0.0.0.0
       - key: LOG_LEVEL
         value: info
+      - key: EVOLINK_TEXT_MODEL
+        value: gpt-6-luna
       - key: EVOLINK_VISION_MODEL
         value: gemini-3.8-flash
       - key: DATABASE_URL
