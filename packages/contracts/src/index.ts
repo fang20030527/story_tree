@@ -8,6 +8,80 @@ export const EditorialImageParamsSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{24}\.webp$/u),
 }).strict();
 
+export const PublishedEditorialIdSchema = z.string()
+  .min(8)
+  .max(64)
+  .regex(/^remote-[a-z0-9]+(?:-[a-z0-9]+)*$/u);
+
+export const PublishedEditorialMediaSchema = z.string().max(2_048).refine((value) => {
+  if (/^\/v1\/editorial\/assets\/[a-z0-9][a-z0-9._-]{0,127}\.(?:webp|png|jpe?g|mp3)$/u.test(value)) {
+    return true;
+  }
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}, '媒体地址必须是 HTTPS URL 或本站外刊素材路径');
+
+const PublishedEditorialBaseSchema = z.object({
+  id: PublishedEditorialIdSchema,
+  titleZh: z.string().trim().min(1).max(180),
+  titleEn: z.string().trim().min(1).max(180),
+  summaryZh: z.string().trim().min(1).max(1_000),
+  keyPointsZh: z.array(z.string().trim().min(1).max(180)).max(6),
+  source: z.string().trim().min(1).max(80),
+  sourceUrl: z.url().startsWith('https://').optional(),
+  issueDate: z.iso.date().optional(),
+  category: z.string().trim().min(1).max(40),
+  wordCount: z.number().int().nonnegative(),
+  minutes: z.number().int().nonnegative(),
+  level: z.string().trim().min(1).max(40),
+  image: PublishedEditorialMediaSchema,
+  section: z.enum(['today', 'featured']),
+  publishedAt: z.iso.date(),
+  hasAudio: z.boolean(),
+  audioUrl: PublishedEditorialMediaSchema.optional(),
+});
+
+export const PublishedEditorialSummarySchema = PublishedEditorialBaseSchema.strict();
+
+export const PublishedEditorialArticleSchema = PublishedEditorialBaseSchema.extend({
+  paragraphs: z.array(z.string().trim().min(1).max(10_000)).min(1).max(200),
+  sectionHeadings: z.array(z.string().trim().min(1).max(200)).max(30).optional(),
+  bodyBlocks: z.array(z.discriminatedUnion('type', [
+    z.object({ type: z.literal('text'), text: z.string().trim().min(1).max(10_000) }).strict(),
+    z.object({
+      type: z.literal('image'),
+      image: PublishedEditorialMediaSchema,
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+    }).strict(),
+  ])).max(300).optional(),
+  figures: z.array(z.object({
+    afterParagraph: z.number().int().nonnegative(),
+    image: PublishedEditorialMediaSchema,
+    caption: z.string().max(500),
+  }).strict()).max(100).optional(),
+  audioCues: z.array(z.tuple([
+    z.number().int().nonnegative(),
+    z.number().int().nonnegative(),
+    z.number().int().nonnegative(),
+    z.number().nonnegative(),
+    z.number().nonnegative(),
+  ])).max(20_000).optional(),
+}).strict();
+
+export const PublishedEditorialCatalogSchema = z.object({
+  articles: z.array(PublishedEditorialSummarySchema).max(5_000),
+  featuredArticleId: PublishedEditorialIdSchema.optional(),
+}).strict();
+
+export type PublishedEditorialSummary = z.infer<typeof PublishedEditorialSummarySchema>;
+export type PublishedEditorialArticle = z.infer<typeof PublishedEditorialArticleSchema>;
+export type PublishedEditorialCatalog = z.infer<typeof PublishedEditorialCatalogSchema>;
+
 export const AnonymousAuthRequestSchema = z
   .object({
     ageConfirmed14Plus: z.literal(true),

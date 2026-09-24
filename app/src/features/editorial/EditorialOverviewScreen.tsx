@@ -16,23 +16,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import {
-  getEditorialArticle,
-  type EditorialArticle,
-} from '@/features/editorial/catalog';
+import type { EditorialArticle } from '@/features/editorial/catalog';
 import {
   isEditorialArticleShelved,
   setEditorialArticleShelved,
 } from '@/features/shelf/editorialShelfStorage';
 
 import { EditorialImage } from './EditorialImage';
+import { EditorialRemoteStatus } from './EditorialRemoteStatus';
+import { useEditorialArticle } from './useEditorialArticle';
 
 type Props = { articleId: string };
 
 export function EditorialOverviewScreen({ articleId }: Props) {
-  const article = getEditorialArticle(articleId);
+  const { article, loading, error, retry } = useEditorialArticle(articleId);
   return article ? (
     <EditorialOverviewContent key={article.id} article={article} />
+  ) : loading || error ? (
+    <EditorialRemoteStatus loading={loading} retry={retry} />
   ) : (
     <MissingEditorialArticleState />
   );

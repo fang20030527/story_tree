@@ -1,8 +1,10 @@
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AppState,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -26,9 +28,13 @@ import {
 } from './catalog';
 import { EditorialImage } from './EditorialImage';
 import { FeaturedLibrary } from './FeaturedLibrary';
+import {
+  refreshRemoteEditorialCatalog,
+  useRemoteEditorialCatalogVersion,
+} from './remoteCatalog';
 
 const PAGE_SIZE = 24;
-const SOURCES = ['全部刊物', 'The Economist', 'The New Yorker', 'The Atlantic', 'WIRED'];
+const KNOWN_SOURCES = ['The Economist', 'The New Yorker', 'The Atlantic', 'WIRED'];
 let imageHostWakeRequested = false;
 
 export function EditorialHomeScreen() {
@@ -39,7 +45,33 @@ export function EditorialHomeScreen() {
   const [source, setSource] = useState('全部刊物');
   const [year, setYear] = useState('全部年份');
   const [page, setPage] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const catalogVersion = useRemoteEditorialCatalogVersion();
+
+  useFocusEffect(useCallback(() => {
+    void refreshRemoteEditorialCatalog().catch(() => undefined);
+  }, []));
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshRemoteEditorialCatalog().catch(() => undefined);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshError(false);
+    try {
+      await refreshRemoteEditorialCatalog();
+    } catch {
+      setRefreshError(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (imageHostWakeRequested) return;
@@ -59,10 +91,14 @@ export function EditorialHomeScreen() {
     () => searchEditorialArticles(query).filter((article) =>
       (source === '全部刊物' || article.source === source)
       && (year === '全部年份' || article.issueDate?.startsWith(year))),
-    [query, source, year],
+    [query, source, year, catalogVersion],
   );
   const years = useMemo(() => ['全部年份', ...new Set(getEditorialSection('featured')
-    .flatMap((article) => article.issueDate ? [article.issueDate.slice(0, 4)] : []).sort().reverse())], []);
+    .flatMap((article) => article.issueDate ? [article.issueDate.slice(0, 4)] : []).sort().reverse())], [catalogVersion]);
+  const sources = useMemo(() => ['全部刊物', ...new Set([
+    ...KNOWN_SOURCES,
+    ...searchEditorialArticles('').map((article) => article.source),
+  ])], [catalogVersion]);
 
   const openOverview = (article: EditorialArticle) => {
     router.push({
@@ -93,7 +129,7 @@ export function EditorialHomeScreen() {
   };
   const filters = (
     <View style={styles.filters}>
-      {[{ values: SOURCES, selected: source, change: setSource },
+      {[{ values: sources, selected: source, change: setSource },
         { values: years, selected: year, change: setYear }].map((filter, index) => (
         <ScrollView key={index} horizontal showsHorizontalScrollIndicator={false}>
           {filter.values.map((value) => (
@@ -166,12 +202,14 @@ export function EditorialHomeScreen() {
 
       <ScrollView
         ref={scrollRef}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void refresh(); }} tintColor={theme.blue} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + 28 },
         ]}>
         <ContinuePracticeCard />
+        {refreshError ? <Text style={{ color: theme.textMuted }}>暂时无法更新外刊，已显示上次内容</Text> : null}
         {showSearchResults ? (
           <>
             <SectionHeader title="搜索结果" theme={theme} />

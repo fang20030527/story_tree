@@ -20,6 +20,7 @@ import type { AiProvider } from './infrastructure/ai/types';
 import { computerUploadRoutes } from './modules/computer-upload/routes';
 import { dashboardRoutes } from './modules/dashboard/routes';
 import { editorialImageRoutes } from './modules/editorial/routes';
+import { publishedEditorialRoutes } from './modules/editorial/published-routes';
 import { importsRoutes } from './modules/imports/routes';
 import { practiceRoutes } from './modules/practice/routes';
 import { translationRoutes } from './modules/translation/routes';
@@ -134,6 +135,9 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   registerSecurity(app, options.config, options.securityLimits);
   app.register(editorialImageRoutes, {
     assetDirectory: fileURLToPath(new URL('../assets/editorial/epub/', import.meta.url)),
+  });
+  app.register(publishedEditorialRoutes, {
+    contentDirectory: fileURLToPath(new URL('../content/editorial/', import.meta.url)),
   });
   app.register(authPlugin, {
     config: options.config,

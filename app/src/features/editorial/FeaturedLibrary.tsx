@@ -6,7 +6,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SectionHeader } from '@/components/ui';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import { getEditorialSection, type EditorialArticle } from './catalog';
+import { getEditorialSection, getFeaturedEditorialArticle, type EditorialArticle } from './catalog';
+import { useRemoteEditorialCatalogVersion } from './remoteCatalog';
 
 const PAGE_SIZE = 24;
 const UNDATED = '日期未标注';
@@ -30,6 +31,8 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
   const [source, setSource] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const catalogVersion = useRemoteEditorialCatalogVersion();
+  const selectedArticle = getFeaturedEditorialArticle();
   const publications = useMemo(() => {
     const groups = new Map<string, Map<string, EditorialArticle[]>>();
     for (const article of getEditorialSection('featured')) {
@@ -41,7 +44,7 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
       groups.set(article.source, issues);
     }
     return groups;
-  }, []);
+  }, [catalogVersion]);
   const issues = source ? publications.get(source) : undefined;
   const articles = date ? issues?.get(date) ?? [] : [];
   const dates = [...(issues?.keys() ?? [])].sort((a, b) =>
@@ -76,6 +79,12 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
   return (
     <View>
       <SectionHeader title="精选外刊" theme={theme} />
+      {selectedArticle && !source ? (
+        <View style={styles.selected}>
+          <Text style={[styles.selectedLabel, { color: theme.textMuted }]}>本期精选</Text>
+          {renderArticle(selectedArticle)}
+        </View>
+      ) : null}
       {source ? (
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={date ? '返回日期分类' : '返回外刊分类'}
           onPress={() => navigate(date ? source : null, null)} style={styles.back}>
@@ -112,6 +121,8 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
 }
 
 const styles = StyleSheet.create({
+  selected: { marginBottom: 18 },
+  selectedLabel: { fontSize: 13, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth },
   info: { flex: 1 },
   logoFrame: { width: 40, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 6 },

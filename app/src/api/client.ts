@@ -220,6 +220,21 @@ export async function apiRequest<T>(
   }, timeoutMs);
 }
 
+export async function publicApiRequest<T>(
+  path: string,
+  schema: ZodType<T>,
+  init: RequestInit = {},
+  timeoutMs = API_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  return withRequestDeadline(init, async (request) => {
+    const response = await sendRequest(`${getApiBaseUrl()}${path}`, request);
+    if (!response.ok) return throwPublicResponseError(response, '');
+    const parsed = schema.safeParse(await readJson(response));
+    if (!parsed.success) throw invalidServerResponse();
+    return parsed.data;
+  }, timeoutMs);
+}
+
 export async function apiRequestNoContent(
   path: string,
   init: RequestInit = {},

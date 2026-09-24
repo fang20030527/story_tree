@@ -20,14 +20,13 @@ import type { VocabularyInput } from '@context-reader/contracts';
 import { createVocabularyItem, requestWordTranslation } from '@/api/practices';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import {
-  getEditorialArticle,
-  type EditorialArticle,
-} from '@/features/editorial/catalog';
+import type { EditorialArticle } from '@/features/editorial/catalog';
 import { recordEditorialRecentView } from '@/features/library/libraryStorage';
 import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
 import { EditorialImage } from './EditorialImage';
+import { EditorialRemoteStatus } from './EditorialRemoteStatus';
 import { EditorialSpeechPlayer } from './EditorialSpeechPlayer';
+import { useEditorialArticle } from './useEditorialArticle';
 import {
   loadEditorialTranslation,
   requestEditorialTranslation,
@@ -40,9 +39,11 @@ import { useEditorialReadingProgress } from './useEditorialReadingProgress';
 type Props = { articleId: string };
 
 export function EditorialReadScreen({ articleId }: Props) {
-  const article = getEditorialArticle(articleId);
+  const { article, loading, error, retry } = useEditorialArticle(articleId);
   return article ? (
     <ReadingOverlayProvider><EditorialReadContent key={article.id} article={article} /></ReadingOverlayProvider>
+  ) : loading || error ? (
+    <EditorialRemoteStatus loading={loading} retry={retry} />
   ) : (
     <MissingEditorialArticleState />
   );

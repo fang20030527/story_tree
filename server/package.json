@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file=../app/.env --watch --import tsx src/index.ts",
-    "build": "tsup",
+    "build": "npm run editorial:validate",
     "start": "node dist/index.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -15,7 +15,8 @@
     "db:migrate:production": "node dist/db/migrate.js",
     "smoke:live": "node --env-file=../app/.env --import tsx scripts/live-smoke.ts",
     "smoke:imports": "node --env-file=../app/.env --import tsx scripts/import-live-smoke.ts",
-    "check:client-secrets": "node --env-file=../app/.env --import tsx scripts/check-client-secrets.ts"
+    "check:client-secrets": "node --env-file=../app/.env --import tsx scripts/check-client-secrets.ts",
+    "editorial:validate": "tsup && node dist/scripts/validate-editorial.js"
   },
   "dependencies": {
     "@context-reader/contracts": "*",

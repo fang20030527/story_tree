@@ -18,6 +18,10 @@ import {
 } from '@/api/articles';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import {
+  refreshRemoteEditorialCatalog,
+  useRemoteEditorialCatalogVersion,
+} from '@/features/editorial/remoteCatalog';
 
 import {
   loadEditorialShelf,
@@ -66,6 +70,7 @@ export function ShelfScreen({
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [editorialEntries, setEditorialEntries] = useState<EditorialShelfEntry[]>([]);
+  const catalogVersion = useRemoteEditorialCatalogVersion();
   const [importedArticles, setImportedArticles] = useState<ImportedArticleSummaryDto[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [editorialLoading, setEditorialLoading] = useState(true);
@@ -112,6 +117,7 @@ export function ShelfScreen({
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      void refreshRemoteEditorialCatalog().catch(() => undefined);
       setEditorialLoading(true);
       void dependencies.loadEditorial()
         .then((entries) => { if (active) setEditorialEntries(entries); })
@@ -154,7 +160,7 @@ export function ShelfScreen({
 
   const allItems = useMemo(
     () => mergeShelfItems(editorialEntries, importedArticles),
-    [editorialEntries, importedArticles],
+    [editorialEntries, importedArticles, catalogVersion],
   );
   const visibleItems = useMemo(
     () => filterShelfItems(allItems, filter),

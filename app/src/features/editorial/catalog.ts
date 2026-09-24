@@ -4,6 +4,13 @@ import { epubArticles } from './epubCatalog';
 import type { EditorialAudioCue } from './editorialAudioSync';
 import { aiArmsRaceAudioCues } from './audio/aiArmsRaceAudioCues';
 import duplicateArticles from './duplicateArticles.json';
+import type { PublishedEditorialArticle, PublishedEditorialSummary } from '@context-reader/contracts';
+import { resolvePublishedEditorialMedia } from '@/api/editorial';
+import {
+  getRemoteEditorialDetail,
+  getRemoteFeaturedArticleId,
+  getRemoteEditorialSummaries,
+} from './remoteCatalog';
 
 export type EditorialSection = 'today' | 'featured';
 
@@ -176,18 +183,65 @@ export const editorialArticles: readonly EditorialArticle[] = allEditorialArticl
 // 已有收藏和阅读记录仍可通过原 ID 打开，避免清理列表后历史入口失效。
 const articlesById = new Map(allEditorialArticles.map((article) => [article.id, article]));
 
+function toEditorialArticle(
+  summary: PublishedEditorialSummary,
+  detail?: PublishedEditorialArticle,
+): EditorialArticle {
+  const source = detail ?? summary;
+  return {
+    ...source,
+    section: summary.section,
+    image: resolvePublishedEditorialMedia(source.image),
+    ...(source.audioUrl ? { audioUrl: resolvePublishedEditorialMedia(source.audioUrl) } : {}),
+    paragraphs: detail?.paragraphs ?? [],
+    ...(detail?.bodyBlocks ? {
+      bodyBlocks: detail.bodyBlocks.map((block) => block.type === 'image'
+        ? { ...block, image: resolvePublishedEditorialMedia(block.image) }
+        : block),
+    } : {}),
+    ...(detail?.figures ? {
+      figures: detail.figures.map((figure) => ({
+        ...figure,
+        image: resolvePublishedEditorialMedia(figure.image),
+      })),
+    } : {}),
+  };
+}
+
+function remoteArticles(): EditorialArticle[] {
+  return getRemoteEditorialSummaries().map((summary) =>
+    toEditorialArticle(summary, getRemoteEditorialDetail(summary.id)));
+}
+
 export function getEditorialArticle(id: string): EditorialArticle | undefined {
+  const summary = getRemoteEditorialSummaries().find((article) => article.id === id);
+  if (summary) return toEditorialArticle(summary, getRemoteEditorialDetail(id));
+  const detail = getRemoteEditorialDetail(id);
+  if (detail) return toEditorialArticle(detail, detail);
   return articlesById.get(id);
 }
 
+export function getFeaturedEditorialArticle(): EditorialArticle | undefined {
+  const id = getRemoteFeaturedArticleId();
+  return id ? getEditorialArticle(id) : undefined;
+}
+
 export function getEditorialSection(section: EditorialSection): EditorialArticle[] {
-  return editorialArticles.filter((article) => article.section === section);
+  const remote = remoteArticles();
+  if (!remote.length) return editorialArticles.filter((article) => article.section === section);
+  if (section === 'today') return remote.slice(0, 1);
+  return [
+    ...remote.slice(1),
+    ...editorialArticles.filter((article) => article.section === 'today'),
+    ...editorialArticles.filter((article) => article.section === 'featured'),
+  ];
 }
 
 export function searchEditorialArticles(query: string): EditorialArticle[] {
   const normalized = query.trim().toLocaleLowerCase();
-  if (!normalized) return [...editorialArticles];
-  return editorialArticles.filter((article) =>
+  const articles = [...remoteArticles(), ...editorialArticles];
+  if (!normalized) return articles;
+  return articles.filter((article) =>
     [article.titleZh, article.titleEn, article.source, article.category, article.issueDate ?? ''].some(
       (value) => value.toLocaleLowerCase().includes(normalized),
     ),

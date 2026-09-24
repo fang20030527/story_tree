@@ -22,3 +22,4 @@ export const READING_POSITION_KEY_PREFIX =
 export const RECENT_VIEWS_KEY = 'context_reader_recent_views_v1';
 export const FAVORITES_KEY = 'context_reader_favorites_v1';
 export const EDITORIAL_SHELF_KEY = 'context_reader_editorial_shelf_v1';
+export const EDITORIAL_CATALOG_CACHE_KEY = 'context_reader_editorial_catalog_v1';
