@@ -99,7 +99,7 @@ export function loadConfig(source: Record<string, string | undefined>) {
   return {
     ...result.data,
     editorialAudioRoot: result.data.EDITORIAL_AUDIO_ROOT || undefined,
-    editorialAudioPublicOrigin: result.data.EDITORIAL_AUDIO_PUBLIC_ORIGIN || undefined,
+    editorialAudioPublicOrigin: result.data.EDITORIAL_AUDIO_PUBLIC_ORIGIN.replace(/\/$/u, '') || undefined,
     publicServerOrigin: result.data.PUBLIC_SERVER_ORIGIN.replace(/\/$/u, ''),
     corsOrigins: result.data.CORS_ORIGINS.split(',')
       .map((value) => value.trim())
