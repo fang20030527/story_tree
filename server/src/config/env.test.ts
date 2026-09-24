@@ -16,6 +16,7 @@ describe('loadConfig', () => {
     });
 
     expect(config.publicServerOrigin).toBe('http://localhost:3000');
+    expect(config.EVOLINK_TEXT_MODEL).toBe('gpt-6-luna');
     expect(config.EVOLINK_VISION_MODEL).toBe(
       'deepseek-v4-flash-vision-exp',
     );
