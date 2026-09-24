@@ -5,8 +5,13 @@ import { Alert } from 'react-native';
 
 import { saveActivePracticeId } from './practiceStorage';
 
-/** Keep native swipe-back and explicit navigation on the same confirmation path. */
-export function usePracticeExitGuard(practiceId: string, enabled = true) {
+/** 返回前保存续练入口，仅退出主题短文组时需要确认。 */
+export function usePracticeExitGuard(
+  practiceId: string,
+  enabled = true,
+  confirmExit = false,
+  preventRemoval = true,
+) {
   const navigation = useNavigation();
   const focused = useIsFocused();
   const prompting = useRef(false);
@@ -16,20 +21,25 @@ export function usePracticeExitGuard(practiceId: string, enabled = true) {
     if (focused && enabled) void saveActivePracticeId(practiceId).catch(() => undefined);
   }, [enabled, focused, practiceId]);
 
-  usePreventRemove(enabled && focused && !continuation, ({ data }) => {
+  usePreventRemove(enabled && focused && preventRemoval && !continuation, ({ data }) => {
     if (prompting.current) return;
     prompting.current = true;
+    const saveAndReturn = () => {
+      void saveActivePracticeId(practiceId).then(() => {
+        prompting.current = false;
+        navigation.dispatch(data.action);
+      }).catch(() => {
+        prompting.current = false;
+        Alert.alert('保存失败', '暂时无法保存练习入口，请重试。');
+      });
+    };
+    if (!confirmExit) {
+      saveAndReturn();
+      return;
+    }
     Alert.alert('暂时离开练习？', '已提交的答题记录会保留，可从首页继续练习。', [
       { text: '继续练习', style: 'cancel', onPress: () => { prompting.current = false; } },
-      { text: '保存并返回', onPress: () => {
-        void saveActivePracticeId(practiceId).then(() => {
-          prompting.current = false;
-          navigation.dispatch(data.action);
-        }).catch(() => {
-          prompting.current = false;
-          Alert.alert('保存失败', '暂时无法保存练习入口，请重试。');
-        });
-      } },
+      { text: '保存并返回', onPress: saveAndReturn },
     ], { cancelable: false });
   });
 

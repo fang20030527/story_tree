@@ -21,11 +21,6 @@ export interface VerifyPracticeInput extends GeneratePracticeInput {
   generated: GeneratedPractice;
 }
 
-export interface ModerationResult {
-  riskLevel: 'low' | 'medium' | 'high';
-  flagged: boolean;
-}
-
 export interface OcrImage {
   mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
   base64: string;
@@ -53,7 +48,6 @@ export interface AiProvider {
     context: string | undefined,
     signal: AbortSignal,
   ): Promise<string | WordTranslationResult>;
-  moderate(text: string, signal: AbortSignal): Promise<ModerationResult>;
   extractArticleText(
     images: readonly OcrImage[],
     signal: AbortSignal,

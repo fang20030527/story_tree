@@ -183,20 +183,17 @@ describe('cached asynchronous translations', () => {
         ['translation'],
       );
       expect(failingJob?.resourceId).toBe(failing.id);
-      const unsafeProvider = new FakeAiProvider();
-      vi.spyOn(unsafeProvider, 'moderate').mockResolvedValue({
-        riskLevel: 'low',
-        flagged: true,
-      });
+      const invalidProvider = new FakeAiProvider();
+      vi.spyOn(invalidProvider, 'translate').mockResolvedValue('English only');
       const failure = await captureAppError(
         handleTranslation(
-          { db, provider: unsafeProvider },
+          { db, provider: invalidProvider },
           failingJob!,
           { signal: new AbortController().signal },
         ),
       );
       expect(failure).toMatchObject({
-        code: 'AI_CONTENT_REJECTED',
+        code: 'AI_INVALID_OUTPUT',
         retryable: true,
       });
       const exhaustedJob = {
@@ -227,7 +224,7 @@ describe('cached asynchronous translations', () => {
           retryable: true,
         },
       });
-      expect(JSON.stringify(failed)).not.toContain('AI_CONTENT_REJECTED');
+      expect(JSON.stringify(failed)).not.toContain('AI_INVALID_OUTPUT');
 
       const retried = await requestTranslation(db, {
         ...paragraphRequest,

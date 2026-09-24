@@ -145,6 +145,18 @@ export const emailAccounts = pgTable(
   ],
 );
 
+export const emailPasswordResets = pgTable('email_password_resets', {
+  emailAccountId: uuid('email_account_id')
+    .primaryKey()
+    .references(() => emailAccounts.id, { onDelete: 'cascade' }),
+  codeHash: text('code_hash').notNull(),
+  createdAt: utcTimestamp('created_at').notNull(),
+  expiresAt: utcTimestamp('expires_at').notNull(),
+  attemptsRemaining: integer('attempts_remaining').notNull(),
+  windowStartedAt: utcTimestamp('window_started_at').notNull(),
+  requestCount: integer('request_count').notNull(),
+});
+
 export const installations = pgTable(
   'installations',
   {
@@ -243,6 +255,7 @@ export const practiceSessions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     examPath: examPath('exam_path').default('ielts').notNull(),
     status: practiceStatus('status').default('queued').notNull(),
+    generationProgress: integer('generation_progress').default(0).notNull(),
     topicGroupId: uuid('topic_group_id'),
     topic: text('topic'),
     topicPosition: integer('topic_position'),

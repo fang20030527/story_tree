@@ -121,6 +121,26 @@ it('defaults to the learning category and requests it with the device time zone'
   expect(router.back).toHaveBeenCalled();
 });
 
+it('shows elapsed loading without a fabricated percentage and resets it when retrying', async () => {
+  jest.useFakeTimers();
+  const first = deferred<VocabularyWordPage>();
+  const retry = deferred<VocabularyWordPage>();
+  mockedGetWords.mockReturnValueOnce(first.promise).mockReturnValueOnce(retry.promise);
+  const view = await render(<VocabularyBookScreen />);
+  expect(view.getByRole('progressbar').props.accessibilityValue).toEqual({ text: '加载中' });
+  expect(view.getByText('已等待 0 秒')).toBeTruthy();
+  await act(async () => { await jest.advanceTimersByTimeAsync(8000); });
+  expect(view.getByText('已等待 8 秒')).toBeTruthy();
+  expect(view.getByText('连接比平时慢，请稍候；超时后可以重试。')).toBeTruthy();
+  await act(async () => { first.reject(new ApiError('REQUEST_TIMEOUT', '连接超时', true)); });
+  expect(view.queryByRole('progressbar')).toBeNull();
+  await fireEvent.press(view.getByText('重试'));
+  expect(view.getByText('已等待 0 秒')).toBeTruthy();
+  await act(async () => { retry.resolve(page([word()])); });
+  expect(view.queryByRole('progressbar')).toBeNull();
+  expect(view.getByText('bank')).toBeTruthy();
+});
+
 it('shows whole-library counts on the four category chips', async () => {
   const summary = {
     totalCount: 75, todayCount: 4, learningCount: 30,

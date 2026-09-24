@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { EDITORIAL_SHELF_KEY } from '@/api/storage';
 import { getEditorialArticle } from '@/features/editorial/catalog';
+import { isRemoteEditorialId } from '@/features/editorial/remoteCatalog';
 
 const EditorialShelfEntrySchema = z
   .object({
@@ -17,7 +18,8 @@ function normalizeEntries(value: unknown): EditorialShelfEntry[] {
   if (!Array.isArray(value)) return [];
   const parsed = value.flatMap((candidate) => {
     const result = EditorialShelfEntrySchema.safeParse(candidate);
-    return result.success && getEditorialArticle(result.data.articleId)
+    return result.success && (getEditorialArticle(result.data.articleId)
+      || isRemoteEditorialId(result.data.articleId))
       ? [result.data]
       : [];
   });
@@ -53,7 +55,7 @@ async function saveEditorialShelf(
 }
 
 function assertCatalogArticle(articleId: string): void {
-  if (!getEditorialArticle(articleId)) {
+  if (!getEditorialArticle(articleId) && !isRemoteEditorialId(articleId)) {
     throw new Error(`Unknown editorial article: ${articleId}`);
   }
 }

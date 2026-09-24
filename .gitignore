@@ -10,6 +10,8 @@ coverage/
 .DS_Store
 .trash-app-tmp/
 .superpowers/
+.local-test-results/
+app/dist-recovery/
 
 # local URL extract output
 tools/url-extract/out/

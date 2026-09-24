@@ -26,3 +26,7 @@ services:
         sync: false
       - key: EVOLINK_API_KEY
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: PASSWORD_RESET_FROM_EMAIL
+        sync: false

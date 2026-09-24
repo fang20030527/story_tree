@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import { PracticeGroupSchema, type PracticeDto } from '@context-reader/contracts';
 
@@ -6,6 +6,7 @@ import { AppError } from '../../core/errors';
 import type { AppDatabase } from '../../db/client';
 import {
   answerAttempts,
+  jobs,
   practiceParagraphs,
   practiceQuestions,
   practiceSessions,
@@ -14,6 +15,7 @@ import {
 } from '../../db/schema';
 import { getRemainingQuota } from '../quota/service';
 import { serializePractice, type QuestionReadRow } from './serializer';
+import { retryableGenerationCodes } from './retry-failed-service';
 
 export async function getPracticeForUser(
   db: AppDatabase,
@@ -31,19 +33,38 @@ export async function getPracticeForUser(
     .limit(1);
   if (!practice) throw new AppError('NOT_FOUND', '练习不存在', 404);
 
-  const group = practice.topicGroupId ? PracticeGroupSchema.parse({
-    id: practice.topicGroupId,
-    articles: await db.select({
+  const groupRows = practice.topicGroupId ? await db.select({
       id: practiceSessions.id,
       topic: practiceSessions.topic,
       status: practiceSessions.status,
+      generationProgress: practiceSessions.generationProgress,
       title: practiceSessions.articleTitle,
       wordCount: practiceSessions.articleWordCount,
+      failureCode: practiceSessions.failureCode,
       failureMessage: practiceSessions.failureMessagePublic,
     }).from(practiceSessions).where(and(
       eq(practiceSessions.topicGroupId, practice.topicGroupId),
       eq(practiceSessions.userId, input.userId),
-    )).orderBy(asc(practiceSessions.topicPosition)),
+    )).orderBy(asc(practiceSessions.topicPosition)) : undefined;
+  const retryCandidates = groupRows?.some((article) => ['ready', 'in_progress', 'completed'].includes(article.status))
+    ? groupRows.filter((article) => article.status === 'failed'
+      && retryableGenerationCodes.has(article.failureCode ?? '')).map((article) => article.id)
+    : [];
+  const retryJobs = retryCandidates.length ? await db.select({ resourceId: jobs.resourceId })
+    .from(jobs).where(and(eq(jobs.kind, 'practice_generation'),
+      eq(jobs.status, 'failed'), eq(jobs.maxAttempts, 3), inArray(jobs.resourceId, retryCandidates))) : [];
+  const group = groupRows ? PracticeGroupSchema.parse({
+    id: practice.topicGroupId,
+    canRetryFailed: retryJobs.length > 0,
+    articles: groupRows.map((article) => ({
+      id: article.id,
+      topic: article.topic,
+      status: article.status,
+      generationProgress: article.generationProgress,
+      title: article.title,
+      wordCount: article.wordCount,
+      failureMessage: article.failureMessage,
+    })),
   }) : undefined;
   const remainingFreePractices = await getRemainingQuota(
     db,

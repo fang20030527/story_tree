@@ -1,8 +1,24 @@
 import { importedEditorialArticles } from './importedArticles';
+import { economistSeptember19 } from './issues/economist-2026-09-19';
+import { epubArticles, getEditorialAudioUrl } from './epubCatalog';
 import type { EditorialAudioCue } from './editorialAudioSync';
 import { aiArmsRaceAudioCues } from './audio/aiArmsRaceAudioCues';
+import duplicateArticles from './duplicateArticles.json';
+import type { PublishedEditorialArticle, PublishedEditorialSummary } from '@context-reader/contracts';
+import { resolvePublishedEditorialMedia } from '@/api/editorial';
+import {
+  getRemoteEditorialDetail,
+  getRemoteFeaturedArticleId,
+  getRemoteEditorialSummaries,
+} from './remoteCatalog';
+
+const aiArmsRaceAudioUrl = getEditorialAudioUrl('ai-arms-race');
 
 export type EditorialSection = 'today' | 'featured';
+
+export type EditorialBodyBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; image: string | number; width: number; height: number };
 
 export interface EditorialArticle {
   id: string;
@@ -12,6 +28,8 @@ export interface EditorialArticle {
   keyPointsZh: readonly string[];
   source: string;
   sourceUrl?: string;
+  issueDate?: string;
+  bodyBlocks?: readonly EditorialBodyBlock[];
   category: string;
   wordCount: number;
   minutes: number;
@@ -31,7 +49,7 @@ export interface EditorialArticle {
   audioCues?: readonly EditorialAudioCue[];
 }
 
-export const editorialArticles = [
+const allEditorialArticles: readonly EditorialArticle[] = [
   {
     "id": "hero",
     sectionHeadings: [
@@ -134,7 +152,9 @@ export const editorialArticles = [
     "image": require('../../../assets/images/editorial/ai-arms-race.jpg') as number,
     "section": "featured",
     "publishedAt": "2026-09-17",
+    "issueDate": "2026-09-19",
     "hasAudio": true,
+    ...(aiArmsRaceAudioUrl ? { audioUrl: aiArmsRaceAudioUrl } : {}),
     "audioAsset": require('../../../assets/audio/editorial/ai-arms-race.mp3') as number,
     audioCues: aiArmsRaceAudioCues,
     "paragraphs": [
@@ -155,26 +175,90 @@ export const editorialArticles = [
     ]
   },
   ...importedEditorialArticles,
-] as const satisfies readonly EditorialArticle[];
+  ...economistSeptember19.map((article) => {
+    const audioUrl = getEditorialAudioUrl(article.id);
+    return audioUrl ? { ...article, audioUrl, hasAudio: true } : article;
+  }),
+  ...epubArticles,
+];
+
+// 按来源链接、正文及合刊内容核对的重复项；列表去重不触发 EPUB 正文懒加载。
+const duplicateIds = new Set(Object.keys(duplicateArticles));
+export const editorialArticles: readonly EditorialArticle[] = allEditorialArticles.filter(
+  (article) => !duplicateIds.has(article.id),
+);
+// 已有收藏和阅读记录仍可通过原 ID 打开，避免清理列表后历史入口失效。
+const articlesById = new Map(allEditorialArticles.map((article) => [article.id, article]));
+
+function toEditorialArticle(
+  summary: PublishedEditorialSummary,
+  detail?: PublishedEditorialArticle,
+): EditorialArticle {
+  const source = detail ?? summary;
+  return {
+    ...source,
+    section: summary.section,
+    image: resolvePublishedEditorialMedia(source.image),
+    ...(source.audioUrl ? { audioUrl: resolvePublishedEditorialMedia(source.audioUrl) } : {}),
+    paragraphs: detail?.paragraphs ?? [],
+    ...(detail?.bodyBlocks ? {
+      bodyBlocks: detail.bodyBlocks.map((block) => block.type === 'image'
+        ? { ...block, image: resolvePublishedEditorialMedia(block.image) }
+        : block),
+    } : {}),
+    ...(detail?.figures ? {
+      figures: detail.figures.map((figure) => ({
+        ...figure,
+        image: resolvePublishedEditorialMedia(figure.image),
+      })),
+    } : {}),
+  };
+}
+
+function remoteArticles(): EditorialArticle[] {
+  return getRemoteEditorialSummaries().map((summary) =>
+    toEditorialArticle(summary, getRemoteEditorialDetail(summary.id)));
+}
 
 export function getEditorialArticle(id: string): EditorialArticle | undefined {
-  return editorialArticles.find((article) => article.id === id);
+  const summary = getRemoteEditorialSummaries().find((article) => article.id === id);
+  if (summary) return toEditorialArticle(summary, getRemoteEditorialDetail(id));
+  const detail = getRemoteEditorialDetail(id);
+  if (detail) return toEditorialArticle(detail, detail);
+  return articlesById.get(id);
+}
+
+export function getFeaturedEditorialArticle(): EditorialArticle | undefined {
+  const id = getRemoteFeaturedArticleId();
+  return id ? getEditorialArticle(id) : undefined;
 }
 
 export function getEditorialSection(section: EditorialSection): EditorialArticle[] {
-  return editorialArticles.filter((article) => article.section === section);
+  const remote = remoteArticles();
+  if (!remote.length) return editorialArticles.filter((article) => article.section === section);
+  if (section === 'today') return remote.slice(0, 1);
+  return [
+    ...remote.slice(1),
+    ...editorialArticles.filter((article) => article.section === 'today'),
+    ...editorialArticles.filter((article) => article.section === 'featured'),
+  ];
 }
 
 export function searchEditorialArticles(query: string): EditorialArticle[] {
   const normalized = query.trim().toLocaleLowerCase();
-  if (!normalized) return [...editorialArticles];
-  return editorialArticles.filter((article) =>
-    [article.titleZh, article.titleEn, article.source, article.category].some(
+  const articles = [...remoteArticles(), ...editorialArticles];
+  if (!normalized) return articles;
+  return articles.filter((article) =>
+    [article.titleZh, article.titleEn, article.source, article.category, article.issueDate ?? article.publishedAt].some(
       (value) => value.toLocaleLowerCase().includes(normalized),
     ),
   );
 }
 
 export function editorialCanListen(article: EditorialArticle): boolean {
-  return Boolean(article.audioAsset || article.audioUrl) || article.hasAudio;
+  return editorialHasOriginalAudio(article) || article.hasAudio;
+}
+
+export function editorialHasOriginalAudio(article: EditorialArticle): boolean {
+  return Boolean(article.audioAsset || article.audioUrl);
 }

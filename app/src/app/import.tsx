@@ -559,7 +559,7 @@ function AgeGate({
           <Ionicons name="shield-checkmark" size={34} color={theme.accent} />
         </View>
         <Text style={[styles.ageTitle, { color: theme.text }]}>使用前请确认年龄</Text>
-        <Text style={[styles.ageBody, { color: theme.textSecondary }]}>AI 导入与文章服务仅面向年满 14 周岁的用户，内容会经过安全检查。</Text>
+        <Text style={[styles.ageBody, { color: theme.textSecondary }]}>AI 导入与文章服务仅面向年满 14 周岁的用户。</Text>
         <TouchableOpacity onPress={onConfirm} style={[styles.primaryButton, { backgroundColor: theme.accent }]} activeOpacity={0.85}>
           <Text style={[styles.primaryButtonText, { color: theme.accentText }]}>我已年满 14 周岁</Text>
         </TouchableOpacity>

@@ -1,11 +1,11 @@
 import { randomInt, randomUUID } from 'node:crypto';
 
 import { PracticeTopicSchema, type PracticeStatus, type VocabularyInput } from '@context-reader/contracts';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 import { AppError } from '../../core/errors';
 import type { AppDatabase, AppTransaction } from '../../db/client';
-import { jobs, practiceSessions, practiceTargets } from '../../db/schema';
+import { jobs, practiceSessions, practiceTargets, vocabularyItems } from '../../db/schema';
 import {
   beginIdempotentOperation,
   finishIdempotentOperation,
@@ -16,6 +16,7 @@ import {
   upsertExactVocabularyItems,
 } from '../vocabulary/repository';
 import { selectReviewVocabularyItemIds } from '../vocabulary/word-state';
+import { MAX_TOPIC_WORDS, planTopicTargets } from './topic-targets';
 
 export interface CreatedPractice {
   practiceId: string;
@@ -86,7 +87,7 @@ export async function createPracticeFromVocabulary(
       const itemIds = await selectReviewVocabularyItemIds(
         tx,
         input.userId,
-        input.targetCount,
+        input.format === 'topic_set' ? Math.min(input.targetCount, MAX_TOPIC_WORDS) : input.targetCount,
       );
       if (itemIds.length === 0) {
         throw new AppError(
@@ -175,8 +176,11 @@ async function createPracticeWithTargetResolver(
       input.freeLimit,
     );
     const itemIds = await input.resolveTargetIds(tx);
+    const targetSets = input.format === 'topic_set'
+      ? await loadTopicTargetSets(tx, input.userId, itemIds)
+      : [itemIds];
     await tx.insert(practiceTargets).values(
-      members.flatMap((member) => itemIds.map((vocabularyItemId, position) => ({
+      members.flatMap((member, index) => targetSets[index]!.map((vocabularyItemId, position) => ({
         id: randomUUID(),
         practiceSessionId: member.id,
         vocabularyItemId,
@@ -208,6 +212,29 @@ async function createPracticeWithTargetResolver(
       pollAfterMs: 1_500,
     };
   });
+}
+
+async function loadTopicTargetSets(
+  tx: AppTransaction,
+  userId: string,
+  selectedIds: string[],
+): Promise<string[][]> {
+  const selected = await tx.select({ normalizedTerm: vocabularyItems.normalizedTerm })
+    .from(vocabularyItems)
+    .where(and(eq(vocabularyItems.userId, userId), inArray(vocabularyItems.id, selectedIds),
+      isNull(vocabularyItems.deletedAt)));
+  const terms = [...new Set(selected.map((item) => item.normalizedTerm))];
+  if (terms.length === 0) throw new AppError('INTERNAL_ERROR', '练习目标不存在', 500, true);
+  const candidates = await tx.select({
+    id: vocabularyItems.id,
+    wordKey: vocabularyItems.normalizedTerm,
+    meaningKey: vocabularyItems.normalizedMeaningZh,
+  }).from(vocabularyItems).where(and(
+    eq(vocabularyItems.userId, userId),
+    inArray(vocabularyItems.normalizedTerm, terms),
+    isNull(vocabularyItems.deletedAt),
+  )).orderBy(desc(vocabularyItems.createdAt), desc(vocabularyItems.id));
+  return planTopicTargets(selectedIds, candidates);
 }
 
 function isPending(status: PracticeStatus): boolean {

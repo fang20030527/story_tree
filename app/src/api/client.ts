@@ -31,6 +31,33 @@ export class ApiError extends Error {
 }
 
 const DEFAULT_API_PORT = '3000';
+export const API_REQUEST_TIMEOUT_MS = 30_000;
+
+// Bound the whole operation, including credentials and response-body reads.
+// Some native/network failures never reject fetch, even after aborting it.
+async function withRequestDeadline<T>(
+  init: RequestInit,
+  operation: (request: RequestInit) => Promise<T>,
+  timeoutMs = API_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (init.signal?.aborted) abort();
+  else init.signal?.addEventListener('abort', abort);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new ApiError('REQUEST_TIMEOUT', '连接超时，服务可能正在启动，请稍后重试', true));
+      controller.abort();
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([operation({ ...init, signal: controller.signal }), deadline]);
+  } finally {
+    clearTimeout(timer);
+    init.signal?.removeEventListener('abort', abort);
+  }
+}
 
 export function getApiBaseUrl(): string {
   const configuredBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
@@ -134,6 +161,7 @@ async function sendAuthenticatedRequest(
 ): Promise<{ response: Response; token: string }> {
   const baseUrl = getApiBaseUrl();
   const token = await getInstallationToken();
+  if (init.signal?.aborted) throw new ApiError('NETWORK_ERROR', '网络连接失败', true);
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
   headers.set('Authorization', `Bearer ${token}`);
@@ -180,20 +208,40 @@ export async function apiRequest<T>(
   path: string,
   schema: ZodType<T>,
   init: RequestInit = {},
+  timeoutMs = API_REQUEST_TIMEOUT_MS,
 ): Promise<T> {
-  const { response, token } = await sendAuthenticatedRequest(path, init);
-  if (!response.ok) return throwPublicResponseError(response, token);
-  const json = await readJson(response);
-  const parsed = schema.safeParse(json);
-  if (!parsed.success) throw invalidServerResponse();
-  return parsed.data;
+  return withRequestDeadline(init, async (request) => {
+    const { response, token } = await sendAuthenticatedRequest(path, request);
+    if (!response.ok) return throwPublicResponseError(response, token);
+    const json = await readJson(response);
+    const parsed = schema.safeParse(json);
+    if (!parsed.success) throw invalidServerResponse();
+    return parsed.data;
+  }, timeoutMs);
+}
+
+export async function publicApiRequest<T>(
+  path: string,
+  schema: ZodType<T>,
+  init: RequestInit = {},
+  timeoutMs = API_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  return withRequestDeadline(init, async (request) => {
+    const response = await sendRequest(`${getApiBaseUrl()}${path}`, request);
+    if (!response.ok) return throwPublicResponseError(response, '');
+    const parsed = schema.safeParse(await readJson(response));
+    if (!parsed.success) throw invalidServerResponse();
+    return parsed.data;
+  }, timeoutMs);
 }
 
 export async function apiRequestNoContent(
   path: string,
   init: RequestInit = {},
 ): Promise<void> {
-  const { response, token } = await sendAuthenticatedRequest(path, init);
-  if (!response.ok) return throwPublicResponseError(response, token);
-  if (response.status !== 204) throw invalidServerResponse();
+  return withRequestDeadline(init, async (request) => {
+    const { response, token } = await sendAuthenticatedRequest(path, request);
+    if (!response.ok) return throwPublicResponseError(response, token);
+    if (response.status !== 204) throw invalidServerResponse();
+  });
 }

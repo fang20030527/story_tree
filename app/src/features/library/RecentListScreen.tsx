@@ -14,6 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { getEditorialArticle } from '@/features/editorial/catalog';
+import {
+  refreshRemoteEditorialCatalog,
+  useRemoteEditorialCatalogVersion,
+} from '@/features/editorial/remoteCatalog';
 import { formatEntryDate, sourceLabel } from '@/features/library/format';
 
 import {
@@ -62,6 +66,7 @@ export function RecentListScreen({
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [entries, setEntries] = useState<RecentView[]>([]);
+  useRemoteEditorialCatalogVersion();
 
   const reload = useCallback(async () => {
     try {
@@ -74,6 +79,7 @@ export function RecentListScreen({
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      void refreshRemoteEditorialCatalog().catch(() => undefined);
       void load()
         .then((items) => {
           if (active) setEntries(items);

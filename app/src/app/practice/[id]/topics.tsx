@@ -2,13 +2,16 @@ import { usePracticeExitGuard } from '@/features/practice/usePracticeExitGuard';
 import { Ionicons } from '@expo/vector-icons';
 import type { PracticeDto, PracticeTopic } from '@context-reader/contracts';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { weight } from '@/constants/theme';
+import { createIdempotencyKey } from '@/api/installation';
+import { retryFailedTopics } from '@/api/practices';
 import { useAppTheme } from '@/context/ThemeContext';
 import { clearActivePracticeId, saveActivePracticeId } from '@/features/practice/practiceStorage';
+import { TopicGenerationProgress } from '@/features/practice/TopicGenerationProgress';
 import { usePracticePolling } from '@/features/practice/usePracticePolling';
 
 const topicIcons: Record<PracticeTopic, keyof typeof Ionicons.glyphMap> = {
@@ -27,14 +30,13 @@ function TopicSelection({ practiceId, vocabularyOrigin }: { practiceId: string; 
   const { practice, error, retry } = usePracticePolling(practiceId);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const retryKey = useRef<Promise<string> | null>(null);
   useFocusEffect(useCallback(() => { retry(); }, [retry]));
   const group = practice?.group;
-  usePracticeExitGuard(practiceId, !group || group.articles.some((article) => article.status !== 'completed' && article.status !== 'failed'));
+  usePracticeExitGuard(practiceId, !group || group.articles.some((article) => article.status !== 'completed' && article.status !== 'failed'), true);
   const completed = group?.articles.filter((article) => article.status === 'completed').length ?? 0;
-  const readyCount = group?.articles.filter((article) => readable.has(article.status)).length ?? 0;
-  const failedCount = group?.articles.filter((article) => article.status === 'failed').length ?? 0;
-  const total = group?.articles.length ?? 4;
-  const settled = readyCount + failedCount;
   const pending = group?.articles.some((article) => !readable.has(article.status) && article.status !== 'failed');
 
   const openArticle = async (id: string) => {
@@ -60,6 +62,25 @@ function TopicSelection({ practiceId, vocabularyOrigin }: { practiceId: string; 
       setStorageError('暂时无法保存完成状态，请重试');
     }
   };
+  const retryFailed = async () => {
+    if (!group || retrying) return;
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      retryKey.current ??= createIdempotencyKey().catch((keyError: unknown) => {
+        retryKey.current = null;
+        throw keyError;
+      });
+      await retryFailedTopics(group.id, await retryKey.current);
+      retryKey.current = null;
+      retry();
+    } catch (nextError) {
+      setRetryError(nextError instanceof Error ? nextError.message : '暂时无法重试短文生成');
+      retry();
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg, paddingTop: insets.top }]}>
@@ -76,23 +97,16 @@ function TopicSelection({ practiceId, vocabularyOrigin }: { practiceId: string; 
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           4 个主题，4 篇短文。按兴趣选择，随时回来继续。
         </Text>
-        {group ? (
-          <View style={styles.progressSection}>
-            <View style={styles.progressHeading}>
-              <Text style={[styles.actionText, { color: theme.text }]}>
-                {pending ? `生成进度 ${settled}/${total}` : '生成已结束'}
-              </Text>
-              <Text style={[styles.meta, { color: theme.textSecondary }]}>
-                {readyCount} 篇可阅读{failedCount ? ` · ${failedCount} 篇未成功` : ''}
-              </Text>
-            </View>
-            <View accessibilityRole="progressbar" accessibilityLabel="短文生成进度"
-              accessibilityValue={{ min: 0, max: total, now: settled, text: `${readyCount} 篇可阅读，${failedCount} 篇未成功，${total - settled} 篇处理中` }}
-              style={[styles.progressTrack, { backgroundColor: theme.border }]}>
-              <View style={{ width: `${readyCount / total * 100}%`, backgroundColor: theme.accent }} />
-              <View style={{ width: `${failedCount / total * 100}%`, backgroundColor: theme.danger }} />
-            </View>
-          </View>
+        {group ? <TopicGenerationProgress group={group} unavailable={Boolean(error)} /> : null}
+        {group?.canRetryFailed ? (
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="重试未生成的短文"
+            disabled={retrying} onPress={() => void retryFailed()}
+            style={[styles.retryFailedButton, { backgroundColor: theme.accent, opacity: retrying ? 0.7 : 1 }]}>
+            {retrying ? <ActivityIndicator size="small" color={theme.accentText} /> : null}
+            <Text style={[styles.retryFailedText, { color: theme.accentText }]}>
+              {retrying ? '正在重新排队…' : '重试未生成的短文'}
+            </Text>
+          </TouchableOpacity>
         ) : null}
         {pending ? (
           <View style={[styles.notice, { backgroundColor: theme.accentSoft }]}>
@@ -122,6 +136,30 @@ function TopicSelection({ practiceId, vocabularyOrigin }: { practiceId: string; 
               <Text style={[styles.articleTitle, { color: theme.text }]}>
                 {article.title ?? (failed ? '这篇短文暂未生成' : '正在准备新的阅读视角…')}
               </Text>
+              {failed && article.generationProgress === 0 ? (
+                <Text style={[styles.articleProgressLabel, { color: theme.textMuted }]}>
+                  本次生成进度未记录
+                </Text>
+              ) : (
+                <>
+                  <View style={styles.articleProgressHeading}>
+                    <Text style={[styles.articleProgressLabel, { color: theme.textSecondary }]}>
+                      {failed ? '生成中断' : available ? '已生成' : '生成步骤'}
+                    </Text>
+                    <Text style={[styles.articleProgressPercent, { color: failed ? theme.danger : theme.accent }]}>
+                      {article.generationProgress}%
+                    </Text>
+                  </View>
+                  <View accessibilityRole="progressbar" accessibilityLabel={`${article.topic}短文生成进度`}
+                    accessibilityValue={{ min: 0, max: 100, now: article.generationProgress }}
+                    style={[styles.articleProgressTrack, { backgroundColor: theme.border }]}>
+                    <View style={[styles.articleProgressFill, {
+                      width: `${article.generationProgress}%`,
+                      backgroundColor: failed ? theme.danger : theme.accent,
+                    }]} />
+                  </View>
+                </>
+              )}
               {failed ? <Text style={[styles.failure, { color: theme.danger }]}>{article.failureMessage ?? '请稍后重新创建一组短文'}</Text> : null}
               <View style={styles.cardFooter}>
                 <Text style={[styles.meta, { color: theme.textMuted }]}>
@@ -137,8 +175,8 @@ function TopicSelection({ practiceId, vocabularyOrigin }: { practiceId: string; 
         })}
         {practice && !group ? <Text style={{ color: theme.textSecondary }}>这是之前创建的单篇练习。</Text> : null}
         {practice && !group ? <TouchableOpacity onPress={() => router.replace({ pathname: '/practice/[id]/generating', params: { id: practice.id } })}><Text style={[styles.link, { color: theme.accent }]}>打开练习</Text></TouchableOpacity> : null}
-        {error || storageError ? <View style={styles.error}>
-          <Text style={{ color: theme.danger }}>{storageError ?? error?.message}</Text>
+        {error || storageError || retryError ? <View style={styles.error}>
+          <Text style={{ color: theme.danger }}>{storageError ?? retryError ?? error?.message}</Text>
           {error ? <TouchableOpacity onPress={retry}><Text style={[styles.link, { color: theme.accent }]}>重新加载</Text></TouchableOpacity> : null}
         </View> : null}
       </ScrollView>
@@ -161,17 +199,21 @@ const styles = StyleSheet.create({
   eyebrow: { marginTop: 12, fontSize: 11, letterSpacing: 2, fontWeight: weight('bold') },
   title: { fontSize: 27, lineHeight: 36, fontWeight: weight('bold') },
   subtitle: { fontSize: 14, lineHeight: 23, marginBottom: 8 },
-  progressSection: { gap: 9 },
-  progressHeading: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  progressTrack: { height: 8, borderRadius: 4, overflow: 'hidden', flexDirection: 'row' },
   notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12 },
   noticeText: { flex: 1, fontSize: 13, lineHeight: 20 },
+  retryFailedButton: { minHeight: 46, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  retryFailedText: { fontSize: 14, fontWeight: weight('semibold') },
   card: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 19, gap: 16 },
   cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   icon: { padding: 9, borderRadius: 12 },
   topic: { flex: 1, fontSize: 15, fontWeight: weight('semibold') },
   number: { fontSize: 12, letterSpacing: 1 },
   articleTitle: { fontSize: 21, lineHeight: 29, fontWeight: weight('semibold') },
+  articleProgressHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: -10 },
+  articleProgressLabel: { fontSize: 12 },
+  articleProgressPercent: { fontSize: 12, fontWeight: weight('semibold') },
+  articleProgressTrack: { height: 7, borderRadius: 4, overflow: 'hidden' },
+  articleProgressFill: { height: '100%', borderRadius: 4 },
   cardFooter: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   meta: { fontSize: 12 },
   action: { flexDirection: 'row', alignItems: 'center', gap: 5 },

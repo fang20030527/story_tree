@@ -1,3 +1,4 @@
+import { useStudyTimer } from '@/features/study/useStudyTimer';
 import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
 import type {
@@ -31,6 +32,7 @@ import {
 } from '@/features/practice/ArticleParagraph';
 import { isArticleSectionHeading } from '@/features/practice/articleTypography';
 import { useTranslation } from '@/features/practice/useTranslation';
+import { useSavedVocabularyWords } from '@/features/practice/useSavedVocabularyWords';
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -66,17 +68,8 @@ function ArticleReadScreenContent() {
   const [loading, setLoading] = useState(Boolean(articleId));
   const [message, setMessage] = useState<string | null>(articleId ? null : '找不到文章');
   const [deleted, setDeleted] = useState(false);
-  const [addedWords, setAddedWords] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-
-  const handleWordAdded = useCallback((term: string) => {
-    setAddedWords((current) => {
-      const next = new Set(current);
-      next.add(term.trim().toLocaleLowerCase('en-US'));
-      return next;
-    });
-  }, []);
+  useStudyTimer(article !== null && !loading && !deleted);
+  const { addedWords, handleWordAdded, error: highlightError, retry: retryHighlights } = useSavedVocabularyWords(articleId);
 
   useEffect(() => {
     if (!articleId) {
@@ -133,7 +126,15 @@ function ArticleReadScreenContent() {
         <View style={styles.headerSpacer} />
       </View>
       {article ? (
-        <ScrollView onScrollBeginDrag={() => readingOverlay?.select(null)} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          onScrollBeginDrag={() => readingOverlay?.select(null)}
+          onScroll={(event) => readingOverlay?.onScroll(event.nativeEvent.contentOffset.y)}
+          scrollEventThrottle={16}
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]}
+          showsVerticalScrollIndicator={false}>
+          {highlightError && <TouchableOpacity accessibilityRole="button" onPress={retryHighlights}>
+            <Text style={{ color: theme.danger }}>生词高亮加载失败，点击重试</Text>
+          </TouchableOpacity>}
           <View style={[styles.sourcePill, { backgroundColor: theme.accentSoft }]}><Ionicons name="cloud-done-outline" size={14} color={theme.accent} /><Text style={[styles.sourcePillText, { color: theme.textSecondary }]}>{sourceLabel(article.sourceKind)} · 私人文章</Text></View>
           <Text style={[styles.title, { color: theme.text }]}>{article.title}</Text>
           <Text style={[styles.meta, { color: theme.textMuted }]}>{article.wordCount} 词 · {new Date(article.importedAt).toLocaleDateString('zh-CN')}</Text>

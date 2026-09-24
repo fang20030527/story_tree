@@ -28,7 +28,7 @@ beforeEach(() => {
   jest.mocked(saveActivePracticeId).mockResolvedValue();
 });
 it('cancels a swipe/back without leaving and suppresses duplicate prompts', async () => {
-  await renderHook(() => usePracticeExitGuard(id));
+  await renderHook(() => usePracticeExitGuard(id, true, true));
   await act(async () => { attemptExit(); attemptExit(); });
   expect(Alert.alert).toHaveBeenCalledTimes(1);
   await act(async () => { button('继续练习').onPress!(); });
@@ -37,7 +37,7 @@ it('cancels a swipe/back without leaving and suppresses duplicate prompts', asyn
   expect(Alert.alert).toHaveBeenCalledTimes(2);
 });
 it('saves the resume entry before replaying the original navigation action', async () => {
-  await renderHook(() => usePracticeExitGuard(id));
+  await renderHook(() => usePracticeExitGuard(id, true, true));
   let resolve!: () => void;
   jest.mocked(saveActivePracticeId).mockReturnValue(new Promise<void>((done) => { resolve = done; }));
   await act(async () => { attemptExit(); button('保存并返回').onPress!(); });
@@ -47,11 +47,35 @@ it('saves the resume entry before replaying the original navigation action', asy
   expect(mockDispatch).toHaveBeenCalledWith(action);
 });
 it('stays in practice when saving fails', async () => {
-  await renderHook(() => usePracticeExitGuard(id));
+  await renderHook(() => usePracticeExitGuard(id, true, true));
   jest.mocked(saveActivePracticeId).mockRejectedValue(new Error('disk full'));
   await act(async () => { attemptExit(); button('保存并返回').onPress!(); });
   expect(mockDispatch).not.toHaveBeenCalled();
   expect(Alert.alert).toHaveBeenLastCalledWith('保存失败', expect.any(String));
+});
+it('automatically saves before returning from an article without confirmation', async () => {
+  await renderHook(() => usePracticeExitGuard(id));
+  let resolve!: () => void;
+  jest.mocked(saveActivePracticeId).mockClear();
+  jest.mocked(saveActivePracticeId).mockReturnValue(new Promise<void>((done) => { resolve = done; }));
+  await act(async () => { attemptExit(); attemptExit(); });
+  expect(Alert.alert).not.toHaveBeenCalled();
+  expect(saveActivePracticeId).toHaveBeenCalledTimes(1);
+  expect(saveActivePracticeId).toHaveBeenCalledWith(id);
+  expect(mockDispatch).not.toHaveBeenCalled();
+  await act(async () => { resolve(); });
+  expect(mockDispatch).toHaveBeenCalledWith(action);
+});
+it('allows retrying an article exit after an automatic save fails', async () => {
+  await renderHook(() => usePracticeExitGuard(id));
+  jest.mocked(saveActivePracticeId).mockRejectedValueOnce(new Error('disk full'));
+  await act(async () => { attemptExit(); });
+  expect(mockDispatch).not.toHaveBeenCalled();
+  expect(Alert.alert).toHaveBeenLastCalledWith('保存失败', expect.any(String));
+  jest.mocked(Alert.alert).mockClear();
+  await act(async () => { attemptExit(); });
+  expect(mockDispatch).toHaveBeenCalledWith(action);
+  expect(Alert.alert).not.toHaveBeenCalled();
 });
 it('allows automatic completion with removal protection disabled', async () => {
   const { result } = await renderHook(() => usePracticeExitGuard(id));

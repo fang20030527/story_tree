@@ -11,6 +11,9 @@ export function useEditorialReadingProgress(articleId: string) {
   const [showFullTranslation, setShowFullTranslation] = useState(false);
   const position = useRef({ scrollY: 0, showFullTranslation: false });
   const dirty = useRef(false);
+  const pendingPatch = useRef<{ scrollY?: number; showFullTranslation?: boolean }>({});
+  const userScrolled = useRef(false);
+  const userToggledTranslation = useRef(false);
   const restored = useRef(false);
   const dimensions = useRef({ height: 0, contentHeight: 0 });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -20,20 +23,27 @@ export function useEditorialReadingProgress(articleId: string) {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     if (!dirty.current) return;
+    const patch = pendingPatch.current;
+    pendingPatch.current = {};
     dirty.current = false;
-    void saveEditorialReadingProgress(articleId, { ...position.current }).then(() => {
-      if (mounted.current) setError(null);
+    void saveEditorialReadingProgress(articleId, patch).then(() => {
+      if (mounted.current) setError((current) => current === '阅读进度保存失败，请重试' ? null : current);
     }).catch(() => {
       dirty.current = true;
+      pendingPatch.current = { ...patch, ...pendingPatch.current };
       if (mounted.current) setError('阅读进度保存失败，请重试');
     });
   }, [articleId]);
 
   const load = useCallback(() => loadEditorialReadingProgress(articleId).then((saved) => {
     if (!mounted.current) return;
-    position.current = { scrollY: saved.scrollY, showFullTranslation: saved.showFullTranslation };
+    position.current = {
+      scrollY: userScrolled.current ? position.current.scrollY : saved.scrollY,
+      showFullTranslation: userToggledTranslation.current
+        ? position.current.showFullTranslation : saved.showFullTranslation,
+    };
     setAddedWords(new Set(saved.addedWords));
-    setShowFullTranslation(saved.showFullTranslation);
+    setShowFullTranslation(position.current.showFullTranslation);
     setError(null);
     setLoaded(true);
   }).catch(() => {
@@ -53,18 +63,23 @@ export function useEditorialReadingProgress(articleId: string) {
     };
   }, [load, flush]);
 
-  const restore = () => {
+  const restore = useCallback(() => {
     const { height, contentHeight } = dimensions.current;
     if (!loaded || restored.current || !height || !contentHeight || !scrollRef.current) return;
     restored.current = true;
     scrollRef.current.scrollTo({ y: Math.min(position.current.scrollY, Math.max(0, contentHeight - height)), animated: false });
-  };
+  }, [loaded]);
+
+  // The reader now mounts before AsyncStorage finishes. Its layout events may
+  // have fired already, so a successful load must retry restoration itself.
+  useEffect(() => { restore(); }, [restore]);
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!restored.current) return;
     const y = Math.max(0, event.nativeEvent.contentOffset.y);
     if (!Number.isFinite(y) || y === position.current.scrollY) return;
     position.current.scrollY = y;
+    pendingPatch.current.scrollY = y;
     dirty.current = true;
     // 持续滚动时也定期落盘；退出和切后台时立即保存最后位置。
     if (!timer.current) timer.current = setTimeout(flush, 300);
@@ -75,14 +90,20 @@ export function useEditorialReadingProgress(articleId: string) {
   }, [loaded, flush, load]);
 
   const toggleTranslation = useCallback(() => {
+    userToggledTranslation.current = true;
     position.current.showFullTranslation = !position.current.showFullTranslation;
     setShowFullTranslation(position.current.showFullTranslation);
+    pendingPatch.current.showFullTranslation = position.current.showFullTranslation;
     dirty.current = true;
     flush();
   }, [flush]);
 
   return {
     loaded, error, addedWords, showFullTranslation, scrollRef, onScroll, flush,
+    onUserScrollStart: () => {
+      userScrolled.current = true;
+      restored.current = true;
+    },
     retry, toggleTranslation,
     onLayout: (height: number) => { dimensions.current.height = height; restore(); },
     onContentSizeChange: (height: number) => { dimensions.current.contentHeight = height; restore(); },

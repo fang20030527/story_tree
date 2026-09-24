@@ -7,6 +7,10 @@ it('defaults to ten and persists a custom count', async () => {
   await savePracticeTargetCount(30);
   await expect(loadPracticeTargetCount()).resolves.toBe(30);
 });
-it.each(['', '0', '-1', '1.5', 'abc', '9007199254740992'])('rejects invalid count %s', (value) => {
+it.each(['', '0', '-1', '1.5', 'abc', '33', '9007199254740992'])('rejects invalid count %s', (value) => {
   expect(parseTargetCount(value)).toBeNull();
+});
+it('limits a previously saved large count to the four-article capacity', async () => {
+  await AsyncStorage.setItem('context_reader_practice_target_count_v1', '100');
+  await expect(loadPracticeTargetCount()).resolves.toBe(32);
 });

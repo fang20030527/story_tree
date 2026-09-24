@@ -7,6 +7,7 @@ import {
 
 import { RECENT_VIEWS_KEY } from '@/api/storage';
 import { getEditorialArticle } from '@/features/editorial/catalog';
+import { isRemoteEditorialId } from '@/features/editorial/remoteCatalog';
 
 const RECENT_VIEWS_LIMIT = 50;
 
@@ -52,7 +53,8 @@ function normalizeRecentViews(value: unknown): RecentView[] {
     })
     .filter(
       (entry) =>
-        entry.kind === 'imported' || Boolean(getEditorialArticle(entry.articleId)),
+        entry.kind === 'imported' || Boolean(getEditorialArticle(entry.articleId))
+          || isRemoteEditorialId(entry.articleId),
     );
   entries.sort((left, right) => right.timestamp.localeCompare(left.timestamp));
   const seen = new Set<string>();
@@ -112,7 +114,7 @@ export function recordImportedRecentView(
 }
 
 export function recordEditorialRecentView(articleId: string): Promise<void> {
-  if (!getEditorialArticle(articleId)) {
+  if (!getEditorialArticle(articleId) && !isRemoteEditorialId(articleId)) {
     return Promise.reject(new Error(`Unknown editorial article: ${articleId}`));
   }
   return recordRecentView(

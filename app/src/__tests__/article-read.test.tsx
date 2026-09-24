@@ -4,6 +4,7 @@ import React from 'react';
 import { router } from 'expo-router';
 
 import { getImportedArticle } from '@/api/articles';
+import { getVocabularyWords } from '@/api/practices';
 import { ApiError } from '@/api/client';
 import {
   getArticleTranslation,
@@ -14,6 +15,7 @@ import { recordImportedRecentView } from '@/features/library/libraryStorage';
 
 import ArticleReadScreen from '@/app/article-read';
 
+jest.mock('@/features/study/useStudyTimer', () => ({ useStudyTimer: jest.fn() }));
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), replace: jest.fn() },
   useLocalSearchParams: () => ({
@@ -24,9 +26,10 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
 jest.mock('@/context/ThemeContext', () => ({
-  useAppTheme: () => ({ theme: require('@/constants/theme').themes.light }),
+  useAppTheme: () => ({ theme: jest.requireActual('@/constants/theme').themes.light }),
 }));
 jest.mock('@/api/articles', () => ({ getImportedArticle: jest.fn() }));
+jest.mock('@/api/practices', () => ({ getVocabularyWords: jest.fn(), createVocabularyItem: jest.fn() }));
 jest.mock('@/api/imports', () => ({
   getArticleTranslation: jest.fn(),
   requestArticleTranslation: jest.fn(),
@@ -70,9 +73,24 @@ beforeEach(() => {
   mockedGetArticle.mockResolvedValue(article);
   mockedCreateKey.mockResolvedValue('translation-key-01');
   mockedRecordRecent.mockResolvedValue(undefined);
+  jest.mocked(getVocabularyWords).mockResolvedValue({
+    items: [], nextCursor: null, evaluatedAt: '2026-09-22T00:00:00Z', nextRefreshAt: null,
+    summary: { totalCount: 0, todayCount: 0, learningCount: 0, dueLearningCount: 0, unlearnedCount: 0, masteredCount: 0 },
+  });
 });
 
 afterEach(() => jest.useRealTimers());
+
+it('restores saved vocabulary highlighting in an imported article', async () => {
+  const empty = await getVocabularyWords();
+  jest.mocked(getVocabularyWords).mockResolvedValue({ ...empty, items: [{
+    wordId: article.id, term: 'Careful', meaningZh: '仔细的', sourceSentence: null, contextCount: 1,
+    reviewReason: 'new', nextReviewAt: '2026-09-22T00:00:00Z', practiceCount: 0,
+    independentCorrectCount: 0, assistedCount: 0, lastPracticedAt: null, masteredAt: null,
+  }] });
+  const view = await render(<ArticleReadScreen />);
+  await waitFor(() => expect(view.getByText('Careful')).toHaveStyle({ backgroundColor: '#F3BB31' }));
+});
 
 it('records the private view without favorite or import header actions', async () => {
   const view = await render(<ArticleReadScreen />);

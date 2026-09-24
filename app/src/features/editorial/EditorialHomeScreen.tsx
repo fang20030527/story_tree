@@ -1,8 +1,10 @@
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AppState,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,34 +15,91 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ContinuePracticeCard } from '@/features/practice/ContinuePracticeCard';
+import { getApiBaseUrl } from '@/api/client';
 
 import { SectionHeader } from '@/components/ui';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 
 import {
+  editorialHasOriginalAudio,
   getEditorialSection,
   searchEditorialArticles,
   type EditorialArticle,
-  type EditorialSection,
 } from './catalog';
 import { EditorialImage } from './EditorialImage';
+import { FeaturedLibrary } from './FeaturedLibrary';
+import {
+  refreshRemoteEditorialCatalog,
+  useRemoteEditorialCatalogVersion,
+} from './remoteCatalog';
+
+const PAGE_SIZE = 24;
+const KNOWN_SOURCES = ['The Economist', 'The New Yorker', 'The Atlantic', 'WIRED'];
+let imageHostWakeRequested = false;
 
 export function EditorialHomeScreen() {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [sectionView, setSectionView] = useState<EditorialSection | null>(null);
+  const [source, setSource] = useState('全部刊物');
+  const [year, setYear] = useState('全部年份');
+  const [page, setPage] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const catalogVersion = useRemoteEditorialCatalogVersion();
+
+  useFocusEffect(useCallback(() => {
+    void refreshRemoteEditorialCatalog().catch(() => undefined);
+  }, []));
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshRemoteEditorialCatalog().catch(() => undefined);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshError(false);
+    try {
+      await refreshRemoteEditorialCatalog();
+    } catch {
+      setRefreshError(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (imageHostWakeRequested) return;
+    let baseUrl: string;
+    try {
+      baseUrl = getApiBaseUrl();
+    } catch {
+      return;
+    }
+    imageHostWakeRequested = true;
+    // EPUB covers are served by the API. Wake an idle host while the reader
+    // browses locally bundled issue dates, before the first cover request.
+    void fetch(`${baseUrl}/health/live`).catch(() => undefined);
+  }, []);
 
   const searchResults = useMemo(
-    () => searchEditorialArticles(query),
-    [query],
+    () => searchEditorialArticles(query).filter((article) =>
+      (source === '全部刊物' || article.source === source)
+      && (year === '全部年份' || (article.issueDate ?? article.publishedAt).startsWith(year))),
+    [query, source, year, catalogVersion],
   );
-  const sectionResults = useMemo(
-    () => (sectionView ? getEditorialSection(sectionView) : []),
-    [sectionView],
-  );
+  const years = useMemo(() => ['全部年份', ...new Set(getEditorialSection('featured')
+    .map((article) => (article.issueDate ?? article.publishedAt).slice(0, 4)).sort().reverse())], [catalogVersion]);
+  const sources = useMemo(() => ['全部刊物', ...new Set([
+    ...KNOWN_SOURCES,
+    ...searchEditorialArticles('').map((article) => article.source),
+  ])], [catalogVersion]);
 
   const openOverview = (article: EditorialArticle) => {
     router.push({
@@ -51,17 +110,55 @@ export function EditorialHomeScreen() {
 
   const openSearch = () => {
     setSearchOpen((open) => !open);
-    setSectionView(null);
+    setPage(0);
+    setSource('全部刊物');
+    setYear('全部年份');
   };
 
   const clearSearch = () => {
     setQuery('');
+    setPage(0);
   };
 
   const hero = getEditorialSection('today')[0];
-  const featured = getEditorialSection('featured');
   const showSearchResults = searchOpen && query.trim().length > 0;
-  const showSection = !showSearchResults && sectionView !== null;
+  const resultCount = searchResults.length;
+  const pageCount = Math.max(1, Math.ceil(resultCount / PAGE_SIZE));
+  const changePage = (next: number) => {
+    setPage(next);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+  const filters = (
+    <View style={styles.filters}>
+      {[{ values: sources, selected: source, change: setSource },
+        { values: years, selected: year, change: setYear }].map((filter, index) => (
+        <ScrollView key={index} horizontal showsHorizontalScrollIndicator={false}>
+          {filter.values.map((value) => (
+            <TouchableOpacity key={value} accessibilityRole="button" accessibilityLabel={`筛选${value}`}
+              accessibilityState={{ selected: filter.selected === value }}
+              onPress={() => { filter.change(value); setPage(0); }}
+              style={[styles.filter, { backgroundColor: filter.selected === value ? theme.surfaceAlt : theme.bg }]}>
+              <Text style={{ color: filter.selected === value ? theme.blue : theme.textMuted }}>{value}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ))}
+      <Text style={{ color: theme.textMuted }}>共 {resultCount} 篇</Text>
+    </View>
+  );
+  const pagination = resultCount > PAGE_SIZE ? (
+    <View style={styles.pagination}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="上一页" disabled={page === 0}
+        onPress={() => changePage(page - 1)} style={styles.pageButton}>
+        <Text style={{ color: page === 0 ? theme.textMuted : theme.blue }}>上一页</Text>
+      </TouchableOpacity>
+      <Text style={{ color: theme.textMuted }}>第 {page + 1} / {pageCount} 页</Text>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="下一页" disabled={page + 1 >= pageCount}
+        onPress={() => changePage(page + 1)} style={styles.pageButton}>
+        <Text style={{ color: page + 1 >= pageCount ? theme.textMuted : theme.blue }}>下一页</Text>
+      </TouchableOpacity>
+    </View>
+  ) : null;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
@@ -86,7 +183,7 @@ export function EditorialHomeScreen() {
           <Ionicons name="search-outline" size={18} color={theme.textMuted} />
           <TextInput
             value={query}
-            onChangeText={setQuery}
+            onChangeText={(value) => { setQuery(value); setPage(0); }}
             autoFocus
             placeholder="搜索中英文标题、来源或分类"
             placeholderTextColor={theme.textMuted}
@@ -105,18 +202,22 @@ export function EditorialHomeScreen() {
       ) : null}
 
       <ScrollView
+        ref={scrollRef}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void refresh(); }} tintColor={theme.blue} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + 28 },
         ]}>
         <ContinuePracticeCard />
+        {refreshError ? <Text style={{ color: theme.textMuted }}>暂时无法更新外刊，已显示上次内容</Text> : null}
         {showSearchResults ? (
           <>
             <SectionHeader title="搜索结果" theme={theme} />
+            {filters}
             {searchResults.length > 0 ? (
               <View style={styles.resultsList}>
-                {searchResults.map((article) => (
+                {searchResults.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((article) => (
                   <ArticleCard
                     key={article.id}
                     article={article}
@@ -137,31 +238,7 @@ export function EditorialHomeScreen() {
                 </TouchableOpacity>
               </View>
             )}
-          </>
-        ) : showSection ? (
-          <>
-            <TouchableOpacity
-              onPress={() => setSectionView(null)}
-              accessibilityRole="button"
-              accessibilityLabel="返回全部栏目"
-              style={styles.backToSections}>
-              <Ionicons name="chevron-back" size={17} color={theme.blue} />
-              <Text style={[styles.backToSectionsText, { color: theme.blue }]}>返回全部栏目</Text>
-            </TouchableOpacity>
-            <SectionHeader
-              title={sectionTitle(sectionView!)}
-              theme={theme}
-            />
-            <View style={styles.resultsList}>
-              {sectionResults.map((article) => (
-                <ArticleCard
-                  key={article.id}
-                  article={article}
-                  theme={theme}
-                  onPress={() => openOverview(article)}
-                />
-              ))}
-            </View>
+            {pagination}
           </>
         ) : (
           <>
@@ -176,41 +253,19 @@ export function EditorialHomeScreen() {
               </>
             ) : null}
 
-            {featured.length > 0 ? (
-              <>
-                <SectionHeader
-                  title="精选外刊"
-                  theme={theme}
-                  moreLabel="更多"
-                  onMore={() => setSectionView('featured')}
-                />
-                <View style={styles.resultsList}>
-                  {featured.map((article) => (
-                    <ArticleCard
-                      key={article.id}
-                      article={article}
-                      theme={theme}
-                      onPress={() => openOverview(article)}
-                    />
-                  ))}
-                </View>
-              </>
-            ) : null}
+            <FeaturedLibrary
+              renderArticle={(article) => (
+                <ArticleCard key={article.id} article={article} theme={theme}
+                  onPress={() => openOverview(article)} />
+              )}
+              onNavigate={() => scrollRef.current?.scrollTo({ y: 0, animated: false })}
+            />
 
           </>
         )}
       </ScrollView>
     </View>
   );
-}
-
-function sectionTitle(section: EditorialSection): string {
-  switch (section) {
-    case 'today':
-      return '今日精选';
-    case 'featured':
-      return '精选外刊';
-  }
 }
 
 function HeroCard({
@@ -258,11 +313,13 @@ function ArticleCard({
       accessibilityRole="button"
       accessibilityLabel={`${article.titleZh}，查看文章概述`}
       style={[styles.articleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <EditorialImage uri={article.image} style={styles.articleImage} />
+      <EditorialImage uri={article.image} style={styles.articleImage} priority="high" />
       <View style={styles.articleInfo}>
         <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.articleTitle, { color: theme.text }]} numberOfLines={2}>{article.titleZh}</Text>
         <Text style={[styles.articleSource, { color: theme.textMuted }]} numberOfLines={1}>{article.source} · {article.category}</Text>
+        <Text style={[styles.articleSource, { color: theme.textMuted }]}>{article.issueDate ?? article.publishedAt}</Text>
+        {editorialHasOriginalAudio(article) ? <Text style={[styles.articleSource, { color: theme.blue }]}>原刊录音</Text> : null}
         <Text style={[styles.articleMeta, { color: theme.textSecondary }]}>{article.level} · {article.wordCount} 词 · {article.minutes} 分钟</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
@@ -271,6 +328,10 @@ function ArticleCard({
 }
 
 const styles = StyleSheet.create({
+  filters: { gap: 10, marginBottom: 16 },
+  filter: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, marginRight: 6 },
+  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  pageButton: { padding: 12 },
   screen: { flex: 1 },
   header: {
     alignItems: 'center',

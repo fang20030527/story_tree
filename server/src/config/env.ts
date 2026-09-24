@@ -1,22 +1,23 @@
 import { z } from 'zod';
 
+const HttpOriginSchema = z.url().refine((value) => {
+  const url = new URL(value);
+  return (
+    (url.protocol === 'http:' || url.protocol === 'https:') &&
+    url.username === '' &&
+    url.password === '' &&
+    url.pathname === '/' &&
+    url.search === '' &&
+    url.hash === ''
+  );
+}, '必须是不含路径的 HTTP(S) origin');
+
 const RawEnvSchema = z.object({
   DATABASE_URL: z.url(),
   EVOLINK_API_KEY: z.string().min(1),
-  PUBLIC_SERVER_ORIGIN: z.url().refine((value) => {
-    const url = new URL(value);
-    return (
-      (url.protocol === 'http:' || url.protocol === 'https:') &&
-      url.username === '' &&
-      url.password === '' &&
-      url.pathname === '/' &&
-      url.search === '' &&
-      url.hash === ''
-    );
-  }, '必须是不含路径的 HTTP(S) origin'),
+  PUBLIC_SERVER_ORIGIN: HttpOriginSchema,
   EVOLINK_BASE_URL: z.url().default('https://direct.evolink.ai/v1'),
   EVOLINK_TEXT_MODEL: z.string().min(1).default('gpt-6-luna'),
-  EVOLINK_MODERATION_MODEL: z.string().min(1).default('evolink-moderation-1.0'),
   EVOLINK_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
   EVOLINK_VISION_MODEL: z
     .string()
@@ -31,6 +32,8 @@ const RawEnvSchema = z.object({
   WECHAT_APP_SECRET: z.string().trim().optional().default(''),
   WECHAT_API_BASE_URL: z.url().default('https://api.weixin.qq.com'),
   WECHAT_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  RESEND_API_KEY: z.string().trim().optional().default(''),
+  PASSWORD_RESET_FROM_EMAIL: z.union([z.email(), z.literal('')]).default(''),
   IMPORT_MAX_TEXT_BYTES: z.coerce.number().int().positive().default(131_072),
   IMPORT_MAX_FILE_BYTES: z.coerce
     .number()
@@ -74,12 +77,21 @@ const RawEnvSchema = z.object({
     .default(604_800_000),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3_000),
   HOST: z.string().default('0.0.0.0'),
+  EDITORIAL_AUDIO_ROOT: z.string().trim().default(''),
+  EDITORIAL_AUDIO_PUBLIC_ORIGIN: z.union([HttpOriginSchema, z.literal('')]).default(''),
   LOG_LEVEL: z.string().default('info'),
   CORS_ORIGINS: z.string().default('http://localhost:8081,http://localhost:19006'),
   FREE_PRACTICE_LIMIT: z.coerce.number().int().positive().default(3),
   JOB_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(500),
   JOB_LEASE_MS: z.coerce.number().int().positive().default(30_000),
   GENERATION_DEADLINE_MS: z.coerce.number().int().positive().default(120_000),
+}).superRefine((value, context) => {
+  if (value.RESEND_API_KEY && !value.PASSWORD_RESET_FROM_EMAIL) {
+    context.addIssue({ code: 'custom', path: ['PASSWORD_RESET_FROM_EMAIL'], message: '必须配置发件邮箱' });
+  }
+  if (value.PASSWORD_RESET_FROM_EMAIL && !value.RESEND_API_KEY) {
+    context.addIssue({ code: 'custom', path: ['RESEND_API_KEY'], message: '必须配置邮件 API key' });
+  }
 });
 
 export function loadConfig(source: Record<string, string | undefined>) {
@@ -95,6 +107,8 @@ export function loadConfig(source: Record<string, string | undefined>) {
   return {
     ...result.data,
     publicServerOrigin: result.data.PUBLIC_SERVER_ORIGIN.replace(/\/$/u, ''),
+    editorialAudioRoot: result.data.EDITORIAL_AUDIO_ROOT || undefined,
+    editorialAudioPublicOrigin: result.data.EDITORIAL_AUDIO_PUBLIC_ORIGIN.replace(/\/$/u, '') || undefined,
     corsOrigins: result.data.CORS_ORIGINS.split(',')
       .map((value) => value.trim())
       .filter(Boolean),

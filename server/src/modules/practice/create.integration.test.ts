@@ -249,12 +249,16 @@ describe('transactional practice creation', () => {
         const members = await db.select().from(practiceSessions)
           .where(eq(practiceSessions.topicGroupId, cappedPractice.practiceId));
         expect(members).toHaveLength(4);
+        const groupTargetIds: string[] = [];
         for (const member of members) {
           const targets = await db.select().from(practiceTargets)
             .where(eq(practiceTargets.practiceSessionId, member.id));
-          expect(targets).toHaveLength(18);
-          expect(new Set(targets.map((target) => target.vocabularyItemId))).toEqual(eligibleIds);
+          expect(targets.length).toBeGreaterThanOrEqual(2);
+          expect(targets.length).toBeLessThanOrEqual(10);
+          groupTargetIds.push(...targets.map((target) => target.vocabularyItemId));
         }
+        expect(new Set(groupTargetIds)).toEqual(eligibleIds);
+        expect(groupTargetIds).toHaveLength(18);
         expect(await db.select().from(usageLedger).where(eq(usageLedger.userId, user.userId))).toHaveLength(3);
 
         const replay = await app.inject({

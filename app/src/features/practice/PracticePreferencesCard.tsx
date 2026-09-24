@@ -5,7 +5,7 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import { Card } from '@/components/ui';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import { loadPracticeTargetCount, parseTargetCount, savePracticeTargetCount } from './practicePreferences';
+import { loadPracticeTargetCount, MAX_TARGET_COUNT, parseTargetCount, savePracticeTargetCount } from './practicePreferences';
 
 export function PracticePreferencesCard() {
   const { theme } = useAppTheme();
@@ -22,7 +22,7 @@ export function PracticePreferencesCard() {
   }, []));
   const save = async () => {
     const count = parseTargetCount(value);
-    if (count === null) { setMessage('请输入大于 0 的整数'); return; }
+    if (count === null) { setMessage(`请输入 1–${MAX_TARGET_COUNT} 的整数`); return; }
     setSaving(true);
     try {
       await savePracticeTargetCount(count);
@@ -54,7 +54,7 @@ export function PracticePreferencesCard() {
         </TouchableOpacity>
       </View>
       <Text style={[styles.hint, { color: theme.textMuted }]}>
-        {savedCount === null ? '生成时使用已保存的数量；待复习词不足时按实际数量练习。' : `每次最多选取 ${savedCount} 个待复习词，不足时有多少用多少。`}
+        {savedCount === null ? `每组最多选取 ${MAX_TARGET_COUNT} 个词，分配到四篇短文；不足时按实际数量练习。` : `每组最多选取 ${savedCount} 个待复习词，分配到四篇短文；不足时按实际数量练习。`}
       </Text>
       {message ? <Text accessibilityLiveRegion="polite" style={[styles.hint, { color: theme.textSecondary }]}>{message}</Text> : null}
     </Card>

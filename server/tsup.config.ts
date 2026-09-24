@@ -1,7 +1,11 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/db/migrate.ts'],
+  entry: {
+    index: 'src/index.ts',
+    'db/migrate': 'src/db/migrate.ts',
+    'scripts/validate-editorial': 'scripts/validate-editorial.ts',
+  },
   format: ['esm'],
   platform: 'node',
   target: 'node22',

@@ -1,5 +1,8 @@
-import { ReadingOverlayProvider } from './ReadingOverlay';
+import { ReadingOverlayProvider, useReadingOverlay } from './ReadingOverlay';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import type { TextLayoutLine } from 'react-native';
+import { ScrollView } from 'react-native';
+import type { ReactNode } from 'react';
 
 import { requestSentenceTranslation } from '@/api/sentences';
 
@@ -13,6 +16,7 @@ import {
   tokenizeArticleText,
   contextForWord,
   sentenceAtOffset,
+  sentenceEndLine,
 } from './ArticleParagraph';
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
@@ -42,7 +46,7 @@ describe('ArticleParagraph', () => {
     });
   });
 
-  it('styles only target segments and treats markup-like text literally', async () => {
+  it('keeps target segments unmarked and treats markup-like text literally', async () => {
     const targetId = '11111111-1111-4111-8111-111111111111';
     const onTargetPress = jest.fn();
     const view = await render(
@@ -58,10 +62,7 @@ describe('ArticleParagraph', () => {
     );
 
     expect(view.getByText('Read <strong>this</strong> ').props.style).toBeUndefined();
-    expect(view.getByText('resilient')).toHaveStyle({
-      color: '#f0b429',
-      fontWeight: '600',
-    });
+    expect(view.getByText('resilient').props.style).toBeUndefined();
 
     await fireEvent.press(view.getByText('resilient'));
     expect(onTargetPress).toHaveBeenCalledWith(targetId);
@@ -308,7 +309,79 @@ describe('ArticleParagraph', () => {
   });
 });
 
+function ScrollingReader({ children }: { children?: ReactNode }) {
+  const overlay = useReadingOverlay();
+  return <ScrollView testID="test-reader-scroll"
+    onScrollBeginDrag={() => overlay?.select(null)}
+    onScroll={(event) => overlay?.onScroll(event.nativeEvent.contentOffset.y)}>
+    {children}
+  </ScrollView>;
+}
+
 describe('sentence translation', () => {
+  beforeEach(() => jest.mocked(requestSentenceTranslation).mockReset());
+
+  it('anchors to the last line of the selected sentence, including repeated sentences', () => {
+    const text = 'Birds fly high. Birds fly high. Fish swim.';
+    const lines = ['Birds fly ', 'high. Birds ', 'fly high. ', 'Fish swim.'].map((line, index) => ({
+      text: line, x: 0, y: index * 28, height: 28, width: 200,
+      ascender: 18, descender: 4, capHeight: 16, xHeight: 12,
+    } satisfies TextLayoutLine));
+    expect(sentenceEndLine(text, 0, lines)).toBe(lines[1]);
+    expect(sentenceEndLine(text, text.lastIndexOf('Birds'), lines)).toBe(lines[2]);
+  });
+
+  it('keeps translations during word lookup and replaces them only for another sentence or explicit close', async () => {
+    jest.mocked(requestSentenceTranslation).mockResolvedValueOnce('鸟儿飞翔。').mockResolvedValueOnce('猫睡觉。');
+    const view = await render(
+      <ReadingOverlayProvider>
+        <InteractiveWordParagraph text="Birds fly. Fish swim." targetColor="#123456" />
+        <InteractiveWordParagraph text="Cats sleep." targetColor="#123456" lookupWord={async () => '猫'} />
+      </ReadingOverlayProvider>,
+    );
+    await fireEvent(view.getByText('Birds'), 'longPress', { nativeEvent: { pageX: 140, pageY: 120 } });
+    await waitFor(() => expect(view.getByText('鸟儿飞翔。')).toBeTruthy());
+    expect(view.getByTestId('sentence-floating-bubble')).toHaveStyle({ position: 'absolute', top: 128 });
+    await fireEvent.press(view.getByText('Cats'), { nativeEvent: { pageX: 140, pageY: 200 } });
+    await waitFor(() => expect(view.getByText('猫')).toBeTruthy());
+    expect(view.getByText('鸟儿飞翔。')).toBeTruthy();
+    await fireEvent(view.getByText('sleep'), 'longPress', { nativeEvent: { pageX: 140, pageY: 200 } });
+    await waitFor(() => expect(view.getByText('猫睡觉。')).toBeTruthy());
+    expect(view.queryByText('鸟儿飞翔。')).toBeNull();
+    expect(view.getAllByTestId('sentence-floating-bubble')).toHaveLength(1);
+    await fireEvent.press(view.getByLabelText('关闭单句翻译'));
+    expect(view.queryByTestId('sentence-floating-bubble')).toBeNull();
+  });
+
+  it('retains a pending translation through scrolling and paragraph recycling, and returns to its anchor', async () => {
+    let resolveTranslation!: (value: string) => void;
+    jest.mocked(requestSentenceTranslation).mockImplementation(() => new Promise((resolve) => { resolveTranslation = resolve; }));
+    const reader = (showParagraph: boolean) => (
+      <ReadingOverlayProvider>
+        <ScrollingReader>
+          {showParagraph ? <InteractiveWordParagraph text="Birds fly." targetColor="#123456" /> : null}
+        </ScrollingReader>
+      </ReadingOverlayProvider>
+    );
+    const view = await render(reader(true));
+    await fireEvent(view.getByText('Birds'), 'longPress', { nativeEvent: { pageX: 140, pageY: 220 } });
+    await fireEvent(view.getByTestId('test-reader-scroll'), 'scrollBeginDrag');
+    await fireEvent.scroll(view.getByTestId('test-reader-scroll'), { nativeEvent: { contentOffset: { y: 40 } } });
+    expect(view.getByTestId('sentence-floating-bubble')).toHaveStyle({ top: 188 });
+    expect(view.getByLabelText('句子翻译中')).toBeTruthy();
+    await fireEvent.scroll(view.getByTestId('test-reader-scroll'), { nativeEvent: { contentOffset: { y: 1000 } } });
+    expect(view.getByTestId('sentence-floating-bubble')).toHaveStyle({ top: 12 });
+    await view.rerender(reader(false));
+    await act(async () => resolveTranslation('鸟儿飞翔。'));
+    expect(view.getByText('鸟儿飞翔。')).toBeTruthy();
+    await view.rerender(reader(true));
+    await fireEvent.scroll(view.getByTestId('test-reader-scroll'), { nativeEvent: { contentOffset: { y: 0 } } });
+    expect(view.getByTestId('sentence-floating-bubble')).toHaveStyle({ top: 228 });
+    expect(requestSentenceTranslation).toHaveBeenCalledTimes(1);
+    await fireEvent.press(view.getByLabelText('关闭单句翻译'));
+    expect(view.queryByTestId('sentence-floating-bubble')).toBeNull();
+  });
+
   it('locates repeated words and preserves abbreviations, decimals, quotes and long sentences', () => {
     const text = 'Dr. Smith paid 3.5 dollars. “Smith returned!”';
     expect(sentenceAtOffset(text, text.lastIndexOf('Smith'))).toBe('“Smith returned!”');
@@ -329,6 +402,20 @@ describe('sentence translation', () => {
     await fireEvent(view.getByText('fly'), 'longPress');
     expect(view.getByText('鸟儿飞翔。')).toBeTruthy();
     expect(requestSentenceTranslation).toHaveBeenCalledTimes(1);
+  });
+
+  it('continues a pending translation after closing and reopening the sentence card', async () => {
+    let resolveTranslation!: (value: string) => void;
+    jest.mocked(requestSentenceTranslation).mockImplementation(() =>
+      new Promise((resolve) => { resolveTranslation = resolve; }));
+    const view = await render(<InteractiveWordParagraph text="Birds fly." targetColor="#123456" />);
+    await fireEvent(view.getByText('Birds'), 'longPress');
+    expect(view.getByText('正在翻译…')).toBeTruthy();
+    await fireEvent.press(view.getByLabelText('关闭单句翻译'));
+    await fireEvent(view.getByText('Birds'), 'longPress');
+    expect(requestSentenceTranslation).toHaveBeenCalledTimes(1);
+    await act(async () => resolveTranslation('鸟儿飞翔。'));
+    expect(view.getByText('鸟儿飞翔。')).toBeTruthy();
   });
 
   it('ignores a late translation after changing sentences and allows retry', async () => {

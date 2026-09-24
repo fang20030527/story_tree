@@ -7,7 +7,6 @@ import type { WordTranslationResult } from '@context-reader/contracts';
 import type {
   AiProvider,
   GeneratePracticeInput,
-  ModerationResult,
   OcrArticleText,
   OcrImage,
   VerifyPracticeInput,
@@ -84,7 +83,10 @@ export class FakeAiProvider implements AiProvider {
           optionsEn,
           correctOptionIndex: optionsEn.indexOf(target.term),
           meaningEn: `${target.term} in its intended context`,
-          explanationEn: 'This is synthetic test feedback for the intended usage.',
+          explanationZh: '该词表达了目标含义，符合句子语境。',
+          optionExplanationsZh: optionsEn.map((option) =>
+            option === target.term ? '符合句子所需的含义。' : '不符合句子所需的含义。',
+          ),
           optionExplanationsEn: optionsEn.map((option) =>
             option === target.term ? 'Fits the intended context.' : 'Does not fit the intended context.',
           ),
@@ -101,9 +103,9 @@ export class FakeAiProvider implements AiProvider {
     return { approved: true, issues: [] };
   }
 
-  async translate(text: string, signal: AbortSignal): Promise<string> {
+  async translate(_text: string, signal: AbortSignal): Promise<string> {
     signal.throwIfAborted();
-    return `译文：${text}`;
+    return '译文：这是供测试使用的中文内容。';
   }
 
   async lookupWord(
@@ -124,11 +126,6 @@ export class FakeAiProvider implements AiProvider {
     };
     return meanings[term.trim().toLocaleLowerCase('en-US')]
       ?? { partOfSpeech: '词性未知', meaningZh: `与“${term.trim()}”相关的词义` };
-  }
-
-  async moderate(_text: string, signal: AbortSignal): Promise<ModerationResult> {
-    signal.throwIfAborted();
-    return { riskLevel: 'low', flagged: false };
   }
 
   async extractArticleText(

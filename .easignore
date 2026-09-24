@@ -1,0 +1,45 @@
+# EAS 只上传移动端构建所需文件；Render 仍使用完整 Git 仓库。
+# 保留根目录及 app/.gitignore 的忽略规则。
+.git
+node_modules/
+dist/
+dist-smoke/
+web-build/
+coverage/
+.expo/
+.env
+.env.*
+!.env.example
+.eas-secrets/
+*.tsbuildinfo
+.DS_Store
+.trash-app-tmp/
+.superpowers/
+.local-test-results/
+app/dist-recovery/
+tools/url-extract/out/
+/剑桥在线英汉双解词典完美版/
+/牛津高阶英汉双解词典第10版完美版/
+/韦氏高阶英汉双解词典2019完美版/
+.venv/
+__pycache__/
+*.pyc
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+app/expo-env.d.ts
+app/example/
+app/ios/
+app/android/
+
+# 外刊插图由 API 按需提供，不参与客户端打包。
+/server/assets/

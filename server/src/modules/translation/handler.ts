@@ -9,10 +9,7 @@ import {
 } from '../../db/schema';
 import type { AiProvider } from '../../infrastructure/ai/types';
 import type { ClaimedJob } from '../jobs/types';
-import {
-  assertTranslationModerationAccepted,
-  validateTranslationText,
-} from './validation';
+import { validateTranslationText } from './validation';
 
 export { validateTranslationText } from './validation';
 
@@ -40,14 +37,8 @@ export async function handleTranslation(
   assertProviderCallAllowed(job, context.signal);
   const translatedText = validateTranslationText(
     await dependencies.provider.translate(loaded.sourceText, context.signal),
+    loaded.sourceText,
   );
-
-  assertProviderCallAllowed(job, context.signal);
-  const moderation = await dependencies.provider.moderate(
-    translatedText,
-    context.signal,
-  );
-  assertTranslationModerationAccepted(moderation);
 
   assertWithinDeadline(job, context.signal);
   await persistReadyTranslation(

@@ -1,5 +1,6 @@
 import { getInstallationToken } from './installation';
-import { apiRequestNoContent, ApiError } from './client';
+import { apiRequestNoContent, ApiError, API_REQUEST_TIMEOUT_MS } from './client';
+import { requestSentenceTranslation, SENTENCE_TRANSLATION_TIMEOUT_MS } from './sentences';
 import {
   createPractice,
   getDashboard,
@@ -27,6 +28,68 @@ describe('API client', () => {
     jest.resetAllMocks();
     process.env.EXPO_PUBLIC_API_BASE_URL = 'https://api.example.test/';
     global.fetch = fetchMock as typeof fetch;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('ends a stalled fetch with a retryable timeout and aborts the request', async () => {
+    jest.useFakeTimers();
+    mockedGetInstallationToken.mockResolvedValue('ab'.repeat(32));
+    fetchMock.mockImplementation(() => new Promise(() => {}));
+    const result = getVocabulary().catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+    expect(await result).toMatchObject({ code: 'REQUEST_TIMEOUT', retryable: true });
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).signal?.aborted).toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('keeps AI translation requests open beyond the normal API deadline', async () => {
+    jest.useFakeTimers();
+    mockedGetInstallationToken.mockResolvedValue('ab'.repeat(32));
+    let complete!: (response: unknown) => void;
+    fetchMock.mockImplementation(() => new Promise((resolve) => { complete = resolve; }));
+    const result = requestSentenceTranslation('Birds fly.');
+    await jest.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).signal?.aborted).toBe(false);
+    complete({ ok: true, status: 200, json: async () => ({ translatedTextZh: '鸟儿飞翔。' }) });
+    await expect(result).resolves.toBe('鸟儿飞翔。');
+    expect(SENTENCE_TRANSLATION_TIMEOUT_MS).toBeGreaterThan(API_REQUEST_TIMEOUT_MS);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('also times out when response headers arrive but the body stalls', async () => {
+    jest.useFakeTimers();
+    mockedGetInstallationToken.mockResolvedValue('ab'.repeat(32));
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: () => new Promise(() => {}) });
+    const result = getVocabulary().catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+    expect(await result).toMatchObject({ code: 'REQUEST_TIMEOUT' });
+  });
+
+  it('does not send a request if credentials arrive after the deadline', async () => {
+    jest.useFakeTimers();
+    let releaseToken!: (token: string) => void;
+    mockedGetInstallationToken.mockImplementation(() => new Promise((resolve) => { releaseToken = resolve; }));
+    const result = getVocabulary().catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+    expect(await result).toMatchObject({ code: 'REQUEST_TIMEOUT' });
+    releaseToken('ab'.repeat(32));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('clears the deadline after success and permits retry after a timeout', async () => {
+    jest.useFakeTimers();
+    mockedGetInstallationToken.mockResolvedValue('ab'.repeat(32));
+    fetchMock.mockImplementationOnce(() => new Promise(() => {}));
+    const first = getVocabulary().catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(API_REQUEST_TIMEOUT_MS);
+    expect(await first).toMatchObject({ code: 'REQUEST_TIMEOUT' });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ items: [], nextCursor: null }) });
+    await expect(getVocabulary()).resolves.toEqual({ items: [], nextCursor: null });
+    expect(jest.getTimerCount()).toBe(0);
   });
 
   afterAll(() => {
@@ -288,7 +351,7 @@ describe('API client', () => {
       status: 'generating',
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      `https://api.example.test/v1/practices/${practiceId}`,
+      `https://api.example.test/v1/practices/${practiceId}?includeProgress=1`,
       expect.objectContaining({}),
     );
   });

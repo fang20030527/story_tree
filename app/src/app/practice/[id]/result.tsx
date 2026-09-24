@@ -158,6 +158,12 @@ function ResultContent({ practiceId }: { practiceId: string }) {
           <Text style={[styles.errorText, { color: theme.danger }]}>{error}</Text>
         ) : null}
         <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => router.replace({ pathname: '/practice/[id]/quiz', params: { id: practiceId } })}
+          style={[styles.retryButton, { borderColor: theme.accent }]}>
+          <Text style={[styles.retryText, { color: theme.accent }]}>回看题目 / 再练一次</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           disabled={leaving}
           onPress={() => void finish()}
           style={[

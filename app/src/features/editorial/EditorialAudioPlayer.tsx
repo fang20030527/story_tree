@@ -1,10 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Host, Picker } from '@expo/ui';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { useAppTheme } from '@/context/ThemeContext';
+
+const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+
+function applyPlaybackRate(player: ReturnType<typeof useAudioPlayer>, rate: number) {
+  // Expo 播放器是可变的原生对象，通过其属性启用音调校正。
+  player.shouldCorrectPitch = true;
+  player.setPlaybackRate(rate, 'high');
+}
 
 export interface EditorialPlaybackPosition {
   currentTime: number;
@@ -24,6 +33,8 @@ export function EditorialAudioPlayer({ source, onPositionChange }: {
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [rateError, setRateError] = useState(false);
   const [previewTime, setPreviewTime] = useState<number | null>(null);
   const trackWidth = useRef(0);
   const drag = useRef<{ pageX: number; locationX: number; time: number } | null>(null);
@@ -84,7 +95,10 @@ export function EditorialAudioPlayer({ source, onPositionChange }: {
         if (status.didJustFinish || (status.duration > 0 && status.currentTime >= status.duration)) {
           await player.seekTo(0);
         }
-        if (active.current) player.play();
+        if (active.current) {
+          applyPlaybackRate(player, playbackRate);
+          player.play();
+        }
       }
     } catch {
       if (active.current) setError(true);
@@ -97,6 +111,17 @@ export function EditorialAudioPlayer({ source, onPositionChange }: {
   const failed = error || Boolean(status.error);
   const loading = !status.isLoaded && !failed;
   const canSeek = status.isLoaded && duration > 0 && !pending && !status.error;
+  const canChangeRate = status.isLoaded && !pending && !status.error;
+  const changeRate = (rate: number) => {
+    if (!canChangeRate || busy.current || !active.current) return;
+    try {
+      applyPlaybackRate(player, rate);
+      setPlaybackRate(rate);
+      setRateError(false);
+    } catch {
+      setRateError(true);
+    }
+  };
   const displayedTime = previewTime ?? currentTime;
   const progress = duration > 0 ? displayedTime / duration : 0;
   const timeAt = (x: number) => Math.max(0, Math.min(1, x / (trackWidth.current || 1))) * duration;
@@ -153,6 +178,26 @@ export function EditorialAudioPlayer({ source, onPositionChange }: {
         </View>
       </View>
       <Text style={{ color: theme.textMuted }}>{formatTime(displayedTime)} / {formatTime(duration)}</Text>
+      <Text style={{ color: theme.textMuted }}>原刊录音</Text>
+      <View style={styles.rates}>
+        <Text style={{ color: theme.textMuted }}>倍速</Text>
+        <Host
+          matchContents={{ vertical: true }}
+          colorScheme={theme.mode}
+          seedColor={theme.accent}
+          style={[styles.ratePickerHost, { opacity: canChangeRate ? 1 : 0.45 }]}>
+          <Picker
+            testID="editorial-audio-rate-picker"
+            selectedValue={playbackRate}
+            enabled={canChangeRate}
+            onValueChange={changeRate}>
+            {PLAYBACK_RATES.map((rate) => (
+              <Picker.Item key={rate} label={`${rate}×`} value={rate} />
+            ))}
+          </Picker>
+        </Host>
+      </View>
+      {rateError ? <Text accessibilityLiveRegion="polite" style={{ color: theme.danger }}>倍速调整失败，请重试</Text> : null}
       {failed ? <Text accessibilityLiveRegion="polite" style={{ color: theme.danger }}>音频播放失败，请重试</Text> : null}
     </View>
   );
@@ -166,6 +211,8 @@ function formatTime(value: number): string {
 const styles = StyleSheet.create({
   container: { padding: 12, borderRadius: 12, gap: 8, marginVertical: 12 },
   button: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  rates: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  ratePickerHost: { minWidth: 112, minHeight: 44 },
   progressTouch: { height: 44, justifyContent: 'center', marginHorizontal: 8 },
   track: { height: 4, borderRadius: 2 },
   fill: { height: 4, borderRadius: 2 },

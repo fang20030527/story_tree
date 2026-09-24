@@ -1,4 +1,5 @@
 import { EditorialAudioPlayer } from './EditorialAudioPlayer';
+import { EditorialSpeechPlayer } from './EditorialSpeechPlayer';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
@@ -106,9 +107,17 @@ it('changes its accessible action label and blocks a pending shelf write', async
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 
 jest.mock('./EditorialAudioPlayer', () => ({ EditorialAudioPlayer: jest.fn(() => null) }));
+jest.mock('./EditorialSpeechPlayer', () => ({ EditorialSpeechPlayer: jest.fn(() => null) }));
 
 it('connects the supplied recording to the AI article', async () => {
   const view = await render(<EditorialOverviewScreen articleId="ai-arms-race" />);
   expect(view.getByText('Can the AI arms race be stopped?')).toBeTruthy();
   expect(EditorialAudioPlayer).toHaveBeenCalledWith(expect.objectContaining({ source: expect.anything() }), undefined);
+});
+
+it('offers clearly labelled synthetic speech when no source recording exists', async () => {
+  const view = await render(<EditorialOverviewScreen articleId="economist-2026-09-19-c16e0774-be87-458b-a09e-6543a1e36778" />);
+  expect(view.getByText('How do you improve your gut microbiome?')).toBeTruthy();
+  expect(EditorialAudioPlayer).not.toHaveBeenCalled();
+  expect(EditorialSpeechPlayer).toHaveBeenCalledWith(expect.objectContaining({ loadText: expect.any(Function) }), undefined);
 });

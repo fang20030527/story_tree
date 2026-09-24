@@ -32,7 +32,8 @@ export const GeneratedPracticeSchema = z
           optionsEn: z.array(z.string().min(1)).length(4),
           correctOptionIndex: z.number().int().min(0).max(3),
           meaningEn: z.string().min(1),
-          explanationEn: z.string().min(1),
+          explanationZh: z.string().min(1),
+          optionExplanationsZh: z.array(z.string().min(1)).length(4),
           optionExplanationsEn: z.array(z.string().min(1)).length(4),
         })
         .strict(),

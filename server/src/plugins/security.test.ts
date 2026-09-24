@@ -1,5 +1,6 @@
 import { Writable } from 'node:stream';
 
+import Fastify from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { PublicErrorSchema } from '@context-reader/contracts';
@@ -7,6 +8,7 @@ import { PublicErrorSchema } from '@context-reader/contracts';
 import { buildApp } from '../app';
 import { loadConfig } from '../config/env';
 import type { AppDatabase } from '../db/client';
+import { registerSecurity } from './security';
 
 const config = loadConfig({
   DATABASE_URL: 'postgresql://example.invalid/db',
@@ -140,6 +142,57 @@ describe('HTTP security', () => {
       expect(health.statusCode).toBe(200);
     }
     expect(logLines.join('')).not.toContain(firstToken);
+  });
+
+  it('limits password reset requests by IP even if Authorization changes', async () => {
+    const app = buildApp({
+      config,
+      db: unusedDatabase,
+      logger: false,
+      securityLimits: { globalMax: 100, passwordResetMax: 1 },
+    });
+    apps.push(app);
+    const request = (authorization: string) => app.inject({
+      method: 'POST',
+      url: '/v1/auth/password-reset/request',
+      headers: { authorization },
+      payload: { email: 'invalid' },
+    });
+    expect((await request('Bearer first')).statusCode).toBe(400);
+    const limited = await request('Bearer second');
+    expect(limited.statusCode).toBe(429);
+    expect(PublicErrorSchema.parse(limited.json()).error.code).toBe('RATE_LIMITED');
+  });
+
+  it('rate limits sentence translation by token before a paid provider call', async () => {
+    const app = Fastify({ logger: false });
+    registerSecurity(app, { corsOrigins: [] }, {
+      globalMax: 100,
+      sentenceMax: 1,
+      timeWindowMs: 60_000,
+    });
+    let providerCalls = 0;
+    app.post('/v1/sentence-translations', async () => {
+      providerCalls += 1;
+      return { translatedTextZh: '译文' };
+    });
+    try {
+      const request = (token: string) => app.inject({
+        method: 'POST',
+        url: '/v1/sentence-translations',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { text: 'An English sentence.' },
+      });
+      const firstToken = 'd3'.repeat(32);
+      expect((await request(firstToken)).statusCode).toBe(200);
+      const limited = await request(firstToken);
+      expect(limited.statusCode).toBe(429);
+      expect(limited.json().code).toBe('RATE_LIMITED');
+      expect(providerCalls).toBe(1);
+      expect((await request('d4'.repeat(32))).statusCode).toBe(200);
+    } finally {
+      await app.close();
+    }
   });
 
   it('applies an IP bucket without trusting forwarded addresses', async () => {

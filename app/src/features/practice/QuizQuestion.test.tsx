@@ -1,10 +1,23 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import type { AnswerResult, PublicQuestion } from '@context-reader/contracts';
 
+import { createVocabularyItem, getVocabularyWords, requestWordTranslation } from '@/api/practices';
+
 import { ApiError } from '@/api/client';
 import { createIdempotencyKey } from '@/api/installation';
 
 import { QuizQuestion } from './QuizQuestion';
+
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
+jest.mock('expo-speech', () => ({
+  speak: jest.fn(), stop: jest.fn().mockResolvedValue(undefined),
+  getAvailableVoicesAsync: jest.fn().mockResolvedValue([]),
+}));
+jest.mock('@/api/practices', () => ({
+  createVocabularyItem: jest.fn(),
+  getVocabularyWords: jest.fn().mockResolvedValue({ items: [], nextCursor: null }),
+  requestWordTranslation: jest.fn(),
+}));
 
 jest.mock('@/api/installation', () => ({
   createIdempotencyKey: jest.fn(),
@@ -67,6 +80,7 @@ function feedback(answerKind: 'option' | 'dont_know'): AnswerResult {
 describe('QuizQuestion', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    jest.mocked(getVocabularyWords).mockResolvedValue({ items: [], nextCursor: null } as never);
     mockedCreateIdempotencyKey.mockResolvedValue('answer_key_123456789');
   });
 
@@ -112,9 +126,7 @@ describe('QuizQuestion', () => {
       'answer_key_123456789',
     );
     expect(view.getByText('文章描述了从困难中恢复的能力。')).toBeTruthy();
-    for (const option of view.getAllByRole('radio')) {
-      expect(option).toBeDisabled();
-    }
+    expect(view.queryAllByRole('radio')).toHaveLength(0);
   });
 
   it('keeps the same answer key when an option submission is retried', async () => {
@@ -157,9 +169,7 @@ describe('QuizQuestion', () => {
     );
 
     expect(view.getByText('回答正确')).toBeTruthy();
-    for (const option of view.getAllByRole('radio')) {
-      expect(option).toBeDisabled();
-    }
+    expect(view.queryAllByRole('radio')).toHaveLength(0);
     expect(onSubmit).not.toHaveBeenCalled();
 
     await fireEvent.press(view.getByText('继续'));
@@ -168,11 +178,11 @@ describe('QuizQuestion', () => {
   });
 });
 
- it('keeps the target out of the heading and shows English feedback only after a cloze answer', async () => {
+ it('keeps the target out of the heading and shows bilingual options and a Chinese summary after a cloze answer', async () => {
   const cloze = { ...question(), prompt: 'Despite setbacks, the team remained ____.',
     options: optionIds.map((id, index) => ({ id, label: ['resilient', 'fragile', 'temporary', 'ambiguous'][index]! })) };
-  const answer = { ...feedback('option'), explanationZh: 'Recovering after setbacks shows resilience.',
-    optionExplanations: { [optionIds[0]]: 'Fits the ability to recover.' } };
+  const answer = { ...feedback('option'), explanationZh: '从挫折中恢复的能力体现了韧性。',
+    optionExplanations: { [optionIds[0]]: '符合恢复能力。\nFits the ability to recover.' } };
   const onSubmit = jest.fn().mockResolvedValue(answer);
   const view = await render(<QuizQuestion question={cloze} onSubmit={onSubmit} onContinue={jest.fn()} />);
   expect(view.getAllByText('resilient')).toHaveLength(1);
@@ -180,6 +190,34 @@ describe('QuizQuestion', () => {
   expect(view.getByLabelText('Check answer')).toBeDisabled();
   await fireEvent.press(view.getByText('resilient'));
   await fireEvent.press(view.getByLabelText('Check answer'));
-  expect(view.getByText('Correct!')).toBeTruthy();
+  expect(view.getByText('回答正确')).toBeTruthy();
   expect(view.getByText(answer.explanationZh)).toBeTruthy();
+  expect(view.getByText(answer.optionExplanations[optionIds[0]])).toBeTruthy();
+  expect(view.queryByText(answer.meaningEn)).toBeNull();
+  expect(view.getByText('继续')).toBeTruthy();
+ });
+
+ it('opens word cards only after submission and saves words from the question', async () => {
+  jest.mocked(getVocabularyWords).mockResolvedValue({ items: [], nextCursor: null } as never);
+  jest.mocked(requestWordTranslation).mockResolvedValue({
+    term: 'setbacks', partOfSpeech: 'n.', meaningZh: '挫折',
+  });
+  const cloze = { ...question(), prompt: 'Despite setbacks, the team remained ____.',
+    options: optionIds.map((id, index) => ({ id, label: ['resilient', 'fragile', 'temporary', 'ambiguous'][index]! })) };
+  const onSubmit = jest.fn().mockResolvedValue(feedback('option'));
+  const view = await render(<QuizQuestion question={cloze} onSubmit={onSubmit} onContinue={jest.fn()} />);
+  expect(view.queryByText('setbacks')).toBeNull();
+  await fireEvent.press(view.getByText('resilient'));
+  await fireEvent.press(view.getByLabelText('Check answer'));
+  await fireEvent.press(view.getByText('setbacks'));
+  expect(await view.findByText('挫折')).toBeTruthy();
+  await fireEvent.press(view.getByLabelText('加入生词本'));
+  expect(createVocabularyItem).toHaveBeenCalledWith({
+    term: 'setbacks', meaningZh: '挫折', sourceSentence: cloze.prompt,
+  }, 'answer_key_123456789');
+  expect(await view.findByLabelText('已加入生词本')).toBeDisabled();
+  await fireEvent.press(view.getByLabelText('关闭词义提示'));
+  await fireEvent.press(view.getByText('fragile'));
+  expect(requestWordTranslation).toHaveBeenLastCalledWith({ term: 'fragile', context: 'fragile' });
+  expect(onSubmit).toHaveBeenCalledTimes(1);
  });

@@ -23,7 +23,6 @@ import {
 import type {
   AiProvider,
   GeneratePracticeInput,
-  ModerationResult,
   OcrArticleText,
   OcrImage,
   VerifyPracticeInput,
@@ -39,7 +38,7 @@ const OcrArticleTextSchema = z
 export class EvolinkAiProvider implements AiProvider {
   constructor(
     private readonly client: EvolinkClient,
-    private readonly vision: { visionModel: string; visionTimeoutMs: number },
+    private readonly vision: { visionModel: string; visionTimeoutMs: number; translationTimeoutMs?: number },
   ) {}
 
   async generatePractice(
@@ -106,6 +105,9 @@ export class EvolinkAiProvider implements AiProvider {
         messages: translationMessages(text),
         maxCompletionTokens: 6_000,
         reasoningEffort: 'low',
+        ...(this.vision.translationTimeoutMs === undefined
+          ? {}
+          : { timeoutMs: this.vision.translationTimeoutMs }),
       },
       signal,
     );
@@ -138,10 +140,6 @@ export class EvolinkAiProvider implements AiProvider {
       return parsed.data;
     }
     return raw;
-  }
-
-  moderate(text: string, signal: AbortSignal): Promise<ModerationResult> {
-    return this.client.moderateText(text, signal);
   }
 
   async extractArticleText(
@@ -186,7 +184,7 @@ function generationFormatIssues(text: string): string {
     // Only schema paths and codes, never model content or unknown key values.
     const fields = new Set(['title', 'paragraphs', 'key', 'text', 'usages', 'targetAlias',
       'paragraphKey', 'surfaceForm', 'questions', 'prompt', 'optionsEn',
-      'correctOptionIndex', 'meaningEn', 'explanationEn', 'optionExplanationsEn']);
+      'correctOptionIndex', 'meaningEn', 'explanationZh', 'optionExplanationsZh', 'optionExplanationsEn']);
     return JSON.stringify(parsed.error.issues.slice(0, 20).map((issue) => ({
       path: issue.path.map((part) => typeof part === 'number' || fields.has(String(part)) ? part : '?'),
       code: issue.code,

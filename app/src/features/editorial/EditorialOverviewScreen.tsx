@@ -1,4 +1,5 @@
 import { EditorialAudioPlayer } from './EditorialAudioPlayer';
+import { EditorialSpeechPlayer } from './EditorialSpeechPlayer';
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -15,23 +16,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import {
-  getEditorialArticle,
-  type EditorialArticle,
-} from '@/features/editorial/catalog';
+import type { EditorialArticle } from '@/features/editorial/catalog';
 import {
   isEditorialArticleShelved,
   setEditorialArticleShelved,
 } from '@/features/shelf/editorialShelfStorage';
 
 import { EditorialImage } from './EditorialImage';
+import { EditorialRemoteStatus } from './EditorialRemoteStatus';
+import { useEditorialArticle } from './useEditorialArticle';
 
 type Props = { articleId: string };
 
 export function EditorialOverviewScreen({ articleId }: Props) {
-  const article = getEditorialArticle(articleId);
+  const { article, loading, error, retry } = useEditorialArticle(articleId);
   return article ? (
     <EditorialOverviewContent key={article.id} article={article} />
+  ) : loading || error ? (
+    <EditorialRemoteStatus loading={loading} retry={retry} />
   ) : (
     <MissingEditorialArticleState />
   );
@@ -113,7 +115,7 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
           styles.content,
           { paddingBottom: insets.bottom + 120 },
         ]}>
-        <EditorialImage uri={article.image} style={styles.cover}>
+        <EditorialImage uri={article.image} style={styles.cover} priority="high">
           <View style={styles.coverShade} />
           <View style={styles.coverActionWrap}>
             <TouchableOpacity
@@ -144,12 +146,16 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
 
         <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.titleZh, { color: theme.text }]}>{article.titleZh}</Text>
-        <Text style={[styles.titleEn, { color: theme.textSecondary }]}>{article.titleEn}</Text>
+        {article.titleEn !== article.titleZh ? (
+          <Text style={[styles.titleEn, { color: theme.textSecondary }]}>{article.titleEn}</Text>
+        ) : null}
         <Text style={[styles.meta, { color: theme.textMuted }]}>
           {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
         </Text>
         {article.audioAsset || article.audioUrl ? (
-          <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} />
+          <EditorialAudioPlayer source={article.audioUrl ?? article.audioAsset!} />
+        ) : article.wordCount > 0 ? (
+          <EditorialSpeechPlayer loadText={() => article.paragraphs} />
         ) : null}
 
         <View style={[styles.section, { borderColor: theme.border }]}>

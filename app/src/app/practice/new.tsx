@@ -185,7 +185,7 @@ export default function NewPracticeScreen() {
             </View>
             <Text style={[styles.ageTitle, { color: theme.text }]}>使用前请确认年龄</Text>
             <Text style={[styles.ageBody, { color: theme.textSecondary }]}>
-              AI 主题短文练习仅面向年满 14 周岁的用户，内容会经过安全检查。
+              AI 主题短文练习仅面向年满 14 周岁的用户。
             </Text>
             <TouchableOpacity
               disabled={submitting}

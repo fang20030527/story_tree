@@ -42,7 +42,7 @@ describe('Fake AI provider', () => {
     }
   });
 
-  it('returns deterministic verification, translation, and moderation results', async () => {
+  it('returns deterministic verification and translation results', async () => {
     const provider = new FakeAiProvider();
     const signal = new AbortController().signal;
     const generated = await provider.generatePractice(input, signal);
@@ -51,12 +51,8 @@ describe('Fake AI provider', () => {
       provider.verifyPractice({ ...input, generated }, signal),
     ).resolves.toEqual({ approved: true, issues: [] });
     await expect(provider.translate('Source text.', signal)).resolves.toBe(
-      '译文：Source text.',
+      '译文：这是供测试使用的中文内容。',
     );
-    await expect(provider.moderate('Safe text.', signal)).resolves.toEqual({
-      riskLevel: 'low',
-      flagged: false,
-    });
     await expect(
       provider.extractArticleText(
         [

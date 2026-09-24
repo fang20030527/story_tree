@@ -1,3 +1,4 @@
+import { useStudyTimer } from '@/features/study/useStudyTimer';
 import { usePracticeExitGuard } from '@/features/practice/usePracticeExitGuard';
 import { ReadingOverlayProvider, useReadingOverlay } from '@/features/practice/ReadingOverlay';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
 import { loadReadingPosition, saveReadingPosition } from '@/features/practice/practiceStorage';
 import { useTranslation } from '@/features/practice/useTranslation';
+import { useSavedVocabularyWords } from '@/features/practice/useSavedVocabularyWords';
 
 const READER_VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 35 };
 
@@ -186,7 +188,9 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [practice, setPractice] = useState<PracticeDto | null>(null);
-  const allowNavigation = usePracticeExitGuard(practiceId);
+  useStudyTimer(Boolean(practice?.article));
+  // 阅读入口已在页面聚焦时保存，避免为异步存储拦截系统侧滑返回。
+  const allowNavigation = usePracticeExitGuard(practiceId, true, false, false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const listRef = useRef<FlatList<ArticleParagraphDto>>(null);
@@ -225,10 +229,7 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
     };
   }, [allowNavigation, loadAttempt, practiceId]);
 
-  const [addedWords, setAddedWords] = useState<ReadonlySet<string>>(() => new Set());
-  const handleWordAdded = useCallback((term: string) => {
-    setAddedWords((current) => new Set([...current, term.trim().toLocaleLowerCase('en-US')]));
-  }, []);
+  const { addedWords, handleWordAdded, error: highlightError, retry: retryHighlights } = useSavedVocabularyWords(practiceId);
 
   const onViewableItemsChanged = useCallback((info: {
     viewableItems: ViewToken<ArticleParagraphDto>[];
@@ -304,6 +305,8 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
           listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false });
         }}
         onScrollBeginDrag={() => readingOverlay?.select(null)}
+        onScroll={(event) => readingOverlay?.onScroll(event.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={16}
         testID="practice-reader-list"
         contentContainerStyle={[
           styles.listContent,
@@ -319,13 +322,16 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
             })}
             style={[styles.quizButton, { backgroundColor: theme.accent }]}>
             <Text style={[styles.quizButtonText, { color: theme.accentText }]}>
-              开始自测
+              {practice.status === 'completed' ? '回看自测' : '开始自测'}
             </Text>
             <Ionicons name="arrow-forward" size={18} color={theme.accentText} />
           </TouchableOpacity>
         )}
         ListHeaderComponent={(
           <View style={styles.articleHeader}>
+            {highlightError && <TouchableOpacity accessibilityRole="button" onPress={retryHighlights}>
+              <Text style={[styles.loadError, { color: theme.danger }]}>生词高亮加载失败，点击重试</Text>
+            </TouchableOpacity>}
             <Text style={[styles.articleTitle, { color: theme.text }]}>
               {practice.article.title}
             </Text>

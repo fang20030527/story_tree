@@ -25,6 +25,8 @@ describe('loadConfig', () => {
     expect(config.WECHAT_APP_SECRET).toBe('');
     expect(config.WECHAT_API_BASE_URL).toBe('https://api.weixin.qq.com');
     expect(config.WECHAT_TIMEOUT_MS).toBe(10_000);
+    expect(config.RESEND_API_KEY).toBe('');
+    expect(config.PASSWORD_RESET_FROM_EMAIL).toBe('');
     expect(config.IMPORT_MAX_TEXT_BYTES).toBe(131_072);
     expect(config.IMPORT_MAX_FILE_BYTES).toBe(10_485_760);
     expect(config.IMPORT_MAX_TOTAL_BYTES).toBe(31_457_280);
@@ -74,5 +76,17 @@ describe('loadConfig', () => {
         PUBLIC_SERVER_ORIGIN: 'https://example.com/upload',
       }),
     ).toThrow(/PUBLIC_SERVER_ORIGIN/u);
+  });
+
+  it('requires a sender and API key together without printing their values', () => {
+    const base = {
+      DATABASE_URL: 'postgresql://example.invalid/db',
+      EVOLINK_API_KEY: 'secret',
+      PUBLIC_SERVER_ORIGIN: 'https://api.example.com',
+    };
+    expect(() => loadConfig({ ...base, RESEND_API_KEY: 'private-key' }))
+      .toThrow('PASSWORD_RESET_FROM_EMAIL');
+    expect(() => loadConfig({ ...base, PASSWORD_RESET_FROM_EMAIL: 'security@example.com' }))
+      .toThrow('RESEND_API_KEY');
   });
 });

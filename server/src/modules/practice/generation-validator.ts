@@ -26,7 +26,8 @@ export interface ValidatedQuestion {
   optionsEn: string[];
   correctOptionIndex: number;
   meaningEn: string;
-  explanationEn: string;
+  explanationZh: string;
+  optionExplanationsZh: string[];
   optionExplanationsEn: string[];
 }
 
@@ -66,17 +67,19 @@ export function validateGeneratedPractice(
   );
   const minWords = length === 'short' ? 200 : 700;
   const maxWords = length === 'short' ? 300 : 1_000;
-  if (wordCount < minWords || wordCount > maxWords) throw invalidOutput();
+  if (wordCount < minWords || wordCount > maxWords) {
+    throw invalidOutput(`Article has ${wordCount} English words; rewrite it to contain ${minWords}-${maxWords} words, preserving all targets and their meanings.`);
+  }
 
   const usages = targets.map((target) => {
     const usage = usageByAlias.get(target.alias)!;
     const paragraph = paragraphsByKey.get(usage.paragraphKey);
-    if (!paragraph) throw invalidOutput();
+    if (!paragraph) throw invalidOutput('Each usage.paragraphKey must reference an existing paragraph key.');
     const [startOffset] = findCaseInsensitiveOccurrences(
       paragraph.text,
       usage.surfaceForm,
     );
-    if (startOffset === undefined) throw invalidOutput();
+    if (startOffset === undefined) throw invalidOutput('Each usage.surfaceForm must occur verbatim in its referenced paragraph.');
     const endOffset = startOffset + usage.surfaceForm.length;
     return {
       targetId: target.id,
@@ -94,7 +97,7 @@ export function validateGeneratedPractice(
     const question = questionByAlias.get(target.alias)!;
     const normalizedOptions = question.optionsEn.map((option) => option.trim().toLowerCase());
     const englishFields = [question.prompt, ...question.optionsEn, question.meaningEn,
-      question.explanationEn, ...question.optionExplanationsEn];
+      ...question.optionExplanationsEn];
     if (question.optionsEn.length !== 4
       || new Set(normalizedOptions).size !== 4
       || englishFields.some((text) => !/[a-z]/i.test(text) || /\p{Script=Han}/u.test(text))
@@ -102,14 +105,20 @@ export function validateGeneratedPractice(
       || question.prompt.match(/_{2,}/g)?.[0] !== '____'
       || !Number.isInteger(question.correctOptionIndex)
       || question.correctOptionIndex < 0 || question.correctOptionIndex > 3) {
-      throw invalidOutput();
+      throw invalidOutput('Each question needs four distinct English options, English-only text, exactly one ____ blank, and a correctOptionIndex from 0 to 3.');
+    }
+    if (question.optionExplanationsEn.length !== 4
+      || question.optionExplanationsZh.length !== 4
+      || [question.explanationZh, ...question.optionExplanationsZh].some((text) => !/\p{Script=Han}/u.test(text))
+      || /[a-z]/i.test(question.explanationZh)) {
+      throw invalidOutput('Provide four Chinese optionExplanationsZh aligned with optionExplanationsEn and an entirely Chinese explanationZh summary without English words.');
     }
     const answer = question.optionsEn[question.correctOptionIndex]!.trim();
     const promptWords = ` ${question.prompt.toLowerCase().replace(/[^a-z'-]+/g, ' ')} `;
-    if (promptWords.includes(` ${answer.toLowerCase()} `)) throw invalidOutput();
+    if (promptWords.includes(` ${answer.toLowerCase()} `)) throw invalidOutput('A question prompt must not reveal its correct answer outside the blank.');
     const completedSentence = question.prompt.replace('____', answer).toLowerCase();
     if (generated.paragraphs.some((paragraph) => paragraph.text.toLowerCase().includes(completedSentence))) {
-      throw invalidOutput();
+      throw invalidOutput('Write a new context for each question; do not copy a sentence from the article.');
     }
 
     return {
@@ -119,7 +128,8 @@ export function validateGeneratedPractice(
       optionsEn: question.optionsEn,
       correctOptionIndex: question.correctOptionIndex,
       meaningEn: question.meaningEn,
-      explanationEn: question.explanationEn,
+      explanationZh: question.explanationZh,
+      optionExplanationsZh: question.optionExplanationsZh,
       optionExplanationsEn: question.optionExplanationsEn,
     };
   });
@@ -172,7 +182,7 @@ export function segmentParagraph(
 function indexParagraphs(paragraphs: GeneratedPractice['paragraphs']) {
   const result = new Map<string, { key: string; text: string; index: number }>();
   paragraphs.forEach((paragraph, index) => {
-    if (result.has(paragraph.key)) throw invalidOutput();
+    if (result.has(paragraph.key)) throw invalidOutput('Paragraph keys must be unique.');
     result.set(paragraph.key, { ...paragraph, index });
   });
   return result;
@@ -192,11 +202,11 @@ function indexExactAliases<T>(
   targetsByAlias: ReadonlyMap<string, GenerationTarget>,
   aliasOf: (item: T) => string,
 ): Map<string, T> {
-  if (items.length !== targetsByAlias.size) throw invalidOutput();
+  if (items.length !== targetsByAlias.size) throw invalidOutput('Return exactly one usage and one question for every supplied target alias.');
   const result = new Map<string, T>();
   for (const item of items) {
     const alias = aliasOf(item);
-    if (!targetsByAlias.has(alias) || result.has(alias)) throw invalidOutput();
+    if (!targetsByAlias.has(alias) || result.has(alias)) throw invalidOutput('Use every supplied target alias exactly once in usages and exactly once in questions, without extra aliases.');
     result.set(alias, item);
   }
   return result;
@@ -212,7 +222,7 @@ function findCaseInsensitiveOccurrences(text: string, surface: string): number[]
     const offset = normalizedText.indexOf(normalizedSurface, cursor);
     if (offset === -1) break;
     offsets.push(offset);
-    if (offsets.length > 1) throw invalidOutput();
+    if (offsets.length > 1) throw invalidOutput('Each usage.surfaceForm must occur only once in its referenced paragraph; avoid repeated or ambiguous matches.');
     cursor = offset + Math.max(1, normalizedSurface.length);
   }
   return offsets;
@@ -231,7 +241,7 @@ function assertNonOverlappingUsages(usages: readonly ValidatedUsage[]): void {
     );
     for (let index = 1; index < sorted.length; index += 1) {
       if (sorted[index]!.startOffset < sorted[index - 1]!.endOffset) {
-        throw invalidOutput();
+        throw invalidOutput('Target surface forms must identify separate, non-overlapping spans in the article.');
       }
     }
   }
@@ -241,6 +251,12 @@ function countEnglishWords(text: string): number {
   return text.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/gu)?.length ?? 0;
 }
 
-function invalidOutput(): AppError {
-  return new AppError('AI_INVALID_OUTPUT', '生成内容未通过结构检查', 502, true);
+export class PracticeValidationError extends AppError {
+  constructor(public readonly repairIssue: string) {
+    super('AI_INVALID_OUTPUT', '生成内容未通过结构检查', 502, true);
+  }
+}
+
+function invalidOutput(repairIssue = 'Check the artifact against all required article, usage and question constraints.'): AppError {
+  return new PracticeValidationError(repairIssue);
 }

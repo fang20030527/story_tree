@@ -18,18 +18,19 @@ import {
 import type {
   AiProvider,
   GeneratePracticeInput,
-  ModerationResult,
 } from '../../infrastructure/ai/types';
 import type { ClaimedJob } from '../jobs/types';
 import { commitQuota, releaseQuota } from '../quota/service';
 import {
+  PracticeValidationError,
   validateGeneratedPractice,
   type GenerationTarget,
   type ValidatedGeneratedPractice,
 } from './generation-validator';
 import { assertPracticeTransition } from './state';
 
-const DEFAULT_PROMPT_VERSION = 'ielts-generation-english-cloze-v3';
+const DEFAULT_PROMPT_VERSION = 'ielts-generation-bilingual-feedback-v4';
+const MAX_GENERATION_DRAFTS = 4;
 const successfulTerminalStatuses = new Set<PracticeStatus>([
   'ready',
   'in_progress',
@@ -59,26 +60,34 @@ export async function handlePracticeGeneration(
   if (loaded.status === 'failed') throw stateConflict();
 
   assertProviderCallAllowed(job, context.signal);
-  const inputModeration = await dependencies.provider.moderate(
-    JSON.stringify(loaded.providerInput),
-    context.signal,
-  );
-  assertModerationAccepted(inputModeration, false);
-
   if (!(await moveToGenerating(dependencies.db, job, context.signal))) return;
 
   let generationInput = loaded.providerInput;
-  for (let revision = 0; revision < 2; revision += 1) {
+  for (let revision = 0; revision < MAX_GENERATION_DRAFTS; revision += 1) {
     assertProviderCallAllowed(job, context.signal);
     const generated = await dependencies.provider.generatePractice(
       generationInput,
       context.signal,
     );
-    const validated = validateGeneratedPractice(
-      generated,
-      loaded.validationTargets,
-      loaded.providerInput.topic ? 'short' : 'long',
-    );
+    await recordGenerationProgress(dependencies.db, job, 40, context.signal);
+    let validated: ValidatedGeneratedPractice;
+    try {
+      validated = validateGeneratedPractice(
+        generated,
+        loaded.validationTargets,
+        loaded.providerInput.topic ? 'short' : 'long',
+      );
+    } catch (error) {
+      if (!(error instanceof PracticeValidationError)
+        || revision === MAX_GENERATION_DRAFTS - 1) throw error;
+      // Repair the rejected draft within the same job. Never publish it or
+      // discard the concrete feedback in favor of a blind queue retry.
+      generationInput = {
+        ...loaded.providerInput,
+        revision: { generated, issues: [error.repairIssue] },
+      };
+      continue;
+    }
 
     if (!(await moveToValidating(dependencies.db, job, context.signal))) return;
 
@@ -88,7 +97,7 @@ export async function handlePracticeGeneration(
       context.signal,
     );
     if (!verification.approved) {
-      if (revision === 1) throw invalidGeneratedContent();
+      if (revision === MAX_GENERATION_DRAFTS - 1) throw invalidGeneratedContent();
       generationInput = {
         ...loaded.providerInput,
         revision: { generated, issues: verification.issues },
@@ -96,13 +105,7 @@ export async function handlePracticeGeneration(
       if (!(await moveToGenerating(dependencies.db, job, context.signal))) return;
       continue;
     }
-
-    assertProviderCallAllowed(job, context.signal);
-    const outputModeration = await dependencies.provider.moderate(
-      serializeVisibleContent(generated),
-      context.signal,
-    );
-    assertModerationAccepted(outputModeration, true);
+    await recordGenerationProgress(dependencies.db, job, 90, context.signal);
 
     assertWithinDeadline(job, context.signal);
     await persistGeneratedPractice(
@@ -215,7 +218,7 @@ async function moveToGenerating(
     if (successfulTerminalStatuses.has(status)) return false;
     if (status === 'generating') return true;
     assertPracticeTransition(status, 'generating');
-    await setPracticeStatus(tx, job.resourceId, 'generating');
+    await setPracticeStatus(tx, job.resourceId, 'generating', 10);
     return true;
   });
 }
@@ -232,7 +235,7 @@ async function moveToValidating(
     if (successfulTerminalStatuses.has(status)) return false;
     if (status === 'validating') return true;
     assertPracticeTransition(status, 'validating');
-    await setPracticeStatus(tx, job.resourceId, 'validating');
+    await setPracticeStatus(tx, job.resourceId, 'validating', 60);
     return true;
   });
 }
@@ -296,7 +299,7 @@ async function persistGeneratedPractice(
         const optionExplanations: OptionExplanations = Object.fromEntries(
           options.map((option, index) => [
             option.id,
-            question.optionExplanationsEn[index]!,
+            `${question.optionExplanationsZh[index]!}\n${question.optionExplanationsEn[index]!}`,
           ]),
         );
         return {
@@ -306,8 +309,7 @@ async function persistGeneratedPractice(
           optionsJson: options,
           correctOptionId,
           meaningEn: question.meaningEn,
-          // Keep the legacy storage column compatible with historical answers.
-          explanationZh: question.explanationEn,
+          explanationZh: question.explanationZh,
           optionExplanationsJson: optionExplanations,
         };
       }),
@@ -317,6 +319,7 @@ async function persistGeneratedPractice(
       .update(practiceSessions)
       .set({
         status: 'ready',
+        generationProgress: 100,
         articleTitle: generated.title,
         articleWordCount: generated.wordCount,
         modelName: dependencies.modelName,
@@ -380,13 +383,29 @@ async function setPracticeStatus(
   tx: AppTransaction,
   practiceId: string,
   status: PracticeStatus,
+  progress: number,
 ): Promise<void> {
   const [updated] = await tx
     .update(practiceSessions)
-    .set({ status })
+    .set({ status, generationProgress: sql`greatest(${practiceSessions.generationProgress}, ${progress})` })
     .where(eq(practiceSessions.id, practiceId))
     .returning({ id: practiceSessions.id });
   if (!updated) throw stateConflict();
+}
+
+async function recordGenerationProgress(
+  db: AppDatabase,
+  job: ClaimedJob,
+  progress: number,
+  signal: AbortSignal,
+): Promise<void> {
+  signal.throwIfAborted();
+  await db.transaction(async (tx) => {
+    await requireActiveLease(tx, job);
+    await tx.update(practiceSessions)
+      .set({ generationProgress: sql`greatest(${practiceSessions.generationProgress}, ${progress})` })
+      .where(eq(practiceSessions.id, job.resourceId));
+  });
 }
 
 function assertProviderCallAllowed(job: ClaimedJob, signal: AbortSignal): void {
@@ -404,39 +423,16 @@ function assertWithinDeadline(job: ClaimedJob, signal: AbortSignal): void {
   }
 }
 
-function assertModerationAccepted(
-  result: ModerationResult,
-  retryable: boolean,
-): void {
-  if (result.riskLevel !== 'low' || result.flagged) {
-    throw new AppError(
-      'AI_CONTENT_REJECTED',
-      retryable ? '生成内容未通过安全检查' : '输入内容不适合生成练习',
-      422,
-      retryable,
-    );
-  }
-}
-
-function serializeVisibleContent(
-  generated: ValidatedGeneratedPractice | Parameters<typeof validateGeneratedPractice>[0],
-): string {
-  return JSON.stringify({
-    title: generated.title,
-    paragraphs: generated.paragraphs,
-    ...('questions' in generated ? { questions: generated.questions } : {}),
-  });
-}
-
 function publicGenerationFailure(error: AppError): {
   code: ErrorCode;
   message: string;
 } {
   switch (error.code) {
+    // Older failed practices may still contain this code after moderation is removed.
     case 'AI_CONTENT_REJECTED':
       return { code: error.code, message: '内容未通过安全检查，请调整输入后重试' };
     case 'GENERATION_DEADLINE_EXCEEDED':
-      return { code: error.code, message: '练习生成超时，请重新提交' };
+      return { code: error.code, message: '练习生成超时，请重试' };
     case 'AI_INVALID_OUTPUT':
       return { code: error.code, message: '生成内容未通过质量检查，请重试' };
     case 'AI_UNAVAILABLE':
