@@ -30,7 +30,7 @@
 
 没有匹配到 2026 年原刊录音的文章，概述和阅读页显示「AI配音 · 非原刊录音」；声音由设备内置 TTS 生成，无需额外的配音 API。概述页只在按下播放时读取正文。设备朗读按短片段依次播放以适应系统语音输入上限，切换页面时停止。iOS 实机若无声，需检查设备静音模式。
 
-`epub/audio-local.json` 与 `epub/audio-local-report.json` 保存 2026 年录音关联及核对结果。重新导入 EPUB 或更新本地音频后，运行 `python scripts/import-economist-local-audio.py <2026 年音频目录>`。同一文章出现多份文件或标题仍有歧义时，脚本不会任意关联。旧 `epub/audio.json` 和 `epub/audio-report.json` 仅是历史导入记录，运行时不使用。
+`epub/audio-local.json` 与 `epub/audio-local-report.json` 保存 2026 年录音关联及核对结果。重新导入 EPUB 或更新本地音频后，运行 `python scripts/import-economist-local-audio.py <2026 年音频目录>`。同一文章出现多份文件或标题仍有歧义时，脚本不会任意关联。旧的 2025 年出版方音频清单已从项目中移除。
 
 ## EPUB 重建步骤
 
