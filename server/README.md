@@ -14,6 +14,8 @@ npm run dev
 
 必需变量为 `DATABASE_URL`、`EVOLINK_API_KEY` 和无路径的绝对 HTTP(S) `PUBLIC_SERVER_ORIGIN`。完整变量列表与安全默认值见 `app/.env.example`。配置错误只报告变量名，不输出变量值。
 
+邮箱密码重置需在服务端同时配置 `RESEND_API_KEY` 和 `PASSWORD_RESET_FROM_EMAIL`，后者须属于 Resend 已验证的发件域名；两项均不使用 `EXPO_PUBLIC_` 前缀。未配置时重置接口返回 `PASSWORD_RESET_UNAVAILABLE`。重置码为 12 位、15 分钟有效，每码最多尝试 5 次；同邮箱 60 秒内不重复发信，一小时最多发送 5 次。重置成功后旧安装凭据失效，用户需重新登录。
+
 Expo Go 真机调试要求手机和 API 主机可在同一局域网互访。`EXPO_PUBLIC_API_BASE_URL` 和 `PUBLIC_SERVER_ORIGIN` 应同时指向开发机当前的局域网 origin。切换 Wi-Fi 导致 IP 改变时，更新两者并重启 API 与 Expo。
 
 ## API 与状态
@@ -24,6 +26,8 @@ Expo Go 真机调试要求手机和 API 主机可在同一局域网互访。`EXP
 | --- | --- | --- |
 | `POST /v1/auth/anonymous` | `201` 或 `200` | 创建或恢复 14+ 匿名身份 |
 | `POST /v1/auth/email` | `201` 或 `200` | 用邮箱和密码创建或恢复注册身份 |
+| `POST /v1/auth/password-reset/request` | `200` | 向已注册邮箱发送 15 分钟有效的一次性重置码，始终返回相同成功消息 |
+| `POST /v1/auth/password-reset/confirm` | `200` | 验证重置码、设置新密码并撤销该账号的既有安装凭据 |
 | `POST /v1/auth/wechat` | `201` 或 `200` | 用原生微信授权 code 绑定或恢复注册身份 |
 | `POST /v1/practices` | `202` | 根据手动单词，或按复习优先级选择到期单词，预留额度并创建生成任务 |
 | `GET /v1/practices/:id` | `200` | 读取持久练习状态与建议轮询间隔 |
@@ -153,7 +157,7 @@ RUN_IMPORT_LIVE_SMOKE=1 npm run smoke:imports --workspace=@context-reader/server
 
 选中的词优先分配到四篇，每篇至少两个不同词（本次只有一个词时除外），每篇最多十道目标题，整组覆盖全部选词。同词若收录了不同释义，会优先在不同主题中使用不同释义；同词复习安排仍共享。词库入口每组最多选 32 个词。四个练习任务并发处理，不再让同组的后续文章排在第一篇之后消耗共同截止时间。
 
-新版客户端在 `GET /v1/practices/:id?includeProgress=1` 中获取每篇的 `generationProgress` 和整组的 `canRetryFailed`；不带该参数的旧版客户端仍收到原有结构。单篇进度来自服务端持久化的审核、成稿、校验、复核和保存步骤；标题下方按这些已完成步骤显示百分比，不按时间匀速估计。顶部百分比表示实际可阅读篇数，失败文章不会让它变成 100%。如部分文章失败且已有至少一篇成功，可通过带 `Idempotency-Key` 的 `POST /v1/practices/:id/retry-failed` 为失败文章再运行一次有限重试，不重复扣额度。此入口不会改动已生成的文章；全部失败的组仍按原逻辑退还额度，需要重新创建。
+新版客户端在 `GET /v1/practices/:id?includeProgress=1` 中获取每篇的 `generationProgress` 和整组的 `canRetryFailed`；不带该参数的旧版客户端仍收到原有结构。单篇进度来自服务端持久化的成稿、校验、复核和保存步骤；标题下方按这些已完成步骤显示百分比，不按时间匀速估计。顶部百分比表示实际可阅读篇数，失败文章不会让它变成 100%。如部分文章失败且已有至少一篇成功，可通过带 `Idempotency-Key` 的 `POST /v1/practices/:id/retry-failed` 为失败文章再运行一次有限重试，不重复扣额度。此入口不会改动已生成的文章；全部失败的组仍按原逻辑退还额度，需要重新创建。
 
 启动新版后端前，使用项目已有 `npm run db:migrate --workspace=@context-reader/server` 入口应用 `0006_ambiguous_bloodstrike.sql`（新增分组字段及唯一索引）。客户端生成完成后进入主题选择页，支持从首页继续未完成的主题组。
 

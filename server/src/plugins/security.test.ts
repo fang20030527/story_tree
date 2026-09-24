@@ -144,6 +144,26 @@ describe('HTTP security', () => {
     expect(logLines.join('')).not.toContain(firstToken);
   });
 
+  it('limits password reset requests by IP even if Authorization changes', async () => {
+    const app = buildApp({
+      config,
+      db: unusedDatabase,
+      logger: false,
+      securityLimits: { globalMax: 100, passwordResetMax: 1 },
+    });
+    apps.push(app);
+    const request = (authorization: string) => app.inject({
+      method: 'POST',
+      url: '/v1/auth/password-reset/request',
+      headers: { authorization },
+      payload: { email: 'invalid' },
+    });
+    expect((await request('Bearer first')).statusCode).toBe(400);
+    const limited = await request('Bearer second');
+    expect(limited.statusCode).toBe(429);
+    expect(PublicErrorSchema.parse(limited.json()).error.code).toBe('RATE_LIMITED');
+  });
+
   it('rate limits sentence translation by token before a paid provider call', async () => {
     const app = Fastify({ logger: false });
     registerSecurity(app, { corsOrigins: [] }, {

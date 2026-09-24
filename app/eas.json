@@ -12,7 +12,13 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://waikan-web.zhenyufang162.workers.dev",
+        "EXPO_PUBLIC_EDITORIAL_AUDIO_ORIGIN": "https://waikan-audio.zhenyufang162.workers.dev",
+        "EXPO_PUBLIC_EDITORIAL_IMAGE_ORIGIN": "https://waikan-images.zhenyufang162.workers.dev"
+      }
     }
   },
   "submit": {

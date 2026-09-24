@@ -9,6 +9,7 @@ import { loadConfig } from '../../config/env';
 import {
   authIdentities,
   emailAccounts,
+  emailPasswordResets,
   installations,
   practiceSessions,
   users,
@@ -16,6 +17,8 @@ import {
 import { requireAuth } from './routes';
 import { registerAnonymous } from './service';
 import { hashInstallationToken } from './token';
+import { hashPasswordResetCode, issuePasswordResetCode, confirmPasswordReset } from './password-reset';
+import type { PasswordResetMailer } from './password-reset-mailer';
 import { AppError } from '../../core/errors';
 
 const config = loadConfig({
@@ -223,6 +226,101 @@ describe('anonymous installation identity', () => {
       expect(PublicErrorSchema.parse(conflict.json()).error.code).toBe(
         'AUTH_ACCOUNT_CONFLICT',
       );
+    });
+  }, 120_000);
+
+  it('resets an email password with a single-use code and revokes old installations', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const oldToken = 'ab'.repeat(32);
+      await registerAnonymous(db, oldToken, true);
+      const sendCode = vi.fn<PasswordResetMailer['sendCode']>().mockResolvedValue(undefined);
+      const app = buildApp({
+        config, db, logger: false, passwordResetMailer: { sendCode },
+      });
+      apps.push(app);
+
+      const registration = await app.inject({
+        method: 'POST', url: '/v1/auth/email',
+        headers: { authorization: `Bearer ${oldToken}` },
+        payload: { email: 'Reader@Example.com', password: 'old-password-123' },
+      });
+      expect(registration.statusCode).toBe(201);
+
+      const unknown = await app.inject({
+        method: 'POST', url: '/v1/auth/password-reset/request',
+        payload: { email: 'missing@example.com' },
+      });
+      const requested = await app.inject({
+        method: 'POST', url: '/v1/auth/password-reset/request',
+        payload: { email: 'Reader@Example.com' },
+      });
+      expect(unknown.statusCode).toBe(200);
+      expect(requested.statusCode).toBe(200);
+      expect(requested.json()).toEqual(unknown.json());
+      expect(sendCode).toHaveBeenCalledTimes(1);
+      const [sentEmail, code] = sendCode.mock.calls[0]!;
+      expect(sentEmail).toBe('reader@example.com');
+      expect(code).toMatch(/^[A-HJ-NP-Z2-9]{12}$/u);
+      const [resetRow] = await db.select().from(emailPasswordResets);
+      expect(resetRow?.codeHash).toBe(hashPasswordResetCode(code));
+      expect(JSON.stringify(resetRow)).not.toContain(code);
+      const wrongCode = code === 'AAAAAAAAAAAA' ? 'BBBBBBBBBBBB' : 'AAAAAAAAAAAA';
+
+      const repeatedRequest = await app.inject({
+        method: 'POST', url: '/v1/auth/password-reset/request',
+        payload: { email: 'reader@example.com' },
+      });
+      expect(repeatedRequest.statusCode).toBe(200);
+      expect(sendCode).toHaveBeenCalledTimes(1);
+
+      const invalid = await app.inject({
+        method: 'POST', url: '/v1/auth/password-reset/confirm',
+        payload: { email: 'reader@example.com', code: wrongCode, newPassword: 'new-password-456' },
+      });
+      expect(invalid.statusCode).toBe(400);
+      expect(PublicErrorSchema.parse(invalid.json()).error.code).toBe('PASSWORD_RESET_CODE_INVALID');
+      const [afterInvalid] = await db.select().from(emailPasswordResets);
+      expect(afterInvalid?.attemptsRemaining).toBe(4);
+
+      const confirmed = await app.inject({
+        method: 'POST', url: '/v1/auth/password-reset/confirm',
+        payload: { email: 'reader@example.com', code, newPassword: 'new-password-456' },
+      });
+      expect(confirmed.statusCode).toBe(200);
+      expect(await db.select().from(emailPasswordResets)).toHaveLength(0);
+      const [oldInstallation] = await db.select().from(installations);
+      expect(oldInstallation?.revokedAt).not.toBeNull();
+
+      const replayed = await app.inject({
+        method: 'POST', url: '/v1/auth/password-reset/confirm',
+        payload: { email: 'reader@example.com', code, newPassword: 'third-password-789' },
+      });
+      expect(replayed.statusCode).toBe(400);
+
+      const newToken = 'bc'.repeat(32);
+      await registerAnonymous(db, newToken, true);
+      const oldPassword = await app.inject({
+        method: 'POST', url: '/v1/auth/email',
+        headers: { authorization: `Bearer ${newToken}` },
+        payload: { email: 'reader@example.com', password: 'old-password-123' },
+      });
+      expect(oldPassword.statusCode).toBe(401);
+      const newPassword = await app.inject({
+        method: 'POST', url: '/v1/auth/email',
+        headers: { authorization: `Bearer ${newToken}` },
+        payload: { email: 'reader@example.com', password: 'new-password-456' },
+      });
+      expect(newPassword.statusCode).toBe(200);
+
+      const next = await issuePasswordResetCode(db, 'reader@example.com');
+      expect(next).not.toBeNull();
+      const nextWrongCode = next!.code === 'AAAAAAAAAAAA' ? 'BBBBBBBBBBBB' : 'AAAAAAAAAAAA';
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await expect(confirmPasswordReset(db, 'reader@example.com', nextWrongCode, 'third-password-789'))
+          .rejects.toMatchObject({ code: 'PASSWORD_RESET_CODE_INVALID' });
+      }
+      await expect(confirmPasswordReset(db, 'reader@example.com', next!.code, 'third-password-789'))
+        .rejects.toMatchObject({ code: 'PASSWORD_RESET_CODE_INVALID' });
     });
   }, 120_000);
 

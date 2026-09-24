@@ -35,7 +35,6 @@ describe('practice generation', () => {
         .from(practiceSessions).where(eq(practiceSessions.id, job.resourceId)))[0]?.value;
       const generate = provider.generatePractice.bind(provider);
       const verify = provider.verifyPractice.bind(provider);
-      const moderate = provider.moderate.bind(provider);
       vi.spyOn(provider, 'generatePractice').mockImplementation(async (input, signal) => {
         expect(await progress()).toBe(10);
         return generate(input, signal);
@@ -44,14 +43,7 @@ describe('practice generation', () => {
         expect(await progress()).toBe(60);
         return verify(input, signal);
       });
-      let moderationCalls = 0;
-      vi.spyOn(provider, 'moderate').mockImplementation(async (text, signal) => {
-        moderationCalls += 1;
-        if (moderationCalls === 2) expect(await progress()).toBe(80);
-        return moderate(text, signal);
-      });
       await handlePracticeGeneration({ db, provider, modelName: 'fake' }, job, { signal: new AbortController().signal });
-      expect(moderationCalls).toBe(2);
       expect(await progress()).toBe(100);
     });
   }, 120_000);
@@ -148,7 +140,6 @@ describe('practice generation', () => {
       const provider = new FakeAiProvider();
       const generate = vi.spyOn(provider, 'generatePractice');
       const verify = vi.spyOn(provider, 'verifyPractice');
-      const moderate = vi.spyOn(provider, 'moderate');
       const context = { signal: new AbortController().signal };
       const options = { db, provider, modelName: 'fake-ielts-v1' };
 
@@ -157,7 +148,6 @@ describe('practice generation', () => {
 
       expect(generate).toHaveBeenCalledTimes(1);
       expect(verify).toHaveBeenCalledTimes(1);
-      expect(moderate).toHaveBeenCalledTimes(2);
 
       const [practice] = await db
         .select()
@@ -218,7 +208,7 @@ describe('practice generation', () => {
     });
   }, 120_000);
 
-  it('classifies safety, verification, deadline, and lease failures without partial writes', async () => {
+  it('classifies provider, verification, deadline, and lease failures without partial writes', async () => {
     await withTestDatabase(async ({ db }) => {
       let sequence = 0;
       const createClaim = async (label: string) => {
@@ -246,29 +236,26 @@ describe('practice generation', () => {
         return { practiceId: created.practiceId, job: job! };
       };
 
-      const unsafeInput = await createClaim('unsafe-input');
-      const unsafeInputProvider = new FakeAiProvider();
-      vi.spyOn(unsafeInputProvider, 'moderate').mockResolvedValue({
-        riskLevel: 'medium',
-        flagged: false,
-      });
-      const generateUnsafe = vi.spyOn(unsafeInputProvider, 'generatePractice');
-      const unsafeError = await captureAppError(
+      const providerFailure = await createClaim('provider-failure');
+      const failingProvider = new FakeAiProvider();
+      const generateFailure = vi.spyOn(failingProvider, 'generatePractice')
+        .mockRejectedValue(new AppError('AI_UNAVAILABLE', 'supplier-only detail', 503, true));
+      const providerError = await captureAppError(
         handlePracticeGeneration(
-          { db, provider: unsafeInputProvider, modelName: 'fake' },
-          unsafeInput.job,
+          { db, provider: failingProvider, modelName: 'fake' },
+          providerFailure.job,
           { signal: new AbortController().signal },
         ),
       );
-      expect(unsafeError).toMatchObject({
-        code: 'AI_CONTENT_REJECTED',
-        retryable: false,
+      expect(providerError).toMatchObject({
+        code: 'AI_UNAVAILABLE',
+        retryable: true,
       });
-      expect(generateUnsafe).not.toHaveBeenCalled();
+      expect(generateFailure).toHaveBeenCalledTimes(1);
       await failPracticeGeneration(
         { db },
-        unsafeInput.job,
-        unsafeError,
+        providerFailure.job,
+        providerError,
         { signal: new AbortController().signal },
       );
       const [failedPractice] = await db
@@ -278,17 +265,17 @@ describe('practice generation', () => {
           failureMessage: practiceSessions.failureMessagePublic,
         })
         .from(practiceSessions)
-        .where(eq(practiceSessions.id, unsafeInput.practiceId));
+        .where(eq(practiceSessions.id, providerFailure.practiceId));
       expect(failedPractice).toMatchObject({
         status: 'failed',
-        failureCode: 'AI_CONTENT_REJECTED',
+        failureCode: 'AI_UNAVAILABLE',
       });
-      expect(failedPractice?.failureMessage).not.toContain('medium');
+      expect(failedPractice?.failureMessage).not.toContain('supplier-only detail');
       expect(
         await db
           .select({ kind: usageLedger.kind })
           .from(usageLedger)
-          .where(eq(usageLedger.practiceSessionId, unsafeInput.practiceId)),
+          .where(eq(usageLedger.practiceSessionId, providerFailure.practiceId)),
       ).toEqual(expect.arrayContaining([{ kind: 'reserve' }, { kind: 'release' }]));
 
       const rejectedVerification = await createClaim('verify-reject');
@@ -319,26 +306,9 @@ describe('practice generation', () => {
           ),
       ).toHaveLength(0);
 
-      const flaggedOutput = await createClaim('flagged-output');
-      const flaggedProvider = new FakeAiProvider();
-      vi.spyOn(flaggedProvider, 'moderate')
-        .mockResolvedValueOnce({ riskLevel: 'low', flagged: false })
-        .mockResolvedValueOnce({ riskLevel: 'low', flagged: true });
-      await expect(
-        handlePracticeGeneration(
-          { db, provider: flaggedProvider, modelName: 'fake' },
-          flaggedOutput.job,
-          { signal: new AbortController().signal },
-        ),
-      ).rejects.toMatchObject({
-        code: 'AI_CONTENT_REJECTED',
-        retryable: true,
-      });
-      expect(await practiceState(db, flaggedOutput.practiceId)).toBe('validating');
-
       const expired = await createClaim('expired-before-ai');
       const expiredProvider = new FakeAiProvider();
-      const moderateExpired = vi.spyOn(expiredProvider, 'moderate');
+      const generateExpired = vi.spyOn(expiredProvider, 'generatePractice');
       await expect(
         handlePracticeGeneration(
           { db, provider: expiredProvider, modelName: 'fake' },
@@ -349,18 +319,18 @@ describe('practice generation', () => {
         code: 'GENERATION_DEADLINE_EXCEEDED',
         retryable: false,
       });
-      expect(moderateExpired).not.toHaveBeenCalled();
+      expect(generateExpired).not.toHaveBeenCalled();
 
       const leaseLoss = await createClaim('lease-loss');
       const leaseLossProvider = new FakeAiProvider();
-      vi.spyOn(leaseLossProvider, 'moderate')
-        .mockResolvedValueOnce({ riskLevel: 'low', flagged: false })
-        .mockImplementationOnce(async () => {
+      const verify = leaseLossProvider.verifyPractice.bind(leaseLossProvider);
+      vi.spyOn(leaseLossProvider, 'verifyPractice')
+        .mockImplementationOnce(async (input, signal) => {
           await db
             .update(jobs)
             .set({ lockedBy: 'replacement-worker' })
             .where(eq(jobs.id, leaseLoss.job.id));
-          return { riskLevel: 'low', flagged: false };
+          return verify(input, signal);
         });
       await expect(
         handlePracticeGeneration(

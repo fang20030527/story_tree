@@ -7,7 +7,6 @@ const config: EvolinkClientConfig = {
   apiKey: 'test-secret-api-key',
   baseUrl: 'https://example.invalid/v1',
   textModel: 'test-text-model',
-  moderationModel: 'test-moderation-model',
   timeoutMs: 1_000,
 };
 

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  assertTranslationModerationAccepted,
   createTranslationSourceHash,
   validateTranslationText,
 } from './validation';
@@ -70,22 +69,6 @@ describe('shared translation validation', () => {
       .toThrowError(expect.objectContaining({ code: 'AI_INVALID_OUTPUT' }));
     expect(validateTranslationText('科学家正在研究一种致命的育雏方式，野外团队也在雨林中观察野生鸟类。', source))
       .toContain('科学家');
-  });
-
-  it('allows unflagged medium-risk translations and blocks flagged or high-risk output', () => {
-    expect(() =>
-      assertTranslationModerationAccepted({
-        riskLevel: 'medium',
-        flagged: false,
-      }),
-    ).not.toThrow();
-
-    expect(() =>
-      assertTranslationModerationAccepted({ riskLevel: 'low', flagged: true }),
-    ).toThrowError(expect.objectContaining({ code: 'AI_CONTENT_REJECTED' }));
-    expect(() =>
-      assertTranslationModerationAccepted({ riskLevel: 'high', flagged: false }),
-    ).toThrowError(expect.objectContaining({ code: 'AI_CONTENT_REJECTED' }));
   });
 
   it('binds source hashes to resource, scope, paragraph, and exact text', () => {

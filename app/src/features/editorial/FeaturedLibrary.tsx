@@ -6,11 +6,15 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SectionHeader } from '@/components/ui';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import { getEditorialSection, getFeaturedEditorialArticle, type EditorialArticle } from './catalog';
+import {
+  editorialHasOriginalAudio,
+  getEditorialSection,
+  getFeaturedEditorialArticle,
+  type EditorialArticle,
+} from './catalog';
 import { useRemoteEditorialCatalogVersion } from './remoteCatalog';
 
 const PAGE_SIZE = 24;
-const UNDATED = '日期未标注';
 
 // 官网品牌资源随应用打包，外刊列表无需联网加载标识。
 const PUBLICATION_LOGOS: Record<string, number> = {
@@ -31,24 +35,25 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
   const [source, setSource] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [originalOnly, setOriginalOnly] = useState(false);
   const catalogVersion = useRemoteEditorialCatalogVersion();
   const selectedArticle = getFeaturedEditorialArticle();
   const publications = useMemo(() => {
     const groups = new Map<string, Map<string, EditorialArticle[]>>();
     for (const article of getEditorialSection('featured')) {
+      if (originalOnly && !editorialHasOriginalAudio(article)) continue;
       const issues = groups.get(article.source) ?? new Map<string, EditorialArticle[]>();
-      const issueDate = article.issueDate || UNDATED;
-      const articles = issues.get(issueDate) ?? [];
+      const displayDate = article.issueDate ?? article.publishedAt;
+      const articles = issues.get(displayDate) ?? [];
       articles.push(article);
-      issues.set(issueDate, articles);
+      issues.set(displayDate, articles);
       groups.set(article.source, issues);
     }
     return groups;
-  }, [catalogVersion]);
+  }, [catalogVersion, originalOnly]);
   const issues = source ? publications.get(source) : undefined;
   const articles = date ? issues?.get(date) ?? [] : [];
-  const dates = [...(issues?.keys() ?? [])].sort((a, b) =>
-    a === b ? 0 : a === UNDATED ? 1 : b === UNDATED ? -1 : b.localeCompare(a));
+  const dates = [...(issues?.keys() ?? [])].sort((a, b) => b.localeCompare(a));
   const pageCount = Math.max(1, Math.ceil(articles.length / PAGE_SIZE));
 
   const navigate = (nextSource: string | null, nextDate: string | null) => {
@@ -56,6 +61,10 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
     setDate(nextDate);
     setPage(0);
     onNavigate();
+  };
+  const toggleOriginalOnly = () => {
+    setOriginalOnly((current) => !current);
+    navigate(null, null);
   };
   const categoryRow = (label: string, detail: string, onPress: () => void) => (
     <TouchableOpacity key={label} accessibilityRole="button" accessibilityLabel={`查看${label}`}
@@ -79,7 +88,16 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
   return (
     <View>
       <SectionHeader title="精选外刊" theme={theme} />
-      {selectedArticle && !source ? (
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="只看原刊录音"
+        accessibilityState={{ selected: originalOnly }} onPress={toggleOriginalOnly}
+        style={[styles.audioFilter, {
+          backgroundColor: originalOnly ? theme.surfaceAlt : theme.surface,
+          borderColor: originalOnly ? theme.blue : theme.border,
+        }]}>
+        <Ionicons name="headset-outline" size={17} color={originalOnly ? theme.blue : theme.textMuted} />
+        <Text style={{ color: originalOnly ? theme.blue : theme.text }}>只看原刊录音</Text>
+      </TouchableOpacity>
+      {selectedArticle && !source && !originalOnly ? (
         <View style={styles.selected}>
           <Text style={[styles.selectedLabel, { color: theme.textMuted }]}>本期精选</Text>
           {renderArticle(selectedArticle)}
@@ -121,6 +139,7 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
 }
 
 const styles = StyleSheet.create({
+  audioFilter: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderRadius: 12, marginBottom: 14 },
   selected: { marginBottom: 18 },
   selectedLabel: { fontSize: 13, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth },

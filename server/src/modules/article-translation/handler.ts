@@ -5,10 +5,7 @@ import type { AppDatabase, AppTransaction } from '../../db/client';
 import { articleParagraphs, articleTranslations, jobs } from '../../db/schema';
 import type { AiProvider } from '../../infrastructure/ai/types';
 import type { ClaimedJob } from '../jobs/types';
-import {
-  assertTranslationModerationAccepted,
-  validateTranslationText,
-} from '../translation/validation';
+import { validateTranslationText } from '../translation/validation';
 
 export interface ArticleTranslationHandlerDependencies {
   db: AppDatabase;
@@ -35,12 +32,6 @@ export async function handleArticleTranslation(
     await dependencies.provider.translate(loaded.sourceText, context.signal),
     loaded.sourceText,
   );
-  assertWithinDeadline(job, context.signal);
-  const moderation = await dependencies.provider.moderate(
-    translatedText,
-    context.signal,
-  );
-  assertTranslationModerationAccepted(moderation);
   assertWithinDeadline(job, context.signal);
   await persistReady(dependencies.db, job, translatedText, context.signal);
 }

@@ -1,5 +1,5 @@
 import { getInstallationToken } from './installation';
-import { loginWithEmail } from './email';
+import { confirmPasswordReset, loginWithEmail, requestPasswordReset } from './email';
 import { saveAuthUser } from '@/features/auth/authStorage';
 
 jest.mock('./installation', () => ({
@@ -53,6 +53,39 @@ describe('Email API client', () => {
         body: JSON.stringify({
           email: 'Reader@Example.com',
           password: 'correct-horse-battery-staple',
+        }),
+      }),
+    );
+  });
+
+  it('requests and confirms password reset without an installation credential', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ message: '如果该邮箱已注册，重置验证码将发送至邮箱' }),
+    }).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({ message: '密码已重置，请重新登录' }),
+    });
+
+    await requestPasswordReset('reader@example.com');
+    await confirmPasswordReset('reader@example.com', 'ABCDEFGHJKLM', 'new-password-123');
+
+    expect(mockedGetInstallationToken).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenNthCalledWith(1,
+      'https://api.example.test/v1/auth/password-reset/request',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ email: 'reader@example.com' }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(2,
+      'https://api.example.test/v1/auth/password-reset/confirm',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          email: 'reader@example.com', code: 'ABCDEFGHJKLM', newPassword: 'new-password-123',
         }),
       }),
     );

@@ -7,12 +7,11 @@ const config: EvolinkClientConfig = {
   apiKey,
   baseUrl: 'https://example.invalid/v1/',
   textModel: 'test-text-model',
-  moderationModel: 'test-moderation-model',
   timeoutMs: 20,
 };
 
 describe('EvoLink HTTP client', () => {
-  it('parses text parts and moderation responses through strict boundaries', async () => {
+  it('parses text parts through strict boundaries', async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
@@ -31,14 +30,6 @@ describe('EvoLink HTTP client', () => {
             },
           ],
         }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          id: 'mod-1',
-          model: 'test-moderation-model',
-          results: [{ flagged: false }],
-          evolink_summary: { risk_level: 'low', flagged: false },
-        }),
       );
     const client = new EvolinkClient(config, fetchImpl);
     const signal = new AbortController().signal;
@@ -49,11 +40,6 @@ describe('EvoLink HTTP client', () => {
         signal,
       ),
     ).resolves.toMatchObject({ text: 'hello world', model: 'test-text-model' });
-    await expect(client.moderateText('safe text', signal)).resolves.toEqual({
-      riskLevel: 'low',
-      flagged: false,
-    });
-
     expect(fetchImpl).toHaveBeenNthCalledWith(
       1,
       'https://example.invalid/v1/chat/completions',
@@ -62,6 +48,7 @@ describe('EvoLink HTTP client', () => {
         headers: expect.objectContaining({ authorization: `Bearer ${apiKey}` }),
       }),
     );
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it('maps rate limits, invalid output, and timeouts without exposing the key', async () => {

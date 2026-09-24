@@ -16,11 +16,12 @@ import { articleTranslationRoutes } from './modules/article-translation/routes';
 import { articlesRoutes } from './modules/articles/routes';
 import { authPlugin } from './modules/auth/plugin';
 import type { WechatClient } from './modules/auth/wechat-client';
+import type { PasswordResetMailer } from './modules/auth/password-reset-mailer';
 import type { AiProvider } from './infrastructure/ai/types';
 import { computerUploadRoutes } from './modules/computer-upload/routes';
 import { dashboardRoutes } from './modules/dashboard/routes';
-import { editorialImageRoutes } from './modules/editorial/routes';
 import { editorialAudioRoutes } from './modules/editorial/audio-routes';
+import { editorialImageRoutes } from './modules/editorial/routes';
 import { publishedEditorialRoutes } from './modules/editorial/published-routes';
 import { importsRoutes } from './modules/imports/routes';
 import { practiceRoutes } from './modules/practice/routes';
@@ -41,6 +42,7 @@ export const redactPaths = [
   'DATABASE_URL',
   'EVOLINK_API_KEY',
   'WECHAT_APP_SECRET',
+  'RESEND_API_KEY',
   '*.sourceUrl',
   '*.previewText',
   '*.previewTitle',
@@ -68,6 +70,7 @@ interface BuildAppOptions {
   readinessTimeoutMs?: number;
   securityLimits?: Partial<SecurityLimits>;
   wechatClient?: WechatClient;
+  passwordResetMailer?: PasswordResetMailer;
   sentenceTranslationProvider?: Pick<AiProvider, 'translate'>;
   wordTranslationProvider?: Pick<AiProvider, 'lookupWord'>;
 }
@@ -137,18 +140,21 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   app.register(editorialImageRoutes, {
     assetDirectory: fileURLToPath(new URL('../assets/editorial/epub/', import.meta.url)),
   });
-  app.register(publishedEditorialRoutes, {
-    contentDirectory: fileURLToPath(new URL('../content/editorial/', import.meta.url)),
-  });
   app.register(editorialAudioRoutes, {
     audioRoot: options.config.editorialAudioRoot,
     audioPublicOrigin: options.config.editorialAudioPublicOrigin,
     manifestPath: fileURLToPath(new URL('../assets/editorial/audio-local.json', import.meta.url)),
   });
+  app.register(publishedEditorialRoutes, {
+    contentDirectory: fileURLToPath(new URL('../content/editorial/', import.meta.url)),
+  });
   app.register(authPlugin, {
     config: options.config,
     db: options.db,
     ...(options.wechatClient ? { wechatClient: options.wechatClient } : {}),
+    ...(options.passwordResetMailer
+      ? { passwordResetMailer: options.passwordResetMailer }
+      : {}),
   });
   app.register(importsRoutes, { config: options.config, db: options.db });
   app.register(articlesRoutes, { db: options.db });

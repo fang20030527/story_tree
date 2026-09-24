@@ -13,6 +13,35 @@ jest.mock('expo-router', () => ({
     React.useEffect(() => mockFocused ? callback() : undefined, [callback, mockFocused]);
   },
 }));
+jest.mock('@expo/ui', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
+  const Picker = Object.assign(
+    ({
+      selectedValue,
+      enabled,
+      onValueChange,
+      testID,
+    }: {
+      selectedValue: number;
+      enabled: boolean;
+      onValueChange: (value: number) => void;
+      testID: string;
+    }) => {
+      const viewProps = {
+        testID,
+        accessibilityRole: 'button' as const,
+        accessibilityLabel: `${selectedValue} 倍速`,
+        accessibilityState: { disabled: !enabled },
+        onValueChange: enabled ? onValueChange : undefined,
+      };
+      return React.createElement(View, viewProps);
+    },
+    { Item: () => null },
+  );
+  const Host = ({ children }: { children: React.ReactNode }) => React.createElement(View, null, children);
+  return { Host, Picker };
+});
 jest.mock('@/context/ThemeContext', () => ({
   useAppTheme: () => ({ theme: require('@/constants/theme').themes.light }),
 }));
@@ -133,11 +162,11 @@ it('publishes actual playback positions including paused seeks', async () => {
 it('changes speed during playback without restarting or seeking', async () => {
   status = { ...status, playing: true, currentTime: 62 };
   const view = await render(<EditorialAudioPlayer source={7} />);
-  expect(view.getByLabelText('1 倍速')).toBeSelected();
-  await fireEvent.press(view.getByLabelText('1.5 倍速'));
+  expect(view.getByLabelText('1 倍速')).toBeTruthy();
+  await fireEvent(view.getByTestId('editorial-audio-rate-picker'), 'valueChange', 1.5);
   expect(player.setPlaybackRate).toHaveBeenLastCalledWith(1.5, 'high');
   expect(player.shouldCorrectPitch).toBe(true);
-  expect(view.getByLabelText('1.5 倍速')).toBeSelected();
+  expect(view.getByLabelText('1.5 倍速')).toBeTruthy();
   expect(view.getByText('1:02 / 5:00')).toBeTruthy();
   expect(player.play).not.toHaveBeenCalled();
   expect(player.pause).not.toHaveBeenCalled();
@@ -146,7 +175,7 @@ it('changes speed during playback without restarting or seeking', async () => {
 
 it('keeps the chosen speed when starting paused audio and replaying', async () => {
   const view = await render(<EditorialAudioPlayer source={7} />);
-  await fireEvent.press(view.getByLabelText('0.75 倍速'));
+  await fireEvent(view.getByTestId('editorial-audio-rate-picker'), 'valueChange', 0.75);
   expect(player.play).not.toHaveBeenCalled();
   await fireEvent.press(view.getByLabelText('播放音频'));
   expect(player.setPlaybackRate).toHaveBeenLastCalledWith(0.75, 'high');
@@ -161,21 +190,20 @@ it('keeps the chosen speed when starting paused audio and replaying', async () =
 it('disables speed controls while loading or when the audio has failed', async () => {
   status = { ...status, isLoaded: false };
   const view = await render(<EditorialAudioPlayer source={7} />);
-  expect(view.getByLabelText('2 倍速')).toBeDisabled();
-  await fireEvent.press(view.getByLabelText('2 倍速'));
+  expect(view.getByLabelText('1 倍速')).toBeDisabled();
   status = { ...status, isLoaded: true, error: 'load failed' };
   await view.rerender(<EditorialAudioPlayer source={7} />);
-  expect(view.getByLabelText('2 倍速')).toBeDisabled();
+  expect(view.getByLabelText('1 倍速')).toBeDisabled();
   expect(player.setPlaybackRate).not.toHaveBeenCalled();
 });
 
 it('retains the previous selection when changing speed fails and allows retry', async () => {
   const view = await render(<EditorialAudioPlayer source={7} />);
   player.setPlaybackRate.mockImplementationOnce(() => { throw new Error('unavailable'); });
-  await fireEvent.press(view.getByLabelText('2 倍速'));
-  expect(view.getByLabelText('1 倍速')).toBeSelected();
+  await fireEvent(view.getByTestId('editorial-audio-rate-picker'), 'valueChange', 2);
+  expect(view.getByLabelText('1 倍速')).toBeTruthy();
   expect(view.getByText('倍速调整失败，请重试')).toBeTruthy();
-  await fireEvent.press(view.getByLabelText('2 倍速'));
-  expect(view.getByLabelText('2 倍速')).toBeSelected();
+  await fireEvent(view.getByTestId('editorial-audio-rate-picker'), 'valueChange', 2);
+  expect(view.getByLabelText('2 倍速')).toBeTruthy();
   expect(view.queryByText('倍速调整失败，请重试')).toBeNull();
 });

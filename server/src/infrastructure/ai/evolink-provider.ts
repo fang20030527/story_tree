@@ -23,7 +23,6 @@ import {
 import type {
   AiProvider,
   GeneratePracticeInput,
-  ModerationResult,
   OcrArticleText,
   OcrImage,
   VerifyPracticeInput,
@@ -141,10 +140,6 @@ export class EvolinkAiProvider implements AiProvider {
       return parsed.data;
     }
     return raw;
-  }
-
-  moderate(text: string, signal: AbortSignal): Promise<ModerationResult> {
-    return this.client.moderateText(text, signal);
   }
 
   async extractArticleText(

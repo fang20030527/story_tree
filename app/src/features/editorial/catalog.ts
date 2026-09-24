@@ -152,6 +152,7 @@ const allEditorialArticles: readonly EditorialArticle[] = [
     "image": require('../../../assets/images/editorial/ai-arms-race.jpg') as number,
     "section": "featured",
     "publishedAt": "2026-09-17",
+    "issueDate": "2026-09-19",
     "hasAudio": true,
     ...(aiArmsRaceAudioUrl ? { audioUrl: aiArmsRaceAudioUrl } : {}),
     "audioAsset": require('../../../assets/audio/editorial/ai-arms-race.mp3') as number,
@@ -248,12 +249,16 @@ export function searchEditorialArticles(query: string): EditorialArticle[] {
   const articles = [...remoteArticles(), ...editorialArticles];
   if (!normalized) return articles;
   return articles.filter((article) =>
-    [article.titleZh, article.titleEn, article.source, article.category, article.issueDate ?? ''].some(
+    [article.titleZh, article.titleEn, article.source, article.category, article.issueDate ?? article.publishedAt].some(
       (value) => value.toLocaleLowerCase().includes(normalized),
     ),
   );
 }
 
 export function editorialCanListen(article: EditorialArticle): boolean {
-  return Boolean(article.audioAsset || article.audioUrl) || article.hasAudio;
+  return editorialHasOriginalAudio(article) || article.hasAudio;
+}
+
+export function editorialHasOriginalAudio(article: EditorialArticle): boolean {
+  return Boolean(article.audioAsset || article.audioUrl);
 }

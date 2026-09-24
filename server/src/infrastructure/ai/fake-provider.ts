@@ -7,7 +7,6 @@ import type { WordTranslationResult } from '@context-reader/contracts';
 import type {
   AiProvider,
   GeneratePracticeInput,
-  ModerationResult,
   OcrArticleText,
   OcrImage,
   VerifyPracticeInput,
@@ -127,11 +126,6 @@ export class FakeAiProvider implements AiProvider {
     };
     return meanings[term.trim().toLocaleLowerCase('en-US')]
       ?? { partOfSpeech: '词性未知', meaningZh: `与“${term.trim()}”相关的词义` };
-  }
-
-  async moderate(_text: string, signal: AbortSignal): Promise<ModerationResult> {
-    signal.throwIfAborted();
-    return { riskLevel: 'low', flagged: false };
   }
 
   async extractArticleText(

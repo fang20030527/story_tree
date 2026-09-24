@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 import { AppError } from '../../core/errors';
-import type { ModerationResult } from '../../infrastructure/ai/types';
 
 const TranslationEnvelopeSchema = z.union([
   z.object({ sourceText: z.string() }).strict(),
@@ -83,19 +82,6 @@ function normalizeEchoText(value: string): string {
 
 function invalidTranslation(): AppError {
   return new AppError('AI_INVALID_OUTPUT', '翻译结果格式无效', 502, true);
-}
-
-export function assertTranslationModerationAccepted(
-  result: ModerationResult,
-): void {
-  if (result.riskLevel === 'high' || result.flagged) {
-    throw new AppError(
-      'AI_CONTENT_REJECTED',
-      '翻译结果未通过安全检查',
-      502,
-      true,
-    );
-  }
 }
 
 export function createTranslationSourceHash(

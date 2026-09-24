@@ -10,6 +10,7 @@ import { AppError } from '../core/errors';
 export interface SecurityLimits {
   globalMax: number;
   sensitiveMax: number;
+  passwordResetMax: number;
   sentenceMax: number;
   timeWindowMs: number;
 }
@@ -17,6 +18,7 @@ export interface SecurityLimits {
 const defaultLimits: SecurityLimits = {
   globalMax: 600,
   sensitiveMax: 30,
+  passwordResetMax: 120,
   sentenceMax: 60,
   timeWindowMs: 60_000,
 };
@@ -39,6 +41,11 @@ const tokenLimitedRoutes = new Set([
   'POST /v1/imports/:id/cancel',
   'POST /v1/articles/:id/translations',
   'POST /v1/computer-upload-sessions',
+]);
+
+const passwordResetRoutes = new Set([
+  'POST /v1/auth/password-reset/request',
+  'POST /v1/auth/password-reset/confirm',
 ]);
 
 export function registerSecurity(
@@ -80,9 +87,19 @@ export function registerSecurity(
 
   let sensitiveLimiter: ReturnType<FastifyInstance['createRateLimit']> | null =
     null;
+  let passwordResetLimiter: ReturnType<FastifyInstance['createRateLimit']> | null = null;
   let sentenceLimiter: ReturnType<FastifyInstance['createRateLimit']> | null =
     null;
   app.addHook('preHandler', async (request, reply) => {
+    if (passwordResetRoutes.has(`${request.method} ${request.routeOptions.url}`)) {
+      passwordResetLimiter ??= app.createRateLimit({
+        max: limits.passwordResetMax,
+        timeWindow: limits.timeWindowMs,
+        keyGenerator: (currentRequest) => currentRequest.ip,
+      });
+      await enforceLimit(passwordResetLimiter, request, reply);
+      return;
+    }
     if (request.method === 'POST'
       && request.routeOptions.url === '/v1/sentence-translations') {
       sentenceLimiter ??= app.createRateLimit({

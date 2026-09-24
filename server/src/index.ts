@@ -43,13 +43,12 @@ const aiProvider = new EvolinkAiProvider(
     apiKey: config.EVOLINK_API_KEY,
     baseUrl: config.EVOLINK_BASE_URL,
     textModel: config.EVOLINK_TEXT_MODEL,
-    moderationModel: config.EVOLINK_MODERATION_MODEL,
     timeoutMs: config.EVOLINK_TIMEOUT_MS,
   }),
   {
     visionModel: config.EVOLINK_VISION_MODEL,
     visionTimeoutMs: config.EVOLINK_VISION_TIMEOUT_MS,
-    // Leave time for response validation, moderation and persistence before
+    // Leave time for response validation and persistence before
     // the job or HTTP request deadline cancels the whole operation.
     translationTimeoutMs: Math.max(1, config.generationDeadlineMs
       - Math.min(15_000, Math.floor(config.generationDeadlineMs / 5))),

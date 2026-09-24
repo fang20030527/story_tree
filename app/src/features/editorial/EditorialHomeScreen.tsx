@@ -22,6 +22,7 @@ import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 
 import {
+  editorialHasOriginalAudio,
   getEditorialSection,
   searchEditorialArticles,
   type EditorialArticle,
@@ -90,11 +91,11 @@ export function EditorialHomeScreen() {
   const searchResults = useMemo(
     () => searchEditorialArticles(query).filter((article) =>
       (source === '全部刊物' || article.source === source)
-      && (year === '全部年份' || article.issueDate?.startsWith(year))),
+      && (year === '全部年份' || (article.issueDate ?? article.publishedAt).startsWith(year))),
     [query, source, year, catalogVersion],
   );
   const years = useMemo(() => ['全部年份', ...new Set(getEditorialSection('featured')
-    .flatMap((article) => article.issueDate ? [article.issueDate.slice(0, 4)] : []).sort().reverse())], [catalogVersion]);
+    .map((article) => (article.issueDate ?? article.publishedAt).slice(0, 4)).sort().reverse())], [catalogVersion]);
   const sources = useMemo(() => ['全部刊物', ...new Set([
     ...KNOWN_SOURCES,
     ...searchEditorialArticles('').map((article) => article.source),
@@ -317,7 +318,8 @@ function ArticleCard({
         <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.articleTitle, { color: theme.text }]} numberOfLines={2}>{article.titleZh}</Text>
         <Text style={[styles.articleSource, { color: theme.textMuted }]} numberOfLines={1}>{article.source} · {article.category}</Text>
-        {article.issueDate ? <Text style={[styles.articleSource, { color: theme.textMuted }]}>{article.issueDate}</Text> : null}
+        <Text style={[styles.articleSource, { color: theme.textMuted }]}>{article.issueDate ?? article.publishedAt}</Text>
+        {editorialHasOriginalAudio(article) ? <Text style={[styles.articleSource, { color: theme.blue }]}>原刊录音</Text> : null}
         <Text style={[styles.articleMeta, { color: theme.textSecondary }]}>{article.level} · {article.wordCount} 词 · {article.minutes} 分钟</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 import { AppError } from '../../core/errors';
-import type { ModerationResult } from './types';
 
 const ContentPartSchema = z.union([
   z.string(),
@@ -27,34 +26,10 @@ const ChatCompletionSchema = z
   })
   .passthrough();
 
-const RiskLevelSchema = z.enum(['low', 'medium', 'high']);
-const ModerationSummarySchema = z
-  .object({
-    risk_level: RiskLevelSchema,
-    flagged: z.boolean().optional(),
-  })
-  .passthrough();
-const ModerationResponseSchema = z
-  .object({
-    results: z
-      .array(
-        z
-          .object({
-            flagged: z.boolean(),
-            evolink_summary: ModerationSummarySchema.optional(),
-          })
-          .passthrough(),
-      )
-      .min(1),
-    evolink_summary: ModerationSummarySchema.optional(),
-  })
-  .passthrough();
-
 export interface EvolinkClientConfig {
   apiKey: string;
   baseUrl: string;
   textModel: string;
-  moderationModel: string;
   timeoutMs: number;
 }
 
@@ -136,28 +111,6 @@ export class EvolinkClient {
     if (!text) throw invalidOutput();
 
     return { text, model: parsed.data.model ?? model };
-  }
-
-  async moderateText(text: string, signal: AbortSignal): Promise<ModerationResult> {
-    if (!text.trim()) {
-      throw new AppError('AI_INVALID_OUTPUT', '审核内容不能为空', 500);
-    }
-
-    const data = await this.postJson(
-      '/moderations',
-      { model: this.config.moderationModel, input: text },
-      signal,
-    );
-    const parsed = ModerationResponseSchema.safeParse(data);
-    if (!parsed.success) throw invalidOutput();
-
-    const result = parsed.data.results[0]!;
-    const summary = parsed.data.evolink_summary ?? result.evolink_summary;
-    if (!summary) throw invalidOutput();
-    return {
-      riskLevel: summary.risk_level,
-      flagged: summary.flagged ?? result.flagged,
-    };
   }
 
   private async postJson(

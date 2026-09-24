@@ -79,7 +79,7 @@ it.each([
   const view = await render(<EditorialHomeScreen />);
   if (id === 'ai-arms-race') {
     await fireEvent.press(view.getByLabelText('查看The Economist'));
-    await fireEvent.press(view.getByLabelText('查看日期未标注'));
+    await fireEvent.press(view.getByLabelText('查看2026-09-19'));
   }
   await fireEvent.press(view.getByLabelText(`${title}，查看文章概述`));
   expect(router.push).toHaveBeenLastCalledWith({
@@ -94,8 +94,8 @@ it('browses publication then dates, and resets pagination when returning', async
   const view = await render(<EditorialHomeScreen />);
   await fireEvent.press(view.getByLabelText('查看The Economist'));
   const expectedDates = [...new Set(getEditorialSection('featured')
-    .filter((article) => article.source === 'The Economist' && article.issueDate)
-    .map((article) => article.issueDate!))].sort().reverse();
+    .filter((article) => article.source === 'The Economist')
+    .map((article) => article.issueDate ?? article.publishedAt))].sort().reverse();
   const dateButtons = view.getAllByRole('button').filter((button) =>
     /^查看\d{4}-\d{2}-\d{2}$/.test(button.props.accessibilityLabel ?? ''));
   expect(dateButtons.map((button) => button.props.accessibilityLabel)).toEqual(expectedDates.map((date) => '查看' + date));
@@ -110,4 +110,24 @@ it('browses publication then dates, and resets pagination when returning', async
   await fireEvent.press(view.getByLabelText('查看WIRED'));
   expect(view.queryByLabelText('查看日期未标注')).toBeNull();
   expect(view.queryByLabelText('下一页')).toBeNull();
+});
+
+it('finds the original recordings without showing issues that only have AI narration', async () => {
+  const view = await render(<EditorialHomeScreen />);
+  await fireEvent.press(view.getByLabelText('只看原刊录音'));
+  expect(view.getByLabelText('只看原刊录音').props.accessibilityState).toEqual({ selected: true });
+  expect(view.getByLabelText('查看The Economist')).toBeTruthy();
+  expect(view.queryByLabelText('查看The New Yorker')).toBeNull();
+
+  await fireEvent.press(view.getByLabelText('查看The Economist'));
+  expect(view.getByLabelText('查看2026-09-19')).toBeTruthy();
+  expect(view.getByLabelText('查看2025-04-12')).toBeTruthy();
+  expect(view.queryByLabelText('查看2025-04-19')).toBeNull();
+
+  await fireEvent.press(view.getByLabelText('查看2026-09-19'));
+  expect(view.getByLabelText('人工智能军备竞赛能被叫停吗？，查看文章概述')).toBeTruthy();
+  expect(view.getByText('原刊录音')).toBeTruthy();
+  await fireEvent.press(view.getByLabelText('返回日期分类'));
+  await fireEvent.press(view.getByLabelText('查看2025-04-12'));
+  expect(view.getAllByText('原刊录音')).toHaveLength(24);
 });

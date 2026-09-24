@@ -131,6 +131,27 @@ export const EmailAuthResponseSchema = RegisteredAuthResponseSchema;
 export type EmailAuthRequest = z.infer<typeof EmailAuthRequestSchema>;
 export type EmailAuthResponse = z.infer<typeof EmailAuthResponseSchema>;
 
+export const PasswordResetRequestSchema = z.object({
+  email: EmailAddressSchema,
+}).strict();
+
+export const PasswordResetRequestResponseSchema = z.object({
+  message: z.literal('如果该邮箱已注册，重置验证码将发送至邮箱'),
+}).strict();
+
+export const PasswordResetConfirmSchema = z.object({
+  email: EmailAddressSchema,
+  code: z.string().trim().toUpperCase().regex(/^[A-HJ-NP-Z2-9]{12}$/u),
+  newPassword: z.string().min(8).max(128),
+}).strict();
+
+export const PasswordResetConfirmResponseSchema = z.object({
+  message: z.literal('密码已重置，请重新登录'),
+}).strict();
+
+export type PasswordResetRequestResponse = z.infer<typeof PasswordResetRequestResponseSchema>;
+export type PasswordResetConfirmResponse = z.infer<typeof PasswordResetConfirmResponseSchema>;
+
 export const PracticeStatusSchema = z.enum([
   'queued',
   'generating',

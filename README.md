@@ -71,4 +71,6 @@ RUN_IMPORT_LIVE_SMOKE=1 npm run smoke:imports --workspace=@context-reader/server
 
 新生成的 AI 文章为每个目标词配一道英文语境填空题：使用不同于文章的新句子、四个英文词或短语选项，以及提交后显示的中英双语选项解析（中文在前、英文在后）和全中文总结。自测页隐藏目标词标题和原文定位，避免直接提示答案。历史练习保留原题和答题记录。
 
-生成器输出 `optionsEn`、`correctOptionIndex`、中文总结 `explanationZh`，以及按选项一一对应的 `optionExplanationsZh` 和 `optionExplanationsEn`。结构检查确保题干、选项及英文解析为英文，中文解析包含中文，总结为全中文，并拒绝重复选项、无效空缺和答案索引；独立 AI 审核目标义项、搭配和答案唯一性。双语选项解析按中文、英文换行保存，中文总结通过原有 `explanationZh` 字段返回，无需数据库迁移。旧练习中已保存的英文解析不会自动翻译。服务端和客户端需一起更新，新题型只影响更新后生成的练习。
+生成器输出 `optionsEn`、`correctOptionIndex`、中文总结 `explanationZh`，以及按选项一一对应的 `optionExplanationsZh` 和 `optionExplanationsEn`。结构检查确保题干、选项及英文解析为英文，中文解析包含中文，总结为全中文，并拒绝重复选项、无效空缺和答案索引；独立 AI 复核目标义项、搭配和答案唯一性。双语选项解析按中文、英文换行保存，中文总结通过原有 `explanationZh` 字段返回，无需数据库迁移。旧练习中已保存的英文解析不会自动翻译。服务端和客户端需一起更新，新题型只影响更新后生成的练习。
+
+练习生成与翻译不调用独立内容审核模型；练习仍保留安全主题提示和内容复核，翻译仍检查译文格式与语言。

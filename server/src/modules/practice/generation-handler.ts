@@ -18,7 +18,6 @@ import {
 import type {
   AiProvider,
   GeneratePracticeInput,
-  ModerationResult,
 } from '../../infrastructure/ai/types';
 import type { ClaimedJob } from '../jobs/types';
 import { commitQuota, releaseQuota } from '../quota/service';
@@ -61,12 +60,6 @@ export async function handlePracticeGeneration(
   if (loaded.status === 'failed') throw stateConflict();
 
   assertProviderCallAllowed(job, context.signal);
-  const inputModeration = await dependencies.provider.moderate(
-    JSON.stringify(loaded.providerInput),
-    context.signal,
-  );
-  assertModerationAccepted(inputModeration, false);
-
   if (!(await moveToGenerating(dependencies.db, job, context.signal))) return;
 
   let generationInput = loaded.providerInput;
@@ -112,14 +105,6 @@ export async function handlePracticeGeneration(
       if (!(await moveToGenerating(dependencies.db, job, context.signal))) return;
       continue;
     }
-    await recordGenerationProgress(dependencies.db, job, 80, context.signal);
-
-    assertProviderCallAllowed(job, context.signal);
-    const outputModeration = await dependencies.provider.moderate(
-      serializeVisibleContent(generated),
-      context.signal,
-    );
-    assertModerationAccepted(outputModeration, true);
     await recordGenerationProgress(dependencies.db, job, 90, context.signal);
 
     assertWithinDeadline(job, context.signal);
@@ -438,35 +423,12 @@ function assertWithinDeadline(job: ClaimedJob, signal: AbortSignal): void {
   }
 }
 
-function assertModerationAccepted(
-  result: ModerationResult,
-  retryable: boolean,
-): void {
-  if (result.riskLevel !== 'low' || result.flagged) {
-    throw new AppError(
-      'AI_CONTENT_REJECTED',
-      retryable ? '生成内容未通过安全检查' : '输入内容不适合生成练习',
-      422,
-      retryable,
-    );
-  }
-}
-
-function serializeVisibleContent(
-  generated: ValidatedGeneratedPractice | Parameters<typeof validateGeneratedPractice>[0],
-): string {
-  return JSON.stringify({
-    title: generated.title,
-    paragraphs: generated.paragraphs,
-    ...('questions' in generated ? { questions: generated.questions } : {}),
-  });
-}
-
 function publicGenerationFailure(error: AppError): {
   code: ErrorCode;
   message: string;
 } {
   switch (error.code) {
+    // Older failed practices may still contain this code after moderation is removed.
     case 'AI_CONTENT_REJECTED':
       return { code: error.code, message: '内容未通过安全检查，请调整输入后重试' };
     case 'GENERATION_DEADLINE_EXCEEDED':

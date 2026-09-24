@@ -16,7 +16,6 @@ describe('editorial catalog', () => {
     );
     expect(editorialArticles.filter((article) => !article.issueDate).map(({ id }) => id)).toEqual([
       'hero',
-      'ai-arms-race',
       'deepmind-robot-brains',
       'new-cat-species',
       'food-waste-recycling',
@@ -38,7 +37,7 @@ describe('editorial catalog', () => {
     expect(getEditorialArticle('hero')?.source).toBe('BBC Future');
     expect(getEditorialArticle('missing')).toBeUndefined();
     expect(getEditorialSection('today').map(({ id }) => id)).toEqual(['hero']);
-    expect(getEditorialSection('featured').filter((article) => !article.issueDate).map(({ id }) => id)).toEqual(["ai-arms-race", "deepmind-robot-brains", "new-cat-species", "food-waste-recycling", "secret-agent-sketchbook", "viking-word-independence"]);
+    expect(getEditorialSection('featured').filter((article) => !article.issueDate).map(({ id }) => id)).toEqual(["deepmind-robot-brains", "new-cat-species", "food-waste-recycling", "secret-agent-sketchbook", "viking-word-independence"]);
     expect(searchEditorialArticles('自然').map(({ id }) => id)).toContain('hero');
     expect(searchEditorialArticles('bbc future').map(({ id }) => id)).toContain(
       'hero',
@@ -49,17 +48,20 @@ describe('editorial catalog', () => {
 });
   it('includes every entry of the September 19 issue, including image-only indicators', () => {
     const issue = getEditorialSection('featured').filter((article) => article.issueDate === '2026-09-19');
-    // AI 军备竞赛保留带原声录音的精选版本，整期中的重复项不再展示。
-    expect(issue).toHaveLength(75);
-    expect(issue.reduce((sum, article) => sum + article.wordCount, 0)).toBe(62722);
-    expect(issue[0]?.titleEn).toBe('Politics');
-    expect(issue[74]?.titleEn).toBe('Gloria Steinem changed the world for American women');
+    // AI 军备竞赛保留带原声录音的精选版本，归入原期号；整期中的重复项不再展示。
+    expect(issue).toHaveLength(76);
+    expect(issue.reduce((sum, article) => sum + article.wordCount, 0)).toBe(63688);
+    expect(issue[0]?.id).toBe('ai-arms-race');
+    expect(issue[1]?.titleEn).toBe('Politics');
+    expect(issue[75]?.titleEn).toBe('Gloria Steinem changed the world for American women');
     const indicators = issue.find((article) => article.titleEn === 'Economic data, commodities and markets');
     expect(indicators?.bodyBlocks?.filter((block) => block.type === 'image')).toHaveLength(4);
-    expect(searchEditorialArticles('Gloria Steinem')).toContain(issue[74]);
+    expect(searchEditorialArticles('Gloria Steinem')).toContain(issue[75]);
     for (const article of issue) {
       expect(getEditorialArticle(article.id)).toBe(article);
-      expect(article.bodyBlocks?.filter((block) => block.type === 'text').map((block) => block.text)).toEqual(article.paragraphs);
+      if (article.id !== 'ai-arms-race') {
+        expect(article.bodyBlocks?.filter((block) => block.type === 'text').map((block) => block.text)).toEqual(article.paragraphs);
+      }
       expect(article.paragraphs.join(' ')).not.toContain('This article was downloaded by');
     }
   });

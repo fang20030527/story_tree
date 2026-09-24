@@ -29,6 +29,8 @@ import {
   DashboardDtoSchema,
   EmailAuthRequestSchema,
   EmailAuthResponseSchema,
+  PasswordResetConfirmSchema,
+  PasswordResetRequestSchema,
   ImportedArticlePageSchema,
   ImportedArticleDtoSchema,
   ImportedArticleSummaryDtoSchema,
@@ -50,6 +52,22 @@ import {
 } from './index';
 
 describe('shared contracts', () => {
+  it('validates password reset addresses, codes, and password bounds', () => {
+    expect(PasswordResetRequestSchema.parse({ email: ' Reader@Example.com ' }))
+      .toEqual({ email: 'reader@example.com' });
+    expect(PasswordResetConfirmSchema.parse({
+      email: 'Reader@Example.com', code: 'abcdefghjklm', newPassword: 'new-password-123',
+    })).toEqual({
+      email: 'reader@example.com', code: 'ABCDEFGHJKLM', newPassword: 'new-password-123',
+    });
+    expect(PasswordResetConfirmSchema.safeParse({
+      email: 'reader@example.com', code: 'AAAAAAAAAAAA', newPassword: 'short',
+    }).success).toBe(false);
+    expect(PasswordResetRequestSchema.safeParse({
+      email: 'reader@example.com', debug: true,
+    }).success).toBe(false);
+  });
+
   it('accepts only an empty retry request and returns its group ID', () => {
     const groupId = crypto.randomUUID();
     expect(RetryFailedTopicsRequestSchema.parse({})).toEqual({});

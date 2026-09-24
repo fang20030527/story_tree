@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Host, Picker } from '@expo/ui';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -177,24 +178,24 @@ export function EditorialAudioPlayer({ source, onPositionChange }: {
         </View>
       </View>
       <Text style={{ color: theme.textMuted }}>{formatTime(displayedTime)} / {formatTime(duration)}</Text>
+      <Text style={{ color: theme.textMuted }}>原刊录音</Text>
       <View style={styles.rates}>
         <Text style={{ color: theme.textMuted }}>倍速</Text>
-        {PLAYBACK_RATES.map((rate) => (
-          <TouchableOpacity
-            key={rate}
-            accessibilityRole="button"
-            accessibilityLabel={`${rate} 倍速`}
-            accessibilityState={{ selected: playbackRate === rate, disabled: !canChangeRate }}
-            disabled={!canChangeRate}
-            onPress={() => changeRate(rate)}
-            style={[styles.rateButton, {
-              backgroundColor: playbackRate === rate ? theme.accent : theme.surfaceAlt,
-              borderColor: playbackRate === rate ? theme.accent : theme.border,
-              opacity: canChangeRate ? 1 : 0.45,
-            }]}>
-            <Text style={{ color: playbackRate === rate ? '#FFFFFF' : theme.text }}>{rate}×</Text>
-          </TouchableOpacity>
-        ))}
+        <Host
+          matchContents={{ vertical: true }}
+          colorScheme={theme.mode}
+          seedColor={theme.accent}
+          style={[styles.ratePickerHost, { opacity: canChangeRate ? 1 : 0.45 }]}>
+          <Picker
+            testID="editorial-audio-rate-picker"
+            selectedValue={playbackRate}
+            enabled={canChangeRate}
+            onValueChange={changeRate}>
+            {PLAYBACK_RATES.map((rate) => (
+              <Picker.Item key={rate} label={`${rate}×`} value={rate} />
+            ))}
+          </Picker>
+        </Host>
       </View>
       {rateError ? <Text accessibilityLiveRegion="polite" style={{ color: theme.danger }}>倍速调整失败，请重试</Text> : null}
       {failed ? <Text accessibilityLiveRegion="polite" style={{ color: theme.danger }}>音频播放失败，请重试</Text> : null}
@@ -210,8 +211,8 @@ function formatTime(value: number): string {
 const styles = StyleSheet.create({
   container: { padding: 12, borderRadius: 12, gap: 8, marginVertical: 12 },
   button: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
-  rates: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  rateButton: { minWidth: 44, minHeight: 44, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1 },
+  rates: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  ratePickerHost: { minWidth: 112, minHeight: 44 },
   progressTouch: { height: 44, justifyContent: 'center', marginHorizontal: 8 },
   track: { height: 4, borderRadius: 2 },
   fill: { height: 4, borderRadius: 2 },
