@@ -389,6 +389,8 @@ def main():
     lines = ['// 由 scripts/import-english-epubs.py 生成，请勿手动编辑。',
              "import type { RawEpubBlock, EpubMetadata } from '../epubCatalog';",
              "export const epubMetadata = require('./index.json') as EpubMetadata[];", '',
+             '// 原生端按需读取已打包的期号文件；Web 端由 loaders.web.ts 网络加载。',
+             'export function prefetchEpubIssue(_issueKey: string): Promise<void> { return Promise.resolve(); }', '',
              'export const issueLoaders: Record<string, () => Record<string, RawEpubBlock[]>> = {']
     lines.extend(f"  '{r['key']}': () => require('./issues/{r['key']}.json')," for r in reports if not r['preserved'])
     lines.extend(['};', ''])

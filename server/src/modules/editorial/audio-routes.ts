@@ -12,7 +12,7 @@ const AudioParamsSchema = z.object({
 }).strict();
 const AudioFileMapSchema = z.record(
   z.string().min(1).max(128).regex(/^[a-zA-Z0-9][a-zA-Z0-9-]*$/u),
-  z.string().regex(/^(?:2025|2026)\/(?:2025|2026)-\d{2}-\d{2}\/\d{3} - [^/\\]{1,240} - [a-f0-9]{10}\.mp3$/iu),
+  z.string().regex(/^2026\/2026-\d{2}-\d{2}\/\d{3} - [^/\\]{1,240} - [a-f0-9]{10}\.mp3$/iu),
 );
 
 function parseRange(value: string, size: number): { start: number; end: number } | null {
@@ -31,6 +31,7 @@ function isInside(root: string, file: string): boolean {
 
 export const editorialAudioRoutes: FastifyPluginAsync<{
   audioRoot: string | undefined;
+  audioPublicOrigin: string | undefined;
   manifestPath: string;
 }> = async (app, options) => {
   let audioFiles: Record<string, string> = {};
@@ -48,7 +49,17 @@ export const editorialAudioRoutes: FastifyPluginAsync<{
     const parsed = AudioParamsSchema.safeParse(request.params);
     if (!parsed.success) throw new AppError('VALIDATION_ERROR', '音频编号格式无效', 400);
     const relativePath = audioFiles[parsed.data.id];
-    if (!relativePath || !options.audioRoot?.trim()) {
+    if (!relativePath) {
+      throw new AppError('NOT_FOUND', '原刊音频不存在', 404);
+    }
+
+    if (options.audioPublicOrigin) {
+      return reply.code(302)
+        .header('location', `${options.audioPublicOrigin}/v1/editorial/audio/${parsed.data.id}`)
+        .header('cache-control', 'public, max-age=300')
+        .send();
+    }
+    if (!options.audioRoot?.trim()) {
       throw new AppError('NOT_FOUND', '原刊音频不存在', 404);
     }
 

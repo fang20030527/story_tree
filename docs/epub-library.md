@@ -24,13 +24,13 @@
 
 ## 原刊音频
 
-仓库快照提供 15 份《经济学人》逐篇音频清单，覆盖 2025-01-04 至 2025-04-12；这些录音从出版方 HTTPS 地址在线加载。另有本地音频目录，按 `2025/期号/`、`2026/期号/` 保存 MP3。运行 `python scripts/import-economist-local-audio.py "D:/电脑操作/Economist_Audio"` 后，脚本按期号和标题关联录音。本次扫描 6,443 个文件，其中 6,246 条能唯一对应到外刊文章；其余条目因标题或期刊内容无法唯一对应，记录在 `audio-local-report.json`，不会猜测关联。2025-12-20 的重复篇关联到目录中保留的同文文章。
+当前应用只关联 2026 年《经济学人》原刊录音。运行 `python scripts/import-economist-local-audio.py "D:/电脑操作/Economist_Audio/2026"` 后，脚本按期号和标题关联录音。本次扫描 2,725 个 MP3，其中 2,674 个能唯一对应文章，另 51 个只在 `audio-local-report.json` 中记录，不猜测关联。2025 年文章正文仍保留，但不再提供原刊录音；本地原始文件没有删除。
 
-本地录音优先于同一文章原有的出版方 URL。客户端 `audio-local.json` 保存文章 ID 与 API 路径，服务端 `server/assets/editorial/audio-local.json` 保存文章 ID 与音频相对路径；API 从 `app/.env` 中 `EDITORIAL_AUDIO_ROOT` 指定的根目录按需读取音频，并支持播放进度拖动，不会把约 18.5 GB 的文件复制到仓库或客户端安装包。播放 URL 只含文章 ID，不暴露磁盘文件名。开发服务所在电脑必须能访问该目录；部署到其他主机时，也要把相同目录结构提供给服务端并配置该变量。2026-09-19 的精选期刊也会关联本地录音。
+客户端 `audio-local.json` 保存文章 ID 与 API 路径，服务端 `server/assets/editorial/audio-local.json` 保存文章 ID 与音频相对路径。2026 年全部 2,725 个 MP3 存入私有 Cloudflare R2 桶；Audio Worker 按文章 ID 流式提供已匹配的录音，支持播放进度拖动。51 个未匹配文件只归档，不通过文章接口公开。客户端设置 `EXPO_PUBLIC_EDITORIAL_AUDIO_ORIGIN` 后直连 Worker；旧版客户端可由现有 API 的 `EDITORIAL_AUDIO_PUBLIC_ORIGIN` 重定向。开发服务仍可通过 `EDITORIAL_AUDIO_ROOT` 从本机读取。播放 URL 不含磁盘文件名，也不把约 8.38 GB 音频复制到仓库或安装包。详见 [Cloudflare 部署说明](../cloudflare/README.md)。
 
-较新的 EPUB 没有随附可核验的逐篇录音清单或音频文件。对此类有正文的文章，概述和阅读页显示「AI配音 · 非原刊录音」；声音由设备内置 TTS 生成，无需额外的配音 API。概述页只在按下播放时读取正文。设备朗读按短片段依次播放以适应系统语音输入上限，切换页面时停止。iOS 实机若无声，需检查设备静音模式。今后取得可核验的逐篇录音 URL 后，可继续通过 `epub/audio.json` 关联，真实录音优先于合成朗读。
+没有匹配到 2026 年原刊录音的文章，概述和阅读页显示「AI配音 · 非原刊录音」；声音由设备内置 TTS 生成，无需额外的配音 API。概述页只在按下播放时读取正文。设备朗读按短片段依次播放以适应系统语音输入上限，切换页面时停止。iOS 实机若无声，需检查设备静音模式。
 
-`epub/audio.json` 保存文章 ID 与出版方音频 URL，`epub/audio-report.json` 保存源文件路径、Git blob、匹配结果和未匹配条目。`epub/audio-local.json` 与 `epub/audio-local-report.json` 保存本地录音关联及核对结果。重新导入 EPUB 后运行 `python scripts/import-editorial-audio.py` 和 `python scripts/test_import_editorial_audio.py`；本地音频目录更新后运行 `python scripts/import-economist-local-audio.py <音频根目录>`。两种录音均通过期号和标题关联；同一文章出现多份本地文件或标题仍有歧义时，不会任意关联。
+`epub/audio-local.json` 与 `epub/audio-local-report.json` 保存 2026 年录音关联及核对结果。重新导入 EPUB 或更新本地音频后，运行 `python scripts/import-economist-local-audio.py <2026 年音频目录>`。同一文章出现多份文件或标题仍有歧义时，脚本不会任意关联。旧 `epub/audio.json` 和 `epub/audio-report.json` 仅是历史导入记录，运行时不使用。
 
 ## EPUB 重建步骤
 

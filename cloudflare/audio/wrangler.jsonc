@@ -1,0 +1,11 @@
+{
+  "name": "waikan-audio",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-09-24",
+  "r2_buckets": [
+    {
+      "binding": "AUDIO_BUCKET",
+      "bucket_name": "waikan-2026-audio"
+    }
+  ]
+}

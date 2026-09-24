@@ -24,11 +24,19 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "check": "npm run typecheck && npm run test && npm run lint"
+    "check": "npm run typecheck && npm run test && npm run lint",
+    "audio:r2:inventory": "node scripts/upload-economist-2026-r2.mjs",
+    "audio:r2:upload": "node scripts/upload-economist-2026-r2.mjs --upload",
+    "cloudflare:deploy:audio": "wrangler deploy --config cloudflare/audio/wrangler.jsonc",
+    "cloudflare:deploy:images": "wrangler deploy --config cloudflare/images/wrangler.jsonc",
+    "cloudflare:prepare:web": "node scripts/prepare-cloudflare-web.mjs",
+    "cloudflare:deploy:web": "wrangler deploy --config cloudflare/web/wrangler.jsonc"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "3.1139.0",
     "react-native-web": "0.21.2",
-    "test-renderer": "1.1.0"
+    "test-renderer": "1.1.0",
+    "wrangler": "4.138.0"
   },
   "allowScripts": {
     "esbuild@0.18.20": true,

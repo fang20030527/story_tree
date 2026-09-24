@@ -142,6 +142,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   });
   app.register(editorialAudioRoutes, {
     audioRoot: options.config.editorialAudioRoot,
+    audioPublicOrigin: options.config.editorialAudioPublicOrigin,
     manifestPath: fileURLToPath(new URL('../assets/editorial/audio-local.json', import.meta.url)),
   });
   app.register(authPlugin, {

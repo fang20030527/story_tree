@@ -1,8 +1,7 @@
 import type { EditorialArticle, EditorialBodyBlock } from './catalog';
 import { getApiBaseUrl } from '@/api/client';
-import { epubMetadata, issueLoaders } from './epub/loaders';
+import { epubMetadata, issueLoaders, prefetchEpubIssue } from './epub/loaders';
 
-const audioUrls = require('./epub/audio.json') as Record<string, string>;
 const localAudioUrls = require('./epub/audio-local.json') as Record<string, string>;
 const localizedMetadata = require('./epub/metadata-zh.json') as Record<string, {
   titleEn: string;
@@ -17,6 +16,8 @@ function displayTitle(value: string): string {
 
 export function getEpubImageUrl(id: string): string {
   try {
+    const imageOrigin = process.env.EXPO_PUBLIC_EDITORIAL_IMAGE_ORIGIN?.replace(/\/$/u, '');
+    if (imageOrigin) return `${imageOrigin}/${id}.webp`;
     return `${getApiBaseUrl()}/v1/editorial/images/${id}.webp`;
   } catch {
     // 未配置服务地址时仍能阅读本地正文；插图由图片组件显示占位。
@@ -28,12 +29,13 @@ export function getEditorialAudioUrl(articleId: string): string | undefined {
   const localUrl = localAudioUrls[articleId];
   if (localUrl) {
     try {
-      return `${getApiBaseUrl()}${localUrl}`;
+      const audioOrigin = process.env.EXPO_PUBLIC_EDITORIAL_AUDIO_ORIGIN?.replace(/\/$/u, '');
+      return `${audioOrigin || getApiBaseUrl()}${localUrl}`;
     } catch {
-      // 未配置服务地址时保留已有出版方录音；本地录音由 API 提供。
+      // 未配置服务地址时不显示无法播放的原刊录音。
     }
   }
-  return audioUrls[articleId];
+  return undefined;
 }
 
 export type RawEpubBlock =
@@ -53,6 +55,17 @@ export interface EpubMetadata {
   issueDate: string;
   issueKey: string;
   order: number;
+}
+
+const epubIssueByArticle = new Map(epubMetadata.map((entry) => [entry.id, entry.issueKey]));
+
+export function isEpubArticleId(articleId: string): boolean {
+  return epubIssueByArticle.has(articleId);
+}
+
+export async function prefetchEpubArticle(articleId: string): Promise<void> {
+  const issueKey = epubIssueByArticle.get(articleId);
+  if (issueKey) await prefetchEpubIssue(issueKey);
 }
 
 // 索引只含概述；首次打开正文时才读取该期 JSON 和原刊插图。

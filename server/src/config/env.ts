@@ -1,19 +1,21 @@
 import { z } from 'zod';
 
+const HttpOriginSchema = z.url().refine((value) => {
+  const url = new URL(value);
+  return (
+    (url.protocol === 'http:' || url.protocol === 'https:') &&
+    url.username === '' &&
+    url.password === '' &&
+    url.pathname === '/' &&
+    url.search === '' &&
+    url.hash === ''
+  );
+}, '必须是不含路径的 HTTP(S) origin');
+
 const RawEnvSchema = z.object({
   DATABASE_URL: z.url(),
   EVOLINK_API_KEY: z.string().min(1),
-  PUBLIC_SERVER_ORIGIN: z.url().refine((value) => {
-    const url = new URL(value);
-    return (
-      (url.protocol === 'http:' || url.protocol === 'https:') &&
-      url.username === '' &&
-      url.password === '' &&
-      url.pathname === '/' &&
-      url.search === '' &&
-      url.hash === ''
-    );
-  }, '必须是不含路径的 HTTP(S) origin'),
+  PUBLIC_SERVER_ORIGIN: HttpOriginSchema,
   EVOLINK_BASE_URL: z.url().default('https://direct.evolink.ai/v1'),
   EVOLINK_TEXT_MODEL: z.string().min(1).default('gpt-6-luna'),
   EVOLINK_MODERATION_MODEL: z.string().min(1).default('evolink-moderation-1.0'),
@@ -76,6 +78,7 @@ const RawEnvSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.string().default('info'),
   EDITORIAL_AUDIO_ROOT: z.string().trim().default(''),
+  EDITORIAL_AUDIO_PUBLIC_ORIGIN: z.union([HttpOriginSchema, z.literal('')]).default(''),
   CORS_ORIGINS: z.string().default('http://localhost:8081,http://localhost:19006'),
   FREE_PRACTICE_LIMIT: z.coerce.number().int().positive().default(3),
   JOB_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(500),
@@ -96,6 +99,7 @@ export function loadConfig(source: Record<string, string | undefined>) {
   return {
     ...result.data,
     editorialAudioRoot: result.data.EDITORIAL_AUDIO_ROOT || undefined,
+    editorialAudioPublicOrigin: result.data.EDITORIAL_AUDIO_PUBLIC_ORIGIN || undefined,
     publicServerOrigin: result.data.PUBLIC_SERVER_ORIGIN.replace(/\/$/u, ''),
     corsOrigins: result.data.CORS_ORIGINS.split(',')
       .map((value) => value.trim())

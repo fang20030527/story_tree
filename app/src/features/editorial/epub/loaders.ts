@@ -2,6 +2,9 @@
 import type { RawEpubBlock, EpubMetadata } from '../epubCatalog';
 export const epubMetadata = require('./index.json') as EpubMetadata[];
 
+// 原生端按需读取已打包的期号文件；Web 端由 loaders.web.ts 网络加载。
+export function prefetchEpubIssue(_issueKey: string): Promise<void> { return Promise.resolve(); }
+
 export const issueLoaders: Record<string, () => Record<string, RawEpubBlock[]>> = {
   'new-yorker-2026-09-21-7e40195a': () => require('./issues/new-yorker-2026-09-21-7e40195a.json'),
   'new-yorker-2026-09-14-0b03cf54': () => require('./issues/new-yorker-2026-09-14-0b03cf54.json'),

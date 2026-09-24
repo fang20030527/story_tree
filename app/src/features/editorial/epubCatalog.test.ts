@@ -1,5 +1,5 @@
 import { editorialCanListen, getEditorialArticle, searchEditorialArticles } from './catalog';
-import { epubArticles, getEpubImageUrl } from './epubCatalog';
+import { epubArticles, getEditorialAudioUrl, getEpubImageUrl } from './epubCatalog';
 import { epubMetadata, issueLoaders } from './epub/loaders';
 
 const localizedMetadata = require('./epub/metadata-zh.json') as Record<string, {
@@ -68,23 +68,24 @@ it('gives every bulk EPUB article a Chinese title, topic and difficulty', () => 
   expect(getEditorialArticle(titleWithMarkup.id)?.titleEn).not.toMatch(/<[^>]+>|&amp;/);
 });
 
-it('attaches all repository recordings to the matching issue and article', () => {
-  const audioReport = require('./epub/audio-report.json') as {
-    entryCount: number; matchedCount: number; unmatched: unknown[];
-    matched: Record<string, { article: string; issueDate: string; url: string }>;
+it('attaches only 2026 recordings to the matching issue and article', () => {
+  const audioReport = require('./epub/audio-local-report.json') as {
+    scannedFileCount: number; matchedArticleCount: number; unmatchedFileCount: number;
+    matched: { articleId: string; issueDate: string }[];
   };
-  expect(audioReport.entryCount).toBe(910);
-  expect(audioReport.matchedCount).toBe(audioReport.entryCount);
-  expect(audioReport.unmatched).toEqual([]);
-  expect(epubArticles.filter(editorialCanListen)).toHaveLength(910);
-  for (const [id, recording] of Object.entries(audioReport.matched)) {
-    const article = getEditorialArticle(id)!;
+  expect(audioReport.scannedFileCount).toBe(2725);
+  expect(audioReport.matchedArticleCount).toBe(2674);
+  expect(audioReport.unmatchedFileCount).toBe(51);
+  for (const recording of audioReport.matched) {
+    const article = getEditorialArticle(recording.articleId)!;
     expect(article.source).toBe('The Economist');
     expect(article.issueDate).toBe(recording.issueDate);
-    expect(article.titleEn).toBe(recording.article);
-    expect(article.audioUrl).toBe(recording.url);
-    expect(article.hasAudio).toBe(true);
-    expect(editorialCanListen(article)).toBe(true);
+    expect(recording.issueDate).toMatch(/^2026-/);
+    expect(article.audioUrl).toBe(getEditorialAudioUrl(recording.articleId));
+    if (article.audioUrl) {
+      expect(article.hasAudio).toBe(true);
+      expect(editorialCanListen(article)).toBe(true);
+    }
   }
   expect(epubArticles.filter((article) => !article.audioUrl).every((article) => !article.hasAudio)).toBe(true);
   expect(getEditorialArticle('ai-arms-race')?.audioAsset).toBeDefined();

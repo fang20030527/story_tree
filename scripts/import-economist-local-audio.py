@@ -1,4 +1,4 @@
-"""按期号和标题把本地《经济学人》录音关联到精选外刊文章。"""
+"""按期号和标题把 2026 年《经济学人》录音关联到精选外刊文章。"""
 import argparse
 from collections import defaultdict
 import html
@@ -49,9 +49,10 @@ def make_audio_url(article_id):
 def import_audio(audio_root):
     if not audio_root.is_dir():
         raise ValueError(f'音频目录不存在：{audio_root}')
-    missing_years = [year for year in ('2025', '2026') if not (audio_root / year).is_dir()]
-    if missing_years:
-        raise ValueError(f'缺少音频年份目录：{", ".join(missing_years)}')
+    if audio_root.name == '2026':
+        audio_root = audio_root.parent
+    if not (audio_root / '2026').is_dir():
+        raise ValueError('缺少 2026 年音频目录')
 
     articles = read_articles()
     articles_by_date = defaultdict(list)
@@ -62,7 +63,7 @@ def import_audio(audio_root):
     candidates_by_article = defaultdict(list)
     unmatched = []
     scanned = 0
-    for year in ('2025', '2026'):
+    for year in ('2026',):
         year_directory = audio_root / year
         if not year_directory.is_dir():
             continue
@@ -155,7 +156,7 @@ def import_audio(audio_root):
     for record in matched:
         counts[record['matchType']] += 1
     report = {
-        'sourceFolders': ['2025', '2026'],
+        'sourceFolders': ['2026'],
         'scannedFileCount': scanned,
         'matchedArticleCount': len(mapping),
         'matchTypes': dict(sorted(counts.items())),
@@ -179,7 +180,7 @@ def import_audio(audio_root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('audio_root', type=Path, help='包含 2025/ 和 2026/ 子目录的音频目录')
+    parser.add_argument('audio_root', type=Path, help='2026 年音频目录或包含 2026/ 的父目录')
     args = parser.parse_args()
     report = import_audio(args.audio_root)
     print(json.dumps({key: report[key] for key in (
