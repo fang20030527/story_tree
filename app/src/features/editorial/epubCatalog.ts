@@ -3,6 +3,7 @@ import { getApiBaseUrl } from '@/api/client';
 import { epubMetadata, issueLoaders } from './epub/loaders';
 
 const audioUrls = require('./epub/audio.json') as Record<string, string>;
+const localAudioUrls = require('./epub/audio-local.json') as Record<string, string>;
 const localizedMetadata = require('./epub/metadata-zh.json') as Record<string, {
   titleEn: string;
   titleZh: string;
@@ -21,6 +22,18 @@ export function getEpubImageUrl(id: string): string {
     // 未配置服务地址时仍能阅读本地正文；插图由图片组件显示占位。
     return '';
   }
+}
+
+export function getEditorialAudioUrl(articleId: string): string | undefined {
+  const localUrl = localAudioUrls[articleId];
+  if (localUrl) {
+    try {
+      return `${getApiBaseUrl()}${localUrl}`;
+    } catch {
+      // 未配置服务地址时保留已有出版方录音；本地录音由 API 提供。
+    }
+  }
+  return audioUrls[articleId];
 }
 
 export type RawEpubBlock =
@@ -46,6 +59,7 @@ export interface EpubMetadata {
 export const epubArticles: readonly EditorialArticle[] = epubMetadata.map((entry) => {
   const candidate = localizedMetadata[entry.id];
   const localized = candidate?.titleEn === entry.titleEn ? candidate : undefined;
+  const audioUrl = getEditorialAudioUrl(entry.id);
   let blocks: readonly EditorialBodyBlock[] | undefined;
   let paragraphs: readonly string[] | undefined;
   function readBody(): readonly EditorialBodyBlock[] {
@@ -73,7 +87,7 @@ export const epubArticles: readonly EditorialArticle[] = epubMetadata.map((entry
     section: 'featured',
     issueDate: entry.issueDate,
     publishedAt: entry.issueDate,
-    hasAudio: Boolean(audioUrls[entry.id]),
+    hasAudio: Boolean(audioUrl),
     get paragraphs() {
       paragraphs ??= readBody().flatMap((block) => block.type === 'text' ? [block.text] : []);
       return paragraphs;
@@ -82,6 +96,6 @@ export const epubArticles: readonly EditorialArticle[] = epubMetadata.map((entry
   };
   // 避免对象展开被转成 Object.assign 后提前触发正文 getter。
   if (entry.sourceUrl) article.sourceUrl = entry.sourceUrl;
-  if (audioUrls[entry.id]) article.audioUrl = audioUrls[entry.id];
+  if (audioUrl) article.audioUrl = audioUrl;
   return article;
 });

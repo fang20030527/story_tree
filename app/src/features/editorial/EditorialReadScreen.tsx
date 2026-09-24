@@ -225,7 +225,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         </Text>
         {article.audioAsset || article.audioUrl ? (
           <View onLayout={(event) => { audioHeight.current = event.nativeEvent.layout.height; }} style={{ backgroundColor: theme.bg }}>
-            <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} onPositionChange={updatePlayback} />
+            <EditorialAudioPlayer source={article.audioUrl ?? article.audioAsset!} onPositionChange={updatePlayback} />
           </View>
         ) : article.wordCount > 0 ? (
           <View style={{ backgroundColor: theme.bg }}>

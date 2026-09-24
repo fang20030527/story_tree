@@ -153,7 +153,7 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
           {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
         </Text>
         {article.audioAsset || article.audioUrl ? (
-          <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} />
+          <EditorialAudioPlayer source={article.audioUrl ?? article.audioAsset!} />
         ) : article.wordCount > 0 ? (
           <EditorialSpeechPlayer loadText={() => article.paragraphs} />
         ) : null}

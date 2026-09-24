@@ -1,6 +1,6 @@
 import { importedEditorialArticles } from './importedArticles';
 import { economistSeptember19 } from './issues/economist-2026-09-19';
-import { epubArticles } from './epubCatalog';
+import { epubArticles, getEditorialAudioUrl } from './epubCatalog';
 import type { EditorialAudioCue } from './editorialAudioSync';
 import { aiArmsRaceAudioCues } from './audio/aiArmsRaceAudioCues';
 import duplicateArticles from './duplicateArticles.json';
@@ -11,6 +11,8 @@ import {
   getRemoteFeaturedArticleId,
   getRemoteEditorialSummaries,
 } from './remoteCatalog';
+
+const aiArmsRaceAudioUrl = getEditorialAudioUrl('ai-arms-race');
 
 export type EditorialSection = 'today' | 'featured';
 
@@ -151,6 +153,7 @@ const allEditorialArticles: readonly EditorialArticle[] = [
     "section": "featured",
     "publishedAt": "2026-09-17",
     "hasAudio": true,
+    ...(aiArmsRaceAudioUrl ? { audioUrl: aiArmsRaceAudioUrl } : {}),
     "audioAsset": require('../../../assets/audio/editorial/ai-arms-race.mp3') as number,
     audioCues: aiArmsRaceAudioCues,
     "paragraphs": [
@@ -171,7 +174,10 @@ const allEditorialArticles: readonly EditorialArticle[] = [
     ]
   },
   ...importedEditorialArticles,
-  ...economistSeptember19,
+  ...economistSeptember19.map((article) => {
+    const audioUrl = getEditorialAudioUrl(article.id);
+    return audioUrl ? { ...article, audioUrl, hasAudio: true } : article;
+  }),
   ...epubArticles,
 ];
 

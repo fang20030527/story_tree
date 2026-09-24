@@ -20,6 +20,7 @@ import type { AiProvider } from './infrastructure/ai/types';
 import { computerUploadRoutes } from './modules/computer-upload/routes';
 import { dashboardRoutes } from './modules/dashboard/routes';
 import { editorialImageRoutes } from './modules/editorial/routes';
+import { editorialAudioRoutes } from './modules/editorial/audio-routes';
 import { publishedEditorialRoutes } from './modules/editorial/published-routes';
 import { importsRoutes } from './modules/imports/routes';
 import { practiceRoutes } from './modules/practice/routes';
@@ -138,6 +139,10 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   });
   app.register(publishedEditorialRoutes, {
     contentDirectory: fileURLToPath(new URL('../content/editorial/', import.meta.url)),
+  });
+  app.register(editorialAudioRoutes, {
+    audioRoot: options.config.editorialAudioRoot,
+    manifestPath: fileURLToPath(new URL('../assets/editorial/audio-local.json', import.meta.url)),
   });
   app.register(authPlugin, {
     config: options.config,

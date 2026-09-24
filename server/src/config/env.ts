@@ -75,6 +75,7 @@ const RawEnvSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3_000),
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.string().default('info'),
+  EDITORIAL_AUDIO_ROOT: z.string().trim().default(''),
   CORS_ORIGINS: z.string().default('http://localhost:8081,http://localhost:19006'),
   FREE_PRACTICE_LIMIT: z.coerce.number().int().positive().default(3),
   JOB_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(500),
@@ -94,6 +95,7 @@ export function loadConfig(source: Record<string, string | undefined>) {
 
   return {
     ...result.data,
+    editorialAudioRoot: result.data.EDITORIAL_AUDIO_ROOT || undefined,
     publicServerOrigin: result.data.PUBLIC_SERVER_ORIGIN.replace(/\/$/u, ''),
     corsOrigins: result.data.CORS_ORIGINS.split(',')
       .map((value) => value.trim())

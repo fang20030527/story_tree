@@ -24,11 +24,13 @@
 
 ## 原刊音频
 
-仓库快照提供 15 份《经济学人》逐篇音频清单，覆盖 2025-01-04 至 2025-04-12。全部 910 条已按刊物、期号和完整标题唯一匹配，进入文章概述或阅读页即可使用现有播放器播放、暂停和拖动进度。音频从清单中的出版方 HTTPS 地址在线加载，不增加安装包体积；原有本地音频保留。
+仓库快照提供 15 份《经济学人》逐篇音频清单，覆盖 2025-01-04 至 2025-04-12；这些录音从出版方 HTTPS 地址在线加载。另有本地音频目录，按 `2025/期号/`、`2026/期号/` 保存 MP3。运行 `python scripts/import-economist-local-audio.py "D:/电脑操作/Economist_Audio"` 后，脚本按期号和标题关联录音。本次扫描 6,443 个文件，其中 6,246 条能唯一对应到外刊文章；其余条目因标题或期刊内容无法唯一对应，记录在 `audio-local-report.json`，不会猜测关联。2025-12-20 的重复篇关联到目录中保留的同文文章。
+
+本地录音优先于同一文章原有的出版方 URL。客户端 `audio-local.json` 保存文章 ID 与 API 路径，服务端 `server/assets/editorial/audio-local.json` 保存文章 ID 与音频相对路径；API 从 `app/.env` 中 `EDITORIAL_AUDIO_ROOT` 指定的根目录按需读取音频，并支持播放进度拖动，不会把约 18.5 GB 的文件复制到仓库或客户端安装包。播放 URL 只含文章 ID，不暴露磁盘文件名。开发服务所在电脑必须能访问该目录；部署到其他主机时，也要把相同目录结构提供给服务端并配置该变量。2026-09-19 的精选期刊也会关联本地录音。
 
 较新的 EPUB 没有随附可核验的逐篇录音清单或音频文件。对此类有正文的文章，概述和阅读页显示「AI配音 · 非原刊录音」；声音由设备内置 TTS 生成，无需额外的配音 API。概述页只在按下播放时读取正文。设备朗读按短片段依次播放以适应系统语音输入上限，切换页面时停止。iOS 实机若无声，需检查设备静音模式。今后取得可核验的逐篇录音 URL 后，可继续通过 `epub/audio.json` 关联，真实录音优先于合成朗读。
 
-`epub/audio.json` 保存文章 ID 与音频 URL，`epub/audio-report.json` 保存源文件路径、Git blob、匹配结果和未匹配条目。当前无未匹配条目。重新导入 EPUB 后运行 `python scripts/import-editorial-audio.py`，再运行 `python scripts/test_import_editorial_audio.py`；脚本验证固定提交的清单摘要，有重名或多条录音冲突时不会任意关联。播放需要网络，链接可用性取决于出版方。
+`epub/audio.json` 保存文章 ID 与出版方音频 URL，`epub/audio-report.json` 保存源文件路径、Git blob、匹配结果和未匹配条目。`epub/audio-local.json` 与 `epub/audio-local-report.json` 保存本地录音关联及核对结果。重新导入 EPUB 后运行 `python scripts/import-editorial-audio.py` 和 `python scripts/test_import_editorial_audio.py`；本地音频目录更新后运行 `python scripts/import-economist-local-audio.py <音频根目录>`。两种录音均通过期号和标题关联；同一文章出现多份本地文件或标题仍有歧义时，不会任意关联。
 
 ## EPUB 重建步骤
 
