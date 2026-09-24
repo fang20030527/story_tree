@@ -9,6 +9,17 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/v1/')) {
+      const origin = request.headers.get('origin');
+      if (origin && origin !== url.origin) {
+        return Response.json({
+          error: {
+            code: 'UNAUTHORIZED',
+            message: '请求来源不被允许',
+            requestId: crypto.randomUUID(),
+            retryable: false,
+          },
+        }, { status: 403, headers: { 'cache-control': 'no-store' } });
+      }
       const upstreamUrl = new URL(`${url.pathname}${url.search}`, env.API_ORIGIN);
       // 浏览器访问同源 Worker；转发时移除 Origin，避免旧 API 的 CORS 拒绝。
       const upstreamRequest = new Request(upstreamUrl, request);
