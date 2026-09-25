@@ -27,6 +27,7 @@ import { useAppTheme } from '@/context/ThemeContext';
 import type { Theme } from '@/constants/theme';
 import { weight } from '@/constants/theme';
 import { recordImportedRecentView } from '@/features/library/libraryStorage';
+import { ArticleMediaBlock } from '@/features/imports/ArticleMediaBlock';
 import {
   InteractiveWordParagraph,
 } from '@/features/practice/ArticleParagraph';
@@ -101,6 +102,15 @@ function ArticleReadScreenContent() {
   }, [articleId]);
 
   const markDeleted = useCallback(() => setDeleted(true), []);
+  const hiddenCaptionPositions = new Set((article?.media ?? []).flatMap((media) =>
+    media.captionParagraphPositions ?? [],
+  ));
+  const visibleParagraphIndices = new Map<string, number>();
+  article?.paragraphs.forEach((paragraph) => {
+    if (!hiddenCaptionPositions.has(paragraph.position)) {
+      visibleParagraphIndices.set(paragraph.id, visibleParagraphIndices.size);
+    }
+  });
 
   if (loading) return <View style={[styles.centered, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} /></View>;
 
@@ -151,18 +161,25 @@ function ArticleReadScreenContent() {
 
           <Text style={[styles.meta, { color: theme.textMuted }]}>点按单词查词 · 长按单词翻译整句</Text>
           <View style={styles.articleBody}>
+            {article.media?.filter((media) => media.afterParagraph === -1).map((media, index) => (
+              <ArticleMediaBlock key={`before-${index}`} media={media} theme={theme} />
+            ))}
             {article.paragraphs.map((paragraph, index) => (
-              <ParagraphBlock
-                articleId={article.id}
-                key={paragraph.id}
-                onMissingArticle={markDeleted}
-                paragraphId={paragraph.id}
-                theme={theme}
-                index={index}
-                text={paragraph.text}
-                addedWords={addedWords}
-                onWordAdded={handleWordAdded}
-              />
+              <React.Fragment key={paragraph.id}>
+                {!hiddenCaptionPositions.has(paragraph.position) ? <ParagraphBlock
+                  articleId={article.id}
+                  onMissingArticle={markDeleted}
+                  paragraphId={paragraph.id}
+                  theme={theme}
+                  index={visibleParagraphIndices.get(paragraph.id) ?? index}
+                  text={paragraph.text}
+                  addedWords={addedWords}
+                  onWordAdded={handleWordAdded}
+                /> : null}
+                {article.media?.filter((media) => media.afterParagraph === paragraph.position).map((media, mediaIndex) => (
+                  <ArticleMediaBlock key={`${paragraph.id}-${mediaIndex}`} media={media} theme={theme} />
+                ))}
+              </React.Fragment>
             ))}
           </View>
         </ScrollView>

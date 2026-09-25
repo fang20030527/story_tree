@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import type { ImportedArticleMedia } from '@context-reader/contracts';
 import type { WordReviewState, ConsolidatedReview } from '../modules/vocabulary/scheduler';
 import {
   type AnyPgColumn,
@@ -398,6 +399,7 @@ export const importedArticles = pgTable(
     sourceKind: articleImportSourceKind('source_kind').notNull(),
     sourceUrl: text('source_url'),
     title: text('title').notNull(),
+    mediaJson: jsonb('media_json').$type<ImportedArticleMedia[]>(),
     wordCount: integer('word_count').notNull(),
     contentHash: text('content_hash').notNull(),
     similarityFingerprint: pgBigint('similarity_fingerprint', {
@@ -525,6 +527,7 @@ export const articleImports = pgTable(
     >(),
     previewTitle: text('preview_title'),
     previewText: text('preview_text'),
+    previewMediaJson: jsonb('preview_media_json').$type<ImportedArticleMedia[]>(),
     wordCount: integer('word_count'),
     contentHash: text('content_hash'),
     similarityFingerprint: pgBigint('similarity_fingerprint', {

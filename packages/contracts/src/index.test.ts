@@ -33,6 +33,7 @@ import {
   PasswordResetRequestSchema,
   ImportedArticlePageSchema,
   ImportedArticleDtoSchema,
+  ImportedArticleMediaSchema,
   ImportedArticleSummaryDtoSchema,
   PublicErrorSchema,
   PublicQuestionSchema,
@@ -466,6 +467,24 @@ describe('shared contracts', () => {
         internalHash: 'secret',
       }).success,
     ).toBe(false);
+  });
+
+  it('accepts ordered article media only from public HTTPS URLs', () => {
+    const image = {
+      type: 'image', afterParagraph: -1, url: 'https://images.example.com/story.jpg',
+      caption: null, alt: 'A news photograph', width: 800, height: 450,
+    };
+    expect(ImportedArticleMediaSchema.parse(image)).toEqual(image);
+    for (const url of [
+      'http://images.example.com/story.jpg',
+      'https://127.0.0.1/story.jpg',
+      'https://localhost/story.jpg',
+      'https://intranet/story.jpg',
+      'https://user:pass@images.example.com/story.jpg',
+    ]) {
+      expect(ImportedArticleMediaSchema.safeParse({ ...image, url }).success).toBe(false);
+    }
+    expect(ImportedArticleMediaSchema.safeParse({ ...image, afterParagraph: -2 }).success).toBe(false);
   });
 
   it('validates strict private article summaries and bounded pages', () => {

@@ -2,12 +2,12 @@ import { eq } from 'drizzle-orm';
 import sharp from 'sharp';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ArticleImportDtoSchema } from '@context-reader/contracts';
+import { ArticleImportDtoSchema, ImportedArticleDtoSchema } from '@context-reader/contracts';
 
 import { withTestDatabase } from '../../../test/database';
 import { buildApp } from '../../app';
 import { loadConfig } from '../../config/env';
-import { articleImports, importAssets, jobs } from '../../db/schema';
+import { articleImports, importedArticles, importAssets, jobs } from '../../db/schema';
 import { registerAnonymous } from '../auth/service';
 import {
   claimNextJob,
@@ -26,8 +26,11 @@ const config = loadConfig({
   PUBLIC_SERVER_ORIGIN: 'http://localhost:3000',
 });
 
-const HTML = `<!doctype html><html><head><title>A safe synthetic report</title></head>
-<body><article><p>Careful readers compare evidence before accepting a broad public claim.</p>
+const HTML = `<!doctype html><html><head><title>A safe synthetic report</title>
+<script type="application/ld+json">{"@type":"VideoObject","thumbnailUrl":"https://media.example.com/video-poster.jpg"}</script></head>
+<body><article><div data-component="video-block"><figure><figcaption>Watch the report</figcaption></figure></div>
+<p>Careful readers compare evidence before accepting a broad public claim.</p>
+<figure><img src="https://media.example.com/field.jpg" alt="Field evidence" width="800" height="450"><figcaption>Field evidence</figcaption></figure>
 <p>They preserve context, inspect uncertainty, and revise conclusions when reliable facts change.</p>
 </article></body></html>`;
 
@@ -76,7 +79,65 @@ describe('article import worker', () => {
           failureCode: null,
         });
         expect(row?.previewText).toContain('Careful readers compare evidence');
+        expect(row?.previewMediaJson?.map((item) => [item.type, item.afterParagraph])).toEqual([
+          ['video', -1], ['image', 1],
+        ]);
         expect(await db.select().from(importAssets)).toHaveLength(0);
+
+        const edited = await app.inject({
+          method: 'PATCH', url: `/v1/imports/${importId}/preview`,
+          headers: authHeaders(token, 'url-edit-preview-worker-01'),
+          payload: { title: 'A revised safe synthetic report', text: row!.previewText },
+        });
+        expect(edited.statusCode).toBe(200);
+        const [editedRow] = await db.select({ media: articleImports.previewMediaJson })
+          .from(articleImports).where(eq(articleImports.id, importId));
+        expect(editedRow?.media).toHaveLength(2);
+
+        const confirmed = await app.inject({
+          method: 'POST',
+          url: `/v1/imports/${importId}/confirm`,
+          headers: authHeaders(token, 'url-confirm-worker-01'),
+          payload: {},
+        });
+        expect(confirmed.statusCode).toBe(200);
+        const articleId = ArticleImportDtoSchema.parse(confirmed.json()).articleId;
+        const response = await app.inject({
+          method: 'GET',
+          url: `/v1/articles/${articleId}`,
+          headers: { authorization: `Bearer ${token}` },
+        });
+        expect(response.statusCode).toBe(200);
+        const article = ImportedArticleDtoSchema.parse(response.json());
+        expect(article.paragraphs).toHaveLength(4);
+        expect(article.media?.map((item) => [item.type, item.afterParagraph])).toEqual([
+          ['video', -1], ['image', 1],
+        ]);
+
+        // Reimporting an older text-only copy keeps the existing article ID
+        // while filling in the media that the old importer discarded.
+        await db.update(importedArticles).set({ mediaJson: null }).where(eq(importedArticles.id, articleId!));
+        const reimported = await app.inject({
+          method: 'POST', url: '/v1/imports',
+          headers: authHeaders(token, 'url-reimport-worker-01'),
+          payload: { sourceKind: 'url', url: 'https://example.com/synthetic-report' },
+        });
+        const secondImportId = ArticleImportDtoSchema.parse(reimported.json()).id;
+        const secondJob = await claimNextJob(db, 'url-worker-2', 60_000, ['article_import']);
+        await handleArticleImport({
+          db, fetchMaxBytes: config.IMPORT_FETCH_MAX_BYTES,
+          fetchTimeoutMs: config.IMPORT_FETCH_TIMEOUT_MS,
+          fetchHtml: async () => ({ finalUrl: 'https://example.com/synthetic-report', html: HTML }),
+        }, secondJob!, { signal: new AbortController().signal });
+        expect(await markSucceeded(db, secondJob!.id, secondJob!.lockedBy)).toBe(true);
+        const reconfirmed = await app.inject({
+          method: 'POST', url: `/v1/imports/${secondImportId}/confirm`,
+          headers: authHeaders(token, 'url-reconfirm-worker-01'), payload: {},
+        });
+        expect(ArticleImportDtoSchema.parse(reconfirmed.json()).articleId).toBe(articleId);
+        const [restored] = await db.select({ media: importedArticles.mediaJson })
+          .from(importedArticles).where(eq(importedArticles.id, articleId!));
+        expect(restored?.media).toHaveLength(2);
       } finally {
         await app.close();
       }

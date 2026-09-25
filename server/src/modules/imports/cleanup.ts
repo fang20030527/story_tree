@@ -345,6 +345,7 @@ async function expireImports(
       status: 'expired',
       previewTitle: null,
       previewText: null,
+      previewMediaJson: null,
       wordCount: null,
       contentHash: null,
       similarityFingerprint: null,

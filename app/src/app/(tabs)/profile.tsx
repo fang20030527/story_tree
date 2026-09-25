@@ -39,8 +39,7 @@ async function openAppReview() {
   Alert.alert('感谢支持', '应用尚未上架应用商店，先收下这份鼓励吧！');
 }
 
-const APPEARANCE_OPTIONS: { key: 'system' | ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'system', label: '跟随系统', icon: 'phone-portrait-outline' },
+const APPEARANCE_OPTIONS: { key: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'light', label: '浅色', icon: 'sunny-outline' },
   { key: 'dark', label: '深色', icon: 'moon-outline' },
 ];

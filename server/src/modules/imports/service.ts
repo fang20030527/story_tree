@@ -342,7 +342,12 @@ export async function updateImportPreview(
     if (current.status !== 'preview_ready') {
       throw new AppError('STATE_CONFLICT', '当前导入状态不能编辑预览', 409);
     }
-    const updated = await persistPreview(tx, current.id, normalized);
+    const updated = await persistPreview(
+      tx, current.id,
+      current.previewText === normalized.text
+        ? { ...normalized, media: current.previewMediaJson ?? [] }
+        : normalized,
+    );
     await finishIdempotentOperation(
       tx,
       input.userId,
@@ -457,6 +462,7 @@ export async function cancelArticleImport(
         status: 'cancelled',
         previewTitle: null,
         previewText: null,
+        previewMediaJson: null,
         wordCount: null,
         contentHash: null,
         similarityFingerprint: null,
@@ -639,6 +645,7 @@ async function persistPreview(
       status: 'preview_ready',
       previewTitle: normalized.title,
       previewText: normalized.text,
+      previewMediaJson: normalized.media,
       wordCount: normalized.wordCount,
       contentHash: normalized.contentHash,
       similarityFingerprint: normalized.similarityFingerprint,
@@ -698,6 +705,7 @@ function normalizeStoredPreview(row: ArticleImportRow): NormalizedImportContent 
   return normalizeImportContent({
     title: row.previewTitle,
     text: row.previewText,
+    media: row.previewMediaJson ?? [],
   });
 }
 
@@ -712,6 +720,16 @@ async function resolveConfirmationArticle(
   },
 ): Promise<string> {
   if (input.duplicate.kind === 'exact') {
+    if (input.current.sourceKind === 'url' && input.content.media.length > 0) {
+      await tx.update(importedArticles)
+        .set({ mediaJson: input.content.media })
+        .where(and(
+          eq(importedArticles.id, input.duplicate.article.id),
+          eq(importedArticles.userId, input.userId),
+          eq(importedArticles.sourceUrl, input.current.sourceUrl!),
+          sql`coalesce(jsonb_array_length(${importedArticles.mediaJson}), 0) = 0`,
+        ));
+    }
     return input.duplicate.article.id;
   }
   if (input.duplicate.kind === 'similar') {
@@ -782,6 +800,7 @@ async function createArticle(
     sourceKind: input.current.sourceKind,
     sourceUrl: input.current.sourceUrl,
     title: input.content.title,
+    mediaJson: input.content.media,
     wordCount: input.content.wordCount,
     contentHash: input.content.contentHash,
     similarityFingerprint: input.content.similarityFingerprint,

@@ -17,11 +17,10 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { clearRecentViews } from '@/features/library/libraryStorage';
 
 const APPEARANCE_OPTIONS: {
-  key: 'system' | ThemeMode;
+  key: ThemeMode;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { key: 'system', label: '跟随系统', icon: 'phone-portrait-outline' },
   { key: 'light', label: '浅色', icon: 'sunny-outline' },
   { key: 'dark', label: '深色', icon: 'moon-outline' },
 ];

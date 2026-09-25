@@ -62,6 +62,7 @@ export async function getArticleForUser(
     title: article.title,
     wordCount: article.wordCount,
     importedAt: article.importedAt.toISOString(),
+    media: article.mediaJson ?? [],
     paragraphs: paragraphs.map((paragraph) => ({
       id: paragraph.id,
       position: paragraph.position,

@@ -669,6 +669,39 @@ export const ImportedArticlePageSchema = z
   })
   .strict();
 
+export const ImportedMediaUrlSchema = z.url().max(2_048).refine((value) => {
+  const url = new URL(value);
+  const hostname = url.hostname.replace(/\.$/u, '').toLowerCase();
+  return url.protocol === 'https:' && !url.username && !url.password &&
+    hostname.includes('.') && !hostname.startsWith('[') &&
+    !/^(?:\d{1,3}\.){3}\d{1,3}$/u.test(hostname) &&
+    !/(?:^|\.)(?:localhost|local|internal|invalid|test)$/u.test(hostname);
+}, '媒体地址必须是公开 HTTPS URL');
+
+export const ImportedArticleMediaSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('image'),
+    afterParagraph: z.number().int().min(-1),
+    url: ImportedMediaUrlSchema,
+    caption: z.string().max(500).nullable(),
+    alt: z.string().max(300).nullable(),
+    credit: z.string().max(100).nullable().optional(),
+    captionParagraphPositions: z.array(z.number().int().nonnegative()).max(3).optional(),
+    width: z.number().int().positive().nullable(),
+    height: z.number().int().positive().nullable(),
+  }).strict(),
+  z.object({
+    type: z.literal('video'),
+    afterParagraph: z.number().int().min(-1),
+    url: ImportedMediaUrlSchema,
+    posterUrl: ImportedMediaUrlSchema.nullable(),
+    caption: z.string().max(500).nullable(),
+    captionParagraphPositions: z.array(z.number().int().nonnegative()).max(3).optional(),
+    direct: z.boolean(),
+  }).strict(),
+]);
+export type ImportedArticleMedia = z.infer<typeof ImportedArticleMediaSchema>;
+
 export const ImportedArticleDtoSchema = z
   .object({
     id: UuidSchema,
@@ -677,6 +710,7 @@ export const ImportedArticleDtoSchema = z
     title: z.string().min(1).max(160),
     wordCount: z.number().int().min(20).max(5_000),
     importedAt: z.iso.datetime(),
+    media: z.array(ImportedArticleMediaSchema).max(100).optional(),
     paragraphs: z
       .array(
         z

@@ -71,6 +71,13 @@
       "when": 1790228271053,
       "tag": "0009_amused_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790336703316,
+      "tag": "0010_regular_tinkerer",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { ImportedArticleMediaSchema, type ImportedArticleMedia } from '@context-reader/contracts';
 
 import { franc } from 'franc-min';
 
@@ -16,6 +17,7 @@ export interface NormalizedImportContent {
   title: string;
   text: string;
   paragraphs: string[];
+  media: ImportedArticleMedia[];
   wordCount: number;
   contentHash: string;
   similarityFingerprint: bigint;
@@ -44,6 +46,7 @@ export function normalizePastedContent(text: string): NormalizedImportContent {
 export function normalizeImportContent(input: {
   title: string | null;
   text: string;
+  media?: ImportedArticleMedia[];
 }): NormalizedImportContent {
   const canonical = input.text.normalize('NFKC').replace(/\r\n?/gu, '\n');
   const invalidCount =
@@ -88,10 +91,15 @@ export function normalizeImportContent(input: {
   const title = proposedTitle ?? (fallbackTitle || '导入文章');
   const contentHash = createHash('sha256').update(text, 'utf8').digest('hex');
   const similarityFingerprint = simHash64(text);
+  const media = (input.media ?? []).filter((item) =>
+    item.afterParagraph < paragraphs.length &&
+    ImportedArticleMediaSchema.safeParse(item).success,
+  ).slice(0, 100);
   return {
     title,
     text,
     paragraphs,
+    media,
     wordCount,
     contentHash,
     similarityFingerprint,

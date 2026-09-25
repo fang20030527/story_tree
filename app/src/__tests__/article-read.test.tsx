@@ -2,6 +2,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 
 import { getImportedArticle } from '@/api/articles';
 import { getVocabularyWords } from '@/api/practices';
@@ -16,6 +17,8 @@ import { recordImportedRecentView } from '@/features/library/libraryStorage';
 import ArticleReadScreen from '@/app/article-read';
 
 jest.mock('@/features/study/useStudyTimer', () => ({ useStudyTimer: jest.fn() }));
+jest.mock('expo-video', () => ({ VideoView: () => null, useVideoPlayer: jest.fn() }));
+jest.mock('expo-web-browser', () => ({ openBrowserAsync: jest.fn() }));
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), replace: jest.fn() },
   useLocalSearchParams: () => ({
@@ -104,6 +107,39 @@ it('records the private view without favorite or import header actions', async (
     sourceKind: article.sourceKind,
     wordCount: article.wordCount,
   });
+});
+
+it('shows imported media in source order and opens a publisher video', async () => {
+  mockedGetArticle.mockResolvedValueOnce({
+    ...article,
+    sourceKind: 'url',
+    sourceUrl: 'https://example.com/story',
+    paragraphs: [
+      article.paragraphs[0]!,
+      { id: '44444444-4444-4444-8444-444444444444', position: 1, text: 'Reuters' },
+      { id: '55555555-5555-4555-8555-555555555555', position: 2, text: 'Field evidence' },
+      { ...article.paragraphs[1]!, position: 3 },
+    ],
+    media: [
+      { type: 'video', afterParagraph: -1, url: 'https://example.com/story',
+        posterUrl: 'https://images.example.com/poster.jpg', caption: 'Watch the report', direct: false },
+      { type: 'image', afterParagraph: 0, url: 'https://images.example.com/photo.jpg',
+        caption: 'Field evidence', alt: 'A field photo', credit: 'Reuters',
+        captionParagraphPositions: [1, 2], width: 800, height: 450 },
+    ],
+  });
+  const view = await render(<ArticleReadScreen />);
+  await waitFor(() => expect(view.queryByLabelText('在原网页播放视频')).toBeTruthy());
+  const tree = JSON.stringify(view.toJSON());
+  expect(tree.indexOf('Watch the report')).toBeLessThan(tree.indexOf('Careful'));
+  expect(tree.indexOf('Field evidence')).toBeGreaterThan(tree.indexOf('Careful'));
+  expect(tree.indexOf('Field evidence')).toBeLessThan(tree.indexOf('They'));
+  expect(view.getAllByText('Field evidence')).toHaveLength(1);
+  expect(view.getAllByText('Reuters')).toHaveLength(1);
+  expect(view.queryByText('03')).toBeNull();
+  expect(view.queryByLabelText('A field photo')).toBeTruthy();
+  fireEvent.press(view.getByText('在原网页播放'));
+  expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith('https://example.com/story');
 });
 
 it('offers a shelf recovery action when the initial article is gone', async () => {
