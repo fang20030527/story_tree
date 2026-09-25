@@ -1,8 +1,8 @@
 # Cloudflare 免费套餐部署
 
-本目录部署四个独立项目：`waikan-audio`（私有 R2 音频接口）、`waikan-images`（外刊插图静态资源）、`waikan-web`（Expo Web 静态页面）和迁移中的 `waikan-api`（业务 API）。音频 R2 桶为 `waikan-2026-audio`，Standard 存储类，不启用公共访问。2026 年全部 2,725 个 MP3 共 8,383,477,481 字节；其中 2,674 个文章可播放，51 个未匹配文件只归档。
+本目录部署四个独立项目：`waikan-audio`（私有 R2 音频接口）、`waikan-images`（外刊插图静态资源）、`waikan-web`（Expo Web 静态页面）和 `waikan-api`（业务 API）。音频 R2 桶为 `waikan-2026-audio`，Standard 存储类，不启用公共访问。2026 年全部 2,725 个 MP3 共 8,383,477,481 字节；其中 2,674 个文章可播放，51 个未匹配文件只归档。
 
-`waikan-api` 已发布在独立的 `workers.dev` 地址，绑定 SQLite Durable Object `CpuBoundary`、D1、私有 R2、Images、Workers AI、插图 Worker、Queue 和每分钟 Cron，并配置 EvoLink 和 Resend Worker secrets。Resend 密钥仅有 `danceclip.org` 的发信权限，密码重置发件地址为 `no-reply@danceclip.org`。D1 `waikan-core` 已应用 `0001`、`0002` 两份迁移，并导入 2026-09-25 03:40 UTC 的 Neon 快照（25 张表、985 行）；**旧 API 尚在运行，这不是最终切换快照**。`API_STAGE_OPEN=false` 关闭所有 `/v1` 请求；`/health/live` 返回 200，`/health/ready` 返回 503。正式 `waikan-web` 仍把同源 `/v1/*` 转发到 Render，移动端旧安装包也继续使用原 API。此时不能关闭 Render/Neon。
+`waikan-api` 已发布在独立的 `workers.dev` 地址，绑定 SQLite Durable Object `CpuBoundary`、D1、私有 R2、Images、Workers AI、插图 Worker、Queue 和每分钟 Cron，并配置 EvoLink 和 Resend Worker secrets。Resend 密钥仅有 `danceclip.org` 的发信权限，密码重置发件地址为 `no-reply@danceclip.org`；旧密钥已删除。D1 `waikan-core` 已应用 `0001`、`0002` 两份迁移，导入 Neon 数据（25 张表、985 行）。2026-09-25 04:18 UTC 暂停 Render 后导出的最终快照与已导入快照逐表摘要一致，D1 重新核对通过。`API_STAGE_OPEN=true`，`/health/live` 和 `/health/ready` 均返回 200。正式 `waikan-web` 已通过 Service Binding 把同源 API 转发到 Cloudflare。
 
 ## 免费额度边界
 
@@ -52,15 +52,15 @@ npm run cloudflare:prepare:web
 npm run cloudflare:deploy:web
 ```
 
-业务 API 切换有单独的 `cloudflare/web/wrangler.cutover.jsonc`。它把 `/v1/*` 和 `/computer-upload*` 经 `API_SERVICE` Service Binding 转到 `waikan-api`；常规 `wrangler.jsonc` 仍转到 Render。完成最终数据快照导入、Worker secret 配置和 `/health/ready` 检查后，才执行 `npm run cloudflare:deploy:web:cutover`。如需回滚 Web 入口，重新执行 `npm run cloudflare:deploy:web`。
+正式 Web 配置 `cloudflare/web/wrangler.jsonc` 和切换时使用的 `wrangler.cutover.jsonc` 均把 `/v1/*` 与 `/computer-upload*` 经 `API_SERVICE` Service Binding 转到 `waikan-api`。不要在未同步 D1 和 Neon 数据的情况下恢复曾经转到 Render 的配置，否则可能形成双写或丢失新数据。
 
-旧安装包若仍直连 Render，切换后必须让原 Render 地址只转发到 Cloudflare，避免 Neon 与 D1 各自写入。`server/dist/compat-proxy-entry.js` 是不连接 Neon、不启动旧任务 worker 的临时转发入口；设置 `CLOUDFLARE_API_ORIGIN=https://waikan-api.<你的子域>.workers.dev` 后运行 `npm run start:compat --workspace=@context-reader/server`。启用时应把 Render 的 start command 改为该命令并移除启动前的数据库迁移；旧客户端全部更新后即可停用 Render。此入口仅作为切换方案，当前 Render 尚未启用。
+旧安装包若仍直连 Render，必须让原 Render 地址只转发到 Cloudflare，避免 Neon 与 D1 各自写入。`server/dist/compat-proxy-entry.js` 是不连接 Neon、不启动旧任务 worker 的临时转发入口；设置 `CLOUDFLARE_API_ORIGIN=https://waikan-api.<你的子域>.workers.dev` 后运行 `npm run start:compat --workspace=@context-reader/server`。Render 当前已改为这个启动命令并移除启动前的数据库迁移；旧客户端全部更新后即可停用这个兼容服务。
 
 现有 API 发布 `EDITORIAL_AUDIO_PUBLIC_ORIGIN=https://waikan-audio.<你的子域>.workers.dev` 后，会把新版清单中的 2026 音频请求临时重定向到 Cloudflare。客户端设置媒体 origin 后将直接访问 Cloudflare。`EXPO_PUBLIC_` 变量会进入客户端产物，只能填写公开地址，绝不能放数据库、R2 或 AI 密钥。
 
 ## API 与 D1 迁移
 
-`cloudflare/api/wrangler.jsonc` 定义 API 的 D1、R2、AI、Images、Durable Object、Queue 与 Cron 绑定。业务入口由 `API_STAGE_OPEN=false` 保持关闭。生产快照放在被 Git 忽略的 `.migration/` 中，可能包含用户数据，不得提交或复制到客户端。
+`cloudflare/api/wrangler.jsonc` 定义 API 的 D1、R2、AI、Images、Durable Object、Queue 与 Cron 绑定。业务入口当前为 `API_STAGE_OPEN=true`。生产快照放在被 Git 忽略的 `.migration/` 中，可能包含用户数据，不得提交或复制到客户端。
 
 `npm run cloudflare:export:neon` 从 `app/.env` 读取 Neon 连接，只读导出 25 张业务表；为旧词库在快照中重建缺失的 FSRS 状态。D1 迁移凭证应只保存在本地 `cloudflare/.env.local`，不要与客户端变量混用。获得限时 D1 写入凭证后依次执行：
 
@@ -71,10 +71,10 @@ npm run cloudflare:d1:migrate:api
 npm run cloudflare:import:d1 -- .migration/<快照目录> --apply
 ```
 
-第二条命令按行数、逐行摘要、外键及 D1 支持的 `PRAGMA quick_check` 核对 D1 导入。当前已导入 03:40 UTC 的快照，并用临时预览密钥在实际 Worker 上核验匿名身份创建、仪表板和词库读取；合成身份已清理，D1 重新通过原快照摘要核对，预览密钥已删除。当前仍会有新写入进入 Render/Neon，因此初次导入只用于迁移准备；正式切换必须先暂停旧写入，再重新生成最终快照并核对数据。若 D1 已导入较早快照，最终同步要使用新的空库或受控增量方案，不能直接覆盖旧数据。
+第二条命令按行数、逐行摘要、外键及 D1 支持的 `PRAGMA quick_check` 核对 D1 导入。已导入 03:40 UTC 的快照，并用临时预览密钥在实际 Worker 上核验匿名身份创建、仪表板和词库读取；合成身份已清理，预览密钥已删除。正式切换前暂停 Render 写入，04:18 UTC 的最终快照与已导入快照完全一致，D1 又通过行摘要、外键与 `quick_check` 核验。之后业务写入只应进入 D1；不要直接恢复旧 Fastify/Neon 服务。
 
 暂停旧写入后，运行 `npm run cloudflare:compare:neon -- .migration/<已导入快照> .migration/<最终快照>`。退出码 0 表示 25 张表行数和内容摘要均相同，可再次运行导入命令核验 D1；退出码 1 则必须先在空 D1 库导入最终快照，不能继续切换。
 
 ## 完整迁移的后续工作
 
-现有 Fastify 服务依赖 25 张 PostgreSQL 表、Neon 租约任务队列、`sharp`、PDF/HEIC 解析和 EvoLink 调用。D1 是 SQLite，不能直接运行 PostgreSQL 查询。练习创建、生成、首次答题、URL/文件导入处理和电脑上传已有 Worker 代码，Queue 的导入处理和练习生成也通过本地 D1 隔离核验。公开的外刊目录当前为空，Worker 已按现有数据返回空目录；旧版 EPUB 插图路径通过 Service Binding 读取 `waikan-images`。`API_STAGE_OPEN=false` 仍关闭业务请求；只有开关打开且 Queue、Durable Object、AI、Images、插图 Worker、R2、EvoLink 和 Resend 都配置齐全时，这些任务类型及 HTTP 路由才开放。导入临时 R2 资产设置了 256 MiB 应用级上限，为账户共享的免费 10 GB-month 留空间。Resend Worker secret 已配置，最终 Neon 快照尚未导入。经用户确认，URL 导入改为使用 [Cloudflare 出站隔离](https://developers.cloudflare.com/workers/reference/security-model/)；应用仍逐跳校验 URL、只接受公开域名、限制响应大小和耗时，但不再声称与原来的 DNS 校验及连接 IP 固定等价。在关键流程、数据与免费额度核对完成前，不得切换 Web/移动端或下线 Render/Neon。
+原 Fastify 服务依赖 25 张 PostgreSQL 表、Neon 租约任务队列、`sharp`、PDF/HEIC 解析和 EvoLink 调用。D1 是 SQLite，Worker 已重写练习创建、生成、首次答题、URL/文件导入处理和电脑上传；Queue 的导入处理和练习生成通过本地 D1 隔离核验。公开的外刊目录当前为空，Worker 已按现有数据返回空目录；旧版 EPUB 插图路径通过 Service Binding 读取 `waikan-images`。导入临时 R2 资产设置了 256 MiB 应用级上限，为账户共享的免费 10 GB-month 留空间。经用户确认，URL 导入改为使用 [Cloudflare 出站隔离](https://developers.cloudflare.com/workers/reference/security-model/)；应用仍逐跳校验 URL、只接受公开域名、限制响应大小和耗时，但不再声称与原来的 DNS 校验及连接 IP 固定等价。正式切换后仍需持续观察真实流量、任务队列、邮件和免费额度。

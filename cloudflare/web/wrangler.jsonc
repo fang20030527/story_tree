@@ -2,9 +2,9 @@
   "name": "waikan-web",
   "main": "./src/index.ts",
   "compatibility_date": "2026-09-24",
-  "vars": {
-    "API_ORIGIN": "https://waikan-api.onrender.com"
-  },
+  "services": [
+    { "binding": "API_SERVICE", "service": "waikan-api" }
+  ],
   "assets": {
     "directory": "../../app/dist",
     "binding": "ASSETS",

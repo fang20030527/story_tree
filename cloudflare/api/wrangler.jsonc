@@ -53,8 +53,8 @@
   "vars": {
     "PASSWORD_RESET_FROM_EMAIL": "no-reply@danceclip.org",
     "API_CORS_ORIGINS": "https://waikan-web.zhenyufang162.workers.dev",
-    "API_STAGE_OPEN": "false"
+    "API_STAGE_OPEN": "true"
   }
-  // Add EVOLINK_API_KEY and RESEND_API_KEY with `wrangler secret put` before
-  // enabling routes that call those providers. Never put their values in vars.
+  // EVOLINK_API_KEY and RESEND_API_KEY are encrypted Worker secrets.
+  // Never put their values in vars or the repository.
 }
