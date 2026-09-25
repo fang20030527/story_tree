@@ -1,6 +1,6 @@
 import type { EditorialArticle } from './catalog';
 
-// 来自用户提供的文章包；未提供发布日期的条目保留为空，朗读使用应用内 TTS。
+// 来自用户提供的文章包；未提供发布日期的条目保留为空，也没有原刊录音。
 export const importedEditorialArticles = [
   {
     "id": "deepmind-robot-brains",
@@ -21,7 +21,7 @@ export const importedEditorialArticles = [
     "image": require('../../../assets/images/editorial/deepmind-robot-brains-001.jpg') as number,
     "section": "featured",
     "publishedAt": "",
-    "hasAudio": true,
+    "hasAudio": false,
     "paragraphs": [
       "When Kanishka Rao was a kid, robots like the droids from Star Wars and Rosie from The Jetsons got pretty far into his head. And now that he’s a principal software engineer at Google DeepMind, Rao is trying to get pretty far into theirs.",
       "Rao remembers those bots as “helpful around the house but also sassy.” Today, in an office surrounded by galumphing, fidgeting robots of all kinds, Rao and DeepMind are trying to at least make them helpful. Any chatbot can simulate sass; Rao’s aiming to build general-purpose intelligence that can inhabit many different robot bodies—in pursuit of what roboticists call “physical AI.”",
@@ -77,7 +77,7 @@ export const importedEditorialArticles = [
     "image": require('../../../assets/images/editorial/new-cat-species-001.jpg') as number,
     "section": "featured",
     "publishedAt": "",
-    "hasAudio": true,
+    "hasAudio": false,
     "paragraphs": [
       "In 2017, Paola Nogales-Ascarrunz, a biologist and National Geographic Explorer working in Bolivia, received a call from a local wildlife sanctuary that had just been given what they described as “a weird cat.” It came from a local man who found it as a kitten on a road near a forest. The man took the animal home, believing it to be a domestic breed. But after about a year of living with the clearly wild animal, he realized it would be better off at a sanctuary.",
       "As the lead scientist and founder of the Bolivian Felids Research Program (Programa de Investigación de Félidos Bolivia), Nogales-Ascarrunz was intrigued. The animal had a small, scrunched-up face, short and round ears, and long whiskers. It was, indeed, too small to be a housecat, and, most notably, it was covered in leopard-like spots. So she went to visit the creature at the Senda Verde wildlife sanctuary on the subtropical flank of the Bolivian Andes.",
@@ -138,7 +138,7 @@ export const importedEditorialArticles = [
     "image": require('../../../assets/images/editorial/food-waste-recycling-001.webp') as number,
     "section": "featured",
     "publishedAt": "2026-09-16",
-    "hasAudio": true,
+    "hasAudio": false,
     "paragraphs": [
       "South Korea has cut household food waste going to landfill from 97% to almost nothing. New York City has started sending its scraps the same way.",
       "In addition to the mandatory curbside composting programme, New York City has placed more than 400 smart composting bins across the five boroughs to make food composting more accessible. Unlike the designated bins collected weekly from homes, these solar-powered bins are accessible around the clock via mobile app and free to use.",
@@ -189,7 +189,7 @@ export const importedEditorialArticles = [
     "image": require('../../../assets/images/editorial/secret-agent-sketchbook-011.jpg') as number,
     "section": "featured",
     "publishedAt": "2026-09-18",
-    "hasAudio": true,
+    "hasAudio": false,
     "paragraphs": [
       "He was an ordinary American on an extraordinary WWII mission. And his cartoons of life in a German prisoner of war camp offer a glimpse into what it took to survive.",
       "The sketches that U.S. Marine paratrooper Jack Risler drew as a POW, after narrowly surviving a clandestine World War II operation, offer a rare perspective on the war. Courtesy the Risler family.",
@@ -256,7 +256,7 @@ export const importedEditorialArticles = [
     "image": require('../../../assets/images/editorial/viking-word-independence-001.webp') as number,
     "section": "featured",
     "publishedAt": "2026-06-25",
-    "hasAudio": true,
+    "hasAudio": false,
     "paragraphs": [
       "From Roman freedom to Viking happiness, the iconic words in the Declaration of Independence reveal thousands of years of humans wrestling with how to live well together – and the power of language to put those ideas into action.",
       "\"We hold these truths to be self-evident, that all men are created equal, that they are endowed by their Creator with certain unalienable Rights, that among these are Life, Liberty and the pursuit of Happiness.\"",

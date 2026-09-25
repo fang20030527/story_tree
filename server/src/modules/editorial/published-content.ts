@@ -80,7 +80,7 @@ function toPublishedArticle(file: ArticleFile, section: 'today' | 'featured'): P
     section,
     wordCount: words,
     minutes: file.minutes ?? Math.max(1, Math.ceil(words / 160)),
-    hasAudio: Boolean(file.audioUrl) || words > 0,
+    hasAudio: Boolean(file.audioUrl),
   });
 }
 

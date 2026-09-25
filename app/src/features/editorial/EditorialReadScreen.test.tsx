@@ -123,12 +123,18 @@ it('returns to the editorial list when opened without navigation history', async
 });
 
 jest.mock('./EditorialAudioPlayer', () => ({ EditorialAudioPlayer: jest.fn(() => null) }));
-jest.mock('./EditorialSpeechPlayer', () => ({ EditorialSpeechPlayer: jest.fn(() => null) }));
 
 it('connects the supplied recording to the AI article', async () => {
   const view = await render(<EditorialReadScreen articleId="ai-arms-race" />);
   expect(view.getByText('Can the AI arms race be stopped?')).toBeTruthy();
   expect(EditorialAudioPlayer).toHaveBeenCalledWith(expect.objectContaining({ source: expect.anything() }), undefined);
+});
+
+it('shows no audio controls for an article without an original recording', async () => {
+  const view = await render(<EditorialReadScreen articleId="hero" />);
+  expect(EditorialAudioPlayer).not.toHaveBeenCalled();
+  expect(view.getByTestId('editorial-reading-scroll').props.stickyHeaderIndices).toBeUndefined();
+  expect(view.queryByText(/AI配音/u)).toBeNull();
 });
 
 it('restores saved highlights, translation visibility and scroll position after leaving', async () => {

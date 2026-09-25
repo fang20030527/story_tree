@@ -1,5 +1,4 @@
 import { EditorialAudioPlayer } from './EditorialAudioPlayer';
-import { EditorialSpeechPlayer } from './EditorialSpeechPlayer';
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -24,6 +23,8 @@ import {
 
 import { EditorialImage } from './EditorialImage';
 import { EditorialRemoteStatus } from './EditorialRemoteStatus';
+import { PUBLICATION_LOGOS } from './publicationLogo';
+import { getChineseEditorialSummary, isChineseEditorialSummary } from './editorialSummary';
 import { useEditorialArticle } from './useEditorialArticle';
 
 type Props = { articleId: string };
@@ -52,6 +53,25 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
     shelved: false,
   });
   const [message, setMessage] = useState<string | null>(null);
+  const [summaryState, setSummaryState] = useState<{
+    value: string | null;
+    loading: boolean;
+    error: boolean;
+  }>(() => ({
+    value: isChineseEditorialSummary(article.summaryZh) ? article.summaryZh : null,
+    loading: !isChineseEditorialSummary(article.summaryZh),
+    error: false,
+  }));
+  const [summaryAttempt, setSummaryAttempt] = useState(0);
+
+  useEffect(() => {
+    if (isChineseEditorialSummary(article.summaryZh)) return;
+    let active = true;
+    void getChineseEditorialSummary(article.id, article.summaryZh)
+      .then((value) => { if (active) setSummaryState({ value, loading: false, error: false }); })
+      .catch(() => { if (active) setSummaryState({ value: null, loading: false, error: true }); });
+    return () => { active = false; };
+  }, [article.id, article.summaryZh, summaryAttempt]);
 
   useEffect(() => {
     let active = true;
@@ -115,7 +135,8 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
           styles.content,
           { paddingBottom: insets.bottom + 120 },
         ]}>
-        <EditorialImage uri={article.image} style={styles.cover} priority="high">
+        <EditorialImage uri={article.image} fallbackSource={PUBLICATION_LOGOS[article.source]}
+          style={styles.cover} priority="high">
           <View style={styles.coverShade} />
           <View style={styles.coverActionWrap}>
             <TouchableOpacity
@@ -153,14 +174,23 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
           {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
         </Text>
         {article.audioAsset || article.audioUrl ? (
-          <EditorialAudioPlayer source={article.audioUrl ?? article.audioAsset!} />
-        ) : article.wordCount > 0 ? (
-          <EditorialSpeechPlayer loadText={() => article.paragraphs} />
+          <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} />
         ) : null}
 
         <View style={[styles.section, { borderColor: theme.border }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>文章概述</Text>
-          <Text style={[styles.summary, { color: theme.textSecondary }]}>{article.summaryZh}</Text>
+          <Text style={[styles.summary, { color: theme.textSecondary }]}>
+            {summaryState.value ?? (summaryState.loading ? '中文概述加载中…' : '中文概述暂时无法加载')}
+          </Text>
+          {summaryState.error ? (
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="重试中文概述"
+              onPress={() => {
+                setSummaryState({ value: null, loading: true, error: false });
+                setSummaryAttempt((current) => current + 1);
+              }}>
+              <Text style={{ color: theme.blue }}>重试中文概述</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View style={styles.pointsSection}>

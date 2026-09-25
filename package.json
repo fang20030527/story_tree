@@ -29,8 +29,16 @@
     "audio:r2:upload": "node scripts/upload-economist-2026-r2.mjs --upload",
     "cloudflare:deploy:audio": "wrangler deploy --config cloudflare/audio/wrangler.jsonc",
     "cloudflare:deploy:images": "wrangler deploy --config cloudflare/images/wrangler.jsonc",
+    "cloudflare:deploy:api": "node --env-file=cloudflare/.env.local node_modules/wrangler/bin/wrangler.js deploy --config cloudflare/api/wrangler.jsonc",
+    "cloudflare:typecheck:api": "tsc --project cloudflare/api/tsconfig.json",
+    "cloudflare:d1:migrate:api": "node --env-file=cloudflare/.env.local scripts/apply-cloudflare-d1-migrations.mjs",
+    "cloudflare:export:neon": "node --env-file=app/.env --import tsx scripts/export-neon-to-d1.mjs",
+    "cloudflare:rehearse:d1": "node scripts/rehearse-d1-snapshot.mjs",
+    "cloudflare:compare:neon": "node scripts/compare-neon-snapshots.mjs",
+    "cloudflare:import:d1": "node --env-file=cloudflare/.env.local scripts/import-neon-snapshot-to-d1.mjs",
     "cloudflare:prepare:web": "node scripts/prepare-cloudflare-web.mjs",
-    "cloudflare:deploy:web": "wrangler deploy --config cloudflare/web/wrangler.jsonc"
+    "cloudflare:deploy:web": "wrangler deploy --config cloudflare/web/wrangler.jsonc",
+    "cloudflare:deploy:web:cutover": "wrangler deploy --config cloudflare/web/wrangler.cutover.jsonc"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "3.1139.0",

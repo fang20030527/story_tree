@@ -1,9 +1,9 @@
 import { EditorialAudioPlayer } from './EditorialAudioPlayer';
-import { EditorialSpeechPlayer } from './EditorialSpeechPlayer';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import { router } from 'expo-router';
+import { requestSentenceTranslation } from '@/api/sentences';
 
 import {
   isEditorialArticleShelved,
@@ -105,19 +105,31 @@ it('changes its accessible action label and blocks a pending shelf write', async
 });
 
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+jest.mock('@/api/sentences', () => ({ requestSentenceTranslation: jest.fn() }));
 
 jest.mock('./EditorialAudioPlayer', () => ({ EditorialAudioPlayer: jest.fn(() => null) }));
-jest.mock('./EditorialSpeechPlayer', () => ({ EditorialSpeechPlayer: jest.fn(() => null) }));
 
 it('connects the supplied recording to the AI article', async () => {
   const view = await render(<EditorialOverviewScreen articleId="ai-arms-race" />);
   expect(view.getByText('Can the AI arms race be stopped?')).toBeTruthy();
-  expect(EditorialAudioPlayer).toHaveBeenCalledWith(expect.objectContaining({ source: expect.anything() }), undefined);
+  expect(EditorialAudioPlayer).toHaveBeenCalledWith(expect.objectContaining({
+    source: expect.any(Number),
+  }), undefined);
 });
 
-it('offers clearly labelled synthetic speech when no source recording exists', async () => {
-  const view = await render(<EditorialOverviewScreen articleId="economist-2026-09-19-c16e0774-be87-458b-a09e-6543a1e36778" />);
-  expect(view.getByText('How do you improve your gut microbiome?')).toBeTruthy();
+it('does not offer playback when an article has no original recording', async () => {
+  const view = await render(<EditorialOverviewScreen articleId="economist-2025-12-27-a1cf5cd8c0df4b36" />);
+  expect(view.getByText('The world this year 2025')).toBeTruthy();
   expect(EditorialAudioPlayer).not.toHaveBeenCalled();
-  expect(EditorialSpeechPlayer).toHaveBeenCalledWith(expect.objectContaining({ loadText: expect.any(Function) }), undefined);
+  expect(view.queryByText(/AI配音/u)).toBeNull();
+});
+
+it('shows a Chinese overview for a bundled EPUB article', async () => {
+  jest.mocked(requestSentenceTranslation).mockResolvedValue('他的最新关税威胁尚属相称，但局势可能失控。');
+  const view = await render(<EditorialOverviewScreen articleId="economist-2026-08-29-c4ca5c78b1f7b3d5" />);
+  expect(view.queryByText('His latest tariff threats are proportionate. But the situation could get out of hand')).toBeNull();
+  await waitFor(() => expect(view.getByText('他的最新关税威胁尚属相称，但局势可能失控。')).toBeTruthy());
+  expect(requestSentenceTranslation).toHaveBeenCalledWith(
+    'His latest tariff threats are proportionate. But the situation could get out of hand',
+  );
 });

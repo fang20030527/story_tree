@@ -36,7 +36,7 @@ const summary: PublishedEditorialSummary = {
   image: '/v1/editorial/assets/daily-cover.webp',
   section: 'today',
   publishedAt: '2026-09-24',
-  hasAudio: true,
+  hasAudio: false,
 };
 
 it('adds deployed articles to discovery and reading, keeps the last catalog on failure, and removes unpublished entries', async () => {

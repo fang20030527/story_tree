@@ -25,7 +25,6 @@ import { recordEditorialRecentView } from '@/features/library/libraryStorage';
 import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
 import { EditorialImage } from './EditorialImage';
 import { EditorialRemoteStatus } from './EditorialRemoteStatus';
-import { EditorialSpeechPlayer } from './EditorialSpeechPlayer';
 import { useEditorialArticle } from './useEditorialArticle';
 import {
   loadEditorialTranslation,
@@ -200,7 +199,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           readingOverlay?.onScroll(event.nativeEvent.contentOffset.y);
           onScroll(event);
         }}
-        stickyHeaderIndices={article.audioAsset || article.audioUrl || article.wordCount > 0 ? [4] : undefined}
+        stickyHeaderIndices={article.audioAsset || article.audioUrl ? [4] : undefined}
         scrollEventThrottle={16}
         onScrollEndDrag={(event) => { onScroll(event); flush(); }}
         onMomentumScrollEnd={(event) => { onScroll(event); flush(); }}
@@ -225,11 +224,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         </Text>
         {article.audioAsset || article.audioUrl ? (
           <View onLayout={(event) => { audioHeight.current = event.nativeEvent.layout.height; }} style={{ backgroundColor: theme.bg }}>
-            <EditorialAudioPlayer source={article.audioUrl ?? article.audioAsset!} onPositionChange={updatePlayback} />
-          </View>
-        ) : article.wordCount > 0 ? (
-          <View style={{ backgroundColor: theme.bg }}>
-            <EditorialSpeechPlayer loadText={() => article.paragraphs} />
+            <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} onPositionChange={updatePlayback} />
           </View>
         ) : null}
         <View

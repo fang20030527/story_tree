@@ -22,6 +22,7 @@ it('retries an unavailable remote image while keeping its overlay usable', async
   expect(view.getByTestId('editorial-image').props.cachePolicy).toBe('memory-disk');
   for (const delay of [2_000, 6_000, 15_000, 30_000, 45_000]) {
     await fireEvent(view.getByTestId('editorial-image'), 'error');
+    expect(view.queryByTestId('editorial-image')).toBeNull();
     expect(view.getByText('加入书架')).toBeTruthy();
     await act(async () => { jest.advanceTimersByTime(delay); });
     expect(view.getByTestId('editorial-image')).toBeTruthy();
@@ -41,4 +42,14 @@ it('preserves the original fit and accessible name for inline artwork', async ()
   expect(image.props.contentFit).toBe('contain');
   expect(image.props.priority).toBe('low');
   expect(image.props.cachePolicy).toBe('memory-disk');
+});
+
+it('keeps a bundled publication image visible under a missing remote cover', async () => {
+  const view = await render(<EditorialImage uri="https://images.example.test/missing.webp"
+    fallbackSource={42} style={{ width: 92, height: 82 }} />);
+  expect(view.getByTestId('editorial-image-fallback').props.source).toBe(42);
+  expect(view.getByTestId('editorial-image-fallback').props.contentFit).toBe('contain');
+  await fireEvent(view.getByTestId('editorial-image'), 'error');
+  expect(view.queryByTestId('editorial-image')).toBeNull();
+  expect(view.getByTestId('editorial-image-fallback').props.source).toBe(42);
 });

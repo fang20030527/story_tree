@@ -13,19 +13,9 @@ import {
   type EditorialArticle,
 } from './catalog';
 import { useRemoteEditorialCatalogVersion } from './remoteCatalog';
+import { PUBLICATION_LOGOS } from './publicationLogo';
 
 const PAGE_SIZE = 24;
-
-// 官网品牌资源随应用打包，外刊列表无需联网加载标识。
-const PUBLICATION_LOGOS: Record<string, number> = {
-  'The Economist': require('../../../assets/images/publications/economist.png'),
-  'Scientific American': require('../../../assets/images/publications/scientific-american.png'),
-  'National Geographic': require('../../../assets/images/publications/national-geographic.png'),
-  'BBC Future': require('../../../assets/images/publications/bbc.png'),
-  'The New Yorker': require('../../../assets/images/publications/new-yorker.png'),
-  WIRED: require('../../../assets/images/publications/wired.png'),
-  'The Atlantic': require('../../../assets/images/publications/atlantic.png'),
-};
 
 export function FeaturedLibrary({ renderArticle, onNavigate }: {
   renderArticle: (article: EditorialArticle) => React.ReactNode;

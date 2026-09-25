@@ -8,7 +8,7 @@
 - 去除重复内容后共收录 9,538 篇，其中包括原先已校订的 2026-09-19 经济学人 76 篇；沿用其 ID、中文标题及阅读记录。
 - 不同文件中重复的 427 篇只在列表显示一次；每个 EPUB 都保留来源和篇数记录。
 - 六个 Caleb’s Inferno 游戏目录条目在原包中没有正文，记录在 `excludedEntries`，不生成空白文章。
-- 新导入文章保留英文原题和导语；列表另有中文译题、中文主题及按正文估算的雅思阅读难度。
+- 新导入文章保留英文原题和导语；列表另有中文译题、中文主题及按正文估算的雅思阅读难度。概述页首次打开英文导语时请求中文翻译，并在设备上缓存结果；离线且尚无缓存时可重试。
 
 完整清单与来源缺图、目录重复、图片路径修复、视频首帧转换记录：`app/src/features/editorial/epub/import-report.json`。
 
@@ -18,17 +18,17 @@
 
 打开「外刊 → 精选外刊 → 更多」，按刊物、年份筛选或搜索标题、来源、分类和期刊日期。每页 24 篇；点击文章进入原有概述和查词阅读页面。
 
-索引与各期正文在客户端，正文模块在打开文章后才加载。新增插图位于 `server/assets/editorial/epub`，通过 `/v1/editorial/images/:id` 按需下载，支持内容摘要 URL、ETag 和长期缓存。**需要同步更新服务端并保留此资源目录**，客户端继续使用已有 `EXPO_PUBLIC_API_BASE_URL`。原先内置的文章插图保持不变。未配置服务或首次离线阅读时，新增正文仍可打开，插图需要网络。
+索引与各期正文在客户端，正文模块在打开文章后才加载。新增插图通过 Web Worker 同源的 `/v1/editorial/images/:id` 按需下载，API 的 `IMAGE_SERVICE` 绑定转发到插图 Worker。原刊录音也通过 Web Worker 同源的 `/v1/editorial/audio/:id` 提供。客户端的媒体地址须与当前部署的 Web origin 一致。未配置服务或首次离线阅读时，新增正文仍可打开，插图需要网络；文章封面会显示随安装包提供的刊物标识。
 
-本次新增正文及索引约 102 MB、插图约 1.34 GB。图片不进入客户端安装包；部署服务端时必须包含资源文件，单独复制 `server/dist` 不足以提供插图。Render 的仓库构建与工作区启动方式保留这些文件，无须数据库迁移。
+本次新增正文及索引约 102 MB、插图约 1.34 GB。图片不进入客户端安装包，由独立插图 Worker 提供；更换客户端媒体 origin 时须验证图片和录音路径均能返回资源。
 
 ## 原刊音频
 
 当前应用只关联 2026 年《经济学人》原刊录音。运行 `python scripts/import-economist-local-audio.py "D:/电脑操作/Economist_Audio/2026"` 后，脚本按期号和标题关联录音。本次扫描 2,725 个 MP3，其中 2,674 个能唯一对应文章，另 51 个只在 `audio-local-report.json` 中记录，不猜测关联。2025 年文章正文仍保留，但不再提供原刊录音；本地原始文件没有删除。
 
-客户端 `audio-local.json` 保存文章 ID 与 API 路径，服务端 `server/assets/editorial/audio-local.json` 保存文章 ID 与音频相对路径。2026 年全部 2,725 个 MP3 存入私有 Cloudflare R2 桶；Audio Worker 按文章 ID 流式提供已匹配的录音，支持播放进度拖动。51 个未匹配文件只归档，不通过文章接口公开。客户端设置 `EXPO_PUBLIC_EDITORIAL_AUDIO_ORIGIN` 后直连 Worker；旧版客户端可由现有 API 的 `EDITORIAL_AUDIO_PUBLIC_ORIGIN` 重定向。开发服务仍可通过 `EDITORIAL_AUDIO_ROOT` 从本机读取。播放 URL 不含磁盘文件名，也不把约 8.38 GB 音频复制到仓库或安装包。详见 [Cloudflare 部署说明](../cloudflare/README.md)。
+客户端 `audio-local.json` 保存文章 ID 与 API 路径，服务端 `server/assets/editorial/audio-local.json` 保存文章 ID 与音频相对路径。2026 年全部 2,725 个 MP3 存入私有 Cloudflare R2 桶；Audio Worker 按文章 ID 流式提供已匹配的录音，支持播放进度拖动。51 个未匹配文件只归档，不通过文章接口公开。生产客户端的 `EXPO_PUBLIC_EDITORIAL_AUDIO_ORIGIN` 指向 Web Worker，由其 `AUDIO_SERVICE` 绑定读取录音；旧版客户端仍使用旧地址。开发服务可通过 `EDITORIAL_AUDIO_ROOT` 从本机读取。播放 URL 不含磁盘文件名，也不把约 8.38 GB 音频复制到仓库或安装包。详见 [Cloudflare 部署说明](../cloudflare/README.md)。
 
-没有匹配到 2026 年原刊录音的文章，概述和阅读页显示「AI配音 · 非原刊录音」；声音由设备内置 TTS 生成，无需额外的配音 API。概述页只在按下播放时读取正文。设备朗读按短片段依次播放以适应系统语音输入上限，切换页面时停止。iOS 实机若无声，需检查设备静音模式。
+没有原刊录音的文章在概述页和阅读页均不显示音频播放器；有原刊录音的文章仅播放对应录音，不使用设备内置 TTS 代替。iOS 实机若无声，需检查设备静音模式。
 
 `epub/audio-local.json` 与 `epub/audio-local-report.json` 保存 2026 年录音关联及核对结果。重新导入 EPUB 或更新本地音频后，运行 `python scripts/import-economist-local-audio.py <2026 年音频目录>`。同一文章出现多份文件或标题仍有歧义时，脚本不会任意关联。旧的 2025 年出版方音频清单已从项目中移除。
 

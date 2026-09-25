@@ -62,7 +62,7 @@ it('publishes summaries and full articles while keeping drafts private', async (
   expect(list.statusCode).toBe(200);
   expect(list.headers['cache-control']).toBe('no-store');
   expect(list.json().articles).toEqual([
-    expect.objectContaining({ id: 'remote-2026-09-24-new', section: 'today', wordCount: 9, minutes: 1 }),
+    expect.objectContaining({ id: 'remote-2026-09-24-new', section: 'today', wordCount: 9, minutes: 1, hasAudio: false }),
     expect.objectContaining({ id: 'remote-2026-09-23-old', section: 'featured' }),
   ]);
   expect(list.json().articles[0]).not.toHaveProperty('paragraphs');
@@ -70,6 +70,7 @@ it('publishes summaries and full articles while keeping drafts private', async (
   const detail = await app.inject({ url: '/v1/editorial/articles/remote-2026-09-24-new' });
   expect(detail.statusCode).toBe(200);
   expect(detail.json().paragraphs).toEqual(['A new article is available without an app update.']);
+  expect(detail.json().hasAudio).toBe(false);
 
   const draft = await app.inject({ url: '/v1/editorial/articles/remote-2026-09-25-draft' });
   expect(draft.statusCode).toBe(404);

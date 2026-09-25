@@ -29,6 +29,7 @@ import {
 } from './catalog';
 import { EditorialImage } from './EditorialImage';
 import { FeaturedLibrary } from './FeaturedLibrary';
+import { PUBLICATION_LOGOS } from './publicationLogo';
 import {
   refreshRemoteEditorialCatalog,
   useRemoteEditorialCatalogVersion,
@@ -284,7 +285,7 @@ function HeroCard({
       accessibilityRole="button"
       accessibilityLabel={`${article.titleZh}，查看文章概述`}
       style={styles.heroCard}>
-      <EditorialImage uri={article.image} style={styles.heroImage}>
+      <EditorialImage uri={article.image} fallbackSource={PUBLICATION_LOGOS[article.source]} style={styles.heroImage}>
         <View style={styles.heroShade} />
         <View style={styles.heroOverlay}>
           <Text style={styles.heroSource}>{article.source} · {article.category}</Text>
@@ -313,7 +314,8 @@ function ArticleCard({
       accessibilityRole="button"
       accessibilityLabel={`${article.titleZh}，查看文章概述`}
       style={[styles.articleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <EditorialImage uri={article.image} style={styles.articleImage} priority="high" />
+      <EditorialImage uri={article.image} fallbackSource={PUBLICATION_LOGOS[article.source]}
+        style={styles.articleImage} priority="high" />
       <View style={styles.articleInfo}>
         <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.articleTitle, { color: theme.text }]} numberOfLines={2}>{article.titleZh}</Text>

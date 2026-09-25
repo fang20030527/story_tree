@@ -11,6 +11,7 @@ coverage/
 .trash-app-tmp/
 .superpowers/
 .local-test-results/
+.migration/
 app/dist-recovery/
 
 # local URL extract output

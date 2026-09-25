@@ -11,6 +11,7 @@ import { useAppTheme } from '@/context/ThemeContext';
 
 type Props = {
   uri: string | number;
+  fallbackSource?: number;
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
   priority?: 'low' | 'normal' | 'high';
@@ -18,15 +19,15 @@ type Props = {
   accessibilityLabel?: string;
 };
 
-// An idle API host can need longer than the first few retries to become ready.
+// Retry transient media failures while retaining a bundled publication image.
 const RETRY_DELAYS_MS = [2_000, 6_000, 15_000, 30_000, 45_000];
 
-export function EditorialImage({ uri, style, children, priority = 'normal', contentFit = 'cover', accessibilityLabel }: Props) {
+export function EditorialImage({ uri, fallbackSource, style, children, priority = 'normal', contentFit = 'cover', accessibilityLabel }: Props) {
   return <EditorialImageContent key={String(uri)} uri={uri} style={style} priority={priority}
-    contentFit={contentFit} accessibilityLabel={accessibilityLabel}>{children}</EditorialImageContent>;
+    fallbackSource={fallbackSource} contentFit={contentFit} accessibilityLabel={accessibilityLabel}>{children}</EditorialImageContent>;
 }
 
-function EditorialImageContent({ uri, style, children, priority, contentFit, accessibilityLabel }: Props) {
+function EditorialImageContent({ uri, fallbackSource, style, children, priority, contentFit, accessibilityLabel }: Props) {
   const { theme } = useAppTheme();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -40,21 +41,26 @@ function EditorialImageContent({ uri, style, children, priority, contentFit, acc
   }, []);
 
   const onError = () => {
-    // The image host can still be waking when an issue is first opened.
     // Keep the article usable and retry remote images without requiring navigation.
+    setFailed(true);
     if (typeof uri !== 'string' || !uri || attempt >= RETRY_DELAYS_MS.length) {
-      setFailed(true);
       return;
     }
     if (retryTimer.current) return;
     retryTimer.current = setTimeout(() => {
       retryTimer.current = null;
       setAttempt((current) => current + 1);
+      setFailed(false);
     }, RETRY_DELAYS_MS[attempt]);
   };
 
   return (
-    <View style={[styles.frame, { backgroundColor: theme.surfaceAlt }, style]}>
+    <View style={[styles.frame, { backgroundColor: fallbackSource ? '#FFFFFF' : theme.surfaceAlt }, style]}>
+      {fallbackSource ? (
+        <Image testID="editorial-image-fallback" source={fallbackSource}
+          style={StyleSheet.absoluteFill} contentFit="contain"
+          accessibilityLabel={accessibilityLabel} accessibilityIgnoresInvertColors />
+      ) : null}
       {!failed && uri ? (
         <Image
           key={`${uri}:${attempt}`}

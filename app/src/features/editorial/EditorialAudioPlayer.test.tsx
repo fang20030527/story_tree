@@ -110,6 +110,28 @@ it('reloads an asset after a load failure', async () => {
   expect(player.replace).toHaveBeenCalledWith(7);
 });
 
+it('lets a stalled remote recording be retried and downloads it before playback', async () => {
+  jest.useFakeTimers();
+  try {
+    status = { ...status, isLoaded: false, duration: 0 };
+    const url = 'https://reader.example.test/v1/editorial/audio/example';
+    const view = await render(<EditorialAudioPlayer source={url} />);
+    expect(useAudioPlayer).toHaveBeenCalledWith(url, { updateInterval: 100, downloadFirst: true });
+    expect(view.getByLabelText('音频加载中')).toBeDisabled();
+    await act(async () => { jest.advanceTimersByTime(15_000); });
+    expect(view.getByText('音频加载超时，请重试')).toBeTruthy();
+    await fireEvent.press(view.getByLabelText('重试音频'));
+    expect(player.replace).toHaveBeenCalledWith(url);
+    expect(view.getByLabelText('音频加载中')).toBeDisabled();
+    status = { ...status, isLoaded: true, duration: 120 };
+    await view.rerender(<EditorialAudioPlayer source={url} />);
+    await fireEvent.press(view.getByLabelText('播放音频'));
+    expect(player.play).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 it('does not start playback if the page was left during audio setup', async () => {
   let finish!: () => void;
   jest.mocked(setAudioModeAsync).mockReturnValue(new Promise<void>((resolve) => { finish = resolve; }));

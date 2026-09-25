@@ -89,11 +89,15 @@ it('attaches only 2026 recordings to the matching issue and article', () => {
   }
   expect(epubArticles.filter((article) => !article.audioUrl).every((article) => !article.hasAudio)).toBe(true);
   expect(getEditorialArticle('ai-arms-race')?.audioAsset).toBeDefined();
+  expect(editorialCanListen(getEditorialArticle('hero')!)).toBe(false);
+  expect(editorialCanListen(getEditorialArticle('deepmind-robot-brains')!)).toBe(false);
 });
 
 it('uses the configured API origin for illustrations without bundling their bytes', () => {
   const original = process.env.EXPO_PUBLIC_API_BASE_URL;
+  const originalImageOrigin = process.env.EXPO_PUBLIC_EDITORIAL_IMAGE_ORIGIN;
   try {
+    delete process.env.EXPO_PUBLIC_EDITORIAL_IMAGE_ORIGIN;
     process.env.EXPO_PUBLIC_API_BASE_URL = 'https://reader.example.test';
     expect(getEpubImageUrl('0123456789abcdef01234567'))
       .toBe('https://reader.example.test/v1/editorial/images/0123456789abcdef01234567.webp');
@@ -102,5 +106,7 @@ it('uses the configured API origin for illustrations without bundling their byte
   } finally {
     if (original === undefined) delete process.env.EXPO_PUBLIC_API_BASE_URL;
     else process.env.EXPO_PUBLIC_API_BASE_URL = original;
+    if (originalImageOrigin === undefined) delete process.env.EXPO_PUBLIC_EDITORIAL_IMAGE_ORIGIN;
+    else process.env.EXPO_PUBLIC_EDITORIAL_IMAGE_ORIGIN = originalImageOrigin;
   }
 });
