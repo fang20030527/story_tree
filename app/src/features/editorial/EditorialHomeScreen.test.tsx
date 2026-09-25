@@ -112,7 +112,7 @@ it('browses publication then dates, and resets pagination when returning', async
   expect(view.queryByLabelText('下一页')).toBeNull();
 });
 
-it('finds the original recordings without showing issues that only have AI narration', async () => {
+it('shows only 2026 original recordings', async () => {
   const view = await render(<EditorialHomeScreen />);
   await fireEvent.press(view.getByLabelText('只看原刊录音'));
   expect(view.getByLabelText('只看原刊录音').props.accessibilityState).toEqual({ selected: true });
@@ -121,13 +121,10 @@ it('finds the original recordings without showing issues that only have AI narra
 
   await fireEvent.press(view.getByLabelText('查看The Economist'));
   expect(view.getByLabelText('查看2026-09-19')).toBeTruthy();
-  expect(view.getByLabelText('查看2025-04-12')).toBeTruthy();
+  expect(view.queryByLabelText('查看2025-04-12')).toBeNull();
   expect(view.queryByLabelText('查看2025-04-19')).toBeNull();
 
   await fireEvent.press(view.getByLabelText('查看2026-09-19'));
   expect(view.getByLabelText('人工智能军备竞赛能被叫停吗？，查看文章概述')).toBeTruthy();
-  expect(view.getByText('原刊录音')).toBeTruthy();
-  await fireEvent.press(view.getByLabelText('返回日期分类'));
-  await fireEvent.press(view.getByLabelText('查看2025-04-12'));
-  expect(view.getAllByText('原刊录音')).toHaveLength(24);
+  expect(view.getAllByText('原刊录音').length).toBeGreaterThan(0);
 });

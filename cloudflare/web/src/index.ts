@@ -1,14 +1,36 @@
 interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
-  API_ORIGIN: string;
+  API_ORIGIN?: string;
+  API_SERVICE?: { fetch(request: Request): Promise<Response> };
 }
 
 const ENTRY_PATH = /^\/_expo\/static\/js\/web\/entry-[a-f0-9]+\.js$/u;
 
+function isApiPath(pathname: string): boolean {
+  return pathname.startsWith('/v1/') || pathname === '/computer-upload' ||
+    pathname.startsWith('/computer-upload/');
+}
+
+async function forwardToApi(request: Request, env: Env, url: URL): Promise<Response> {
+  if (!env.API_SERVICE && !env.API_ORIGIN) {
+    throw new Error('API upstream is not configured');
+  }
+  const upstreamUrl = env.API_SERVICE
+    ? url
+    : new URL(`${url.pathname}${url.search}`, env.API_ORIGIN);
+  const upstreamRequest = new Request(upstreamUrl, request);
+  // The browser uses this Worker's origin. The API authenticates the request;
+  // removing Origin avoids treating the proxy hop as a cross-origin browser call.
+  upstreamRequest.headers.delete('origin');
+  return env.API_SERVICE
+    ? env.API_SERVICE.fetch(upstreamRequest)
+    : fetch(upstreamRequest);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname.startsWith('/v1/')) {
+    if (isApiPath(url.pathname)) {
       const origin = request.headers.get('origin');
       if (origin && origin !== url.origin) {
         return Response.json({
@@ -20,12 +42,8 @@ export default {
           },
         }, { status: 403, headers: { 'cache-control': 'no-store' } });
       }
-      const upstreamUrl = new URL(`${url.pathname}${url.search}`, env.API_ORIGIN);
-      // 浏览器访问同源 Worker；转发时移除 Origin，避免旧 API 的 CORS 拒绝。
-      const upstreamRequest = new Request(upstreamUrl, request);
-      upstreamRequest.headers.delete('origin');
       try {
-        return await fetch(upstreamRequest);
+        return await forwardToApi(request, env, url);
       } catch {
         return Response.json({
           error: {

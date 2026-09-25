@@ -1,0 +1,60 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "waikan-api",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-09-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "CPU_BOUNDARY", "class_name": "CpuBoundary" }
+    ]
+  },
+  "migrations": [
+    { "tag": "cpu-boundary-v1", "new_sqlite_classes": ["CpuBoundary"] }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "waikan-core",
+      "database_id": "9466eeba-614c-4eac-8b97-8d71a781dfbb",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "services": [
+    { "binding": "IMAGE_SERVICE", "service": "waikan-images" }
+  ],
+  // Private temporary uploads have an eight-day bucket lifecycle rule.
+  "r2_buckets": [
+    {
+      "binding": "IMPORT_BUCKET",
+      "bucket_name": "waikan-imports-temp"
+    }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "JOB_QUEUE", "queue": "waikan-jobs" }
+    ],
+    "consumers": [
+      { "queue": "waikan-jobs", "max_batch_size": 1, "max_batch_timeout": 5, "max_retries": 3 }
+    ]
+  },
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "images": {
+    "binding": "IMAGES"
+  },
+  "vars": {
+    "PASSWORD_RESET_FROM_EMAIL": "no-reply@danceclip.org",
+    "API_CORS_ORIGINS": "https://waikan-web.zhenyufang162.workers.dev",
+    "API_STAGE_OPEN": "false"
+  }
+  // Add EVOLINK_API_KEY and RESEND_API_KEY with `wrangler secret put` before
+  // enabling routes that call those providers. Never put their values in vars.
+}
