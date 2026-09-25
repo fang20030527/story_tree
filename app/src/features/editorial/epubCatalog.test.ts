@@ -89,6 +89,8 @@ it('attaches only 2026 recordings to the matching issue and article', () => {
   }
   expect(epubArticles.filter((article) => !article.audioUrl).every((article) => !article.hasAudio)).toBe(true);
   expect(getEditorialArticle('ai-arms-race')?.audioAsset).toBeDefined();
+  expect(editorialCanListen(getEditorialArticle('hero')!)).toBe(false);
+  expect(editorialCanListen(getEditorialArticle('deepmind-robot-brains')!)).toBe(false);
 });
 
 it('uses the configured API origin for illustrations without bundling their bytes', () => {

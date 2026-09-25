@@ -40,9 +40,9 @@ export interface EditorialArticle {
   publishedAt: string;
   paragraphs: readonly string[];
   sectionHeadings?: readonly string[];
-  /** In-app TTS or remote audio available for full-article listening. */
+  /** Whether an original article recording is available. */
   hasAudio: boolean;
-  /** Optional licensed remote audio URL; when absent, clients may use speech synthesis. */
+  /** Optional original article recording URL. */
   audioUrl?: string;
   /** Bundled original article recording. */
   audioAsset?: number;
@@ -74,7 +74,7 @@ const allEditorialArticles: readonly EditorialArticle[] = [
     "section": "today",
     "image": require('../../../assets/images/editorial/scarlet-macaw-2.jpg') as number,
     "publishedAt": "2026-09-15",
-    "hasAudio": true,
+    "hasAudio": false,
     "paragraphs": [
       "Scarlet macaws are an iconic but declining tropical bird. To change the species' fate, scientists are working to counter a lethal parenting method that dooms many chicks to death.",
       "Parker hadn't even opened his eyes when a hand snatched him from his nest.",
@@ -256,7 +256,7 @@ export function searchEditorialArticles(query: string): EditorialArticle[] {
 }
 
 export function editorialCanListen(article: EditorialArticle): boolean {
-  return editorialHasOriginalAudio(article) || article.hasAudio;
+  return editorialHasOriginalAudio(article);
 }
 
 export function editorialHasOriginalAudio(article: EditorialArticle): boolean {

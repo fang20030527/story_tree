@@ -1,5 +1,4 @@
 import { EditorialAudioPlayer } from './EditorialAudioPlayer';
-import { EditorialSpeechPlayer } from './EditorialSpeechPlayer';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
@@ -109,7 +108,6 @@ jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual(
 jest.mock('@/api/sentences', () => ({ requestSentenceTranslation: jest.fn() }));
 
 jest.mock('./EditorialAudioPlayer', () => ({ EditorialAudioPlayer: jest.fn(() => null) }));
-jest.mock('./EditorialSpeechPlayer', () => ({ EditorialSpeechPlayer: jest.fn(() => null) }));
 
 it('connects the supplied recording to the AI article', async () => {
   const view = await render(<EditorialOverviewScreen articleId="ai-arms-race" />);
@@ -119,11 +117,11 @@ it('connects the supplied recording to the AI article', async () => {
   }), undefined);
 });
 
-it('offers clearly labelled synthetic speech when no source recording exists', async () => {
+it('does not offer playback when an article has no original recording', async () => {
   const view = await render(<EditorialOverviewScreen articleId="economist-2025-12-27-a1cf5cd8c0df4b36" />);
   expect(view.getByText('The world this year 2025')).toBeTruthy();
   expect(EditorialAudioPlayer).not.toHaveBeenCalled();
-  expect(EditorialSpeechPlayer).toHaveBeenCalledWith(expect.objectContaining({ loadText: expect.any(Function) }), undefined);
+  expect(view.queryByText(/AI配音/u)).toBeNull();
 });
 
 it('shows a Chinese overview for a bundled EPUB article', async () => {

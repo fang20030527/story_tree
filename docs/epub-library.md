@@ -28,7 +28,7 @@
 
 客户端 `audio-local.json` 保存文章 ID 与 API 路径，服务端 `server/assets/editorial/audio-local.json` 保存文章 ID 与音频相对路径。2026 年全部 2,725 个 MP3 存入私有 Cloudflare R2 桶；Audio Worker 按文章 ID 流式提供已匹配的录音，支持播放进度拖动。51 个未匹配文件只归档，不通过文章接口公开。生产客户端的 `EXPO_PUBLIC_EDITORIAL_AUDIO_ORIGIN` 指向 Web Worker，由其 `AUDIO_SERVICE` 绑定读取录音；旧版客户端仍使用旧地址。开发服务可通过 `EDITORIAL_AUDIO_ROOT` 从本机读取。播放 URL 不含磁盘文件名，也不把约 8.38 GB 音频复制到仓库或安装包。详见 [Cloudflare 部署说明](../cloudflare/README.md)。
 
-没有匹配到 2026 年原刊录音的文章，概述和阅读页显示「AI配音 · 非原刊录音」；声音由设备内置 TTS 生成，无需额外的配音 API。概述页只在按下播放时读取正文。设备朗读按短片段依次播放以适应系统语音输入上限，切换页面时停止。iOS 实机若无声，需检查设备静音模式。
+没有原刊录音的文章在概述页和阅读页均不显示音频播放器；有原刊录音的文章仅播放对应录音，不使用设备内置 TTS 代替。iOS 实机若无声，需检查设备静音模式。
 
 `epub/audio-local.json` 与 `epub/audio-local-report.json` 保存 2026 年录音关联及核对结果。重新导入 EPUB 或更新本地音频后，运行 `python scripts/import-economist-local-audio.py <2026 年音频目录>`。同一文章出现多份文件或标题仍有歧义时，脚本不会任意关联。旧的 2025 年出版方音频清单已从项目中移除。
 
