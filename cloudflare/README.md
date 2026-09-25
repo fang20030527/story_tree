@@ -54,7 +54,7 @@ npm run cloudflare:deploy:web
 
 正式 Web 配置 `cloudflare/web/wrangler.jsonc` 和切换时使用的 `wrangler.cutover.jsonc` 均把 `/v1/*` 与 `/computer-upload*` 经 `API_SERVICE` Service Binding 转到 `waikan-api`。不要在未同步 D1 和 Neon 数据的情况下恢复曾经转到 Render 的配置，否则可能形成双写或丢失新数据。
 
-旧安装包若仍直连 Render，必须让原 Render 地址只转发到 Cloudflare，避免 Neon 与 D1 各自写入。`server/dist/compat-proxy-entry.js` 是不连接 Neon、不启动旧任务 worker 的临时转发入口；设置 `CLOUDFLARE_API_ORIGIN=https://waikan-api.<你的子域>.workers.dev` 后运行 `npm run start:compat --workspace=@context-reader/server`。Render 当前已改为这个启动命令并移除启动前的数据库迁移；旧客户端全部更新后即可停用这个兼容服务。
+旧安装包若仍直连 Render，必须让原 Render 地址只转发到 Cloudflare，避免 Neon 与 D1 各自写入。`server/dist/compat-proxy-entry.js` 是不连接 Neon、不启动旧任务 worker 的临时转发入口；设置 `CLOUDFLARE_API_ORIGIN=https://waikan-api.<你的子域>.workers.dev` 后运行 `npm run start:compat --workspace=@context-reader/server`。`render.yaml` 和线上 Render 服务均已改为这个启动命令并移除启动前的数据库迁移；线上环境也已删除 Neon 与 EvoLink 密钥。旧客户端全部更新后即可停用这个兼容服务。
 
 现有 API 发布 `EDITORIAL_AUDIO_PUBLIC_ORIGIN=https://waikan-audio.<你的子域>.workers.dev` 后，会把新版清单中的 2026 音频请求临时重定向到 Cloudflare。客户端设置媒体 origin 后将直接访问 Cloudflare。`EXPO_PUBLIC_` 变量会进入客户端产物，只能填写公开地址，绝不能放数据库、R2 或 AI 密钥。
 
