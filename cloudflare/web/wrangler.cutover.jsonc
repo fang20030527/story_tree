@@ -4,7 +4,8 @@
   "main": "./src/index.ts",
   "compatibility_date": "2026-09-24",
   "services": [
-    { "binding": "API_SERVICE", "service": "waikan-api" }
+    { "binding": "API_SERVICE", "service": "waikan-api" },
+    { "binding": "AUDIO_SERVICE", "service": "waikan-audio" }
   ],
   "assets": {
     "directory": "../../app/dist",

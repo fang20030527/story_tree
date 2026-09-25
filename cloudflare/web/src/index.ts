@@ -2,9 +2,11 @@ interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
   API_ORIGIN?: string;
   API_SERVICE?: { fetch(request: Request): Promise<Response> };
+  AUDIO_SERVICE?: { fetch(request: Request): Promise<Response> };
 }
 
 const ENTRY_PATH = /^\/_expo\/static\/js\/web\/entry-[a-f0-9]+\.js$/u;
+const EDITORIAL_AUDIO_PATH = /^\/v1\/editorial\/audio\/[a-zA-Z0-9][a-zA-Z0-9-]{0,127}\/?$/u;
 
 function isApiPath(pathname: string): boolean {
   return pathname.startsWith('/v1/') || pathname === '/computer-upload' ||
@@ -43,6 +45,10 @@ export default {
         }, { status: 403, headers: { 'cache-control': 'no-store' } });
       }
       try {
+        if (EDITORIAL_AUDIO_PATH.test(url.pathname) && env.AUDIO_SERVICE) {
+          // Keep audio on the app's origin and pass Range headers to the R2 Worker.
+          return await env.AUDIO_SERVICE.fetch(new Request(request));
+        }
         return await forwardToApi(request, env, url);
       } catch {
         return Response.json({

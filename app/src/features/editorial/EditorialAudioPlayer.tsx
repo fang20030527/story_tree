@@ -8,6 +8,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAppTheme } from '@/context/ThemeContext';
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+const LOAD_TIMEOUT_MS = 15_000;
 
 function applyPlaybackRate(player: ReturnType<typeof useAudioPlayer>, rate: number) {
   // Expo 播放器是可变的原生对象，通过其属性启用音调校正。
@@ -26,13 +27,15 @@ export function EditorialAudioPlayer({ source, onPositionChange }: {
   onPositionChange?: (position: EditorialPlaybackPosition) => void;
 }) {
   const { theme } = useAppTheme();
-  const player = useAudioPlayer(source, { updateInterval: 100 });
+  const player = useAudioPlayer(source, { updateInterval: 100, downloadFirst: typeof source === 'string' });
   const status = useAudioPlayerStatus(player);
   const active = useRef(false);
   const livePlayer = useRef<typeof player | null>(null);
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [rateError, setRateError] = useState(false);
   const [previewTime, setPreviewTime] = useState<number | null>(null);
@@ -40,6 +43,12 @@ export function EditorialAudioPlayer({ source, onPositionChange }: {
   const drag = useRef<{ pageX: number; locationX: number; time: number } | null>(null);
   const duration = Number.isFinite(status.duration) ? Math.max(0, status.duration) : 0;
   const currentTime = Math.min(duration, Math.max(0, status.currentTime || 0));
+
+  useEffect(() => {
+    if (status.isLoaded || status.error) return;
+    const timer = setTimeout(() => setLoadTimedOut(true), LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [source, status.isLoaded, status.error, loadAttempt]);
 
   useEffect(() => {
     onPositionChange?.({ currentTime, duration, playing: status.playing });
@@ -87,7 +96,9 @@ export function EditorialAudioPlayer({ source, onPositionChange }: {
     try {
       if (status.playing) {
         player.pause();
-      } else if (status.error) {
+      } else if (status.error || loadTimedOut) {
+        setLoadTimedOut(false);
+        setLoadAttempt((current) => current + 1);
         player.replace(source);
       } else {
         await setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: false });
@@ -108,7 +119,8 @@ export function EditorialAudioPlayer({ source, onPositionChange }: {
     }
   };
 
-  const failed = error || Boolean(status.error);
+  const timedOut = loadTimedOut && !status.isLoaded && !status.error;
+  const failed = error || Boolean(status.error) || timedOut;
   const loading = !status.isLoaded && !failed;
   const canSeek = status.isLoaded && duration > 0 && !pending && !status.error;
   const canChangeRate = status.isLoaded && !pending && !status.error;
@@ -198,7 +210,9 @@ export function EditorialAudioPlayer({ source, onPositionChange }: {
         </Host>
       </View>
       {rateError ? <Text accessibilityLiveRegion="polite" style={{ color: theme.danger }}>倍速调整失败，请重试</Text> : null}
-      {failed ? <Text accessibilityLiveRegion="polite" style={{ color: theme.danger }}>音频播放失败，请重试</Text> : null}
+      {failed ? <Text accessibilityLiveRegion="polite" style={{ color: theme.danger }}>
+        {timedOut ? '音频加载超时，请重试' : '音频播放失败，请重试'}
+      </Text> : null}
     </View>
   );
 }

@@ -121,6 +121,12 @@ it('shows only 2026 original recordings', async () => {
 
   await fireEvent.press(view.getByLabelText('查看The Economist'));
   expect(view.getByLabelText('查看2026-09-19')).toBeTruthy();
+  // 2026 年远程录音只在配置了媒体地址时出现。
+  if (process.env.EXPO_PUBLIC_EDITORIAL_AUDIO_ORIGIN) {
+    expect(view.getByLabelText('查看2026-08-29')).toBeTruthy();
+  } else {
+    expect(view.queryByLabelText('查看2026-08-29')).toBeNull();
+  }
   expect(view.queryByLabelText('查看2025-04-12')).toBeNull();
   expect(view.queryByLabelText('查看2025-04-19')).toBeNull();
 
