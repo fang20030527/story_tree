@@ -81,6 +81,41 @@ it('renders catalog prose and records one editorial recent view', async () => {
   expect(setEditorialArticleShelved).not.toHaveBeenCalled();
 });
 
+it('用不同字号和字重区分主标题、章节标题、正文和图片说明', async () => {
+  const view = await render(<EditorialReadScreen articleId="hero" />);
+  const article = getEditorialArticle('hero')!;
+  expect(view.getByText(article.titleEn)).toHaveStyle({ fontSize: 32, fontWeight: '700' });
+  expect(view.getByText(article.titleEn).props.accessibilityRole).toBe('header');
+  expect(view.getByText('How wild foster parents help')).toHaveStyle({ fontSize: 23, fontWeight: '700' });
+  expect(view.getByText(/Parker hadn't even opened his eyes/u)).toHaveStyle({
+    fontSize: 18, lineHeight: 31, fontWeight: '400', color: themes.light.text,
+  });
+  expect(view.getAllByText('Parker')[0]).toHaveStyle({ fontWeight: '400', color: themes.light.text });
+  expect(view.getByText(article.figures![0]!.caption)).toHaveStyle({
+    fontSize: 12, lineHeight: 19, fontWeight: '400', color: themes.light.textSecondary,
+  });
+});
+
+it('原刊摄影署名使用图注样式，同时保留点词能力', async () => {
+  const view = await render(<EditorialReadScreen articleId="wired-2026-09-02-af99a97cd9fa186c" />);
+  expect(view.getByText('PHOTOGRAPH: Elijah Agurs')).toHaveStyle({
+    fontSize: 12, fontWeight: '400', color: themes.light.textSecondary,
+  });
+  jest.mocked(requestWordTranslation).mockResolvedValueOnce({
+    term: 'PHOTOGRAPH', partOfSpeech: 'n.', meaningZh: '照片', phoneticUk: '', phoneticUs: '',
+  });
+  await fireEvent.press(view.getByText('PHOTOGRAPH'));
+  expect(requestWordTranslation).toHaveBeenCalledWith({ term: 'PHOTOGRAPH', context: 'PHOTOGRAPH: Elijah Agurs' });
+});
+
+it('截图中的债券文章保持普通正文字重和两幅完整配图', async () => {
+  const articleId = 'economist-2026-09-19-a4d57957-4089-41f7-874e-bf08590b080b';
+  const view = await render(<EditorialReadScreen articleId={articleId} />);
+  expect(view.getByText(/Finance does not offer many sure bets/u)).toHaveStyle({ fontWeight: '400' });
+  expect(view.getByText(/Fortunately, in the real world/u)).toHaveStyle({ fontWeight: '400' });
+  expect(view.getAllByLabelText(/Markets are waking up.*原刊配图/u)).toHaveLength(2);
+});
+
 it('does not record an invalid ID', async () => {
   const view = await render(<EditorialReadScreen articleId="missing" />);
   expect(view.getByText('文章不存在')).toBeTruthy();
@@ -231,7 +266,7 @@ it('highlights the spoken word, follows it, and lets manual scrolling suspend fo
   scrollTo.mockClear();
   await act(() => position({ currentTime: second[3], duration: 436.6, playing: true }));
   expect(view.getByText('THINGS')).toHaveStyle({ color: themes.light.blue });
-  expect(view.getByText('TWO')).toHaveStyle({ color: '#000000' });
+  expect(view.getByText('TWO')).toHaveStyle({ color: themes.light.text });
   expect(scrollTo).not.toHaveBeenCalled();
   await fireEvent.press(view.getByLabelText('恢复跟随朗读'));
   expect(scrollTo).toHaveBeenCalled();

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +25,7 @@ import type { EditorialArticle } from '@/features/editorial/catalog';
 import { recordEditorialRecentView } from '@/features/library/libraryStorage';
 import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
 import { EditorialImage } from './EditorialImage';
+import { buildEditorialReadingBlocks } from './editorialTypography';
 import { EditorialRemoteStatus } from './EditorialRemoteStatus';
 import { useEditorialArticle } from './useEditorialArticle';
 import {
@@ -148,11 +150,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
     if (router.canGoBack()) router.back();
     else router.replace('/');
   };
-  const body = useMemo(() => {
-    let paragraphIndex = 0;
-    return (article.bodyBlocks ?? article.paragraphs.map((text) => ({ type: 'text' as const, text })))
-      .map((block) => block.type === 'text' ? { ...block, paragraphIndex: paragraphIndex++ } : block);
-  }, [article.bodyBlocks, article.paragraphs]);
+  const body = useMemo(() => buildEditorialReadingBlocks(article), [article]);
   const [visibleBlockCount, setVisibleBlockCount] = useState(() => body.length <= 64 ? body.length : 8);
   const bodyComplete = visibleBlockCount >= body.length;
   useEffect(() => {
@@ -199,7 +197,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           readingOverlay?.onScroll(event.nativeEvent.contentOffset.y);
           onScroll(event);
         }}
-        stickyHeaderIndices={article.audioAsset || article.audioUrl ? [4] : undefined}
+        stickyHeaderIndices={article.audioAsset || article.audioUrl ? [1] : undefined}
         scrollEventThrottle={16}
         onScrollEndDrag={(event) => { onScroll(event); flush(); }}
         onMomentumScrollEnd={(event) => { onScroll(event); flush(); }}
@@ -208,20 +206,22 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           styles.content,
           { paddingBottom: insets.bottom + 32 },
         ]}>
-        <Text style={[styles.kicker, { color: theme.accent }]}>
-          {article.source} · {article.category}
-        </Text>
-        <Text selectable style={[styles.titleEn, { color: theme.text }]}>
-          {article.titleEn}
-        </Text>
-        {article.titleZh !== article.titleEn ? (
-          <Text style={[styles.titleZh, { color: theme.textSecondary }]}>
-            {article.titleZh}
+        <View style={styles.articleHeader}>
+          <Text style={[styles.kicker, { color: theme.textSecondary }]}>
+            {article.source} · {article.category}
           </Text>
-        ) : null}
-        <Text style={[styles.meta, { color: theme.textMuted }]}>
-          {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
-        </Text>
+          <Text selectable accessibilityRole="header" style={[styles.titleEn, { color: theme.text }]}>
+            {article.titleEn}
+          </Text>
+          {article.titleZh !== article.titleEn ? (
+            <Text style={[styles.titleZh, { color: theme.textSecondary }]}>
+              {article.titleZh}
+            </Text>
+          ) : null}
+          <Text style={[styles.meta, { color: theme.textSecondary }]}>
+            {article.wordCount} 词 · {article.minutes} 分钟 · {article.level}
+          </Text>
+        </View>
         {article.audioAsset || article.audioUrl ? (
           <View onLayout={(event) => { audioHeight.current = event.nativeEvent.layout.height; }} style={{ backgroundColor: theme.bg }}>
             <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} onPositionChange={updatePlayback} />
@@ -267,14 +267,27 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         </View>
         <View testID="editorial-body" style={styles.body} onLayout={(event) => setBodyY(event.nativeEvent.layout.y)}>
           {body.slice(0, visibleBlockCount).map((block, blockIndex) => {
-            if (block.type === 'image') return (
-              <EditorialImage key={`${article.id}:image:${blockIndex}`} uri={block.image} contentFit="contain"
-                priority="low"
-                accessibilityLabel={`${article.titleEn}，原刊配图 ${blockIndex + 1}`}
-                style={{ width: '100%', aspectRatio: block.width / block.height }} />
-            );
+            if (block.type === 'image') {
+              const nextBlock = body[blockIndex + 1];
+              return (
+                <View key={`${article.id}:image:${blockIndex}`} style={[
+                  styles.figure,
+                  blockIndex === 0 && styles.leadingFigure,
+                  nextBlock?.type === 'text' && nextBlock.role === 'caption' && styles.figureWithCaption,
+                ]}>
+                  <EditorialImage uri={block.image} contentFit="contain"
+                    priority="low"
+                    accessibilityLabel={`${article.titleEn}，原刊配图 ${blockIndex + 1}`}
+                    style={[styles.figureImage, { aspectRatio: block.width / block.height }]} />
+                </View>
+              );
+            }
             const paragraph = block.text;
             const index = block.paragraphIndex;
+            const nextBlock = body[blockIndex + 1];
+            const textStyle = block.role === 'heading' ? styles.sectionHeading
+              : block.role === 'caption' ? styles.caption : styles.paragraph;
+            const textColor = block.role === 'caption' ? theme.textSecondary : theme.text;
             return (
             <View testID={`editorial-paragraph-${index}`} key={`${article.id}:${index}`} onLayout={(event) => {
               const y = event.nativeEvent.layout.y;
@@ -292,7 +305,12 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
                   });
                   setLineLayouts((current) => JSON.stringify(current[index]) === JSON.stringify(lines) ? current : { ...current, [index]: lines });
                 }}
-                isHeading={article.sectionHeadings?.includes(paragraph)}
+                isHeading={block.role === 'heading'}
+                textStyle={[
+                  textStyle,
+                  { color: textColor },
+                  block.role === 'caption' && nextBlock?.type === 'image' && styles.captionBeforeImage,
+                ]}
                 addedWords={addedWords}
                 addedWordColor={theme.accent}
                 borderColor={theme.border}
@@ -303,12 +321,14 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
                 surfaceColor={theme.surfaceAlt}
                 targetColor={theme.accent}
                 text={paragraph}
-                textColor={theme.text}
+                textColor={textColor}
               />
               {article.figures?.filter((figure) => figure.afterParagraph === index).map((figure) => (
-                <View key={figure.caption}>
-                  <EditorialImage uri={figure.image} style={{ width: '100%', aspectRatio: 976 / 549, borderRadius: 12 }} />
-                  <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18, marginTop: 8 }}>{figure.caption}</Text>
+                <View key={figure.caption} style={styles.figure}>
+                  <EditorialImage uri={figure.image} contentFit="contain"
+                    accessibilityLabel={figure.caption}
+                    style={[styles.figureImage, { aspectRatio: 976 / 549 }]} />
+                  <Text selectable style={[styles.figureCaption, { color: theme.textSecondary }]}>{figure.caption}</Text>
                 </View>
               ))}
             </View>
@@ -383,6 +403,8 @@ function MissingEditorialArticleState() {
   );
 }
 
+const readingFont = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: {
@@ -394,11 +416,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   headerSpacer: { width: 26 },
-  content: { paddingHorizontal: 18, paddingTop: 16 },
-  kicker: { fontSize: 12, fontWeight: weight('semibold') },
-  titleEn: { fontSize: 32, fontWeight: weight('bold'), lineHeight: 41, marginTop: 12 },
-  titleZh: { fontSize: 16, lineHeight: 24, marginTop: 10 },
-  meta: { fontSize: 12, marginTop: 10 },
+  content: { alignSelf: 'center', width: '100%', maxWidth: 720, paddingHorizontal: 22, paddingTop: 20 },
+  articleHeader: { paddingBottom: 24 },
+  kicker: { fontSize: 12, lineHeight: 18, fontWeight: weight('medium'), letterSpacing: 0.5 },
+  titleEn: { fontFamily: readingFont, fontSize: 32, fontWeight: weight('bold'), lineHeight: 40, marginTop: 12 },
+  titleZh: { fontSize: 17, lineHeight: 26, marginTop: 12 },
+  meta: { fontSize: 12, lineHeight: 18, marginTop: 16 },
   translationBox: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
@@ -414,10 +437,18 @@ const styles = StyleSheet.create({
   translationTitle: { fontSize: 14, fontWeight: weight('semibold') },
   translationAction: { fontSize: 12, fontWeight: weight('semibold') },
   translationText: { fontSize: 14, lineHeight: 23, marginTop: 12 },
-  body: { gap: 22, marginTop: 28 },
+  body: { marginTop: 32 },
+  figure: { marginTop: 8, marginBottom: 24 },
+  leadingFigure: { marginTop: 0 },
+  figureWithCaption: { marginBottom: 0 },
+  figureImage: { width: '100%', borderRadius: 4 },
+  figureCaption: { fontSize: 12, lineHeight: 19, fontWeight: weight('regular'), marginTop: 8 },
+  caption: { fontSize: 12, lineHeight: 19, fontWeight: weight('regular'), marginTop: 8, marginBottom: 24 },
+  captionBeforeImage: { marginTop: 0, marginBottom: 0 },
+  sectionHeading: { fontFamily: readingFont, fontSize: 23, lineHeight: 31, fontWeight: weight('bold'), marginTop: 24, marginBottom: 12 },
   completeButton: { alignItems: 'center', borderRadius: 13, marginTop: 32, paddingVertical: 16 },
   completeButtonText: { fontSize: 16, fontWeight: weight('semibold') },
-  paragraph: { fontSize: 17, lineHeight: 30 },
+  paragraph: { fontFamily: readingFont, fontSize: 18, lineHeight: 31, fontWeight: weight('regular'), marginTop: 0, marginBottom: 22 },
   missing: { alignItems: 'center', flex: 1, gap: 14, justifyContent: 'center' },
   missingTitle: { fontSize: 18, fontWeight: weight('semibold') },
 });
