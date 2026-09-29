@@ -59,6 +59,7 @@ export const articlesRoutes: FastifyPluginAsync<ArticlesRoutesOptions> = async (
         userId: request.authUser.userId,
         cursor: parseArticleCursor(query),
         limit: parseArticleLimit(query),
+        includeCover: query.includeCover === '1',
       });
       return reply.send(ImportedArticlePageSchema.parse(page));
     },

@@ -114,7 +114,7 @@ function decodeArticleCursor(raw: string): ArticleCursor {
 
 export async function listArticlesForUser(
   db: AppDatabase,
-  input: { userId: string; cursor: string | null; limit: number },
+  input: { userId: string; cursor: string | null; limit: number; includeCover?: boolean },
 ): Promise<ImportedArticlePage> {
   const filters: SQL[] = [eq(importedArticles.userId, input.userId)];
   if (input.cursor !== null) {
@@ -136,6 +136,7 @@ export async function listArticlesForUser(
       sourceKind: importedArticles.sourceKind,
       sourceUrl: importedArticles.sourceUrl,
       title: importedArticles.title,
+      mediaJson: importedArticles.mediaJson,
       wordCount: importedArticles.wordCount,
       importedAt: importedArticles.importedAt,
       createdAtCursor: sql<string>`to_char(${importedArticles.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
@@ -163,6 +164,9 @@ export async function listArticlesForUser(
       title: article.title,
       wordCount: article.wordCount,
       importedAt: article.importedAt.toISOString(),
+      ...(input.includeCover ? {
+        coverImageUrl: article.mediaJson?.find((media) => media.type === 'image')?.url ?? null,
+      } : {}),
     })),
     nextCursor,
   });

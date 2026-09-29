@@ -9,6 +9,30 @@ function assets() {
 }
 
 describe('Web API proxy', () => {
+  it('redirects old website links while preserving their path and query', async () => {
+    const staticAssets = assets();
+    const response = await web.fetch(new Request(
+      'https://waikan-web.zhenyufang162.workers.dev/library?view=all',
+    ), { ASSETS: staticAssets });
+    expect(response.status).toBe(308);
+    expect(response.headers.get('location')).toBe('https://blackholeenglish.com/library?view=all');
+    expect(staticAssets.fetch).not.toHaveBeenCalled();
+  });
+
+  it('keeps old app API calls on the existing binding without redirecting credentials', async () => {
+    const apiFetch = vi.fn(async (request: Request) => {
+      expect(request.headers.get('authorization')).toBe('Bearer test-token');
+      return Response.json({ status: 'ok' });
+    });
+    const response = await web.fetch(new Request(
+      'https://waikan-web.zhenyufang162.workers.dev/v1/dashboard',
+      { headers: { authorization: 'Bearer test-token' } },
+    ), { ASSETS: assets(), API_SERVICE: { fetch: apiFetch } });
+    expect(response.status).toBe(200);
+    expect(response.headers.has('location')).toBe(false);
+    expect(apiFetch).toHaveBeenCalledOnce();
+  });
+
   it('forwards authenticated API requests over the cutover Service Binding', async () => {
     const apiFetch = vi.fn(async (request: Request) => {
       expect(new URL(request.url).pathname).toBe('/v1/practices');

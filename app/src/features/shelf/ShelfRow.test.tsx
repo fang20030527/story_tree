@@ -50,4 +50,31 @@ it.each([
   expect(onManage).toHaveBeenCalledWith(item);
 });
 
+it('shows an imported article image and falls back if it cannot load', async () => {
+  const item: ShelfItem = {
+    ...importedItem,
+    article: {
+      ...importedItem.article,
+      coverImageUrl: 'https://images.example.com/article.jpg',
+    },
+  };
+  const view = await render(<ShelfRow
+    item={item} managing={false} deleting={false}
+    onOpen={jest.fn()} onManage={jest.fn()}
+  />);
+  expect(view.getByTestId('imported-cover-image').props.source).toContainEqual({
+    uri: 'https://images.example.com/article.jpg',
+  });
+  await fireEvent(view.getByTestId('imported-cover-image'), 'error', { nativeEvent: {} });
+  expect(view.getByTestId('imported-cover-placeholder')).toBeTruthy();
+});
+
+it('uses the document placeholder when an imported article has no image', async () => {
+  const view = await render(<ShelfRow
+    item={importedItem} managing={false} deleting={false}
+    onOpen={jest.fn()} onManage={jest.fn()}
+  />);
+  expect(view.getByTestId('imported-cover-placeholder')).toBeTruthy();
+});
+
 jest.mock('@react-native-async-storage/async-storage', () => jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'));

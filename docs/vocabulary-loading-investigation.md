@@ -1,5 +1,7 @@
 # Build 23 词库加载排查
 
+后续 build 31 已切换到 Cloudflare；当前排查与客户端修复见 [Build 31 联网排查](2026-09-26-build31-connectivity.md)。下文保留 build 23 的历史记录。
+
 排查日期：2026-09-22。
 
 ## 已核实

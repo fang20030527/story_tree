@@ -1,6 +1,7 @@
 import { DashboardDtoSchema, VocabularyTimeZoneSchema } from '@context-reader/contracts';
 
 import { AppError } from '../../../../server/src/core/errors';
+import { getRemainingQuota } from '../quota/service';
 import {
   REVIEW_MODEL_VERSION,
   reviewPriority,
@@ -26,10 +27,6 @@ interface AnswerCountRow {
 
 interface PracticeIdRow {
   id: string;
-}
-
-interface QuotaRow {
-  total: number;
 }
 
 function staleVocabulary(): AppError {
@@ -128,7 +125,7 @@ export async function handleDashboardRoute(
   const timeZone = parseTimeZone(url.searchParams);
   const freeLimit = freePracticeLimit(env);
   const now = new Date();
-  const [incomplete, words, unmatchedContexts, answerCounts, completed, quota] = await Promise.all([
+  const [incomplete, words, unmatchedContexts, answerCounts, completed, remainingFreePractices] = await Promise.all([
     env.DB.prepare(`
       SELECT id FROM practice_sessions
       WHERE user_id = ?1 AND status IN ('queued', 'generating', 'validating', 'ready', 'in_progress')
@@ -166,9 +163,7 @@ export async function handleDashboardRoute(
       SELECT COUNT(*) AS count FROM practice_sessions
       WHERE user_id = ?1 AND status = 'completed'
     `).bind(userId).first<CountRow>(),
-    env.DB.prepare(`
-      SELECT COALESCE(SUM(amount), 0) AS total FROM usage_ledger WHERE user_id = ?1
-    `).bind(userId).first<QuotaRow>(),
+    getRemainingQuota(env.DB, userId, freeLimit),
   ]);
 
   if ((unmatchedContexts?.count ?? 0) !== 0) throw staleVocabulary();
@@ -193,10 +188,6 @@ export async function handleDashboardRoute(
     if (state.practiceCount === 0) unlearnedCount += 1;
   }
 
-  const remainingFreePractices = Math.min(
-    freeLimit,
-    Math.max(0, freeLimit + (quota?.total ?? 0)),
-  );
   const body = DashboardDtoSchema.parse({
     incompletePracticeId: incomplete?.id ?? null,
     vocabularyCount: words.results.length,

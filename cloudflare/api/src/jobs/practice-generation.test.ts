@@ -5,6 +5,7 @@ import { convertV4MiniflareOptions, Miniflare } from 'miniflare';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ApiEnv } from '../env';
+import { PracticeValidationError } from '../../../../server/src/modules/practice/generation-validator';
 import { handlePracticeGeneration } from './practice-generation';
 import type { ClaimedJob } from './repository';
 
@@ -85,6 +86,44 @@ async function setup() {
 }
 
 describe('practice generation on D1', () => {
+  it('结构修订保留此前审核反馈，避免修好字数后再次破坏已修复的质量问题', async () => {
+    const { db, env, job } = await setup();
+    const paragraphs = [
+      { key: 'p1', text: 'The satellite moved into orbit.' },
+      { key: 'p2', text: 'Scientists watched it carefully.' },
+      { key: 'p3', text: 'The mission continued.' },
+    ];
+    const draft = { title: 'A mission', paragraphs, usages: [], questions: [] };
+    const qualityIssues = ['Keep target gaps below 87 words.', 'Paragraph 2 needs a 30-45-word complex sentence.'];
+    const structureIssue = 'Rewrite the article to contain 200-300 words, preserving all targets and their meanings.';
+    generated.mockResolvedValue(draft);
+    verified.mockResolvedValueOnce({ approved: false, issues: qualityIssues })
+      .mockResolvedValueOnce({ approved: true, issues: [] });
+    const valid = {
+      title: 'A mission', wordCount: 250, paragraphs,
+      usages: [{
+        targetId, targetAlias: 't1', paragraphKey: 'p1', paragraphIndex: 0,
+        surfaceForm: 'orbit', startOffset: 25, endOffset: 30,
+      }],
+      questions: [{
+        targetId, targetAlias: 't1', prompt: 'The satellite entered ____.',
+        optionsEn: ['orbit', 'water', 'light', 'time'], correctOptionIndex: 0,
+        meaningEn: 'a path around a celestial body', explanationZh: '轨道',
+        optionExplanationsZh: ['正确', '错误', '错误', '错误'],
+        optionExplanationsEn: ['correct', 'incorrect', 'incorrect', 'incorrect'],
+      }],
+    };
+    validated.mockResolvedValueOnce(valid)
+      .mockRejectedValueOnce(new PracticeValidationError(structureIssue))
+      .mockResolvedValueOnce(valid);
+    await handlePracticeGeneration(env, job, { signal: new AbortController().signal });
+    expect(generated).toHaveBeenCalledTimes(3);
+    expect(generated.mock.calls[2]?.[0].revision.issues)
+      .toEqual(expect.arrayContaining([...qualityIssues, structureIssue]));
+    expect(await db.prepare('SELECT status FROM practice_sessions WHERE id = ?')
+      .bind(practiceId).first()).toEqual({ status: 'ready' });
+  }, 30_000);
+
   it('persists a validated article, answer and quota settlement in one batch', async () => {
     const { db, env, job } = await setup();
     const paragraphs = [

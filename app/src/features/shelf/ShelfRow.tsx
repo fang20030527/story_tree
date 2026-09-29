@@ -1,6 +1,7 @@
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import { Image } from 'expo-image';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -45,11 +46,10 @@ export function ShelfRow({ item, managing, deleting, onOpen, onManage }: Props) 
         {item.kind === 'editorial' ? (
           <EditorialImage uri={item.article.image} style={styles.cover} />
         ) : (
-          <View style={[styles.cover, styles.placeholder, {
-            backgroundColor: theme.surfaceAlt,
-          }]}>
-            <Ionicons name="document-text-outline" size={24} color={theme.accent} />
-          </View>
+          <ImportedCover
+            key={item.article.coverImageUrl ?? 'no-cover'}
+            imageUrl={item.article.coverImageUrl}
+          />
         )}
         <View style={styles.info}>
           {editorial ? <EditorialReadBadge articleId={item.id} /> : null}
@@ -108,6 +108,27 @@ export function ShelfRow({ item, managing, deleting, onOpen, onManage }: Props) 
       )}
     </View>
   );
+}
+
+function ImportedCover({ imageUrl }: { imageUrl?: string | null }) {
+  const { theme } = useAppTheme();
+  const [failed, setFailed] = useState(false);
+  if (imageUrl && !failed) {
+    return <Image
+      accessibilityLabel="文章封面"
+      cachePolicy="memory-disk"
+      contentFit="cover"
+      onError={() => setFailed(true)}
+      source={{ uri: imageUrl }}
+      style={styles.cover}
+      testID="imported-cover-image"
+    />;
+  }
+  return <View testID="imported-cover-placeholder" style={[styles.cover, styles.placeholder, {
+    backgroundColor: theme.surfaceAlt,
+  }]}>
+    <Ionicons name="document-text-outline" size={24} color={theme.accent} />
+  </View>;
 }
 
 const styles = StyleSheet.create({

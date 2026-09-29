@@ -651,6 +651,15 @@ export const ArticleImportDtoSchema = z
     }
   });
 
+export const ImportedMediaUrlSchema = z.url().max(2_048).refine((value) => {
+  const url = new URL(value);
+  const hostname = url.hostname.replace(/\.$/u, '').toLowerCase();
+  return url.protocol === 'https:' && !url.username && !url.password &&
+    hostname.includes('.') && !hostname.startsWith('[') &&
+    !/^(?:\d{1,3}\.){3}\d{1,3}$/u.test(hostname) &&
+    !/(?:^|\.)(?:localhost|local|internal|invalid|test)$/u.test(hostname);
+}, '媒体地址必须是公开 HTTPS URL');
+
 export const ImportedArticleSummaryDtoSchema = z
   .object({
     id: UuidSchema,
@@ -659,6 +668,8 @@ export const ImportedArticleSummaryDtoSchema = z
     title: z.string().min(1).max(160),
     wordCount: z.number().int().min(20).max(5_000),
     importedAt: z.iso.datetime(),
+    // Requested by newer clients; optional so an older API remains readable.
+    coverImageUrl: ImportedMediaUrlSchema.nullable().optional(),
   })
   .strict();
 
@@ -668,15 +679,6 @@ export const ImportedArticlePageSchema = z
     nextCursor: z.string().min(1).max(512).nullable(),
   })
   .strict();
-
-export const ImportedMediaUrlSchema = z.url().max(2_048).refine((value) => {
-  const url = new URL(value);
-  const hostname = url.hostname.replace(/\.$/u, '').toLowerCase();
-  return url.protocol === 'https:' && !url.username && !url.password &&
-    hostname.includes('.') && !hostname.startsWith('[') &&
-    !/^(?:\d{1,3}\.){3}\d{1,3}$/u.test(hostname) &&
-    !/(?:^|\.)(?:localhost|local|internal|invalid|test)$/u.test(hostname);
-}, '媒体地址必须是公开 HTTPS URL');
 
 export const ImportedArticleMediaSchema = z.discriminatedUnion('type', [
   z.object({

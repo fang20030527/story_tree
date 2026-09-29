@@ -184,8 +184,18 @@ describe('article import Queue handler on D1', () => {
     ), env, userId);
     expect(await (await detail())?.json()).toMatchObject({ media: [image] });
 
+    const list = (query = '') => handleArticlesRoute(new Request(
+      `https://waikan-api.example/v1/articles${query}`,
+    ), env, userId);
+    const legacyPage = await (await list())?.json() as { items: Array<Record<string, unknown>> };
+    expect(legacyPage.items[0]).not.toHaveProperty('coverImageUrl');
+    const coverPage = await (await list('?includeCover=1'))?.json() as { items: Array<Record<string, unknown>> };
+    expect(coverPage.items[0]?.coverImageUrl).toBe(image.url);
+
     await db.prepare('UPDATE imported_articles SET media_json = NULL WHERE id = ?')
       .bind(article!.id).run();
+    const missingCoverPage = await (await list('?includeCover=1'))?.json() as { items: Array<Record<string, unknown>> };
+    expect(missingCoverPage.items[0]?.coverImageUrl).toBeNull();
     const secondImportId = '44444444-4444-4444-8444-444444444444';
     const now = new Date().toISOString();
     await db.prepare(`
@@ -200,6 +210,8 @@ describe('article import Queue handler on D1', () => {
       normalized.contentHash, '42', now).run();
     expect((await confirm(secondImportId, 'confirm-url-media-again'))?.status).toBe(200);
     expect(await (await detail())?.json()).toMatchObject({ media: [image] });
+    const restoredCoverPage = await (await list('?includeCover=1'))?.json() as { items: Array<Record<string, unknown>> };
+    expect(restoredCoverPage.items[0]?.coverImageUrl).toBe(image.url);
   }, 20_000);
 
   it('restores queued state after a retryable fetch failure', async () => {

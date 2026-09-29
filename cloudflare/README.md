@@ -2,13 +2,27 @@
 
 本目录部署四个独立项目：`waikan-audio`（私有 R2 音频接口）、`waikan-images`（外刊插图静态资源）、`waikan-web`（Expo Web 静态页面）和 `waikan-api`（业务 API）。音频 R2 桶为 `waikan-2026-audio`，Standard 存储类，不启用公共访问。2026 年全部 2,725 个 MP3 共 8,383,477,481 字节；其中 2,674 个文章可播放，51 个未匹配文件只归档。
 
-`waikan-api` 已发布在独立的 `workers.dev` 地址，绑定 SQLite Durable Object `CpuBoundary`、D1、私有 R2、Images、Workers AI、插图 Worker、Queue 和每分钟 Cron，并配置 EvoLink 和 Resend Worker secrets。Resend 密钥仅有 `danceclip.org` 的发信权限，密码重置发件地址为 `no-reply@danceclip.org`；旧密钥已删除。D1 `waikan-core` 已应用 `0001`、`0002`、`0003` 三份迁移，其中 `0003` 增量保存网页图片和视频元数据；导入 Neon 数据（25 张表、985 行）。2026-09-25 04:18 UTC 暂停 Render 后导出的最终快照与已导入快照逐表摘要一致，D1 重新核对通过。`API_STAGE_OPEN=true`，`/health/live` 和 `/health/ready` 均返回 200。正式 `waikan-web` 已通过 Service Binding 把同源 API 转发到 Cloudflare。
+`waikan-api` 已发布在独立的 `workers.dev` 地址，绑定 SQLite Durable Object `CpuBoundary`、D1、私有 R2、Images、Workers AI、插图 Worker、Queue 和每分钟 Cron，并配置 EvoLink 和 Resend Worker secrets。Resend 发信密钥限定为 `blackholeenglish.com`，密码重置发件地址为 `no-reply@blackholeenglish.com`。D1 `waikan-core` 已应用 `0001`、`0002`、`0003` 三份迁移，其中 `0003` 增量保存网页图片和视频元数据；导入 Neon 数据（25 张表、985 行）。2026-09-25 04:18 UTC 暂停 Render 后导出的最终快照与已导入快照逐表摘要一致，D1 重新核对通过。`API_STAGE_OPEN=true`，`/health/live` 和 `/health/ready` 均返回 200。正式 `waikan-web` 已通过 Service Binding 把同源 API 转发到 Cloudflare。
 
 ## 免费额度边界
 
 - R2 Standard 每个 Cloudflare **账户**每月包含 10 GB-month 存储、100 万次 Class A 操作和 1000 万次 Class B 操作；所有桶共享额度。2026-09-25 仪表盘显示全账户总存储 8.41 GB（音频桶 8.38 GB，其他项目图片桶约 26.83 MB，临时导入桶 0 B），Class A 约 2.85k 次、Class B 约 8.15k 次。`waikan-imports-temp` 已设置全桶八天后删除规则；仍需检查月平均用量。静态插图约 1.34 GB、17,164 文件，独立静态资源项目不占 R2 音频空间。
 - [Workers Free](https://developers.cloudflare.com/workers/platform/limits/) 每日 100,000 次请求，每次 HTTP 请求只有 10 ms CPU。邮箱 scrypt 和 4,510 词长文规范化已在目标免费账户进行合成核验，Durable Object 日志显示约 239–253 ms CPU 且执行成功。首次答题的同词 FSRS 历史重放也已搬入 Durable Object，本地 D1 验证了原子提交和提示词失败规则；并发竞态及真实流量仍须核验。[D1 Free](https://developers.cloudflare.com/d1/platform/pricing/) 全账户每日 500 万行读取、10 万行写入；[Queues Free](https://developers.cloudflare.com/queues/platform/pricing/) 每日 10,000 次操作。
 - 不启用 Workers Paid、Containers 或 Infrequent Access。[R2 免费额度](https://developers.cloudflare.com/r2/pricing/)用完后可能产生按量费用；预算提醒不能代替存储硬上限。上传临时文件前必须确保整个账户的 R2 用量仍留在额度内。
+
+## 单账号无限练习
+
+D1 迁移 `0004_user_practice_access.sql` 为注册账号增加练习次数豁免。`user_practice_access.unlimited_practices=1` 表示永久豁免；登录、dashboard、练习创建及详情均读取同一开关。创建时的原子 SQL 直接检查账号开关，不依靠给账本增加一个很大的余额，既有 reserve/commit/release 记录继续保留。
+
+部署顺序为先 `npm run cloudflare:d1:migrate:api`，再 `npm run cloudflare:deploy:api`，最后只为指定邮箱设置权限：
+
+```powershell
+node --env-file=cloudflare/.env.local scripts/set-practice-access.mjs --email user@example.com --unlimited
+```
+
+恢复普通次数限制时使用 `--limited`。脚本只修改唯一、有效且未删除的注册账号，并在写入时再次核对邮箱归属，完成后回读验证。凭据只从环境读取，不进入命令参数或输出。
+
+兼容旧客户端的 `remainingFreePractices` 字段在无限模式返回 `Number.MAX_SAFE_INTEGER` 标记，实际次数豁免由数据库开关执行。服务端发布后已安装的客户端可以直接使用，不需要为这个账号重新打包。此权限范围为练习生成次数，身份验证、请求频率和单次输入规范继续执行。
 
 ## 准备与上传
 
@@ -53,6 +67,16 @@ npm run cloudflare:deploy:web
 ```
 
 正式 Web 配置 `cloudflare/web/wrangler.jsonc` 和切换时使用的 `wrangler.cutover.jsonc` 均把 `/v1/*` 与 `/computer-upload*` 经 `API_SERVICE` Service Binding 转到 `waikan-api`；`/v1/editorial/audio/*` 经 `AUDIO_SERVICE` 直达 R2 音频 Worker，保留 Range 请求头。图片仍由 API 的 `IMAGE_SERVICE` 转到插图 Worker。TestFlight 生产构建使用同一 Web origin 获取 API、图片和录音。不要在未同步 D1 和 Neon 数据的情况下恢复曾经转到 Render 的配置，否则可能形成双写或丢失新数据。
+
+### 黑洞英语专用域名
+
+正式入口配置为 `https://blackholeenglish.com`，Custom Domain 绑定同一个 `waikan-web`，API、录音和图片继续使用上述 Service Bindings 与既有数据。两个 Web Wrangler 配置显式设置 `workers_dev=true`，保留旧安装包的入口；不要因为添加 Custom Domain 而停用 `workers.dev`。旧网站 GET/HEAD 链接跳转到新域名并保留路径和查询；旧域名的 `/v1/*` 和电脑上传接口继续转发，旧 App 的身份令牌不会因域名跳转而跨域发送。
+
+静态资源配置必须保留 `run_worker_first=true`，让根页面和其他网站路径先执行域名跳转；否则静态资源会先返回旧 origin 下的页面，新客户端访问专用域名 API 时会被来源校验拒绝。
+
+Name.com 的域名服务器需要仅保留 `eric.ns.cloudflare.com` 和 `shubhi.ns.cloudflare.com`。注册商设置保存、Cloudflare Zone 激活及 HTTPS 证书生效之后，才能验证新入口并发布使用它的客户端；接入状态和验证证据见 [Build 35 连接排查](../docs/2026-09-26-build35-connectivity.md)。
+
+生产 Web 导出与 iOS 构建需要保持三个公开变量一致：`EXPO_PUBLIC_API_BASE_URL=https://blackholeenglish.com`、`EXPO_PUBLIC_EDITORIAL_AUDIO_ORIGIN=https://blackholeenglish.com`、`EXPO_PUBLIC_EDITORIAL_IMAGE_ORIGIN=https://blackholeenglish.com/v1/editorial/images`。本地开发仍可使用 localhost，不能从本地开发地址生成生产静态包。
 
 旧安装包若仍直连 Render，必须让原 Render 地址只转发到 Cloudflare，避免 Neon 与 D1 各自写入。`server/dist/compat-proxy-entry.js` 是不连接 Neon、不启动旧任务 worker 的临时转发入口；设置 `CLOUDFLARE_API_ORIGIN=https://waikan-api.<你的子域>.workers.dev` 后运行 `npm run start:compat --workspace=@context-reader/server`。`render.yaml` 和线上 Render 服务均已改为这个启动命令并移除启动前的数据库迁移；线上环境也已删除 Neon 与 EvoLink 密钥。旧客户端全部更新后即可停用这个兼容服务。
 

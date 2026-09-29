@@ -61,6 +61,11 @@ export default {
         }, { status: 502, headers: { 'cache-control': 'no-store' } });
       }
     }
+    if (url.hostname === 'waikan-web.zhenyufang162.workers.dev' &&
+        (request.method === 'GET' || request.method === 'HEAD')) {
+      url.hostname = 'blackholeenglish.com';
+      return Response.redirect(url.toString(), 308);
+    }
     if (ENTRY_PATH.test(url.pathname)) {
       const acceptsGzip = /(?:^|,)\s*gzip(?:\s*;|\s*,|\s*$)/iu.test(request.headers.get('accept-encoding') ?? '');
       if (!acceptsGzip) {

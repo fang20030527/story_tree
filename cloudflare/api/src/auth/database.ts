@@ -94,17 +94,7 @@ export async function registerAnonymous(
   return { ...actual, created: actual.installationId === installationId };
 }
 
-export async function getRemainingQuota(
-  db: D1DatabaseBinding,
-  userId: string,
-  freeLimit = 3,
-): Promise<number> {
-  const row = await db.prepare(`
-    SELECT COALESCE(SUM(amount), 0) AS total
-    FROM usage_ledger WHERE user_id = ?
-  `).bind(userId).first<{ total: number }>();
-  return Math.min(freeLimit, Math.max(0, freeLimit + (row?.total ?? 0)));
-}
+export { getRemainingQuota } from '../quota/service';
 
 const GUEST_CONTENT_CHECK = `
   NOT EXISTS (SELECT 1 FROM vocabulary_items WHERE user_id = ?)

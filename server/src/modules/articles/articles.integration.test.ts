@@ -377,6 +377,13 @@ describe('private imported articles', () => {
         importedAt: timestamps[2],
         createdAt: timestamps[2],
       });
+      const coverImageUrl = 'https://images.example.com/article.jpg';
+      await db.update(importedArticles).set({
+        mediaJson: [{
+          type: 'image', afterParagraph: -1, url: coverImageUrl,
+          caption: null, alt: null, width: 800, height: 450,
+        }],
+      }).where(eq(importedArticles.id, newestId));
 
       const app = buildApp({ config, db, logger: false });
       try {
@@ -393,7 +400,20 @@ describe('private imported articles', () => {
           newestId,
           middleId,
         ]);
+        expect(firstPage.items[0]).not.toHaveProperty('coverImageUrl');
         expect(firstPage.nextCursor).not.toBeNull();
+
+        const coverPageResponse = await app.inject({
+          method: 'GET',
+          url: '/v1/articles?limit=2&includeCover=1',
+          headers: { authorization: `Bearer ${ownerToken}` },
+        });
+        expect(coverPageResponse.statusCode).toBe(200);
+        const coverPage = ImportedArticlePageSchema.parse(coverPageResponse.json());
+        expect(coverPage.items.map(({ coverImageUrl: url }) => url)).toEqual([
+          coverImageUrl,
+          null,
+        ]);
 
         const secondPageResponse = await app.inject({
           method: 'GET',

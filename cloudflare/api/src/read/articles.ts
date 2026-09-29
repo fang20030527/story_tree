@@ -132,6 +132,7 @@ async function listArticles(
 ): Promise<Response> {
   const cursor = articleCursor(query);
   const limit = articleLimit(query);
+  const includeCover = query.get('includeCover') === '1';
   const cursorPredicate = cursor === null
     ? ''
     : 'AND (created_at < ?2 OR (created_at = ?2 AND id < ?3))';
@@ -146,6 +147,7 @@ async function listArticles(
   const rows = await env.DB.prepare(`
     SELECT id, source_kind AS sourceKind, source_url AS sourceUrl,
       title, word_count AS wordCount, imported_at AS importedAt,
+      ${includeCover ? 'media_json AS mediaJson,' : ''}
       created_at AS createdAt
     FROM imported_articles
     WHERE user_id = ?1 ${cursorPredicate}
@@ -166,6 +168,10 @@ async function listArticles(
       title: row.title,
       wordCount: row.wordCount,
       importedAt: new Date(row.importedAt).toISOString(),
+      ...(includeCover ? {
+        coverImageUrl: parseStoredMedia(row.mediaJson ?? null)
+          .find((media) => media.type === 'image')?.url ?? null,
+      } : {}),
     })),
     nextCursor,
   });

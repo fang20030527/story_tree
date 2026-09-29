@@ -18,6 +18,10 @@ const summary = {
   wordCount: 800,
   importedAt: '2026-09-12T08:00:00.000Z',
 };
+const summaryWithCover = {
+  ...summary,
+  coverImageUrl: 'https://images.example.com/article.jpg',
+};
 
 describe('private article API', () => {
   beforeEach(() => {
@@ -40,7 +44,7 @@ describe('private article API', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: jest.fn().mockResolvedValue({ items: [summary], nextCursor: null }),
+        json: jest.fn().mockResolvedValue({ items: [summaryWithCover], nextCursor: null }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -59,10 +63,10 @@ describe('private article API', () => {
 
     await expect(
       listImportedArticles({ limit: 30, cursor: 'next_cursor' }),
-    ).resolves.toEqual({ items: [summary], nextCursor: null });
+    ).resolves.toEqual({ items: [summaryWithCover], nextCursor: null });
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      'https://api.example.test/v1/articles?limit=30&cursor=next_cursor',
+      'https://api.example.test/v1/articles?limit=30&includeCover=1&cursor=next_cursor',
       expect.objectContaining({}),
     );
     await expect(getImportedArticle(summary.id)).resolves.toMatchObject({

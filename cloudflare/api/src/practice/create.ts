@@ -27,7 +27,12 @@ import {
 } from '../../../../server/src/modules/practice/topic-targets';
 import { readJsonBody } from '../core/http';
 import type { ApiEnv, D1DatabaseBinding, D1StatementBinding } from '../env';
-import { getRemainingQuota } from '../quota/service';
+import {
+  getRemainingQuota,
+  quotaBalanceStatement,
+  remainingQuotaFromBalance,
+  type QuotaBalanceRow,
+} from '../quota/service';
 
 const PATH = '/v1/practices';
 const OPERATION = 'create_practice';
@@ -38,7 +43,6 @@ const POLL_AFTER_MS = 1_500;
 interface IdRow { id: string }
 interface RecordRow { requestHash: string; resourceType: string; resourceId: string }
 interface PracticeRow { status: PracticeStatus }
-interface QuotaRow { total: number }
 interface ContextRow {
   id: string;
   fingerprint: string;
@@ -496,8 +500,12 @@ function buildBatch(
     JOIN users AS user ON user.id = practice.user_id
     WHERE practice.id = ? AND practice.user_id = ? AND user.deleted_at IS NULL
       AND EXISTS (SELECT 1 FROM idempotency_records WHERE id = ?)
-      AND ? + (SELECT COALESCE(SUM(amount), 0) FROM usage_ledger
-               WHERE user_id = ?) > 0
+      AND (
+        EXISTS (SELECT 1 FROM user_practice_access AS access
+                WHERE access.user_id = user.id AND access.unlimited_practices = 1)
+        OR ? + (SELECT COALESCE(SUM(amount), 0) FROM usage_ledger
+                WHERE user_id = ?) > 0
+      )
     ON CONFLICT(operation_key) DO NOTHING
     RETURNING id
   `).bind(crypto.randomUUID(), `${practiceId}:reserve`, now, practiceId, userId,
@@ -595,10 +603,7 @@ function buildBatch(
   `).bind(`${practiceId}:reserve`, practiceId,
     ...memberIds, expectedTargets, ...memberIds, members.length,
     practiceId, recordId, userId, OPERATION));
-  statements.push(db.prepare(`
-    SELECT COALESCE(SUM(amount), 0) AS total FROM usage_ledger
-    WHERE user_id = ?
-  `).bind(userId));
+  statements.push(quotaBalanceStatement(db, userId));
   return statements;
 }
 
@@ -677,7 +682,7 @@ export async function handlePracticeCreateRoute(
     throw new AppError('INTERNAL_ERROR', '练习创建状态无效', 500, true);
   }
   const finalized = batchRows<{ resourceId: string }>(results[results.length - 2]);
-  const balance = batchRows<QuotaRow>(results[results.length - 1])[0];
+  const balance = batchRows<QuotaBalanceRow>(results[results.length - 1])[0];
   if (finalized[0]?.resourceId !== practiceId || !balance) {
     throw new AppError('INTERNAL_ERROR', '练习创建状态无效', 500, true);
   }
@@ -685,6 +690,6 @@ export async function handlePracticeCreateRoute(
   // D1 jobs are durable. The scheduled recovery handler retries delivery if
   // a Queue send fails after commit.
   await Promise.allSettled(members.map((member) => env.JOB_QUEUE!.send({ jobId: member.jobId })));
-  const remaining = Math.min(freeLimit, Math.max(0, freeLimit + balance.total));
+  const remaining = remainingQuotaFromBalance(balance, freeLimit);
   return acceptedResponse(practiceId, 'queued', remaining);
 }

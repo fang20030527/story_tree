@@ -498,6 +498,14 @@ describe('shared contracts', () => {
     };
 
     expect(ImportedArticleSummaryDtoSchema.parse(item)).toEqual(item);
+    expect(ImportedArticleSummaryDtoSchema.parse({
+      ...item,
+      coverImageUrl: 'https://images.example.com/article.jpg',
+    }).coverImageUrl).toBe('https://images.example.com/article.jpg');
+    expect(ImportedArticleSummaryDtoSchema.safeParse({
+      ...item,
+      coverImageUrl: 'http://localhost/article.jpg',
+    }).success).toBe(false);
     expect(ImportedArticleSummaryDtoSchema.safeParse({
       ...item,
       paragraphs: [],

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const HttpOriginSchema = z.url().refine((value) => {
+  if (!URL.canParse(value)) return false;
   const url = new URL(value);
   return (
     (url.protocol === 'http:' || url.protocol === 'https:') &&

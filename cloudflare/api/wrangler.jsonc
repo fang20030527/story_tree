@@ -51,7 +51,7 @@
     "binding": "IMAGES"
   },
   "vars": {
-    "PASSWORD_RESET_FROM_EMAIL": "no-reply@danceclip.org",
+    "PASSWORD_RESET_FROM_EMAIL": "no-reply@blackholeenglish.com",
     "API_CORS_ORIGINS": "https://waikan-web.zhenyufang162.workers.dev",
     "API_STAGE_OPEN": "true"
   }

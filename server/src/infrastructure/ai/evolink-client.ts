@@ -61,7 +61,7 @@ export class EvolinkClient {
 
   constructor(
     config: EvolinkClientConfig,
-    private readonly fetchImpl: typeof fetch = globalThis.fetch,
+    private readonly fetchImpl: typeof fetch = (input, init) => globalThis.fetch(input, init),
   ) {
     this.config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/u, '') };
   }

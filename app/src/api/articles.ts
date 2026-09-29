@@ -12,6 +12,7 @@ export function listImportedArticles(
 ): Promise<ImportedArticlePage> {
   const query = new URLSearchParams();
   query.set('limit', String(input.limit ?? 30));
+  query.set('includeCover', '1');
   if (input.cursor) query.set('cursor', input.cursor);
   return apiRequest(
     `/v1/articles?${query.toString()}`,

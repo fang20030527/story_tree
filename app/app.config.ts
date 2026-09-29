@@ -30,6 +30,20 @@ function associatedDomain(universalLink: string | undefined): string | undefined
 }
 
 export default function appConfig(): ExpoConfig {
+  if (process.env.EAS_BUILD_PROFILE === 'production') {
+    const value = readOptional('EXPO_PUBLIC_API_BASE_URL');
+    let origin: URL | undefined;
+    try {
+      origin = value ? new URL(value) : undefined;
+    } catch { /* 配置错误只报告变量名。 */ }
+    if (!origin || origin.protocol !== 'https:' || origin.username || origin.password ||
+        origin.pathname !== '/' || origin.search || origin.hash ||
+        !origin.hostname.includes('.') || origin.hostname.endsWith('.localhost') ||
+        origin.hostname.endsWith('.local') || origin.hostname.endsWith('.lan') ||
+        /^\d+(?:\.\d+){3}$/u.test(origin.hostname)) {
+      throw new Error('生产构建需要 EXPO_PUBLIC_API_BASE_URL 使用公开 HTTPS 域名');
+    }
+  }
   const appId = readOptional('EXPO_PUBLIC_WECHAT_APP_ID');
   const universalLink = readOptional('EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK');
   const domain = associatedDomain(universalLink);

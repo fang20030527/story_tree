@@ -89,4 +89,15 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, PASSWORD_RESET_FROM_EMAIL: 'security@example.com' }))
       .toThrow('RESEND_API_KEY');
   });
+
+  it('accepts an explicitly blank optional editorial audio origin', () => {
+    const config = loadConfig({
+      DATABASE_URL: 'postgresql://example.invalid/db',
+      EVOLINK_API_KEY: 'secret',
+      PUBLIC_SERVER_ORIGIN: 'http://localhost:3000',
+      EDITORIAL_AUDIO_PUBLIC_ORIGIN: '',
+    });
+
+    expect(config.editorialAudioPublicOrigin).toBeUndefined();
+  });
 });

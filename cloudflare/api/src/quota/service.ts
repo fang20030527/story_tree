@@ -1,5 +1,5 @@
 import { AppError } from '../../../../server/src/core/errors';
-import type { D1DatabaseBinding } from '../env';
+import type { D1DatabaseBinding, D1StatementBinding } from '../env';
 
 export interface ReserveQuotaResult {
   /** true only when this call inserted the reserve ledger row. */
@@ -11,7 +11,10 @@ export interface ReserveQuotaResult {
 export type QuotaFinalizationResult = 'applied' | 'unchanged';
 
 interface IdRow { id: string }
-interface TotalRow { total: number }
+export interface QuotaBalanceRow { total: number; unlimitedPractices: number }
+
+// 旧客户端只接受非负整数额度。此值仅作兼容标记，真正豁免由数据库开关控制。
+export const UNLIMITED_PRACTICES_REMAINING = Number.MAX_SAFE_INTEGER;
 
 function assertFreeLimit(freeLimit: number): void {
   if (!Number.isSafeInteger(freeLimit) || freeLimit <= 0) {
@@ -19,17 +22,40 @@ function assertFreeLimit(freeLimit: number): void {
   }
 }
 
+export function quotaBalanceStatement(
+  db: D1DatabaseBinding,
+  userId: string,
+): D1StatementBinding {
+  return db.prepare(`
+    SELECT
+      (SELECT COALESCE(SUM(amount), 0) FROM usage_ledger WHERE user_id = ?1) AS total,
+      EXISTS (
+        SELECT 1 FROM user_practice_access AS access
+        JOIN users AS owner ON owner.id = access.user_id
+        WHERE access.user_id = ?1 AND access.unlimited_practices = 1
+          AND owner.deleted_at IS NULL
+      ) AS unlimitedPractices
+  `).bind(userId);
+}
+
+export function remainingQuotaFromBalance(
+  row: QuotaBalanceRow | null | undefined,
+  freeLimit: number,
+): number {
+  assertFreeLimit(freeLimit);
+  if (row?.unlimitedPractices === 1) return UNLIMITED_PRACTICES_REMAINING;
+  return Math.min(freeLimit, Math.max(0, freeLimit + (row?.total ?? 0)));
+}
+
 export async function getRemainingQuota(
   db: D1DatabaseBinding,
   userId: string,
-  freeLimit: number,
+  freeLimit = 3,
 ): Promise<number> {
   assertFreeLimit(freeLimit);
-  const row = await db.prepare(`
-    SELECT COALESCE(SUM(amount), 0) AS total
-    FROM usage_ledger WHERE user_id = ?1
-  `).bind(userId).first<TotalRow>();
-  return Math.min(freeLimit, Math.max(0, freeLimit + (row?.total ?? 0)));
+  return remainingQuotaFromBalance(
+    await quotaBalanceStatement(db, userId).first<QuotaBalanceRow>(), freeLimit,
+  );
 }
 
 /**
@@ -52,10 +78,14 @@ export async function reserveQuota(
     FROM practice_sessions AS p
     JOIN users AS u ON u.id = p.user_id
     WHERE p.id = ?3 AND p.user_id = ?4 AND u.deleted_at IS NULL
-      AND ?5 + (
-        SELECT COALESCE(SUM(amount), 0)
-        FROM usage_ledger WHERE user_id = ?4
-      ) > 0
+      AND (
+        EXISTS (SELECT 1 FROM user_practice_access AS access
+                WHERE access.user_id = u.id AND access.unlimited_practices = 1)
+        OR ?5 + (
+          SELECT COALESCE(SUM(amount), 0)
+          FROM usage_ledger WHERE user_id = ?4
+        ) > 0
+      )
     ON CONFLICT(operation_key) DO NOTHING
     RETURNING id
   `).bind(

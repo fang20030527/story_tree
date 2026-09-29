@@ -329,7 +329,9 @@ export async function handlePracticeGeneration(
       if (!(error instanceof PracticeValidationError) || revision === MAX_DRAFTS - 1) throw error;
       input = {
         ...loaded.providerInput,
-        revision: { generated, issues: [error.repairIssue] },
+        revision: { generated, issues: [...new Set([
+          error.repairIssue, ...(input.revision?.issues ?? []),
+        ])] },
       };
       continue;
     }
@@ -344,7 +346,9 @@ export async function handlePracticeGeneration(
       }
       input = {
         ...loaded.providerInput,
-        revision: { generated, issues: verification.issues },
+        revision: { generated, issues: [...new Set([
+          ...verification.issues, ...(input.revision?.issues ?? []),
+        ])] },
       };
       if (!(await moveState(env.DB, job, 'generating', context.signal))) return;
       continue;
