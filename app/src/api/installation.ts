@@ -1,6 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { getCredential, setCredential } from './credentialStorage';
 
 import { INSTALLATION_TOKEN_KEY } from './storage';
 
@@ -22,19 +21,15 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 async function loadOrCreateInstallationToken(): Promise<string> {
-  const storedToken = await SecureStore.getItemAsync(INSTALLATION_TOKEN_KEY);
+  const storedToken = await getCredential(INSTALLATION_TOKEN_KEY);
   if (storedToken) return storedToken;
 
   const token = bytesToHex(await Crypto.getRandomBytesAsync(32));
-  await SecureStore.setItemAsync(INSTALLATION_TOKEN_KEY, token);
+  await setCredential(INSTALLATION_TOKEN_KEY, token);
   return token;
 }
 
 export async function getInstallationToken(): Promise<string> {
-  if (Platform.OS === 'web') {
-    throw new InstallationCredentialUnavailableError();
-  }
-
   if (!inFlightToken) {
     inFlightToken = loadOrCreateInstallationToken().finally(() => {
       inFlightToken = null;

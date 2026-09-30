@@ -13,6 +13,8 @@ coverage/
 .local-test-results/
 .migration/
 app/dist-recovery/
+app/dist-brand/
+app/dist-smoke/
 
 # local URL extract output
 tools/url-extract/out/
@@ -24,3 +26,5 @@ tools/url-extract/out/
 .venv/
 __pycache__/
 *.pyc
+
+app/dist-ios-brand/

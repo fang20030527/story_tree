@@ -1,10 +1,13 @@
 import { type PropsWithChildren } from 'react';
+import { ScrollViewStyleReset } from 'expo-router/html';
 
 // Root HTML is used only by Expo Router's web static export.
 export default function Root({ children }: PropsWithChildren) {
   return (
     <html lang="zh-CN">
       <head>
+        <title>黑洞英语 · 读懂一点，积累一点</title>
+        <ScrollViewStyleReset />
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />

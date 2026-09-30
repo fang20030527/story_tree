@@ -15,9 +15,9 @@
       "autoIncrement": true,
       "environment": "production",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://waikan-web.zhenyufang162.workers.dev",
-        "EXPO_PUBLIC_EDITORIAL_AUDIO_ORIGIN": "https://waikan-web.zhenyufang162.workers.dev",
-        "EXPO_PUBLIC_EDITORIAL_IMAGE_ORIGIN": "https://waikan-web.zhenyufang162.workers.dev/v1/editorial/images"
+        "EXPO_PUBLIC_API_BASE_URL": "https://blackholeenglish.com",
+        "EXPO_PUBLIC_EDITORIAL_AUDIO_ORIGIN": "https://blackholeenglish.com",
+        "EXPO_PUBLIC_EDITORIAL_IMAGE_ORIGIN": "https://blackholeenglish.com/v1/editorial/images"
       }
     }
   },

@@ -3,7 +3,8 @@
     "name": "黑洞英语",
     "slug": "waikan-reader",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
+    "backgroundColor": "#FBFAF6",
     "icon": "./assets/images/icon.png",
     "scheme": "app",
     "userInterfaceStyle": "automatic",
@@ -33,7 +34,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#FBFAF6",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }

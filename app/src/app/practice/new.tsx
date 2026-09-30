@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerSpacer: { width: 26 },
-  content: { paddingHorizontal: 16, paddingTop: 18 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 24, paddingTop: 18  },
   title: { fontSize: 25, fontWeight: weight('bold') },
   subtitle: { fontSize: 14, lineHeight: 22, marginBottom: 20, marginTop: 8 },
   ageContent: { flex: 1, justifyContent: 'center', padding: 24 },

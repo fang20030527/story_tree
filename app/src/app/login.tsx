@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   headerPlaceholder: { width: 26 },
-  content: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 76, paddingBottom: 32, alignItems: 'center' },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  flexGrow: 1, paddingHorizontal: 24, paddingTop: 76, paddingBottom: 32, alignItems: 'center'  },
   contentWithKeyboard: { paddingTop: 16 },
   hero: { alignItems: 'center' },
   heroHidden: { display: 'none' },

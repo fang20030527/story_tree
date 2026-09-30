@@ -1,3 +1,4 @@
+
 import { useStudyTimer } from '@/features/study/useStudyTimer';
 import { ApiError } from '@/api/client';
 import { EditorialAudioPlayer, type EditorialPlaybackPosition } from './EditorialAudioPlayer';
@@ -7,7 +8,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { VocabularyInput } from '@context-reader/contracts';
 
 import { createVocabularyItem, requestWordTranslation } from '@/api/practices';
-import { weight } from '@/constants/theme';
+import { fonts, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import type { EditorialArticle } from '@/features/editorial/catalog';
 import { recordEditorialRecentView } from '@/features/library/libraryStorage';
@@ -312,7 +312,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
                   block.role === 'caption' && nextBlock?.type === 'image' && styles.captionBeforeImage,
                 ]}
                 addedWords={addedWords}
-                addedWordColor={theme.accent}
+                addedWordColor={theme.accentSoft}
                 borderColor={theme.border}
                 dangerColor={theme.danger}
                 lookupWord={lookupEditorialWord}
@@ -403,7 +403,7 @@ function MissingEditorialArticleState() {
   );
 }
 
-const readingFont = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
+const readingFont = fonts.reading;
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   content: { alignSelf: 'center', width: '100%', maxWidth: 720, paddingHorizontal: 22, paddingTop: 20 },
   articleHeader: { paddingBottom: 24 },
   kicker: { fontSize: 12, lineHeight: 18, fontWeight: weight('medium'), letterSpacing: 0.5 },
-  titleEn: { fontFamily: readingFont, fontSize: 32, fontWeight: weight('bold'), lineHeight: 40, marginTop: 12 },
+  titleEn: { fontFamily: fonts.display, fontSize: 40, fontWeight: weight('regular'), lineHeight: 40, marginTop: 12 },
   titleZh: { fontSize: 17, lineHeight: 26, marginTop: 12 },
   meta: { fontSize: 12, lineHeight: 18, marginTop: 16 },
   translationBox: {

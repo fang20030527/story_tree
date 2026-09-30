@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 36,
   },
-  content: { paddingHorizontal: 16 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 24  },
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

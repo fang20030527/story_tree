@@ -16,13 +16,14 @@ jest.mock('@/context/ThemeContext', () => ({
 
 beforeEach(() => jest.clearAllMocks());
 
-it('explains purchase availability and expands pricing details', async () => {
+it('shows the planned membership without enabling payment or fake redemption', async () => {
   const view = await render(<ProScreen />);
-  expect(view.getByText('Pro 暂未开放购买 · 当前不会扣费')).toBeTruthy();
-  await fireEvent.press(view.getByText('Pro 的价格和额度是多少？'));
-  expect(view.getByText(/价格、使用额度及会员专属功能尚未公布/)).toBeTruthy();
-  await fireEvent.press(view.getByText('Pro 的价格和额度是多少？'));
-  expect(view.queryByText(/价格、使用额度及会员专属功能尚未公布/)).toBeNull();
+  expect(view.getByText(/VIP 暂未开放购买/)).toBeTruthy();
+  expect(view.getByText('暂未开放开通').parent?.props.accessibilityState).toEqual({ disabled: true });
+  await fireEvent.press(view.getByText('月度会员'));
+  await fireEvent.press(view.getByText('邀请码兑换'));
+  expect(view.getByLabelText('邀请码').props.editable).toBe(false);
+  expect(view.getByText(/当前不会验证或保存邀请码/)).toBeTruthy();
 });
 
 it('opens the existing feature guide', async () => {

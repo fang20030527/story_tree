@@ -78,15 +78,19 @@ describe('getInstallationToken', () => {
     expect(setItemAsync).not.toHaveBeenCalled();
   });
 
-  it('requires native secure storage on Web without touching storage', async () => {
+  it('uses a browser session credential without writing native or persistent storage', async () => {
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: 'web',
     });
 
-    await expect(getInstallationToken()).rejects.toMatchObject({
-      code: 'NATIVE_AUTH_REQUIRED',
-    });
+    const token = 'ab'.repeat(32);
+    const previousWindow = globalThis.window;
+    const sessionStorage = { getItem: jest.fn().mockReturnValue(token), setItem: jest.fn() };
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { sessionStorage } });
+    try { await expect(getInstallationToken()).resolves.toBe(token); }
+    finally { Object.defineProperty(globalThis, 'window', { configurable: true, value: previousWindow }); }
+    expect(sessionStorage.getItem).toHaveBeenCalledWith('context_reader_installation_token_v1');
     expect(getItemAsync).not.toHaveBeenCalled();
     expect(getRandomBytesAsync).not.toHaveBeenCalled();
     expect(setItemAsync).not.toHaveBeenCalled();

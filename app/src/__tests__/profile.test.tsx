@@ -18,11 +18,11 @@ it('显示实际本地日期、累计学习时长和十分钟打卡，并跨年�
   const view = await render(<ProfileScreen />);
   try {
     await waitFor(() => expect(view.getByText('今日已学 11min')).toBeTruthy());
-    expect(view.getByText('学习日历 2026.12')).toBeTruthy();
-    expect(view.getByLabelText('2026-12-31 今日 已打卡')).toBeTruthy();
+    expect(view.getByText('学习日志')).toBeTruthy();
+    expect(view.getByLabelText('2026-12-31 今日 已打卡，学习 11 分钟')).toBeTruthy();
     await act(async () => { jest.advanceTimersByTime(10_000); });
-    await waitFor(() => expect(view.getByText('学习日历 2027.01')).toBeTruthy());
-    expect(view.getByLabelText('2027-01-01 今日')).toBeTruthy();
+    await waitFor(() => expect(view.getByText('学习日志')).toBeTruthy());
+    expect(view.getByLabelText('2027-01-01 今日，学习 0 分钟')).toBeTruthy();
     expect(view.getByText('今日已学 0min')).toBeTruthy();
   } finally {
     await view.unmount();
@@ -52,6 +52,7 @@ jest.mock('@/context/ThemeContext', () => ({
     setPreference: jest.fn(),
   }),
 }));
+jest.mock('@/api/practices', () => ({ getVocabularyWords: jest.fn().mockResolvedValue({ summary: { totalCount: 9, masteredCount: 2 } }) }));
 jest.mock('@/features/auth/authStorage', () => ({
   clearAuthUser: jest.fn(),
   loadAuthUser: jest.fn(),
@@ -65,7 +66,7 @@ it('opens the Pro detail page from the upgrade entry', async () => {
   jest.mocked(loadAuthUser).mockResolvedValue(null);
   jest.mocked(loadRecentViews).mockResolvedValue([]);
   const view = await render(<ProfileScreen />);
-  await fireEvent.press(view.getByLabelText('升级为 Pro 版'));
+  await fireEvent.press(view.getByLabelText('升级为 VIP 版'));
   expect(router.push).toHaveBeenCalledWith('/pro');
   expect(view.queryByText('2025 特惠')).toBeNull();
 });
@@ -77,9 +78,9 @@ it('keeps recent learning statistics but removes favorite concepts', async () =>
     timestamp: '2026-09-12T08:00:00.000Z',
   }]);
   const view = await render(<ProfileScreen />);
-  await waitFor(() => expect(view.getByText('学习篇数')).toBeTruthy());
-  expect(view.getByText('最近观看')).toBeTruthy();
-  expect(view.queryByText('我的收藏')).toBeNull();
+  await waitFor(() => expect(view.getByText('近期阅读')).toBeTruthy());
+  expect(view.getByText('最近阅读')).toBeTruthy();
+  expect(view.getByText('我的收藏')).toBeTruthy();
   expect(view.queryByText('收藏')).toBeNull();
 });
 

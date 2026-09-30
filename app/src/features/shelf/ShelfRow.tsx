@@ -133,12 +133,11 @@ function ImportedCover({ imageUrl }: { imageUrl?: string | null }) {
 
 const styles = StyleSheet.create({
   row: {
-    alignItems: 'center', borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row',
-    gap: 8, padding: 10,
+    borderRadius: 0, flex: 1,
+    gap: 8, paddingVertical: 12,
   },
-  body: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 11 },
-  cover: { borderRadius: 8, height: 68, width: 68 },
+  body: { flex: 1, gap: 11 },
+  cover: { borderRadius: 1, aspectRatio: .78, width: '100%' },
   placeholder: { alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1 },
   source: { fontSize: 11 },

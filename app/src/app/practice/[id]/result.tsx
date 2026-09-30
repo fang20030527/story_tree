@@ -201,7 +201,7 @@ export default function PracticeResultScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   centered: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 24 },
-  content: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 24 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  alignItems: 'center', flex: 1, justifyContent: 'center', padding: 24  },
   resultIcon: {
     alignItems: 'center',
     borderRadius: 44,

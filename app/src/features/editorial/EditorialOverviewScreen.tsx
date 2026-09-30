@@ -1,3 +1,4 @@
+
 import { EditorialAudioPlayer } from './EditorialAudioPlayer';
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { weight } from '@/constants/theme';
+import { fonts, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import type { EditorialArticle } from '@/features/editorial/catalog';
 import {
@@ -281,7 +282,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   headerSpacer: { width: 26 },
-  content: { paddingHorizontal: 18, paddingTop: 12 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 18, paddingTop: 12  },
   cover: { borderRadius: 16, height: 210, marginBottom: 20 },
   coverShade: {
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
@@ -305,7 +306,7 @@ const styles = StyleSheet.create({
   coverSource: { color: '#FFFFFF', fontSize: 13, fontWeight: weight('semibold') },
   coverCategory: { color: 'rgba(255,255,255,0.82)', fontSize: 11, marginTop: 3 },
   titleZh: { fontSize: 26, fontWeight: weight('bold'), lineHeight: 34 },
-  titleEn: { fontSize: 16, lineHeight: 24, marginTop: 8 },
+  titleEn: { fontFamily: fonts.display, fontSize: 16, lineHeight: 24, marginTop: 8 },
   meta: { fontSize: 12, marginTop: 10 },
   section: { borderBottomWidth: StyleSheet.hairlineWidth, marginTop: 24, paddingBottom: 20 },
   sectionTitle: { fontSize: 16, fontWeight: weight('semibold') },

@@ -17,6 +17,13 @@ coverage/
 .superpowers/
 .local-test-results/
 app/dist-recovery/
+app/dist-brand/
+app/dist-smoke/
+app/dist-ios-brand/
+docs/visual-preview/
+miniprogram/dist/
+miniprogram/config.local.json
+miniprogram/project.private.config.json
 tools/url-extract/out/
 /剑桥在线英汉双解词典完美版/
 /牛津高阶英汉双解词典第10版完美版/

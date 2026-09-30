@@ -1,0 +1,14 @@
+{
+  "description": "黑洞英语微信小程序",
+  "miniprogramRoot": "dist/",
+  "compileType": "miniprogram",
+  "appid": "touristappid",
+  "projectname": "black-hole-english",
+  "setting": {
+    "es6": true,
+    "minified": true,
+    "urlCheck": true,
+    "enhance": true
+  },
+  "libVersion": "3.7.8"
+}

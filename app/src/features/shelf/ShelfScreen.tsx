@@ -9,14 +9,20 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { BrandHeader, PageHeading, TouchCard } from '@/components/brand';
+
+import { loadRecentViews, type RecentView } from '@/features/library/libraryStorage';
+import { getEditorialArticle } from '@/features/editorial/catalog';
 
 import {
   deleteImportedArticle,
   listImportedArticles,
 } from '@/api/articles';
-import { weight } from '@/constants/theme';
+import { fonts, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import {
   refreshRemoteEditorialCatalog,
@@ -69,6 +75,9 @@ export function ShelfScreen({
 }: ShelfScreenProps) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const columns = width >= 1100 ? 3 : 2;
+  const [recent, setRecent] = useState<RecentView | null>(null);
   const [editorialEntries, setEditorialEntries] = useState<EditorialShelfEntry[]>([]);
   const catalogVersion = useRemoteEditorialCatalogVersion();
   const [importedArticles, setImportedArticles] = useState<ImportedArticleSummaryDto[]>([]);
@@ -119,6 +128,7 @@ export function ShelfScreen({
       let active = true;
       void refreshRemoteEditorialCatalog().catch(() => undefined);
       setEditorialLoading(true);
+      void loadRecentViews().then(entries => { if (active) setRecent(entries[0] ?? null); }).catch(() => { if (active) setRecent(null); });
       void dependencies.loadEditorial()
         .then((entries) => { if (active) setEditorialEntries(entries); })
         .catch(() => { if (active) setEditorialEntries([]); })
@@ -250,13 +260,12 @@ export function ShelfScreen({
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.headerSide} />
-        <Text style={[styles.headerTitle, { color: theme.text }]}>书架</Text>
-        <View style={styles.headerSide} />
-      </View>
+      <BrandHeader label="导入" onPress={() => router.push('/import')} />
       <FlatList
         testID="shelf-list"
+        key={columns}
+        numColumns={columns}
+        columnWrapperStyle={{ gap: 20 }}
         data={visibleItems}
         keyExtractor={(item) => `${item.kind}:${item.id}`}
         contentContainerStyle={[
@@ -266,7 +275,15 @@ export function ShelfScreen({
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={(
           <View>
-            <ImportSourceGrid />
+            <PageHeading title="书架" description="把喜欢的，慢慢读完。" />
+            {recent ? <TouchCard accessibilityLabel="继续上次阅读" onPress={() => {
+              if (recent.kind === 'editorial') router.push({ pathname: '/editorial/[id]/read', params: { id: recent.articleId } });
+              else router.push({ pathname: '/article-read', params: { id: recent.articleId } });
+            }} style={[styles.resume, { backgroundColor: theme.pink }]}>
+              <Text style={{ color: theme.onPink, fontSize: 12 }}>上次读到这里</Text>
+              <Text style={[styles.resumeTitle, { color: theme.onPink }]}>{recent.kind === 'editorial' ? getEditorialArticle(recent.articleId)?.titleEn ?? '继续阅读' : recent.title}</Text>
+              <View style={[styles.resumeAction, { borderTopColor: '#9C5A6D' }]}><Text style={{ color: theme.onPink }}>继续阅读</Text><Ionicons name="arrow-forward" size={24} color={theme.onPink} /></View>
+            </TouchCard> : null}
             <View style={styles.bookshelfHeading}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>
                 我的书架
@@ -342,10 +359,9 @@ export function ShelfScreen({
             当前筛选暂无内容
           </Text>
         )}
-        ListFooterComponent={loadingMore ? (
-          <ActivityIndicator color={theme.accent} style={styles.footerSpinner} />
-        ) : null}
+        ListFooterComponent={<View style={{ marginTop: 30 }}>{loadingMore ? <ActivityIndicator color={theme.accent} style={styles.footerSpinner} /> : null}<ImportSourceGrid /></View>}
         renderItem={({ item }) => (
+          <View style={{ width: `${100 / columns - 3}%` }}>
           <ShelfRow
             item={item}
             managing={managing}
@@ -356,6 +372,7 @@ export function ShelfScreen({
               else showItemMenu(selected);
             }}
           />
+          </View>
         )}
         onEndReached={() => { void loadMore(); }}
         onEndReachedThreshold={0.35}
@@ -372,7 +389,10 @@ const styles = StyleSheet.create({
   },
   headerSide: { width: 36 },
   headerTitle: { fontSize: 18, fontWeight: weight('semibold') },
-  content: { paddingHorizontal: 16 },
+  content: { paddingHorizontal: 24, paddingTop: 12, width: '100%', maxWidth: 1160, alignSelf: 'center' },
+  resume: { padding: 24, borderRadius: 2, marginBottom: 28 },
+  resumeTitle: { fontFamily: fonts.display, fontSize: 34, lineHeight: 39, marginVertical: 18 },
+  resumeAction: { paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bookshelfHeading: {
     alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between',
     marginTop: 24,

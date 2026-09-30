@@ -16,7 +16,7 @@ jest.mock('expo-router', () => ({
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
-jest.mock('@/api/practices', () => ({ getDashboard: jest.fn() }));
+jest.mock('@/api/practices', () => ({ getDashboard: jest.fn(), getVocabularyWords: jest.fn().mockResolvedValue({ summary: { totalCount: 128, learningCount: 88, masteredCount: 0 } }) }));
 jest.mock('@/context/ThemeContext', () => ({
   useAppTheme: () => ({ theme: jest.requireActual('@/constants/theme').themes.light }),
 }));

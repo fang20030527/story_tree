@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError } from '@/api/client';
 import { createPractice, getDashboard, registerAnonymous } from '@/api/practices';
 import { Card } from '@/components/ui';
+import { PageHeading } from '@/components/brand';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { ContinuePracticeCard } from '@/features/practice/ContinuePracticeCard';
@@ -118,6 +119,8 @@ export default function VocabularyPracticeSetupScreen() {
         <View style={{ width: 26 }} />
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <PageHeading title="把单词，放回文章里。" description="换一个语境，让记忆多一个落点。" />
+        <View style={[styles.modeRow, { borderColor: theme.border }]}><View style={{ flex: 1 }}><Text style={{ color: theme.accent, fontSize: 16 }}>智能选词</Text><Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 20, marginTop: 5 }}>按照记忆曲线，自动安排本次复习。</Text></View><TouchableOpacity accessibilityRole="button" onPress={() => router.push('/practice/select-words')} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>自定义选词 →</Text></TouchableOpacity></View>
         <ContinuePracticeCard />
         <PracticePreferencesCard />
         <Card theme={theme} style={styles.statsCard}>
@@ -207,10 +210,11 @@ export default function VocabularyPracticeSetupScreen() {
   );
 }
 const styles = StyleSheet.create({
+  modeRow: { flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: 22 },
   screen: { flex: 1 },
   header: { alignItems: 'center', flexDirection: 'row', minHeight: 52, paddingHorizontal: 16 },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: weight('semibold'), textAlign: 'center' },
-  content: { padding: 16, paddingBottom: 28, gap: 14 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  padding: 16, paddingBottom: 28, gap: 14  },
   statsCard: { padding: 16 },
   statsTitle: { fontSize: 15, fontWeight: weight('bold') },
   statsLine: { fontSize: 14, marginTop: 10 },

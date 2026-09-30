@@ -1,3 +1,4 @@
+import { fonts } from '@/constants/theme';
 import type {
   AssistanceResponse,
   ArticleSegment,
@@ -862,7 +863,7 @@ export function InteractiveWordParagraph({
               { backgroundColor: surfaceColor, borderColor },
             ]}>
             <View style={styles.hintHeader}>
-              <Text style={styles.hintTerm}>
+              <Text style={[styles.hintTerm, { color: textColor }]}>
                 {visibleHint.term}
               </Text>
               <TouchableOpacity
@@ -872,7 +873,7 @@ export function InteractiveWordParagraph({
                   requestIdRef.current += 1;
                   setVisibleHint(null);
                 }}>
-                <Text style={styles.hintClose}>×</Text>
+                <Text style={[styles.hintClose, { color: mutedColor }]}>×</Text>
               </TouchableOpacity>
             </View>
             {visibleHint.loading ? (
@@ -885,13 +886,13 @@ export function InteractiveWordParagraph({
               phoneticUs={visibleHint.phoneticUs}
             />
             {visibleHint.partOfSpeech ? (
-              <Text style={styles.hintPartOfSpeech}>
+              <Text style={[styles.hintPartOfSpeech, { color: textColor }]}>
                 {visibleHint.partOfSpeech}
               </Text>
             ) : null}
             {visibleHint.meaningZh ? (
               <>
-                <Text style={styles.hintMeaning}>
+                <Text style={[styles.hintMeaning, { color: textColor }]}>
                   {visibleHint.meaningZh}
                 </Text>
                 <Text style={[styles.hintPartOfSpeech, { color: mutedColor }]}>剑桥本地词典 · 常用释义</Text>
@@ -908,9 +909,7 @@ export function InteractiveWordParagraph({
                 style={[
                   styles.addWordButton,
                   {
-                    borderColor: isWordAdded(visibleHint.term)
-                      ? addedWordColor
-                      : borderColor,
+                    borderColor: isWordAdded(visibleHint.term) ? targetColor : borderColor,
                     opacity: visibleHint.adding ? 0.65 : 1,
                   },
                 ]}>
@@ -921,9 +920,7 @@ export function InteractiveWordParagraph({
                     style={[
                       styles.addWordIcon,
                       {
-                        color: isWordAdded(visibleHint.term)
-                          ? addedWordColor
-                          : '#000000',
+                        color: isWordAdded(visibleHint.term) ? targetColor : textColor,
                       },
                     ]}>
                     {isWordAdded(visibleHint.term) ? '✓' : '+'}
@@ -933,9 +930,7 @@ export function InteractiveWordParagraph({
                   style={[
                     styles.addWordText,
                     {
-                      color: isWordAdded(visibleHint.term)
-                        ? addedWordColor
-                        : '#000000',
+                      color: isWordAdded(visibleHint.term) ? targetColor : textColor,
                     },
                   ]}>
                   {isWordAdded(visibleHint.term) ? '已加入生词本' : '加入生词本'}
@@ -959,7 +954,7 @@ export function InteractiveWordParagraph({
 
 const styles = StyleSheet.create({
   sectionHeading: { fontSize: 23, lineHeight: 32, marginTop: 16, marginBottom: 20 },
-  paragraph: { fontSize: 17, lineHeight: 30, marginBottom: 18 },
+  paragraph: { fontFamily: fonts.reading, fontSize: 17, lineHeight: 30, marginBottom: 18 },
   hint: {
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,

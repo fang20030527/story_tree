@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f3ee">
+  <title>黑洞英语 · 第二版 / 红粉阅读室</title>
+  <link rel="icon" href="/app/assets/images/black-hole-english-logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script src="./preview.js" defer></script>
+</head>
+<body>
+  <header class="studio-header">
+    <span>黑洞英语 <span class="header-caption">视觉提案</span></span>
+    <nav class="version-nav" aria-label="切换视觉方案">
+      <a href="http://127.0.0.1:8766/">第一版</a>
+      <a href="/" aria-current="page">第二版</a>
+    </nav>
+  </header>
+
+  <main class="studio">
+    <aside class="design-note" aria-label="第二版设计说明">
+      <img class="study-logo" src="/app/assets/images/black-hole-english-logo.svg" alt="黑洞英语 Logo">
+      <p class="proposal-label">第二版</p>
+      <h1>红粉阅读室</h1>
+      <p class="direction">把品牌色铺开，让标题站出来。<br>从一本有个性的刊物，进入阅读。</p>
+      <div class="color-study" aria-label="朱橙与豆沙粉品牌配色">
+        <span class="color-orange">朱橙<small>#D64727</small></span>
+        <span class="color-pink">豆沙粉<small>#E59EB4</small></span>
+      </div>
+      <div class="design-description">
+        <p>紧凑的中文，舒展的英文。<br>错开的图文，共同的阅读节奏。</p>
+        <a class="compare-link" href="http://127.0.0.1:8766/">打开第一版对照 <span class="icon" aria-hidden="true">&#61751;</span></a>
+      </div>
+    </aside>
+
+    <section class="preview" aria-label="第二版手机页面预览">
+      <div class="preview-toolbar">
+        <div class="width-options" aria-label="预览宽度">
+          <button type="button" data-width="390" aria-pressed="true">390</button>
+          <button type="button" data-width="430" aria-pressed="false">430</button><span>px</span>
+        </div>
+        <button class="theme-toggle" type="button" aria-label="切换到深色" aria-pressed="false"><span class="icon" aria-hidden="true">&#62561;</span><span>深色</span></button>
+      </div>
+
+      <div class="phone-shell" id="phone">
+        <div class="status-bar" aria-hidden="true"><span>9:41</span><span>••• <span class="battery">▰</span></span></div>
+        <header class="app-header">
+          <a class="app-brand" href="#home" aria-label="黑洞英语首页">
+            <img src="/app/assets/images/black-hole-english-logo.svg" alt=""><span>黑洞英语</span>
+          </a>
+          <button class="icon-button search-toggle" id="search-toggle" type="button" aria-label="搜索文章" aria-expanded="false" aria-controls="search-panel"><span class="icon" aria-hidden="true">&#62819;</span></button>
+        </header>
+        <div class="search-panel" id="search-panel" hidden>
+          <span class="icon" aria-hidden="true">&#62819;</span>
+          <input id="search-input" type="search" placeholder="搜索文章或刊物" aria-label="搜索标题、刊物或主题">
+          <button class="text-button" id="search-cancel" type="button">取消</button>
+        </div>
+
+        <div class="screen-scroll" id="home" tabindex="0" aria-label="外刊内容，可滚动">
+          <div class="page-heading"><h2>外刊</h2><p>读英语，也读世界。</p></div>
+          <nav class="categories" aria-label="文章主题">
+            <button type="button" data-category="all" aria-pressed="true">精选</button>
+            <button type="button" data-category="科技" aria-pressed="false">科技</button>
+            <button type="button" data-category="文化" aria-pressed="false">文化</button>
+            <button type="button" data-category="自然" aria-pressed="false">自然</button>
+            <button type="button" data-category="历史" aria-pressed="false">历史</button>
+          </nav>
+
+          <section class="cover-story" id="hero" aria-label="今日精读">
+            <div class="cover-heading"><span>今日精读</span><button class="cover-save icon-button" type="button" data-article="cat" aria-label="查看精读文章并收藏"><span class="icon" aria-hidden="true">&#61865;</span></button></div>
+            <button class="cover-title" type="button" data-article="cat"><h3>Meet the first new cat species discovered in 100 years</h3></button>
+            <div class="cover-image-wrap">
+              <button class="cover-image-button" type="button" data-article="cat" aria-label="查看百年来首次发现的全新猫科物种"><img src="/app/assets/images/editorial/new-cat-species-002.jpg" alt="一只斑点野猫回头看向镜头上方" fetchpriority="high"></button>
+              <button class="read-circle" type="button" data-article="cat" aria-label="开始阅读今日精读"><span class="icon" aria-hidden="true">&#61751;</span></button>
+            </div>
+            <div class="cover-caption"><span class="publication">National Geographic</span><span>10 分钟</span></div>
+            <button class="cover-title-zh" type="button" data-article="cat">百年来首次发现的<br>全新猫科物种</button>
+            <div class="cover-foot"><span>自然与生命</span><span>1,494 词</span></div>
+          </section>
+
+          <section class="more-stories" aria-labelledby="list-title">
+            <div class="section-heading"><h3 id="list-title">继续发现</h3><span id="result-count">另外 3 篇好文章</span></div>
+            <div id="article-list"></div>
+            <div class="empty-state" id="empty-state" hidden><h3>暂时没有找到</h3><p>试试其他关键词或主题。</p><button type="button" class="read-link" id="reset-filters">查看全部文章 <span class="icon" aria-hidden="true">&#61751;</span></button></div>
+          </section>
+          <footer class="reading-footer"><img src="/app/assets/images/black-hole-english-logo.svg" alt=""><span>黑洞英语</span></footer>
+        </div>
+
+        <nav class="bottom-nav" aria-label="主导航">
+          <button type="button" data-nav="外刊" aria-current="page"><span class="icon" aria-hidden="true">&#62579;</span><span>外刊</span></button>
+          <button type="button" data-nav="书架"><span class="icon" aria-hidden="true">&#62390;</span><span>书架</span></button>
+          <button type="button" data-nav="词库"><span class="icon" aria-hidden="true">&#61712;</span><span>词库</span></button>
+          <button type="button" data-nav="我的"><span class="icon" aria-hidden="true">&#62636;</span><span>我的</span></button>
+        </nav>
+        <div class="home-indicator" aria-hidden="true"><span></span></div>
+        <div class="toast" role="status" id="toast"></div>
+
+        <dialog id="article-dialog" aria-labelledby="dialog-title">
+          <div class="sheet-handle" aria-hidden="true"></div>
+          <div class="sheet-toolbar"><span>文章速览</span><button type="button" class="icon-button" id="dialog-close" aria-label="关闭文章速览"><span class="icon" aria-hidden="true">&#62030;</span></button></div>
+          <img class="sheet-image" id="dialog-image" alt="">
+          <p class="sheet-source" id="dialog-source"></p>
+          <h2 id="dialog-title"></h2><p class="sheet-title-zh" id="dialog-title-zh"></p>
+          <p class="sheet-summary" id="dialog-summary"></p>
+          <div class="sheet-footer"><span id="dialog-meta"></span><button type="button" class="save-button" id="save-article"><span class="icon" aria-hidden="true">&#61865;</span><span>加入书架</span></button></div>
+        </dialog>
+      </div>
+      <p class="preview-caption">第二版交互样稿 <a href="http://127.0.0.1:8766/">查看第一版</a></p>
+    </section>
+  </main>
+</body>
+</html>

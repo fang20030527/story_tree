@@ -19,49 +19,66 @@ export interface Theme {
   blue: string;
   green: string;
   tabBar: string;
+  pink: string;
+  onPink: string;
+  reviewPink: string;
+  vip: string;
+  onVip: string;
   statusBar: 'light-content' | 'dark-content';
 }
 
 export const themes: Record<ThemeMode, Theme> = {
   dark: {
     mode: 'dark',
-    bg: '#0F1117',
-    surface: '#1A1D27',
-    surfaceAlt: '#232734',
-    border: '#2C3140',
-    text: '#F2F4F8',
-    textSecondary: '#9AA1B2',
-    textMuted: '#6B7280',
-    accent: '#F6C04D',
-    accentText: '#1F1A08',
-    accentSoft: 'rgba(246, 192, 77, 0.16)',
-    red: '#F0524D',
+    bg: '#191B17',
+    surface: '#23261F',
+    surfaceAlt: '#30342B',
+    border: '#43483D',
+    text: '#F4F2E6',
+    textSecondary: '#CBCDC0',
+    textMuted: '#ADB1A1',
+    accent: '#F28F74',
+    accentText: '#251B16',
+    accentSoft: '#422D26',
+    red: '#F28F74',
     danger: '#EF4444',
-    blue: '#5B8CFF',
+    blue: '#F28F74',
     green: '#6FE0A0',
-    tabBar: '#161922',
+    tabBar: '#191B17',
+    pink: '#E59EB4',
+    onPink: '#65303D',
+    reviewPink: '#9E4464',
+    vip: '#2A2D24',
+    onVip: '#F4F2E6',
     statusBar: 'light-content',
   },
   light: {
     mode: 'light',
-    bg: '#F7F8FA',
-    surface: '#FFFFFF',
-    surfaceAlt: '#F0F1F5',
-    border: '#E5E7EB',
-    text: '#171A22',
-    textSecondary: '#60656F',
-    textMuted: '#9AA0AD',
-    accent: '#F3BB31',
-    accentText: '#1F1A08',
-    accentSoft: 'rgba(243, 187, 49, 0.18)',
-    red: '#E54B45',
+    bg: '#FBFAF6',
+    surface: '#FFFCF7',
+    surfaceAlt: '#EEEAE1',
+    border: '#DDDCCF',
+    text: '#252620',
+    textSecondary: '#62675A',
+    textMuted: '#6E7366',
+    accent: '#B53720',
+    accentText: '#FFFFFF',
+    accentSoft: '#F7E8EB',
+    red: '#D64727',
     danger: '#DC2626',
-    blue: '#3B6FE0',
+    blue: '#B53720',
     green: '#0F9D58',
-    tabBar: '#FFFFFF',
+    tabBar: '#FBFAF6',
+    pink: '#E59EB4',
+    onPink: '#65303D',
+    reviewPink: '#A84966',
+    vip: '#282C23',
+    onVip: '#F4F2E6',
     statusBar: 'dark-content',
   },
 };
+
+export const fonts = { display: 'InstrumentSerif', reading: 'SourceSerif4' };
 
 type FontWeight = NonNullable<TextStyle['fontWeight']>;
 

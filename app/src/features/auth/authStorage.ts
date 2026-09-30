@@ -1,5 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { getCredential, setCredential, deleteCredential } from '@/api/credentialStorage';
 
 import {
   RegisteredAuthResponseSchema,
@@ -13,15 +12,13 @@ import {
 } from '@/api/storage';
 
 export async function saveAuthUser(user: RegisteredAuthResponse): Promise<void> {
-  if (Platform.OS === 'web') return;
-  await SecureStore.setItemAsync(AUTH_USER_KEY, JSON.stringify(user));
+  await setCredential(AUTH_USER_KEY, JSON.stringify(user));
   // A provider login without an email must not retain an older email account.
-  await SecureStore.deleteItemAsync(AUTH_USER_EMAIL_KEY);
+  await deleteCredential(AUTH_USER_EMAIL_KEY);
 }
 
 export async function loadAuthUser(): Promise<RegisteredAuthResponse | null> {
-  if (Platform.OS === 'web') return null;
-  const stored = await SecureStore.getItemAsync(AUTH_USER_KEY);
+  const stored = await getCredential(AUTH_USER_KEY);
   if (!stored) return null;
   try {
     const parsed = RegisteredAuthResponseSchema.safeParse(JSON.parse(stored));
@@ -33,16 +30,14 @@ export async function loadAuthUser(): Promise<RegisteredAuthResponse | null> {
 
 /** Store the email used for the current registered login for local display. */
 export async function saveAuthUserEmail(email: string): Promise<void> {
-  if (Platform.OS === 'web') return;
   const normalizedEmail = email.trim();
   if (!normalizedEmail) return;
-  await SecureStore.setItemAsync(AUTH_USER_EMAIL_KEY, normalizedEmail);
+  await setCredential(AUTH_USER_EMAIL_KEY, normalizedEmail);
 }
 
 export async function loadAuthUserEmail(): Promise<string | null> {
-  if (Platform.OS === 'web') return null;
   try {
-    const stored = await SecureStore.getItemAsync(AUTH_USER_EMAIL_KEY);
+    const stored = await getCredential(AUTH_USER_EMAIL_KEY);
     const normalizedEmail = stored?.trim();
     return normalizedEmail || null;
   } catch {
@@ -52,10 +47,9 @@ export async function loadAuthUserEmail(): Promise<string | null> {
 
 /** Remove the local bearer credential and all locally persisted auth identity. */
 export async function clearAuthUser(): Promise<void> {
-  if (Platform.OS === 'web') return;
   await Promise.all([
-    SecureStore.deleteItemAsync(AUTH_USER_KEY),
-    SecureStore.deleteItemAsync(AUTH_USER_EMAIL_KEY),
-    SecureStore.deleteItemAsync(INSTALLATION_TOKEN_KEY),
+    deleteCredential(AUTH_USER_KEY),
+    deleteCredential(AUTH_USER_EMAIL_KEY),
+    deleteCredential(INSTALLATION_TOKEN_KEY),
   ]);
 }

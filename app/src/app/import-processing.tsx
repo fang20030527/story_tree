@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', flexDirection: 'row', minHeight: 52, paddingHorizontal: 16 },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: weight('semibold'), textAlign: 'center' },
   headerSpacer: { width: 26 },
-  content: { alignItems: 'center', flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  alignItems: 'center', flex: 1, justifyContent: 'center', paddingHorizontal: 28  },
   statusIcon: { alignItems: 'center', borderRadius: 36, height: 72, justifyContent: 'center', width: 72 },
   title: { fontSize: 22, fontWeight: weight('bold'), marginTop: 22, textAlign: 'center' },
   subtitle: { fontSize: 14, lineHeight: 22, marginTop: 10, textAlign: 'center' },

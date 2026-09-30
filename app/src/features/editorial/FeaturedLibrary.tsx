@@ -17,9 +17,12 @@ import { PUBLICATION_LOGOS } from './publicationLogo';
 
 const PAGE_SIZE = 24;
 
-export function FeaturedLibrary({ renderArticle, onNavigate }: {
+export function FeaturedLibrary({ renderArticle, onNavigate, filterTopic = '全部', filterSource = '全部刊物', filterYear = '全部年份' }: {
   renderArticle: (article: EditorialArticle) => React.ReactNode;
   onNavigate: () => void;
+  filterTopic?: string;
+  filterSource?: string;
+  filterYear?: string;
 }) {
   const { theme } = useAppTheme();
   const [source, setSource] = useState<string | null>(null);
@@ -31,6 +34,9 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
   const publications = useMemo(() => {
     const groups = new Map<string, Map<string, EditorialArticle[]>>();
     for (const article of getEditorialSection('featured')) {
+      if (filterTopic !== '全部' && article.category !== filterTopic) continue;
+      if (filterSource !== '全部刊物' && article.source !== filterSource) continue;
+      if (filterYear !== '全部年份' && !(article.issueDate ?? article.publishedAt).startsWith(filterYear)) continue;
       if (originalOnly && !editorialHasOriginalAudio(article)) continue;
       const issues = groups.get(article.source) ?? new Map<string, EditorialArticle[]>();
       const displayDate = article.issueDate ?? article.publishedAt;
@@ -40,7 +46,7 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
       groups.set(article.source, issues);
     }
     return groups;
-  }, [catalogVersion, originalOnly]);
+  }, [catalogVersion, originalOnly, filterTopic, filterSource, filterYear]);
   const issues = source ? publications.get(source) : undefined;
   const articles = date ? issues?.get(date) ?? [] : [];
   const dates = [...(issues?.keys() ?? [])].sort((a, b) => b.localeCompare(a));
@@ -87,7 +93,7 @@ export function FeaturedLibrary({ renderArticle, onNavigate }: {
         <Ionicons name="headset-outline" size={17} color={originalOnly ? theme.blue : theme.textMuted} />
         <Text style={{ color: originalOnly ? theme.blue : theme.text }}>只看原刊录音</Text>
       </TouchableOpacity>
-      {selectedArticle && !source && !originalOnly ? (
+      {selectedArticle && !source && !originalOnly && filterTopic === '全部' && filterSource === '全部刊物' && filterYear === '全部年份' ? (
         <View style={styles.selected}>
           <Text style={[styles.selectedLabel, { color: theme.textMuted }]}>本期精选</Text>
           {renderArticle(selectedArticle)}

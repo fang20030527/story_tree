@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { ColorValue, StatusBar } from 'react-native';
+import { ColorValue, StatusBar, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/context/ThemeContext';
 
@@ -9,14 +10,13 @@ const tabIcon = (name: keyof typeof Ionicons.glyphMap) => {
   const TabIcon = ({
     color,
     size,
-    focused,
   }: {
     color: ColorValue;
     size: number;
     focused: boolean;
   }) => (
     <Ionicons
-      name={focused ? name : (`${name}-outline` as keyof typeof Ionicons.glyphMap)}
+      name={`${name}-outline` as keyof typeof Ionicons.glyphMap}
       size={size}
       color={color}
     />
@@ -27,6 +27,9 @@ const tabIcon = (name: keyof typeof Ionicons.glyphMap) => {
 
 export default function TabLayout() {
   const { theme } = useAppTheme();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const wide = width >= 768;
 
   return (
     <>
@@ -34,16 +37,19 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          tabBarPosition: wide ? 'left' : 'bottom',
+          tabBarVariant: wide ? 'material' : 'uikit',
+          tabBarLabelPosition: wide && width >= 1100 ? 'beside-icon' : 'below-icon',
           tabBarActiveTintColor: theme.accent,
           tabBarInactiveTintColor: theme.textMuted,
           tabBarStyle: {
             backgroundColor: theme.tabBar,
             borderTopColor: theme.border,
             borderTopWidth: 0.5,
-            height: 84,
-            paddingTop: 6,
+            ...(wide ? { width: width >= 1100 ? 200 : 92, minWidth: width >= 1100 ? 200 : 92, borderRightWidth: 0.5, borderRightColor: theme.border, paddingTop: 30 } : { height: 64 + insets.bottom, paddingTop: 6, paddingBottom: Math.max(6, insets.bottom) }),
           },
           tabBarLabelStyle: { fontSize: 11, marginTop: 2 },
+          tabBarItemStyle: { minHeight: wide ? 70 : 52 },
           sceneStyle: { backgroundColor: theme.bg },
         }}>
         <Tabs.Screen

@@ -1,11 +1,19 @@
 import { Stack } from 'expo-router';
 import React from 'react';
+import { useFonts } from 'expo-font';
+import { ResponsiveFrame } from '@/components/ResponsiveFrame';
 
 import { AppThemeProvider } from '@/context/ThemeContext';
 
 export default function RootLayout() {
+  const [loaded, error] = useFonts({
+    InstrumentSerif: require('../../assets/fonts/InstrumentSerif-Regular.ttf'),
+    SourceSerif4: require('../../assets/fonts/SourceSerif4-Regular.ttf'),
+  });
+  if (!loaded && !error) return null;
   return (
     <AppThemeProvider>
+      <ResponsiveFrame>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
@@ -29,6 +37,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings" />
         <Stack.Screen name="pro" />
       </Stack>
+      </ResponsiveFrame>
     </AppThemeProvider>
   );
 }

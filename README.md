@@ -6,7 +6,8 @@
 
 ## 工作区
 
-- `app/`：Expo SDK 57，支持 iOS、Android 和 Web 编译。云端身份使用原生 SecureStore，因此完整业务流程需在 iOS 或 Android 上运行。
+- `app/`：Expo SDK 57，本次交付 iPhone、iPad 和 Web；暂不制作 Android 版本。原生凭据使用 SecureStore，Web 凭据只保存在当前标签页的 sessionStorage。
+- `miniprogram/`：原生微信小程序工程，19 个页面，共用 API 契约。构建与微信开发者工具导入方法见 [小程序说明](miniprogram/README.md)。
 - `server/`：Fastify API、PostgreSQL 任务队列和同进程 worker。
 - `packages/contracts/`：客户端与服务端共用的 Zod API 契约。
 - `server/drizzle/`：显式执行的数据库迁移。

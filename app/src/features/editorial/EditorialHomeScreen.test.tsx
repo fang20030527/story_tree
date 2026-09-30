@@ -21,10 +21,21 @@ jest.mock('@/context/ThemeContext', () => ({
 
 beforeEach(() => jest.clearAllMocks());
 
+it('keeps the daily feature unchanged when combining topic and publication filters', async () => {
+  const view = await render(<EditorialHomeScreen />);
+  const label = '拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母，查看文章概述';
+  await fireEvent.press(view.getByLabelText('筛选科技'));
+  await fireEvent.press(view.getByLabelText('筛选The Economist'));
+  expect(view.getByText('每日精选')).toBeTruthy();
+  await fireEvent.press(view.getByLabelText(label));
+  expect(router.push).toHaveBeenLastCalledWith({ pathname: '/editorial/[id]', params: { id: 'hero' } });
+  expect(view.queryByLabelText('查看BBC Future')).toBeNull();
+});
+
 it('shows only the approved discovery sections and opens an overview', async () => {
   const view = await render(<EditorialHomeScreen />);
-  expect(view.getByText('外刊')).toBeTruthy();
-  for (const section of ['今日精选', '精选外刊']) {
+  expect(view.getByRole('header', { name: '外刊' })).toBeTruthy();
+  for (const section of ['每日精选', '精选外刊']) {
     expect(view.getByText(section)).toBeTruthy();
   }
   expect(view.getByLabelText('查看The Economist')).toBeTruthy();
@@ -36,7 +47,7 @@ it('shows only the approved discovery sections and opens an overview', async () 
   }
 
   await fireEvent.press(
-    view.getByLabelText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母，查看文章概述'),
+    view.getAllByLabelText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母，查看文章概述')[0],
   );
   expect(router.push).toHaveBeenCalledWith({
     pathname: '/editorial/[id]',
@@ -63,10 +74,10 @@ it('expands search and filters title, source, category, and no-result states', a
   const input = view.getByPlaceholderText('搜索中英文标题、来源或分类');
 
   await fireEvent.changeText(input, 'BBC Future');
-  expect(view.getByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母')).toBeTruthy();
+  expect(view.getAllByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母')[0]).toBeTruthy();
 
   await fireEvent.changeText(input, '自然');
-  expect(view.getByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母')).toBeTruthy();
+  expect(view.getAllByText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母')[0]).toBeTruthy();
 
   await fireEvent.changeText(input, 'no such article');
   expect(view.getByText('没有找到相关外刊')).toBeTruthy();
@@ -81,7 +92,7 @@ it.each([
     await fireEvent.press(view.getByLabelText('查看The Economist'));
     await fireEvent.press(view.getByLabelText('查看2026-09-19'));
   }
-  await fireEvent.press(view.getByLabelText(`${title}，查看文章概述`));
+  await fireEvent.press(view.getAllByLabelText(`${title}，查看文章概述`)[0]);
   expect(router.push).toHaveBeenLastCalledWith({
     pathname: '/editorial/[id]',
     params: { id },
@@ -131,6 +142,6 @@ it('shows only 2026 original recordings', async () => {
   expect(view.queryByLabelText('查看2025-04-19')).toBeNull();
 
   await fireEvent.press(view.getByLabelText('查看2026-09-19'));
-  expect(view.getByLabelText('人工智能军备竞赛能被叫停吗？，查看文章概述')).toBeTruthy();
+  expect(view.getAllByLabelText('人工智能军备竞赛能被叫停吗？，查看文章概述')[0]).toBeTruthy();
   expect(view.getAllByText('原刊录音').length).toBeGreaterThan(0);
 });

@@ -315,7 +315,7 @@ function ParagraphBlock({
       <InteractiveWordParagraph
         isHeading={isArticleSectionHeading(text)}
         addedWords={addedWords}
-        addedWordColor={theme.accent}
+        addedWordColor={theme.accentSoft}
         borderColor={theme.border}
         dangerColor={theme.danger}
         onAddToVocabulary={addToVocabulary}
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 52, paddingHorizontal: 16 },
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   headerSpacer: { width: 26 },
-  content: { paddingHorizontal: 18, paddingTop: 12 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 24, paddingTop: 12  },
   sourcePill: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: 12, flexDirection: 'row', gap: 5, paddingHorizontal: 9, paddingVertical: 5 },
   sourcePillText: { fontSize: 11, fontWeight: weight('medium') },
   title: { fontSize: 32, fontWeight: weight('bold'), lineHeight: 41, marginTop: 14 },

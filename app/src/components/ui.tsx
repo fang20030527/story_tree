@@ -23,7 +23,6 @@ export function SectionHeader({ title, theme, moreLabel, onMore }: SectionHeader
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionTitleRow}>
-        <View style={[styles.sectionBar, { backgroundColor: theme.red }]} />
         <Text style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
       </View>
       {moreLabel ? (
@@ -97,7 +96,7 @@ const styles = StyleSheet.create({
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center' },
   sectionBar: { width: 4, height: 16, borderRadius: 2, marginRight: 8 },
-  sectionTitle: { fontSize: 19, fontWeight: weight('bold') },
+  sectionTitle: { fontSize: 20, fontWeight: weight('regular') },
   moreRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   chip: {
     paddingHorizontal: 7,

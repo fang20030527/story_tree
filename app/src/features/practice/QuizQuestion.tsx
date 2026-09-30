@@ -64,7 +64,7 @@ export function QuizQuestion({
       onWordAdded={handleWordAdded}
       onAddToVocabulary={async (input, key) => { await createVocabularyItem(input, key); }}
       targetColor={theme.accent}
-      addedWordColor={theme.accent}
+      addedWordColor={theme.accentSoft}
       surfaceColor={theme.surfaceAlt}
       borderColor={theme.border}
       mutedColor={theme.textSecondary}

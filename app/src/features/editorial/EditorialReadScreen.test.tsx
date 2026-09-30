@@ -84,7 +84,7 @@ it('renders catalog prose and records one editorial recent view', async () => {
 it('用不同字号和字重区分主标题、章节标题、正文和图片说明', async () => {
   const view = await render(<EditorialReadScreen articleId="hero" />);
   const article = getEditorialArticle('hero')!;
-  expect(view.getByText(article.titleEn)).toHaveStyle({ fontSize: 32, fontWeight: '700' });
+  expect(view.getByText(article.titleEn)).toHaveStyle({ fontSize: 40, fontWeight: '400' });
   expect(view.getByText(article.titleEn).props.accessibilityRole).toBe('header');
   expect(view.getByText('How wild foster parents help')).toHaveStyle({ fontSize: 23, fontWeight: '700' });
   expect(view.getByText(/Parker hadn't even opened his eyes/u)).toHaveStyle({
@@ -178,7 +178,7 @@ it('restores saved highlights, translation visibility and scroll position after 
   const view = await render(<EditorialReadScreen articleId="hero" />);
   await waitFor(() => expect(view.getByTestId('editorial-reading-scroll')).toBeTruthy());
   await waitFor(() => expect(view.getByTestId(`editorial-paragraph-${getEditorialArticle('hero')!.paragraphs.length - 1}`)).toBeTruthy());
-  expect(view.getAllByText('Parker')[0]).toHaveStyle({ backgroundColor: '#F3BB31' });
+  expect(view.getAllByText('Parker')[0]).toHaveStyle({ backgroundColor: '#F7E8EB' });
   expect(view.getByText('隐藏译文')).toBeTruthy();
   const scroll = view.getByTestId('editorial-reading-scroll');
   await fireEvent(scroll, 'layout', { nativeEvent: { layout: { height: 600 } } });
@@ -193,7 +193,7 @@ it('restores saved highlights, translation visibility and scroll position after 
   await fireEvent(reopened.getByTestId('editorial-reading-scroll'), 'contentSizeChange', 390, 8000);
   await fireEvent(reopened.getByTestId('editorial-reading-scroll'), 'layout', { nativeEvent: { layout: { height: 600 } } });
   expect(scrollTo).toHaveBeenLastCalledWith({ y: 1460, animated: false });
-  expect(reopened.getAllByText('Parker')[0]).toHaveStyle({ backgroundColor: '#F3BB31' });
+  expect(reopened.getAllByText('Parker')[0]).toHaveStyle({ backgroundColor: '#F7E8EB' });
   scrollTo.mockRestore();
 });
 

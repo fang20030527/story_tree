@@ -211,12 +211,12 @@ export default function GeneratingPracticeScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  content: {
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center',
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
     padding: 28,
-  },
+   },
   iconCircle: {
     alignItems: 'center',
     borderRadius: 42,

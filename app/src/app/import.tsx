@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 12, paddingHorizontal: 12 },
   headerButton: { alignItems: 'center', height: 40, justifyContent: 'center', width: 40 },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: weight('semibold'), textAlign: 'center' },
-  content: { paddingHorizontal: 16, paddingTop: 8 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 24, paddingTop: 8  },
   chooserContent: { paddingBottom: 36, paddingHorizontal: 16, paddingTop: 24 },
   chooserTitle: { fontSize: 25, fontWeight: weight('bold') },
   chooserSubtitle: { fontSize: 14, lineHeight: 22, marginTop: 8 },

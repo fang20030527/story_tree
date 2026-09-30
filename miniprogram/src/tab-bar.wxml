@@ -1,0 +1,1 @@
+<view class="bar {{dark ? 'dark' : ''}}"><button wx:for="{{tabs}}" wx:key="id" class="tab {{selected === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="switchTab" aria-label="{{item.label}}"><view class="icon icon-{{item.id}}"><view class="stroke first"/><view class="stroke second"/><view class="stroke third"/></view><text>{{item.label}}</text></button></view>

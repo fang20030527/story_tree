@@ -54,6 +54,7 @@ export default function appConfig(): ExpoConfig {
 
   return {
     ...baseConfig,
+    platforms: ['ios', 'web'],
     scheme: appId ? ['app', appId] : baseConfig.scheme,
     ios: {
       ...baseConfig.ios,
