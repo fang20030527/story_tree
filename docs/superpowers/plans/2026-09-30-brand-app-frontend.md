@@ -60,10 +60,10 @@
 - [x] 运行相关页面回归测试，不移除年龄确认、删除确认或错误重试。
 
 ### 5. 交付
-- [x] 通过 `scripts/test-local.ps1` 完整执行全仓库 `npm run check`，退出码 0：类型检查、351 项客户端、293 项服务端、9 项小程序、33 项契约测试全部通过。全工作区 lint 通过（客户端 25 条警告、0 错误）。未运行真实付费生成冒烟。
+- [x] 通过 `scripts/test-local.ps1` 完整执行全仓库 `npm run check`，退出码 0：类型检查、353 项客户端、293 项服务端、9 项小程序、33 项契约测试全部通过。全工作区 lint 通过（客户端 25 条警告、0 错误）。另有 8 项 Web Worker 测试通过。未运行真实付费生成冒烟。
 - [x] 执行 `node ../node_modules/expo/bin/cli export --platform web --output-dir dist-brand`（在 app 目录执行；32 条静态路由）。
 - [x] 浏览器检查 390 手机、820 iPad、1440 Web；验证概述导航、主题切换、空态和 VIP 未开放状态，保存截图。
-- [x] iOS JS/Hermes 资源导出通过；iPhone/iPad 原生真机验证尚未完成。2026-09-30 用户另行授权推送 main、部署 Web、构建并上传 TestFlight，实际结果另记。
+- [x] iOS JS/Hermes 资源导出通过；签名 IPA `1.0.0 (37)` 通过 EAS 构建并上传 TestFlight，Apple 为 `VALID`、`IN_BETA_TESTING`。核对通用设备族 `[1, 2]`、横竖屏、品牌字体、生产 origin 与服务端密钥隔离。iPhone/iPad 原生真机业务验证尚未完成。2026-09-30 用户另行授权推送 main、部署 Web、上传 TestFlight，完整结果见发布记录。
 
 ## 微信小程序交付
 

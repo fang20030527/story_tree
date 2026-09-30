@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useLayoutWidth } from '@/components/useLayoutWidth';
 import React from 'react';
-import { ColorValue, StatusBar, useWindowDimensions } from 'react-native';
+import { ColorValue, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/context/ThemeContext';
@@ -27,7 +28,7 @@ const tabIcon = (name: keyof typeof Ionicons.glyphMap) => {
 
 export default function TabLayout() {
   const { theme } = useAppTheme();
-  const { width } = useWindowDimensions();
+  const width = useLayoutWidth();
   const insets = useSafeAreaInsets();
   const wide = width >= 768;
 

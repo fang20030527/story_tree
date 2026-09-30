@@ -1,5 +1,6 @@
 import type { ImportedArticleSummaryDto } from '@context-reader/contracts';
 import { router, useFocusEffect } from 'expo-router';
+import { useLayoutWidth } from '@/components/useLayoutWidth';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,7 +10,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,7 +75,7 @@ export function ShelfScreen({
 }: ShelfScreenProps) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const width = useLayoutWidth();
   const columns = width >= 1100 ? 3 : 2;
   const [recent, setRecent] = useState<RecentView | null>(null);
   const [editorialEntries, setEditorialEntries] = useState<EditorialShelfEntry[]>([]);

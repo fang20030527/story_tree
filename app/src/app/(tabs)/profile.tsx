@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import { useLayoutWidth } from '@/components/useLayoutWidth';
 import React, { useCallback, useState } from 'react';
-import { Alert, AppState, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, AppState, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { VocabularyWordPage } from '@context-reader/contracts';
 import { getVocabularyWords } from '@/api/practices';
@@ -24,7 +25,7 @@ const MENU = [
 export default function ProfileScreen() {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const width = useLayoutWidth();
   const wide = width >= 1100;
   const [isRegistered, setIsRegistered] = useState(false);
   const [authEmail, setAuthEmail] = useState<string | null>(null);

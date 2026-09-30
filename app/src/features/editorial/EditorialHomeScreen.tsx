@@ -1,6 +1,7 @@
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import { useLayoutWidth } from '@/components/useLayoutWidth';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
@@ -11,7 +12,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -49,7 +49,7 @@ export function EditorialHomeScreen() {
   const [source, setSource] = useState('全部刊物');
   const [year, setYear] = useState('全部年份');
   const [topic, setTopic] = useState('全部');
-  const { width } = useWindowDimensions();
+  const width = useLayoutWidth();
   const wide = width >= 1100;
   const [page, setPage] = useState(0);
   const [refreshing, setRefreshing] = useState(false);

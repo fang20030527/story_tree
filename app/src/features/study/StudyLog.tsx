@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '@/context/ThemeContext';
+import { useHydrationReady } from '@/components/useLayoutWidth';
 import { DAILY_GOAL_MS, localDateKey, type StudyTotals } from './studyStorage';
 
 export function studyWeeks(now: Date): Date[][] {
@@ -11,8 +12,10 @@ export function studyWeeks(now: Date): Date[][] {
 
 export function StudyLog({ totals, now, error }: { totals: StudyTotals; now: Date; error: boolean }) {
   const { theme } = useAppTheme();
+  const ready = useHydrationReady();
   const today = localDateKey(now);
   const [selection, setSelection] = useState<{ date: string; today: string } | null>(null);
+  if (!ready) return <View style={[styles.log, { borderBottomColor: theme.border }]}><Text style={[styles.title, { color: theme.text }]}>学习日志</Text><Text style={[styles.detail, { color: theme.textMuted }]}>正在读取学习记录…</Text></View>;
   const selected = selection?.today === today ? selection.date : today;
   const palette = [theme.surfaceAlt, '#F4D8E2', '#E59EB4', '#C97995', '#A84966'];
   const level = (ms: number) => ms === 0 ? 0 : ms < 5 * 60_000 ? 1 : ms < DAILY_GOAL_MS ? 2 : ms < 20 * 60_000 ? 3 : 4;

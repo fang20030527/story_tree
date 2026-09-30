@@ -1,5 +1,7 @@
 import { Stack } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
+import { Platform } from 'react-native';
 import { useFonts } from 'expo-font';
 import { ResponsiveFrame } from '@/components/ResponsiveFrame';
 
@@ -7,10 +9,11 @@ import { AppThemeProvider } from '@/context/ThemeContext';
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
+    ...(Platform.OS === 'web' ? Ionicons.font : {}),
     InstrumentSerif: require('../../assets/fonts/InstrumentSerif-Regular.ttf'),
     SourceSerif4: require('../../assets/fonts/SourceSerif4-Regular.ttf'),
   });
-  if (!loaded && !error) return null;
+  if (Platform.OS !== 'web' && !loaded && !error) return null;
   return (
     <AppThemeProvider>
       <ResponsiveFrame>

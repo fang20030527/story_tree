@@ -12,7 +12,7 @@
 node ../node_modules/expo/bin/cli start --web --port 8780
 ```
 
-iPhone/iPad 使用同一 Expo 工程，已启用 `supportsTablet` 和横竖屏适配，构建平台限定为 `ios`、`web`。原生微信登录模块需要 Development Build；原生完整验证还需要 macOS/Xcode、签名及设备。真机 API origin 使用可访问的局域网或 HTTPS 地址，不能使用电脑的 `localhost`。
+iPhone/iPad 使用同一 Expo 工程，已启用 `supportsTablet` 和横竖屏适配，构建平台限定为 `ios`、`web`。原生微信登录模块需要包含原生模块的开发或签名构建；本地原生调试需要 macOS/Xcode，真机验证需要设备。真机 API origin 使用可访问的局域网或 HTTPS 地址，不能使用电脑的 `localhost`。
 
 微信小程序导入 `miniprogram/`，构建、自己的 AppID 和合法域名配置见 [小程序说明](../miniprogram/README.md)。不要把原型 HTML 当作小程序，也不要直接导入构建后的 `dist/` 目录。
 
@@ -31,14 +31,14 @@ iPhone/iPad 使用同一 Expo 工程，已启用 `supportsTablet` 和横竖屏�
 ## 验证记录
 
 - 全工作区 TypeScript 检查通过。
-- Expo 客户端 67 个测试套件、351 项测试通过；服务端 54 个测试文件、293 项测试通过；小程序 9 项编译产物运行时测试通过；共享契约 33 项测试通过，共 686 项。
+- 最终完整检查：Expo 客户端 68 个测试套件、353 项测试通过；服务端 54 个测试文件、293 项测试通过；小程序 9 项编译产物运行时测试通过；共享契约 33 项测试通过，共 688 项。另有 8 项 Web Worker 回归通过。
 - 全工作区 lint 通过；客户端 25 条警告、0 错误。
 - Web 生产导出通过，共 32 条静态路由；iOS JS/Hermes 资源导出通过。资源导出不等于已签名 IPA 或原生真机验证。
 - 浏览器检查 390×844、820×1180、1440×960，验证精选概述导航、主题/刊物组合筛选、学习日志、浅深主题和未开放会员状态。截图在 `visual-preview/real-app/`。
 - 客户端源码、Web 和小程序构建产物进行了服务端密钥泄漏检查，未发现泄漏。未执行真实付费生成冒烟。
 - 通过仓库 `scripts/test-local.ps1` 使用本地 PostgreSQL 隔离 Schema 完整执行 `npm run check`，退出码为 0。云端数据库首轮 293 项服务端回归也全部通过。
 
-2026-09-30 用户已授权提交推送 main、部署 Web 和上传通用 iOS 构建到 TestFlight，发布结果另记。
+2026-09-30 用户已授权提交推送 main、部署 Web 和上传通用 iOS 构建到 TestFlight。通用 iOS `1.0.0 (37)` 已完成 EAS 签名构建和上传，Apple 状态为 `VALID`、`IN_BETA_TESTING`；IPA 已核对设备族 `[1, 2]`、横竖屏、两个品牌字体和生产 HTTPS 地址。Web 使用 <https://blackholeenglish.com/>，完整发布结果另记。
 
 当前 Windows 电脑没有微信开发者工具，iOS 与微信真机验证尚未完成。Web 仍携带现有离线词典和刊物数据，JS 文件约 29 MB，后续上线需要单独优化首屏加载与缓存。
 
