@@ -57,8 +57,9 @@ export default function TabLayout() {
             borderTopColor: theme.border,
             borderTopWidth: 0.5,
             ...(wide ? {
-              width: width >= 1100 ? 200 : 92,
-              minWidth: width >= 1100 ? 200 : 92,
+              width: width >= 1100 ? 100 : 92,
+              minWidth: width >= 1100 ? 100 : 92,
+              ...(width >= 1100 ? { paddingStart: 4, paddingEnd: 4 } : {}),
               borderTopWidth: 0,
               borderRightWidth: 0.5,
               borderRightColor: theme.border,
@@ -66,7 +67,11 @@ export default function TabLayout() {
               paddingBottom: insets.bottom + 24,
             } : { height: 64 + insets.bottom, paddingTop: 6, paddingBottom: Math.max(6, insets.bottom) }),
           },
-          tabBarLabelStyle: { fontSize: 11, marginTop: 2 },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            marginTop: 2,
+            ...(wide && width >= 1100 ? { marginStart: 4, marginEnd: 0 } : {}),
+          },
           tabBarItemStyle: [
             { minHeight: wide ? 70 : 52 },
             wide && { marginVertical: 6 },
