@@ -45,7 +45,7 @@ export default function TabLayout() {
     <>
       <StatusBar barStyle={theme.statusBar} />
       <Tabs
-        screenOptions={{
+        screenOptions={({ route }) => ({
           headerShown: false,
           tabBarPosition: wide ? 'left' : 'bottom',
           tabBarVariant: wide ? 'material' : 'uikit',
@@ -56,12 +56,25 @@ export default function TabLayout() {
             backgroundColor: theme.tabBar,
             borderTopColor: theme.border,
             borderTopWidth: 0.5,
-            ...(wide ? { width: width >= 1100 ? 200 : 92, minWidth: width >= 1100 ? 200 : 92, borderRightWidth: 0.5, borderRightColor: theme.border, paddingTop: 30 } : { height: 64 + insets.bottom, paddingTop: 6, paddingBottom: Math.max(6, insets.bottom) }),
+            ...(wide ? {
+              width: width >= 1100 ? 200 : 92,
+              minWidth: width >= 1100 ? 200 : 92,
+              borderTopWidth: 0,
+              borderRightWidth: 0.5,
+              borderRightColor: theme.border,
+              paddingTop: insets.top + 32,
+              paddingBottom: insets.bottom + 24,
+            } : { height: 64 + insets.bottom, paddingTop: 6, paddingBottom: Math.max(6, insets.bottom) }),
           },
           tabBarLabelStyle: { fontSize: 11, marginTop: 2 },
-          tabBarItemStyle: { minHeight: wide ? 70 : 52 },
+          tabBarItemStyle: [
+            { minHeight: wide ? 70 : 52 },
+            wide && { marginVertical: 6 },
+            // 两处自动留白让主导航在「我的」上方居中，个人入口贴近底部安全区。
+            wide && (route.name === 'index' || route.name === 'profile') && { marginTop: 'auto' },
+          ],
           sceneStyle: { backgroundColor: theme.bg },
-        }}>
+        })}>
         <Tabs.Screen
           name="index"
           options={{ title: speaking ? '素材' : '外刊', tabBarIcon: tabIcon('newspaper', 'mic') }}
@@ -72,7 +85,7 @@ export default function TabLayout() {
         />
         <Tabs.Screen
           name="words"
-          options={{ title: '词库', tabBarIcon: tabIcon('albums'), href: speaking ? null : '/words' }}
+          options={{ title: '词库', tabBarIcon: tabIcon('albums'), ...(speaking ? { href: null } : {}) }}
         />
         <Tabs.Screen
           name="profile"
