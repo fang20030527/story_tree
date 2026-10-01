@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   link: { minHeight: 44, justifyContent: 'center' },
   bookRow: { flexDirection: 'row', gap: 20, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 8 },
   bookCover: { width: 94, minHeight: 140, padding: 12 },
-  coverText: { fontFamily: fonts.display, color: '#FFFFFF', fontSize: 30, lineHeight: 28 },
+  coverText: { fontFamily: fonts.display, color: '#FFFFFF', fontSize: 30, lineHeight: 39 },
   entryCopy: { flex: 1, justifyContent: 'center' },
   entryTitle: { fontSize: 17 },
   entryMeta: { fontSize: 12, lineHeight: 20, marginTop: 8 },

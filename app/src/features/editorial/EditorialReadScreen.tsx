@@ -224,7 +224,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
         </View>
         {article.audioAsset || article.audioUrl ? (
           <View onLayout={(event) => { audioHeight.current = event.nativeEvent.layout.height; }} style={{ backgroundColor: theme.bg }}>
-            <EditorialAudioPlayer source={article.audioAsset ?? article.audioUrl!} onPositionChange={updatePlayback} />
+            <EditorialAudioPlayer articleId={article.id} title={article.titleZh} source={article.audioAsset ?? article.audioUrl!} onPositionChange={updatePlayback} />
           </View>
         ) : null}
         <View
@@ -419,7 +419,8 @@ const styles = StyleSheet.create({
   content: { alignSelf: 'center', width: '100%', maxWidth: 720, paddingHorizontal: 22, paddingTop: 20 },
   articleHeader: { paddingBottom: 24 },
   kicker: { fontSize: 12, lineHeight: 18, fontWeight: weight('medium'), letterSpacing: 0.5 },
-  titleEn: { fontFamily: fonts.display, fontSize: 40, fontWeight: weight('regular'), lineHeight: 40, marginTop: 12 },
+  // 为 Instrument Serif 的上伸部和下伸部留足空间，避免原生端裁切字形。
+  titleEn: { fontFamily: fonts.display, fontSize: 40, fontWeight: weight('regular'), lineHeight: 52, marginTop: 12 },
   titleZh: { fontSize: 17, lineHeight: 26, marginTop: 12 },
   meta: { fontSize: 12, lineHeight: 18, marginTop: 16 },
   translationBox: {

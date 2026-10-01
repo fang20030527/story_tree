@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: weight('semibold') },
   content: { paddingHorizontal: 24, paddingTop: 12, width: '100%', maxWidth: 1160, alignSelf: 'center' },
   resume: { padding: 24, borderRadius: 2, marginBottom: 28 },
-  resumeTitle: { fontFamily: fonts.display, fontSize: 34, lineHeight: 39, marginVertical: 18 },
+  resumeTitle: { fontFamily: fonts.display, fontSize: 34, lineHeight: 45, marginVertical: 18 },
   resumeAction: { paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bookshelfHeading: {
     alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between',

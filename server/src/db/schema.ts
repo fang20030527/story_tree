@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
-import type { ImportedArticleMedia } from '@context-reader/contracts';
+import type { ImportedArticleMedia, SpeakingCue, SpeakingRecordingSchema } from '@context-reader/contracts';
+import type { z } from 'zod';
 import type { WordReviewState, ConsolidatedReview } from '../modules/vocabulary/scheduler';
 import {
   type AnyPgColumn,
@@ -7,6 +8,7 @@ import {
   boolean,
   check,
   customType,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -859,3 +861,91 @@ export const usageLedger = pgTable(
     ),
   ],
 );
+
+export const speakingAssets = pgTable('speaking_assets', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  purpose: text('purpose').$type<'material' | 'recording'>().notNull(),
+  status: text('status').$type<'awaiting_upload' | 'ready'>().default('awaiting_upload').notNull(),
+  contentType: text('content_type').notNull(),
+  byteSize: pgBigint('byte_size', { mode: 'number' }).notNull(),
+  storageKey: text('storage_key'), sha256: text('sha256'),
+  uploadLeaseToken: uuid('upload_lease_token'),
+  uploadLeaseUntil: utcTimestamp('upload_lease_until'),
+  duration: doublePrecision('duration').default(0).notNull(),
+  mediaType: text('media_type').$type<'audio' | 'video'>(),
+  attachedAt: utcTimestamp('attached_at'),
+  createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+  expiresAt: utcTimestamp('expires_at').notNull(),
+}, table => [
+  index('speaking_assets_user_idx').on(table.userId),
+  index('speaking_assets_cleanup_idx').on(table.expiresAt, table.attachedAt),
+  check('speaking_assets_size_check', sql`${table.byteSize} > 0 and ${table.byteSize} <= 3221225472`),
+  check('speaking_assets_duration_check', sql`${table.duration} >= 0`),
+  check('speaking_assets_status_check', sql`${table.status} in ('awaiting_upload', 'ready')`),
+  check('speaking_assets_purpose_check', sql`${table.purpose} in ('material', 'recording')`),
+]);
+
+export const speakingMaterials = pgTable('speaking_materials', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sourceKind: text('source_kind').$type<'file' | 'youtube'>().notNull(),
+  title: text('title').notNull(),
+  assetId: uuid('asset_id').references(() => speakingAssets.id),
+  videoId: text('video_id'),
+  mediaType: text('media_type').$type<'audio' | 'video'>().notNull(),
+  duration: doublePrecision('duration').notNull(),
+  cues: jsonb('cues').$type<SpeakingCue[]>().notNull(),
+  revision: integer('revision').default(1).notNull(),
+  createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+  updatedAt: utcTimestamp('updated_at').defaultNow().notNull(),
+}, table => [
+  index('speaking_materials_user_idx').on(table.userId, table.createdAt),
+  uniqueIndex('speaking_materials_asset_unique').on(table.assetId),
+  check('speaking_materials_source_check', sql`(${table.sourceKind} = 'file' and ${table.assetId} is not null and ${table.videoId} is null) or (${table.sourceKind} = 'youtube' and ${table.assetId} is null and ${table.videoId} is not null)`),
+  check('speaking_materials_revision_check', sql`${table.revision} > 0`),
+]);
+
+export const speakingStates = pgTable('speaking_states', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // 内置素材的稳定编号与个人素材 UUID 共用此字段；业务层验证可见性。
+  materialId: text('material_id').notNull(),
+  revision: integer('revision').default(0).notNull(),
+  savedCueIds: jsonb('saved_cue_ids').$type<string[]>().default([]).notNull(),
+  notes: jsonb('notes').$type<Record<string, string>>().default({}).notNull(),
+  position: doublePrecision('position').default(0).notNull(),
+  positionSessionDate: utcTimestamp('position_session_date'),
+  recording: jsonb('recording').$type<z.infer<typeof SpeakingRecordingSchema> | null>(),
+  customCues: jsonb('custom_cues').$type<SpeakingCue[] | null>(),
+  subtitleRevision: integer('subtitle_revision').default(1).notNull(),
+  updatedAt: utcTimestamp('updated_at').defaultNow().notNull(),
+}, table => [
+  uniqueIndex('speaking_states_user_material_unique').on(table.userId, table.materialId),
+  check('speaking_states_revision_check', sql`${table.revision} >= 0 and ${table.subtitleRevision} > 0`),
+  check('speaking_states_position_check', sql`${table.position} >= 0`),
+]);
+
+export const speakingSessions = pgTable('speaking_sessions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  clientId: text('client_id').notNull(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  materialId: text('material_id').notNull(),
+  title: text('title').notNull(),
+  startedAt: utcTimestamp('started_at').notNull(),
+  elapsedMs: integer('elapsed_ms').notNull(),
+  cueCount: integer('cue_count').notNull(),
+  updatedAt: utcTimestamp('updated_at').defaultNow().notNull(),
+}, table => [
+  uniqueIndex('speaking_sessions_user_client_unique').on(table.userId, table.clientId),
+  index('speaking_sessions_user_date_idx').on(table.userId, table.startedAt),
+  check('speaking_sessions_elapsed_check', sql`${table.elapsedMs} >= 0 and ${table.elapsedMs} <= 86400000`),
+  check('speaking_sessions_cue_count_check', sql`${table.cueCount} >= 0 and ${table.cueCount} <= 10000`),
+]);
+
+// 不依赖资产外键，确保未发布或已过期对象的删除失败后仍能重试。
+export const speakingStorageCleanup = pgTable('speaking_storage_cleanup', {
+  storageKey: text('storage_key').primaryKey(),
+  notBefore: utcTimestamp('not_before').notNull(),
+  createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+}, table => [index('speaking_storage_cleanup_due_idx').on(table.notBefore)]);

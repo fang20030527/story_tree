@@ -38,6 +38,7 @@
     "cloudflare:compare:neon": "node scripts/compare-neon-snapshots.mjs",
     "cloudflare:import:d1": "node --env-file=cloudflare/.env.local scripts/import-neon-snapshot-to-d1.mjs",
     "cloudflare:prepare:web": "node scripts/prepare-cloudflare-web.mjs",
+    "cloudflare:publish:speaking": "node --env-file=app/.env --import tsx scripts/publish-speaking-catalog.mjs",
     "cloudflare:deploy:web": "wrangler deploy --config cloudflare/web/wrangler.jsonc",
     "cloudflare:deploy:web:cutover": "wrangler deploy --config cloudflare/web/wrangler.cutover.jsonc"
   },

@@ -38,6 +38,22 @@ export interface R2BucketBinding {
   }>;
 }
 
+export interface SpeakingR2ObjectMetadata {
+  size: number;
+  etag: string;
+  httpEtag: string;
+  httpMetadata?: { contentType?: string };
+}
+
+export interface SpeakingR2BucketBinding {
+  get(
+    key: string,
+    options?: { range: { offset: number; length: number } },
+  ): Promise<(SpeakingR2ObjectMetadata & { body: ReadableStream<Uint8Array> }) | null>;
+  head(key: string): Promise<SpeakingR2ObjectMetadata | null>;
+  delete(key: string | string[]): Promise<void>;
+}
+
 export interface JobQueueMessage {
   jobId: string;
 }
@@ -53,6 +69,7 @@ export interface AiBinding extends MarkdownBinding {
 export interface ApiEnv {
   DB: D1DatabaseBinding;
   IMPORT_BUCKET: R2BucketBinding;
+  SPEAKING_BUCKET?: SpeakingR2BucketBinding;
   IMAGE_SERVICE?: { fetch(request: Request): Promise<Response> };
   JOB_QUEUE?: QueueBinding<JobQueueMessage>;
   AI: AiBinding;
@@ -70,6 +87,10 @@ export interface ApiEnv {
   RESEND_API_KEY?: string;
   WECHAT_APP_ID?: string;
   WECHAT_APP_SECRET?: string;
+  R2_ACCOUNT_ID?: string;
+  R2_ACCESS_KEY_ID?: string;
+  R2_SECRET_ACCESS_KEY?: string;
+  R2_BUCKET_NAME?: string;
   PASSWORD_RESET_FROM_EMAIL: string;
   API_CORS_ORIGINS?: string;
   API_STAGE_OPEN?: string;

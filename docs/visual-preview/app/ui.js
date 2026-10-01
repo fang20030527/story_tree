@@ -4,11 +4,14 @@ export const icon = name => `<span class="icon" aria-hidden="true">${String.from
 export const go = (route,text,cls='',iconName='') => `<button type="button" class="${cls}" data-go="${route}" ${['icon-button','read-circle'].includes(cls)?`aria-label="${route.startsWith('overview/')?'查看文章概述':route==='import'?'导入文章':route==='settings'?'打开设置':route==='add-words'?'选择单词':'开始阅读'}"`:''}>${text}${iconName?icon(iconName):''}</button>`;
 export const action = (name,text,cls='',extra='') => `<button type="button" class="${cls}" data-action="${name}" ${extra}>${text}</button>`;
 export const head = (title,back='home',right='') => `<header class="sub-header"><button type="button" class="icon-button" data-go="${back}" aria-label="返回">${icon('back')}</button><h2>${title}</h2>${right||'<span class="header-space"></span>'}</header>`;
-export const brandHead = (right='') => `<header class="app-header">${go('home',`<img src="${logo}" alt=""><span>黑洞英语</span>`,'app-brand')}${right}</header>`;
+export const brandHead = (right='') => `<header class="app-header">${go(state.learningMode==='speak'?'speak-materials':'home',`<img src="${logo}" alt=""><span>黑洞英语</span>`,'app-brand')}${right}</header>`;
 export const title = (heading,sub='') => `<div class="page-heading"><h2>${heading}</h2>${sub?`<p>${sub}</p>`:''}</div>`;
 export const section = (label,right='') => `<div class="section-heading"><h3>${label}</h3>${right}</div>`;
 export const primary = (route,text) => go(route,text+icon('arrow'),'primary');
-export const bottom = active => `<nav class="bottom-nav" aria-label="主导航">${[['home','newspaper','外刊'],['shelf','library','书架'],['words','albums','词库'],['profile','person','我的']].map(([route,i,t])=>`<button type="button" data-go="${route}" ${route===active?'aria-current="page"':''}>${icon(i)}<span>${t}</span></button>`).join('')}</nav>`;
+export const mainNavigation = (mode=state.learningMode) => mode==='speak'
+  ? [['speak-materials','mic','素材'],['speak-files','folder','文件'],['profile','person','我的']]
+  : [['home','newspaper','外刊'],['shelf','library','书架'],['words','albums','词库'],['profile','person','我的']];
+export const bottom = active => `<nav class="bottom-nav" aria-label="${state.learningMode==='speak'?'口语':'阅读'}模式主导航" style="--tab-count:${mainNavigation().length}">${mainNavigation().map(([route,i,t])=>`<button type="button" data-go="${route}" ${route===active?'aria-current="page"':''}>${icon(i)}<span>${t}</span></button>`).join('')}</nav>`;
 export const footer = content => `<div class="action-footer">${content}</div>`;
 export const row = (i,label,route,sub='',end='') => go(route,`${icon(i)}<span class="menu-copy"><strong>${label}</strong>${sub?`<small>${sub}</small>`:''}</span>${end?`<span class="row-value">${end}</span>`:''}${icon('chevron')}`,'menu-row');
 export const tabs = (labels,active,key) => `<div class="filter-tabs">${labels.map(l=>action('filter',l,'',`data-key="${key}" data-value="${l}" aria-pressed="${l===active}"`)).join('')}</div>`;

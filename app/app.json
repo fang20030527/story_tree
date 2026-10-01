@@ -53,8 +53,8 @@
       [
         "expo-audio",
         {
-          "microphonePermission": false,
-          "recordAudioAndroid": false,
+          "microphonePermission": "允许黑洞英语使用麦克风，录制你的影子跟读练习。",
+          "recordAudioAndroid": true,
           "enableBackgroundPlayback": false
         }
       ]

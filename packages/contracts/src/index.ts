@@ -921,3 +921,145 @@ export const SentenceTranslationRequestSchema = z.object({
 export const SentenceTranslationDtoSchema = z.object({
   translatedTextZh: z.string().trim().min(1),
 }).strict();
+
+// 口语素材的音视频与字幕单独上传，个人资源始终按账号隔离。
+export const SPEAKING_MAX_MEDIA_BYTES = 3 * 1024 * 1024 * 1024;
+export const SPEAKING_MAX_SUBTITLE_BYTES = 512 * 1024;
+export const SpeakingResourceIdSchema = z.string().min(1).max(100).regex(/^[A-Za-z0-9_-]+$/u)
+  .refine(value => !['__proto__', 'constructor', 'prototype'].includes(value), '资源编号无效');
+export const SpeakingMediaTypeSchema = z.enum([
+  'video/mp4', 'video/quicktime', 'video/webm', 'audio/mpeg', 'audio/mp3',
+  'audio/mp4', 'audio/x-m4a', 'audio/wav', 'audio/x-wav', 'audio/aac',
+  'audio/ogg', 'audio/webm',
+]);
+export const SpeakingCueSchema = z.object({
+  id: SpeakingResourceIdSchema,
+  start: z.number().finite().nonnegative().max(86_400),
+  end: z.number().finite().positive().max(86_400),
+  en: z.string().trim().min(1).max(4_000),
+  zh: z.string().max(4_000),
+}).strict().refine(cue => cue.end > cue.start, '结束时间必须晚于开始时间');
+export type SpeakingCue = z.infer<typeof SpeakingCueSchema>;
+export const SpeakingCuesSchema = z.array(SpeakingCueSchema).min(1).max(10_000)
+  .superRefine((cues, context) => {
+    const ids = new Set<string>();
+    for (const [index, cue] of cues.entries()) {
+      if (ids.has(cue.id)) context.addIssue({ code: 'custom', path: [index, 'id'], message: '字幕编号重复' });
+      ids.add(cue.id);
+      // 影视字幕允许不同说话者的时间区间重叠，但必须按开始时间排序。
+      if (index && cue.start < cues[index - 1]!.start) {
+        context.addIssue({ code: 'custom', path: [index, 'start'], message: '字幕必须按开始时间排序' });
+      }
+    }
+  });
+export const CreateSpeakingAssetRequestSchema = z.object({
+  contentType: SpeakingMediaTypeSchema,
+  byteSize: z.number().int().positive().max(SPEAKING_MAX_MEDIA_BYTES),
+  purpose: z.enum(['material', 'recording']).default('material'),
+}).strict();
+export const SpeakingAssetDtoSchema = z.object({
+  id: UuidSchema, status: z.enum(['awaiting_upload', 'ready']),
+  uploadPath: z.string().startsWith('/v1/speaking/assets/'),
+  byteSize: z.number().int().positive(), contentType: SpeakingMediaTypeSchema,
+  duration: z.number().finite().nonnegative(), expiresAt: z.iso.datetime(),
+  directUpload: z.object({ url: z.url(), expiresAt: z.iso.datetime() }).strict().optional(),
+}).strict();
+export const CompleteSpeakingAssetRequestSchema = z.object({
+  duration: z.number().finite().positive().max(86_400),
+}).strict();
+export const CreateSpeakingMaterialRequestSchema = z.discriminatedUnion('sourceKind', [
+  z.object({
+    sourceKind: z.literal('file'), assetId: UuidSchema,
+    title: z.string().trim().min(1).max(180), cues: SpeakingCuesSchema,
+  }).strict(),
+  z.object({
+    sourceKind: z.literal('youtube'), videoId: z.string().regex(/^[A-Za-z0-9_-]{11}$/u),
+    title: z.string().trim().min(1).max(180),
+    duration: z.number().finite().positive().max(86_400), cues: SpeakingCuesSchema,
+  }).strict(),
+]);
+export const SpeakingMaterialDtoSchema = z.object({
+  id: SpeakingResourceIdSchema, title: z.string().min(1).max(180),
+  subtitle: z.string().max(500), category: z.string().max(80),
+  sourceKind: z.enum(['platform', 'file', 'youtube']), mediaType: z.enum(['audio', 'video']),
+  assetId: UuidSchema.nullable(), videoId: z.string().regex(/^[A-Za-z0-9_-]{11}$/u).nullable(),
+  duration: z.number().finite().nonnegative(), cues: SpeakingCuesSchema,
+  revision: z.number().int().positive(), createdAt: z.iso.datetime(),
+}).strict();
+export const SpeakingMaterialListSchema = z.object({
+  materials: z.array(SpeakingMaterialDtoSchema.omit({ cues: true }).extend({ cueCount: z.number().int().nonnegative().max(10_000) }).strict()).max(150),
+  nextCursor: UuidSchema.nullable(),
+}).strict();
+export const SpeakingMaterialSummarySchema = SpeakingMaterialDtoSchema.omit({ cues: true }).extend({
+  cueCount: z.number().int().nonnegative().max(10_000),
+}).strict();
+export type SpeakingMaterialSummary = z.infer<typeof SpeakingMaterialSummarySchema>;
+export const SpeakingCatalogDtoSchema = z.object({
+  materials: z.array(SpeakingMaterialSummarySchema.extend({
+    sourceKind: z.literal('platform'), assetId: z.null(), videoId: z.null(),
+  }).strict()).max(100),
+}).strict();
+export type SpeakingCatalogDto = z.infer<typeof SpeakingCatalogDtoSchema>;
+export const SpeakingLibraryQuerySchema = z.object({
+  cursor: UuidSchema.optional(), limit: z.coerce.number().int().min(1).max(50).default(20),
+}).strict();
+export const UpdateSpeakingSubtitlesRequestSchema = z.object({
+  revision: z.number().int().positive(), cues: SpeakingCuesSchema,
+}).strict();
+export const ImportSpeakingSubtitlesRequestSchema = z.object({
+  revision: z.number().int().positive(), format: z.enum(['srt', 'vtt']),
+  text: z.string().min(1).max(SPEAKING_MAX_SUBTITLE_BYTES),
+}).strict();
+export const SpeakingRecordingSchema = z.object({
+  assetId: UuidSchema, durationMs: z.number().int().positive().max(600_000),
+  cueId: SpeakingResourceIdSchema,
+}).strict();
+export const SpeakingStateDtoSchema = z.object({
+  materialId: SpeakingResourceIdSchema, revision: z.number().int().nonnegative(),
+  savedCueIds: z.array(SpeakingResourceIdSchema).max(10_000),
+  notes: z.record(SpeakingResourceIdSchema, z.string().max(4_000)),
+  position: z.number().finite().nonnegative().max(86_400),
+  recording: SpeakingRecordingSchema.nullable(),
+}).strict();
+export const UpdateSpeakingStateRequestSchema = z.object({
+  revision: z.number().int().nonnegative(),
+  savedCueIds: z.array(SpeakingResourceIdSchema).max(10_000).optional(),
+  notes: z.record(SpeakingResourceIdSchema, z.string().max(4_000)).optional(),
+  position: z.number().finite().nonnegative().max(86_400).optional(),
+  recording: SpeakingRecordingSchema.nullable().optional(),
+}).strict().refine(value => Object.keys(value).length > 1, '需要至少一个修改字段');
+export const SpeakingSessionDtoSchema = z.object({
+  id: SpeakingResourceIdSchema, materialId: SpeakingResourceIdSchema,
+  title: z.string().min(1).max(180), date: z.iso.datetime(),
+  elapsedMs: z.number().int().nonnegative().max(86_400_000),
+  cueCount: z.number().int().nonnegative().max(10_000),
+}).strict();
+export const SaveSpeakingSessionRequestSchema = z.object({
+  materialId: SpeakingResourceIdSchema, date: z.iso.datetime(),
+  elapsedMs: z.number().int().nonnegative().max(86_400_000),
+  cueCount: z.number().int().nonnegative().max(10_000),
+  position: z.number().finite().nonnegative().max(86_400),
+}).strict();
+export const SpeakingLibraryDtoSchema = z.object({
+  materials: z.array(SpeakingMaterialSummarySchema).max(150),
+  states: z.array(SpeakingStateDtoSchema).max(150),
+  sessions: z.array(SpeakingSessionDtoSchema).max(1_000),
+  nextCursor: UuidSchema.nullable(),
+}).strict();
+export const SpeakingPlaybackDtoSchema = z.object({
+  url: z.url(), expiresAt: z.iso.datetime(),
+}).strict();
+export const SpeakingCapabilitiesDtoSchema = z.object({
+  storage: z.enum(['local', 'r2']), maxMediaBytes: z.number().int().positive(),
+  maxSubtitleBytes: z.number().int().positive(), autoSubtitles: z.literal(false),
+}).strict();
+export type CreateSpeakingAssetRequest = z.infer<typeof CreateSpeakingAssetRequestSchema>;
+export type SpeakingAssetDto = z.infer<typeof SpeakingAssetDtoSchema>;
+export type CompleteSpeakingAssetRequest = z.infer<typeof CompleteSpeakingAssetRequestSchema>;
+export type CreateSpeakingMaterialRequest = z.infer<typeof CreateSpeakingMaterialRequestSchema>;
+export type SpeakingMaterialDto = z.infer<typeof SpeakingMaterialDtoSchema>;
+export type SpeakingStateDto = z.infer<typeof SpeakingStateDtoSchema>;
+export type UpdateSpeakingStateRequest = z.infer<typeof UpdateSpeakingStateRequestSchema>;
+export type SaveSpeakingSessionRequest = z.infer<typeof SaveSpeakingSessionRequestSchema>;
+export type SpeakingSessionDto = z.infer<typeof SpeakingSessionDtoSchema>;
+export type SpeakingLibraryDto = z.infer<typeof SpeakingLibraryDtoSchema>;

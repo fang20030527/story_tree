@@ -39,6 +39,7 @@ export type CpuResult<T> =
 // This is the small RPC surface needed until Wrangler-generated Env types are
 // added when the binding is enabled. The Durable Object does not persist data.
 export interface CpuBoundaryStub {
+  fetch?(request: Request): Promise<Response>;
   hashPassword(password: string): Promise<CpuResult<string>>;
   verifyPassword(password: string, encodedHash: string): Promise<CpuResult<boolean>>;
   normalizeContent(input: CpuNormalizeInput): Promise<CpuResult<CpuNormalizedContent>>;

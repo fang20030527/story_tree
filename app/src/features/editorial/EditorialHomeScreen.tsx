@@ -54,7 +54,11 @@ export function EditorialHomeScreen() {
   const [page, setPage] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+  const featuredLayout = useRef<{ columns: number | null; discovery: number | null; section: number | null }>({
+    columns: null, discovery: null, section: null,
+  });
   const catalogVersion = useRemoteEditorialCatalogVersion();
 
   useFocusEffect(useCallback(() => {
@@ -137,6 +141,14 @@ export function EditorialHomeScreen() {
     setPage(next);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
+  const showFeaturedSection = () => {
+    // 等分类内容更新后再定位，三个偏移同时适配单列和双列布局。
+    requestAnimationFrame(() => {
+      const { columns, discovery, section } = featuredLayout.current;
+      if (columns === null || discovery === null || section === null) return;
+      scrollRef.current?.scrollTo({ y: columns + discovery + section, animated: false });
+    });
+  };
   const filters = (
     <View style={styles.filters}>
       {[{ label: '主题', values: topics, selected: topic, change: setTopic },
@@ -202,6 +214,8 @@ export function EditorialHomeScreen() {
 
       <ScrollView
         ref={scrollRef}
+        testID="editorial-scroll"
+        onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void refresh(); }} tintColor={theme.blue} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
@@ -210,12 +224,14 @@ export function EditorialHomeScreen() {
         ]}>
         <PageHeading title="外刊" description="读英语，也读世界。" />
         {refreshError ? <Text style={{ color: theme.textMuted }}>暂时无法更新外刊，已显示上次内容</Text> : null}
-        <View style={wide ? styles.wideColumns : undefined}>
+        <View testID="editorial-columns" style={wide ? styles.wideColumns : undefined}
+          onLayout={(event) => { featuredLayout.current.columns = event.nativeEvent.layout.y; }}>
         <View style={wide ? styles.heroColumn : undefined}>
           {hero ? <HeroCard article={hero} theme={theme} onPress={() => openOverview(hero)} /> : null}
           <ContinuePracticeCard />
         </View>
-        <View style={wide ? styles.discoveryColumn : undefined}>
+        <View testID="editorial-discovery" style={wide ? styles.discoveryColumn : undefined}
+          onLayout={(event) => { featuredLayout.current.discovery = event.nativeEvent.layout.y; }}>
         {showSearchResults ? (
           <>
             <SectionHeader title="搜索结果" theme={theme} />
@@ -254,6 +270,8 @@ export function EditorialHomeScreen() {
               {!searchResults.length ? <Text style={{ color: theme.textMuted, paddingVertical: 24 }}>当前筛选暂无文章，试试其他主题或外刊。</Text> : null}
             </View>
             {pagination}
+            <View testID="editorial-featured-section" style={{ minHeight: viewportHeight }}
+              onLayout={(event) => { featuredLayout.current.section = event.nativeEvent.layout.y; }}>
             <FeaturedLibrary
               key={`${topic}:${source}:${year}`}
               filterTopic={topic} filterSource={source} filterYear={year}
@@ -261,8 +279,9 @@ export function EditorialHomeScreen() {
                 <ArticleCard key={article.id} article={article} theme={theme}
                   onPress={() => openOverview(article)} />
               )}
-              onNavigate={() => scrollRef.current?.scrollTo({ y: 0, animated: false })}
+              onNavigate={showFeaturedSection}
             />
+            </View>
 
           </>
         )}
@@ -285,6 +304,7 @@ function HeroCard({
   return (
     <TouchCard
       onPress={onPress}
+      animateOnPress
       accessibilityLabel={`${article.titleZh}，查看文章概述`}
       style={[styles.heroCard, { backgroundColor: theme.pink }]}>
       <Text style={[styles.heroSource, { color: theme.onPink }]}>每日精选</Text>
@@ -374,7 +394,7 @@ const styles = StyleSheet.create({
   heroShade: { backgroundColor: 'rgba(0,0,0,0.32)', bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
   heroOverlay: { bottom: 16, left: 16, position: 'absolute', right: 16 },
   heroSource: { fontSize: 12 },
-  heroTitle: { fontFamily: fonts.display, fontSize: 40, lineHeight: 43, marginTop: 12 },
+  heroTitle: { fontFamily: fonts.display, fontSize: 40, lineHeight: 52, marginTop: 12 },
   heroMeta: { fontSize: 11 },
   resultsList: { gap: 10, marginBottom: 22 },
   articleCard: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 14, paddingVertical: 16 },

@@ -113,6 +113,7 @@ it('connects the supplied recording to the AI article', async () => {
   const view = await render(<EditorialOverviewScreen articleId="ai-arms-race" />);
   expect(view.getByText('Can the AI arms race be stopped?')).toBeTruthy();
   expect(EditorialAudioPlayer).toHaveBeenCalledWith(expect.objectContaining({
+    articleId: 'ai-arms-race', title: expect.any(String),
     source: expect.any(Number),
   }), undefined);
 });

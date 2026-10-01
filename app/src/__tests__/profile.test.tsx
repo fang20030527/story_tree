@@ -9,6 +9,8 @@ import { loadRecentViews } from '@/features/library/libraryStorage';
 
 import ProfileScreen from '@/app/(tabs)/profile';
 
+jest.mock('@/context/LearningModeContext', () => ({ useLearningMode: () => ({ mode: 'read', setMode: jest.fn() }) }));
+
 it('显示实际本地日期、累计学习时长和十分钟打卡，并跨年刷新', async () => {
   jest.useFakeTimers();
   jest.setSystemTime(new Date(2026, 11, 31, 23, 59, 55));

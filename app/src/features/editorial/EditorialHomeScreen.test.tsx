@@ -1,5 +1,6 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { AccessibilityInfo, Animated, ScrollView } from 'react-native';
 
 import { router } from 'expo-router';
 
@@ -19,7 +20,11 @@ jest.mock('@/context/ThemeContext', () => ({
   useAppTheme: () => ({ theme: require('@/constants/theme').themes.light }),
 }));
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+});
+afterEach(() => jest.restoreAllMocks());
 
 it('keeps the daily feature unchanged when combining topic and publication filters', async () => {
   const view = await render(<EditorialHomeScreen />);
@@ -144,4 +149,76 @@ it('shows only 2026 original recordings', async () => {
   await fireEvent.press(view.getByLabelText('查看2026-09-19'));
   expect(view.getAllByLabelText('人工智能军备竞赛能被叫停吗？，查看文章概述')[0]).toBeTruthy();
   expect(view.getAllByText('原刊录音').length).toBeGreaterThan(0);
+});
+
+it('keeps the daily card still when a touch becomes a scroll', async () => {
+  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+  const sequence = jest.spyOn(Animated, 'sequence');
+  const view = await render(<EditorialHomeScreen />);
+  const label = '拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母，查看文章概述';
+  const idleStyle = view.getByLabelText(label).props.style;
+  const touch = { currentTarget: 1, persist: jest.fn(), nativeEvent: { pageX: 80, pageY: 240, timestamp: 0 } };
+
+  await fireEvent(view.getByLabelText(label), 'responderGrant', touch);
+  expect(view.getByLabelText(label).props.style).toEqual(idleStyle);
+  await fireEvent(view.getByLabelText(label), 'responderTerminate', touch);
+  expect(sequence).not.toHaveBeenCalled();
+  expect(router.push).not.toHaveBeenCalled();
+});
+
+it('opens the daily article once after its tap animation finishes', async () => {
+  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+  let complete: ((result: { finished: boolean }) => void) | undefined;
+  const sequence = jest.spyOn(Animated, 'sequence').mockReturnValue({
+    start: (callback) => { complete = callback; }, stop: jest.fn(), reset: jest.fn(),
+  });
+  const view = await render(<EditorialHomeScreen />);
+  const card = view.getByLabelText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母，查看文章概述');
+
+  await fireEvent.press(card);
+  await fireEvent.press(card);
+  expect(sequence).toHaveBeenCalledTimes(1);
+  expect(router.push).not.toHaveBeenCalled();
+  await act(() => { complete?.({ finished: true }); });
+  expect(router.push).toHaveBeenCalledTimes(1);
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/editorial/[id]', params: { id: 'hero' } });
+});
+
+it.each([
+  { columns: 64, discovery: 580, section: 3000 },
+  { columns: 64, discovery: 0, section: 3000 },
+])('keeps classification, pagination, and back navigation at the featured section with offsets %o', async (offsets) => {
+  const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(() => {});
+  jest.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => { callback(0); return 0; });
+  const view = await render(<EditorialHomeScreen />);
+  const scroll = view.getByTestId('editorial-scroll');
+  await fireEvent(scroll, 'layout', { nativeEvent: { layout: { height: 700 } } });
+  for (const [key, testID] of [
+    ['columns', 'editorial-columns'], ['discovery', 'editorial-discovery'], ['section', 'editorial-featured-section'],
+  ] as const) {
+    await fireEvent(view.getByTestId(testID), 'layout', { nativeEvent: { layout: { y: offsets[key] } } });
+  }
+  expect(view.getByTestId('editorial-featured-section')).toHaveStyle({ minHeight: 700 });
+  const y = offsets.columns + offsets.discovery + offsets.section;
+
+  for (const label of [
+    '查看The Economist', '查看2026-09-19', '下一页', '上一页',
+    '返回日期分类', '返回外刊分类', '查看BBC Future', '返回外刊分类', '只看原刊录音',
+  ]) {
+    scrollTo.mockClear();
+    await fireEvent.press(view.getByLabelText(label));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith({ y, animated: false });
+  }
+});
+
+it('opens BBC articles directly without an issue-date step', async () => {
+  const view = await render(<EditorialHomeScreen />);
+  await fireEvent.press(view.getByLabelText('查看BBC Future'));
+  expect(view.getByText(/BBC Future · 共 \d+ 篇/)).toBeTruthy();
+  expect(view.getByLabelText('返回外刊分类')).toBeTruthy();
+  expect(view.getAllByRole('button').some((button) => /^查看\d{4}-\d{2}-\d{2}$/.test(button.props.accessibilityLabel ?? ''))).toBe(false);
+  const article = getEditorialSection('featured').find((item) => item.source === 'BBC Future')!;
+  await fireEvent.press(view.getAllByLabelText(`${article.titleZh}，查看文章概述`).at(-1)!);
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/editorial/[id]', params: { id: article.id } });
 });

@@ -32,6 +32,8 @@ import { handleVocabularyReadRoute } from './vocabulary/items';
 import { handleVocabularyCreateRoute } from './vocabulary/create';
 import { handleVocabularyMasteryRoute } from './vocabulary/mastery';
 import { handleVocabularyWordRoute } from './vocabulary/words';
+import { sweepSpeakingAssets } from './speaking/assets';
+import { handleSpeakingOnCpuBoundary } from './speaking/cpu';
 
 export { CpuBoundary } from './cpu/object';
 
@@ -101,10 +103,16 @@ async function dispatch(request: Request, env: ApiEnv, requestId: string): Promi
   await enforceRequestLimits(request, env);
   const editorialResponse = await handlePublicEditorialRoute(request, env);
   if (editorialResponse) return editorialResponse;
+  if (/^\/v1\/speaking\/catalog(?:\/[^/]+(?:\/playback)?)?$/u.test(pathname)) {
+    return handleSpeakingOnCpuBoundary(request, env, null);
+  }
   const authResponse = await handleAuthRoute(request, env);
   if (authResponse) return authResponse;
 
   const { userId } = await requireAuth(request, env);
+  if (pathname.startsWith('/v1/speaking/')) {
+    return handleSpeakingOnCpuBoundary(request, env, userId);
+  }
   const uploadSessionResponse = await handleComputerUploadSessionRoute(request, env, userId, {
     articleImportEnabled: true,
   });
@@ -170,6 +178,7 @@ export default {
     env: ApiEnv,
     _context: ExecutionContext,
   ): Promise<void> {
+    void _context;
     await handleJobQueue(batch, env);
   },
 
@@ -178,6 +187,10 @@ export default {
     env: ApiEnv,
     _context: ExecutionContext,
   ): Promise<void> {
+    void _context;
     await handleJobScheduled(env);
+    await sweepSpeakingAssets(env).catch(() => {
+      console.error({ errorType: 'SpeakingAssetCleanupFailed' });
+    });
   },
 };

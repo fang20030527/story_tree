@@ -5,9 +5,12 @@ import TabLayout from '@/app/(tabs)/_layout';
 
 type CapturedScreen = {
   name: string;
-  options: { title: string };
+  options: { title: string; href?: string | null };
 };
 const mockScreens: CapturedScreen[] = [];
+const mockMode = { mode: 'read', setMode: jest.fn() };
+jest.mock('@/context/LearningModeContext', () => ({ useLearningMode: () => mockMode }));
+beforeEach(() => { mockScreens.length = 0; mockMode.mode = 'read'; });
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 
 jest.mock('expo-router', () => {
@@ -19,6 +22,13 @@ jest.mock('expo-router', () => {
     } },
   );
   return { Tabs: MockTabs };
+});
+
+it('switches to speaking materials, files and profile while hiding vocabulary', async () => {
+  mockMode.mode = 'speak';
+  await render(<TabLayout />);
+  expect(mockScreens.filter(screen => screen.options.href !== null).map(screen => screen.options.title)).toEqual(['素材', '文件', '我的']);
+  expect(mockScreens.find(screen => screen.name === 'words')?.options.href).toBeNull();
 });
 jest.mock('@/context/ThemeContext', () => ({
   useAppTheme: () => ({ theme: require('@/constants/theme').themes.light }),

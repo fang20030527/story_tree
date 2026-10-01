@@ -24,6 +24,12 @@ const defaultLimits: SecurityLimits = {
 };
 
 const tokenLimitedRoutes = new Set([
+  'POST /v1/speaking/assets',
+  'PUT /v1/speaking/assets/:id/content',
+  'POST /v1/speaking/materials',
+  'PATCH /v1/speaking/materials/:id/subtitles',
+  'POST /v1/speaking/materials/:id/subtitles/import',
+  'PATCH /v1/speaking/materials/:id/state',
   'POST /v1/auth/anonymous',
   'POST /v1/auth/email',
   'POST /v1/auth/wechat',

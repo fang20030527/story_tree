@@ -1,0 +1,1 @@
+ALTER TABLE "speaking_states" ADD COLUMN "position_session_date" timestamp with time zone;

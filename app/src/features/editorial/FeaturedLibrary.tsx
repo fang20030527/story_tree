@@ -48,9 +48,15 @@ export function FeaturedLibrary({ renderArticle, onNavigate, filterTopic = '全�
     return groups;
   }, [catalogVersion, originalOnly, filterTopic, filterSource, filterYear]);
   const issues = source ? publications.get(source) : undefined;
-  const articles = date ? issues?.get(date) ?? [] : [];
+  const sourceArticles = [...(issues?.values() ?? [])].flat();
+  const browseByIssue = sourceArticles.some((article) => article.issueDate);
+  const showArticles = source !== null && (date !== null || !browseByIssue);
+  const articles = date ? issues?.get(date) ?? [] : sourceArticles;
   const dates = [...(issues?.keys() ?? [])].sort((a, b) => b.localeCompare(a));
   const pageCount = Math.max(1, Math.ceil(articles.length / PAGE_SIZE));
+  const context = !source ? '选择外刊，浏览文章或按日期查看期刊'
+    : !showArticles ? `${source} / 选择日期`
+    : `${source}${date ? ` / ${date}` : ''} · 共 ${articles.length} 篇`;
 
   const navigate = (nextSource: string | null, nextDate: string | null) => {
     setSource(nextSource);
@@ -107,17 +113,18 @@ export function FeaturedLibrary({ renderArticle, onNavigate, filterTopic = '全�
         </TouchableOpacity>
       ) : null}
       <Text style={[styles.context, { color: theme.textMuted }]}>
-        {source ? `${source}${date ? ` / ${date} · 共 ${articles.length} 篇` : ' / 选择日期'}` : '选择外刊，再按日期浏览文章'}
+        {context}
       </Text>
       <View style={styles.list}>
-        {!source ? [...publications].map(([name, entries]) => categoryRow(
-          name, `${entries.size} 个日期 · ${[...entries.values()].reduce((count, items) => count + items.length, 0)} 篇`,
-          () => navigate(name, null),
-        )) : !date ? dates.map((value) => categoryRow(
+        {!source ? [...publications].map(([name, entries]) => {
+          const items = [...entries.values()].flat();
+          const dateCount = items.some((article) => article.issueDate) ? `${entries.size} 个日期 · ` : '';
+          return categoryRow(name, `${dateCount}${items.length} 篇`, () => navigate(name, null));
+        }) : !showArticles ? dates.map((value) => categoryRow(
           value, `${issues!.get(value)!.length} 篇文章`, () => navigate(source, value),
         )) : articles.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(renderArticle)}
       </View>
-      {date && pageCount > 1 ? (
+      {showArticles && pageCount > 1 ? (
         <View style={styles.pagination}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="上一页" disabled={page === 0}
             style={styles.pageButton} onPress={() => { setPage(page - 1); onNavigate(); }}>

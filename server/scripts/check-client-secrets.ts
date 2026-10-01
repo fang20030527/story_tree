@@ -7,6 +7,14 @@ const serverOnlyNames = [
   'EVOLINK_API_KEY',
   'WECHAT_APP_SECRET',
   'RESEND_API_KEY',
+  'R2_ACCOUNT_ID',
+  'R2_BUCKET_NAME',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'SPEAKING_PLAYBACK_SIGNING_KEY',
+  'SPEAKING_MEDIA_ROOT',
+  'FFMPEG_PATH',
+  'FFPROBE_PATH',
   'PASSWORD_RESET_FROM_EMAIL',
   'WECHAT_API_BASE_URL',
   'EVOLINK_BASE_URL',
@@ -41,7 +49,8 @@ const scanDirectories = [
   fileURLToPath(new URL('../../app/src/', import.meta.url)),
   fileURLToPath(new URL('../../app/dist-smoke/', import.meta.url)),
 ];
-const secrets = ['EVOLINK_API_KEY', 'DATABASE_URL', 'WECHAT_APP_SECRET', 'RESEND_API_KEY']
+const secrets = ['EVOLINK_API_KEY', 'DATABASE_URL', 'WECHAT_APP_SECRET', 'RESEND_API_KEY',
+  'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'SPEAKING_PLAYBACK_SIGNING_KEY']
   .map((name) => ({ name, value: process.env[name] }))
   .filter(
     (entry): entry is { name: string; value: string } => Boolean(entry.value),

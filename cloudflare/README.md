@@ -1,6 +1,8 @@
-# Cloudflare 免费套餐部署
+# Cloudflare 部署
 
 本目录部署四个独立项目：`waikan-audio`（私有 R2 音频接口）、`waikan-images`（外刊插图静态资源）、`waikan-web`（Expo Web 静态页面）和 `waikan-api`（业务 API）。音频 R2 桶为 `waikan-2026-audio`，Standard 存储类，不启用公共访问。2026 年全部 2,725 个 MP3 共 8,383,477,481 字节；其中 2,674 个文章可播放，51 个未匹配文件只归档。
+
+2026-10-01 增加阅读／口语切换与口语业务。三部有字幕电影已迁入同一私有桶，视频约 3.75 GB；桶总量约 12.13 GB，已超过此前 10 GB 存储免费额度。Workers 仍使用原来的套餐和服务绑定。当前发布与实测记录见 [口语 Web 发布报告](../docs/2026-10-01-speaking-web-release.md)。
 
 `waikan-api` 已发布在独立的 `workers.dev` 地址，绑定 SQLite Durable Object `CpuBoundary`、D1、私有 R2、Images、Workers AI、插图 Worker、Queue 和每分钟 Cron，并配置 EvoLink 和 Resend Worker secrets。Resend 发信密钥限定为 `blackholeenglish.com`，密码重置发件地址为 `no-reply@blackholeenglish.com`。D1 `waikan-core` 已应用 `0001`、`0002`、`0003` 三份迁移，其中 `0003` 增量保存网页图片和视频元数据；导入 Neon 数据（25 张表、985 行）。2026-09-25 04:18 UTC 暂停 Render 后导出的最终快照与已导入快照逐表摘要一致，D1 重新核对通过。`API_STAGE_OPEN=true`，`/health/live` 和 `/health/ready` 均返回 200。正式 `waikan-web` 已通过 Service Binding 把同源 API 转发到 Cloudflare。
 
@@ -8,7 +10,21 @@
 
 - R2 Standard 每个 Cloudflare **账户**每月包含 10 GB-month 存储、100 万次 Class A 操作和 1000 万次 Class B 操作；所有桶共享额度。2026-09-25 仪表盘显示全账户总存储 8.41 GB（音频桶 8.38 GB，其他项目图片桶约 26.83 MB，临时导入桶 0 B），Class A 约 2.85k 次、Class B 约 8.15k 次。`waikan-imports-temp` 已设置全桶八天后删除规则；仍需检查月平均用量。静态插图约 1.34 GB、17,164 文件，独立静态资源项目不占 R2 音频空间。
 - [Workers Free](https://developers.cloudflare.com/workers/platform/limits/) 每日 100,000 次请求，每次 HTTP 请求只有 10 ms CPU。邮箱 scrypt 和 4,510 词长文规范化已在目标免费账户进行合成核验，Durable Object 日志显示约 239–253 ms CPU 且执行成功。首次答题的同词 FSRS 历史重放也已搬入 Durable Object，本地 D1 验证了原子提交和提示词失败规则；并发竞态及真实流量仍须核验。[D1 Free](https://developers.cloudflare.com/d1/platform/pricing/) 全账户每日 500 万行读取、10 万行写入；[Queues Free](https://developers.cloudflare.com/queues/platform/pricing/) 每日 10,000 次操作。
-- 不启用 Workers Paid、Containers 或 Infrequent Access。[R2 免费额度](https://developers.cloudflare.com/r2/pricing/)用完后可能产生按量费用；预算提醒不能代替存储硬上限。上传临时文件前必须确保整个账户的 R2 用量仍留在额度内。
+- 不启用 Workers Paid、Containers 或 Infrequent Access。[R2 免费额度](https://developers.cloudflare.com/r2/pricing/)用完后按实际用量计费；预算提醒不能代替存储硬上限。上述 2026-09-25 用量是增加电影之前的记录，当前固定素材不占个人文件配额。
+
+## 口语素材与大文件上传
+
+`0005_speaking.sql` 只新增六张口语表，素材、字幕覆盖、笔记、录音和练习记录按用户隔离，既有账号和阅读数据继续由 D1 提供。先执行 D1 增量迁移，再发布 API，最后发布 Web；不要把口语写入切回旧 Neon 服务。
+
+API 的 `SPEAKING_BUCKET` 绑定现有 `waikan-2026-audio`。`R2_ACCOUNT_ID`、`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`、`R2_BUCKET_NAME` 必须使用 `wrangler secret bulk` 或 `wrangler secret put` 安全配置，不能写入 Wrangler `vars` 或任何客户端变量。固定影片在 `speaking/platform/`，Worker 摘要清单在 `speaking/platform/release/catalog.json`，每份完整字幕按需读取独立的 `<素材 ID>/material.json`。这些发布对象由 `server/content/speaking/catalog.json` 与其 `cloud-catalog.json` 生成；摘要只返回公开素材信息，不返回内部存储键。
+
+发布脚本 `npm run cloudflare:publish:speaking` 默认只核对现有影片大小、类型和 SHA-256 元数据；维护目录时执行 `npm run cloudflare:publish:speaking -- --apply`，逐份验证详情后最后替换摘要。脚本只从服务端环境读取凭据，不上传或改写电影文件。
+
+个人音视频最大 3 GiB，每个账号已绑定和未过期上传合计最多 10 GiB。客户端通过十分钟 S3 PUT 签名直传 R2，签名绑定对象键、真实字节数、Content-Type 和 `If-None-Match:*`，重复写入返回 412；账号 Bearer 令牌只发送到业务 API。桶 CORS 允许实际 Web 来源的 GET／HEAD／PUT、Range、Content-Type 和 If-None-Match，桶本身保持私有。
+
+上传完成后客户端发送 `POST /v1/speaking/assets/:id/complete` 和 `{duration}`，API 核对实际对象大小、类型、文件头与 ETag，再确认 D1 资产。Web 从实际媒体元数据读取时长，无法读取时不确认成功；Cloudflare 不运行 FFprobe，不宣称对每份个人文件进行了服务端音轨和完整时长探测。原 Fastify 上传路径继续使用 FFprobe 校验。
+
+较大的字幕 JSON 通过现有 SQLite Durable Object 处理，避免在外层 Worker 执行整片字幕解析。未绑定的个人资产 24 小时后由 Cron 先在 D1 事务中释放归属，再重试删除 R2 对象；固定素材和已绑定文件不在清理范围。播放签名有效十分钟，播放器提前续期并保留位置。
 
 ## 单账号无限练习
 

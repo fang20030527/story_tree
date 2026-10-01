@@ -26,6 +26,11 @@ import type {
 } from './types';
 import type { ApiEnv } from '../env';
 import { submitAnswerOnD1, type AnswerSubmission } from '../practice/answer-write';
+import { UuidSchema } from '@context-reader/contracts';
+import { publicError } from '../core/http';
+import { handlePublicSpeakingRoute } from '../speaking/catalog';
+import { handleSpeakingAssetRoute } from '../speaking/assets';
+import { handleSpeakingRoute } from '../speaking/routes';
 
 const MAX_PASTED_TEXT_BYTES = 128 * 1024;
 
@@ -83,6 +88,24 @@ async function safely<T>(work: () => T | Promise<T>): Promise<CpuResult<T>> {
  */
 export class CpuBoundary extends DurableObject<ApiEnv> {
   private answerTail: Promise<void> = Promise.resolve();
+
+  async fetch(request: Request): Promise<Response> {
+    try {
+      const pathname = new URL(request.url).pathname;
+      if (!pathname.startsWith('/v1/speaking/')) throw new AppError('NOT_FOUND', '资源不存在', 404);
+      const published = await handlePublicSpeakingRoute(request, this.env);
+      if (published) return published;
+      const identity = UuidSchema.safeParse(request.headers.get('x-speaking-user-id'));
+      if (!identity.success) throw new AppError('UNAUTHORIZED', '身份凭据无效', 401);
+      const assets = await handleSpeakingAssetRoute(request, this.env, identity.data);
+      if (assets) return assets;
+      const data = await handleSpeakingRoute(request, this.env, identity.data);
+      if (data) return data;
+      throw new AppError('NOT_FOUND', '口语资源不存在', 404);
+    } catch (error) {
+      return publicError(error, crypto.randomUUID());
+    }
+  }
 
   async submitAnswer(input: AnswerSubmission): Promise<CpuResult<AnswerResult>> {
     const previous = this.answerTail;

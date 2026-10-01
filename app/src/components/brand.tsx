@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useEffect, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fonts } from '@/constants/theme';
@@ -37,14 +37,41 @@ export function StatRow({ items }: { items: { label: string; value: string | num
   </View>)}</View>;
 }
 
-export function TouchCard({ children, onPress, style, accessibilityLabel }: { children: React.ReactNode; onPress: () => void; style?: StyleProp<ViewStyle>; accessibilityLabel: string }) {
+export function TouchCard({ children, onPress, style, accessibilityLabel, animateOnPress = false }: { children: React.ReactNode; onPress: () => void; style?: StyleProp<ViewStyle>; accessibilityLabel: string; animateOnPress?: boolean }) {
   const [reduceMotion, setReduceMotion] = useState(true);
+  const [tapProgress] = useState(() => new Animated.Value(1));
+  const animating = useRef(false);
   useEffect(() => {
     let active = true;
     void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) setReduceMotion(value); }).catch(() => undefined);
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
     return () => { active = false; subscription.remove(); };
   }, []);
+  useEffect(() => () => tapProgress.stopAnimation(), [tapProgress]);
+  const handlePress = () => {
+    if (animating.current) return;
+    if (reduceMotion) {
+      onPress();
+      return;
+    }
+    animating.current = true;
+    Animated.sequence([
+      Animated.timing(tapProgress, { toValue: 0, duration: 80, useNativeDriver: true }),
+      Animated.timing(tapProgress, { toValue: 1, duration: 80, useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      animating.current = false;
+      if (finished) onPress();
+    });
+  };
+  if (animateOnPress) {
+    return <Animated.View style={{
+      opacity: tapProgress.interpolate({ inputRange: [0, 1], outputRange: [.92, 1] }),
+      transform: [{ translateX: tapProgress.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
+    }}>
+      <Pressable onPress={handlePress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
+        style={style}>{children}</Pressable>
+    </Animated.View>;
+  }
   return <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
     style={({ pressed }) => [style, { opacity: pressed ? .9 : 1, transform: [{ scale: pressed && !reduceMotion ? .985 : 1 }] }]}>{children}</Pressable>;
 }

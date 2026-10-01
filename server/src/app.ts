@@ -27,6 +27,9 @@ import { importsRoutes } from './modules/imports/routes';
 import { practiceRoutes } from './modules/practice/routes';
 import { translationRoutes } from './modules/translation/routes';
 import { vocabularyRoutes } from './modules/vocabulary/routes';
+import { speakingRoutes } from './modules/speaking/routes';
+import type { MediaStore } from './infrastructure/media/store';
+import type { FFmpegMediaProcessor } from './infrastructure/media/ffmpeg';
 import {
   registerSecurity,
   type SecurityLimits,
@@ -43,6 +46,9 @@ export const redactPaths = [
   'EVOLINK_API_KEY',
   'WECHAT_APP_SECRET',
   'RESEND_API_KEY',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'SPEAKING_PLAYBACK_SIGNING_KEY',
   '*.sourceUrl',
   '*.previewText',
   '*.previewTitle',
@@ -73,6 +79,8 @@ interface BuildAppOptions {
   passwordResetMailer?: PasswordResetMailer;
   sentenceTranslationProvider?: Pick<AiProvider, 'translate'>;
   wordTranslationProvider?: Pick<AiProvider, 'lookupWord'>;
+  speakingMediaStore?: MediaStore;
+  speakingMediaProcessor?: Pick<FFmpegMediaProcessor, 'probe'>;
 }
 
 const knownErrorCodes = new Set<string>(errorCodes);
@@ -125,6 +133,9 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
         : {
             level: options.config.LOG_LEVEL,
             redact: { paths: redactPaths, censor: '[REDACTED]' },
+            serializers: { req: (request: FastifyRequest) => ({
+              method: request.method, url: request.url?.split('?')[0] ?? '', hostname: request.hostname,
+            }) },
             ...(options.loggerStream ? { stream: options.loggerStream } : {}),
           },
     trustProxy: false,
@@ -174,6 +185,12 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
       : {}),
   });
   app.register(vocabularyRoutes, { db: options.db });
+  app.register(speakingRoutes, {
+    config: options.config, db: options.db,
+    catalogPath: fileURLToPath(new URL('../content/speaking/catalog.json', import.meta.url)),
+    ...(options.speakingMediaStore ? { mediaStore: options.speakingMediaStore } : {}),
+    ...(options.speakingMediaProcessor ? { mediaProcessor: options.speakingMediaProcessor } : {}),
+  });
   app.register(dashboardRoutes, { config: options.config, db: options.db });
   app.register(computerUploadRoutes, {
     config: options.config,
@@ -231,7 +248,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
 
 function isImportUploadRequest(request: FastifyRequest): boolean {
   const route = request.routeOptions.url ?? '';
-  return route.startsWith('/v1/imports') || route === '/computer-upload/file';
+  return route.startsWith('/v1/imports') || route.startsWith('/v1/speaking/assets') || route === '/computer-upload/file';
 }
 
 function safeLogErrorCode(error: unknown): string {

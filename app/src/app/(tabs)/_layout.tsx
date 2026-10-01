@@ -6,8 +6,14 @@ import { ColorValue, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/context/ThemeContext';
+import { useLearningMode } from '@/context/LearningModeContext';
 
-const tabIcon = (name: keyof typeof Ionicons.glyphMap) => {
+function ModeTabIcon({ name, oralName, color, size }: { name: keyof typeof Ionicons.glyphMap; oralName?: keyof typeof Ionicons.glyphMap; color: ColorValue; size: number }) {
+  const { mode } = useLearningMode();
+  const glyph = mode === 'speak' && oralName ? oralName : name;
+  return <Ionicons name={`${glyph}-outline` as keyof typeof Ionicons.glyphMap} size={size} color={color} />;
+}
+const tabIcon = (name: keyof typeof Ionicons.glyphMap, oralName?: keyof typeof Ionicons.glyphMap) => {
   const TabIcon = ({
     color,
     size,
@@ -16,8 +22,9 @@ const tabIcon = (name: keyof typeof Ionicons.glyphMap) => {
     size: number;
     focused: boolean;
   }) => (
-    <Ionicons
-      name={`${name}-outline` as keyof typeof Ionicons.glyphMap}
+    <ModeTabIcon
+      name={name}
+      oralName={oralName}
       size={size}
       color={color}
     />
@@ -28,6 +35,8 @@ const tabIcon = (name: keyof typeof Ionicons.glyphMap) => {
 
 export default function TabLayout() {
   const { theme } = useAppTheme();
+  const { mode } = useLearningMode();
+  const speaking = mode === 'speak';
   const width = useLayoutWidth();
   const insets = useSafeAreaInsets();
   const wide = width >= 768;
@@ -55,15 +64,15 @@ export default function TabLayout() {
         }}>
         <Tabs.Screen
           name="index"
-          options={{ title: '外刊', tabBarIcon: tabIcon('newspaper') }}
+          options={{ title: speaking ? '素材' : '外刊', tabBarIcon: tabIcon('newspaper', 'mic') }}
         />
         <Tabs.Screen
           name="shelf"
-          options={{ title: '书架', tabBarIcon: tabIcon('book') }}
+          options={{ title: speaking ? '文件' : '书架', tabBarIcon: tabIcon('book', 'folder') }}
         />
         <Tabs.Screen
           name="words"
-          options={{ title: '词库', tabBarIcon: tabIcon('albums') }}
+          options={{ title: '词库', tabBarIcon: tabIcon('albums'), href: speaking ? null : '/words' }}
         />
         <Tabs.Screen
           name="profile"

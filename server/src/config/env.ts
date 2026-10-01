@@ -79,6 +79,19 @@ const RawEnvSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3_000),
   HOST: z.string().default('0.0.0.0'),
   EDITORIAL_AUDIO_ROOT: z.string().trim().default(''),
+  SPEAKING_STORAGE_DRIVER: z.enum(['local', 'r2', 'disabled']).default('local'),
+  SPEAKING_MEDIA_ROOT: z.string().trim().default('.local-media/speaking'),
+  SPEAKING_MAX_MEDIA_BYTES: z.coerce.number().int().positive().max(3 * 1024 ** 3).default(3 * 1024 ** 3),
+  SPEAKING_USER_STORAGE_BYTES: z.coerce.number().int().positive().default(10 * 1024 ** 3),
+  SPEAKING_UPLOAD_TIMEOUT_MS: z.coerce.number().int().positive().default(1_200_000),
+  SPEAKING_ASSET_TTL_MS: z.coerce.number().int().positive().default(86_400_000),
+  SPEAKING_PLAYBACK_SIGNING_KEY: z.string().trim().default(''),
+  FFMPEG_PATH: z.string().trim().min(1).default('ffmpeg'),
+  FFPROBE_PATH: z.string().trim().min(1).default('ffprobe'),
+  R2_ACCOUNT_ID: z.union([z.string().regex(/^[a-fA-F0-9]{32}$/u), z.literal('')]).default(''),
+  R2_ACCESS_KEY_ID: z.string().trim().default(''),
+  R2_SECRET_ACCESS_KEY: z.string().trim().default(''),
+  R2_BUCKET_NAME: z.string().trim().default(''),
   EDITORIAL_AUDIO_PUBLIC_ORIGIN: z.union([HttpOriginSchema, z.literal('')]).default(''),
   LOG_LEVEL: z.string().default('info'),
   CORS_ORIGINS: z.string().default('http://localhost:8081,http://localhost:19006'),
@@ -87,6 +100,14 @@ const RawEnvSchema = z.object({
   JOB_LEASE_MS: z.coerce.number().int().positive().default(30_000),
   GENERATION_DEADLINE_MS: z.coerce.number().int().positive().default(120_000),
 }).superRefine((value, context) => {
+  if (value.SPEAKING_PLAYBACK_SIGNING_KEY && value.SPEAKING_PLAYBACK_SIGNING_KEY.length < 32) {
+    context.addIssue({ code: 'custom', path: ['SPEAKING_PLAYBACK_SIGNING_KEY'], message: '播放签名密钥至少 32 字符' });
+  }
+  if (value.SPEAKING_STORAGE_DRIVER === 'r2') {
+    for (const name of ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET_NAME'] as const) {
+      if (!value[name]) context.addIssue({ code: 'custom', path: [name], message: 'R2 存储需要配置此变量' });
+    }
+  }
   if (value.RESEND_API_KEY && !value.PASSWORD_RESET_FROM_EMAIL) {
     context.addIssue({ code: 'custom', path: ['PASSWORD_RESET_FROM_EMAIL'], message: '必须配置发件邮箱' });
   }
@@ -123,6 +144,9 @@ export type ServerConfig = ReturnType<typeof loadConfig>;
 function withPlatformDefaults(
   source: Record<string, string | undefined>,
 ): Record<string, string | undefined> {
+  if (source.NODE_ENV === 'production' && !source.SPEAKING_STORAGE_DRIVER) {
+    source = { ...source, SPEAKING_STORAGE_DRIVER: 'disabled' };
+  }
   const explicitOrigin = source.PUBLIC_SERVER_ORIGIN?.trim();
   if (explicitOrigin) return source;
 

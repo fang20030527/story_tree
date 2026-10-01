@@ -162,7 +162,9 @@ jest.mock('./EditorialAudioPlayer', () => ({ EditorialAudioPlayer: jest.fn(() =>
 it('connects the supplied recording to the AI article', async () => {
   const view = await render(<EditorialReadScreen articleId="ai-arms-race" />);
   expect(view.getByText('Can the AI arms race be stopped?')).toBeTruthy();
-  expect(EditorialAudioPlayer).toHaveBeenCalledWith(expect.objectContaining({ source: expect.anything() }), undefined);
+  expect(EditorialAudioPlayer).toHaveBeenCalledWith(expect.objectContaining({
+    articleId: 'ai-arms-race', title: expect.any(String), source: expect.anything(),
+  }), undefined);
 });
 
 it('shows no audio controls for an article without an original recording', async () => {
