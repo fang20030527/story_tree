@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { BrandHeader, PageHeading } from '@/components/brand';
 import { fonts } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { speakingAccentLabel } from './accents';
 import { speakingCategories } from './catalog';
 import { useSpeakingLibrary } from './useSpeakingLibrary';
 import { SpeakingMaterialRow, SpeakingStatus, speakingStyles } from './SpeakingComponents';
@@ -23,7 +24,7 @@ export function SpeakingHomeScreen() {
     <PageHeading title="素材" description="跟着声音，找到自己的表达。" />
     {searching ? <TextInput accessibilityLabel="搜索跟读素材" value={query} onChangeText={setQuery} placeholder="搜索英文标题或中文介绍" placeholderTextColor={theme.textMuted} style={[speakingStyles.input, { color: theme.text, borderColor: theme.border, marginBottom: 20 }]} /> : null}
     <Pressable accessibilityRole="button" accessibilityLabel={`今日跟读：${featured.title}`} onPress={() => router.push({ pathname: '/speaking/material', params: { id: featured.id } })} style={[styles.hero, { backgroundColor: theme.pink }]}>
-      <Text style={{ color: theme.onPink, fontSize: 11, letterSpacing: 2 }}>TODAY&apos;S SHADOWING</Text><Text style={[styles.heroTitle, { color: theme.onPink }]}>A little more{ '\n' }curiosity.</Text><Text style={{ color: theme.onPink, fontSize: 16, marginTop: 16 }}>把好奇心，说出来。</Text><View style={styles.wave}>{[14, 26, 42, 30, 53, 21, 35, 48, 20, 36, 26, 43].map((height, i) => <View key={i} style={{ height, width: 4, backgroundColor: theme.onPink, borderRadius: 2 }} />)}<Ionicons name="arrow-forward" color={theme.onPink} size={28} style={{ marginLeft: 'auto' }} /></View>
+      <Text style={{ color: theme.onPink, fontSize: 11, letterSpacing: 2 }}>TODAY&apos;S SHADOWING</Text><Text style={[styles.heroTitle, { color: theme.onPink }]}>A little more{ '\n' }curiosity.</Text><Text style={{ color: theme.onPink, fontSize: 16, marginTop: 16 }}>把好奇心，说出来。</Text><Text style={{ color: theme.onPink, fontSize: 12, marginTop: 8 }}>{speakingAccentLabel(featured)}</Text><View style={styles.wave}>{[14, 26, 42, 30, 53, 21, 35, 48, 20, 36, 26, 43].map((height, i) => <View key={i} style={{ height, width: 4, backgroundColor: theme.onPink, borderRadius: 2 }} />)}<Ionicons name="arrow-forward" color={theme.onPink} size={28} style={{ marginLeft: 'auto' }} /></View>
     </Pressable>
     <View style={speakingStyles.chips}>{categories.map(item => <Pressable key={item} onPress={() => setCategory(item)} accessibilityRole="button" accessibilityState={{ selected: item === selectedCategory }} style={[speakingStyles.chip, { borderColor: theme.border, backgroundColor: selectedCategory === item ? theme.accentSoft : theme.bg }]}><Text style={{ color: selectedCategory === item ? theme.accent : theme.textMuted }}>{item}</Text></Pressable>)}</View>
     <SpeakingStatus loading={library.loading} error={library.error || library.catalogError} retry={library.refresh} />

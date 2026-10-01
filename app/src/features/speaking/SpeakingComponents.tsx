@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { speakingAccentLabel } from './accents';
 import { useLearningMode } from '@/context/LearningModeContext';
 import { formatSpeakingTime, type SpeakingMaterial } from './model';
 
@@ -35,7 +36,7 @@ export function SpeakingMaterialRow({ material, onPress, position = 0 }: { mater
   const { theme } = useAppTheme();
   return <Pressable accessibilityRole="button" accessibilityLabel={`打开${material.title}`} onPress={onPress} style={[styles.row, { borderBottomColor: theme.border }]}>
     <View style={[styles.art, { backgroundColor: material.origin === 'platform' ? theme.pink : theme.surfaceAlt }]}><Ionicons name={material.mediaType === 'video' ? 'videocam-outline' : 'mic-outline'} color={material.origin === 'platform' ? theme.onPink : theme.accent} size={24} /></View>
-    <View style={{ flex: 1, minWidth: 0 }}><Text style={[styles.title, { color: theme.text }]}>{material.title}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{material.subtitle || material.category}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{formatSpeakingTime(material.duration)} · {(material.cueCount ?? material.cues.length) ? `${material.cueCount ?? material.cues.length} 句字幕` : '待添加字幕'}{position > 0 ? ` · 继续 ${formatSpeakingTime(position)}` : ''}</Text></View>
+    <View style={{ flex: 1, minWidth: 0 }}><Text style={[styles.title, { color: theme.text }]}>{material.title}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{speakingAccentLabel(material)} · {material.subtitle || material.category}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{formatSpeakingTime(material.duration)} · {(material.cueCount ?? material.cues.length) ? `${material.cueCount ?? material.cues.length} 句字幕` : '待添加字幕'}{position > 0 ? ` · 继续 ${formatSpeakingTime(position)}` : ''}</Text></View>
     <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
   </Pressable>;
 }

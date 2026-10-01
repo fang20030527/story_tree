@@ -6,6 +6,7 @@ import { FlatList, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, Tex
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { speakingAccentLabel } from './accents';
 import { useEditorialAudio } from '@/features/editorial/EditorialAudioProvider';
 import { curiosityNotes, speakingVocabulary } from './annotations';
 import { speakingSource, speakingSourceLabel } from './catalog';
@@ -211,7 +212,7 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
     <View style={[styles.transcriptPane, { borderLeftWidth: splitLayout ? .5 : 0, borderTopWidth: splitLayout ? 0 : .5, borderColor: theme.border, paddingLeft: splitLayout ? 24 : 0 }]}>
     <View style={[styles.transcriptHeading, { borderBottomColor: theme.border }]}>
       <View style={styles.paneHeading}><Text accessibilityRole="header" style={{ color: theme.text, fontSize: 18, flex: 1 }}>跟读字幕</Text><Pressable accessibilityRole="button" accessibilityLabel="定位当前字幕" disabled={selectedBlock < 0} onPress={() => { clearTimeout(scrollRetry.current); scrollAttempts.current = 0; if (Platform.OS !== 'web') setSubtitleRevision(value => value + 1); scrollToCurrent(); scrollRetry.current = setTimeout(scrollToCurrent, 150); }} style={styles.currentCue}><Ionicons name="locate-outline" size={16} color={theme.accent} /><Text style={{ color: theme.accent, fontSize: 12 }}>当前句</Text></Pressable></View>
-      <Text style={{ color: theme.textMuted, fontSize: 11 }}>{material.cues.length} 句字幕 · {formatSpeakingTime(playback.duration || material.duration)} · {speakingSourceLabel(material)}{cue ? ` · 第 ${playback.index + 1} 句` : ''}</Text>
+      <Text style={{ color: theme.textMuted, fontSize: 11 }}>{speakingAccentLabel(material)} · {material.cues.length} 句字幕 · {formatSpeakingTime(playback.duration || material.duration)} · {speakingSourceLabel(material)}{cue ? ` · 第 ${playback.index + 1} 句` : ''}</Text>
     </View>
     {searching ? <TextInput accessibilityLabel="查找字幕" placeholder="搜索英文或中文" placeholderTextColor={theme.textMuted} value={query} onChangeText={setQuery} style={[speakingStyles.input, { borderColor: theme.border, color: theme.text }]} /> : null}
     {Platform.OS === 'web' ? <ScrollView ref={webTranscript} accessibilityLabel="跟读字幕列表" tabIndex={0} style={styles.transcriptList} onLayout={onTranscriptLayout} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator contentContainerStyle={{ paddingBottom: 24, width: '100%' }}>{blocks.length ? webRows : emptyTranscript}</ScrollView> : <FlatList key={`${splitLayout}:${subtitleAnchor ?? 'start'}:${subtitleRevision}:${segmented}:${savedOnly}:${query.trim()}`} ref={list} accessibilityLabel="跟读字幕列表" tabIndex={0} style={styles.transcriptList} onLayout={onTranscriptLayout} initialScrollIndex={Math.max(0, selectedBlock)} initialNumToRender={8} maxToRenderPerBatch={8} windowSize={5} showsVerticalScrollIndicator data={blocks} keyExtractor={item => item.id} ListEmptyComponent={emptyTranscript} onScrollToIndexFailed={({ averageItemLength, highestMeasuredFrameIndex, index }) => {
