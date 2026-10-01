@@ -1,7 +1,7 @@
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { fonts } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { initialShadowingState, type ShadowingController, type ShadowingPlaybackState } from './playback';
@@ -33,6 +33,9 @@ export function ShadowingAudio(props: Props) {
   return <View style={[styles.audio, { backgroundColor: theme.pink, minHeight: props.expanded ? 260 : 146 }]}><Text style={{ color: theme.onPink, fontSize: 10, letterSpacing: 2 }}>LISTEN. REPEAT. SPEAK.</Text><Text numberOfLines={2} style={{ color: theme.onPink, fontFamily: fonts.display, fontSize: 30, lineHeight: 34, marginTop: 16 }}>{props.title}</Text><View accessibilityElementsHidden style={styles.wave}>{[12, 26, 36, 21, 45, 19, 31, 24, 42, 14].map((height, i) => <View key={i} style={{ height, width: 3, backgroundColor: theme.onPink, opacity: status.playing ? 1 : .5 }} />)}</View></View>;
 }
 export const ShadowingVideo = React.memo(function ShadowingVideo(props: Props) {
+  const { width, height } = useWindowDimensions();
+  const aspectHeight = Math.max(170, (Math.min(width, 960) - 40) * 9 / 16);
+  const videoHeight = props.expanded ? Math.max(300, Math.min(aspectHeight, height * .68)) : Math.min(aspectHeight, Math.max(170, height * .42));
   const player = useVideoPlayer(props.source);
   const { onController, onState } = props;
   const controller = useMemo<ShadowingController>(() => ({ play: () => player.play(), pause: () => player.pause(), seek: async time => videoSeek(player, time), setRate: rate => videoRate(player, rate) }), [player]);
@@ -47,6 +50,6 @@ export const ShadowingVideo = React.memo(function ShadowingVideo(props: Props) {
       subscriptions.forEach(subscription => subscription.remove()); onController(null);
     };
   }, [player, controller, report, onController]);
-  return <VideoView player={player} nativeControls={false} contentFit="contain" style={{ height: props.expanded ? 300 : 170, width: '100%', backgroundColor: '#191B17' }} />;
+  return <VideoView player={player} nativeControls={false} contentFit="contain" style={{ height: videoHeight, width: '100%', backgroundColor: '#191B17' }} />;
 });
 const styles = StyleSheet.create({ audio: { padding: 22, borderRadius: 3 }, wave: { flexDirection: 'row', gap: 7, alignItems: 'center', height: 40, marginTop: 12 } });

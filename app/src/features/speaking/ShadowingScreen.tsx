@@ -46,6 +46,7 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
   const [mediaError, setMediaError] = useState('');
   const [revision, setRevision] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const [toolsExpanded, setToolsExpanded] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [segmented, setSegmented] = useState(true);
   const [savedOnly, setSavedOnly] = useState(false);
@@ -162,9 +163,14 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
     {source !== null ? engine : null}
     {mediaError || playback.error ? <View><Text accessibilityRole="alert" style={[speakingStyles.error, { color: theme.danger }]}>{mediaError || playback.error}</Text><Pressable accessibilityRole="button" onPress={() => { resumeAt.current = livePlayback.current.time; resumed.current = false; setMediaError(''); setRevision(value => value + 1); }} style={styles.touch}><Text style={{ color: theme.accent }}>重试音视频</Text></Pressable></View> : null}
     {subtitles !== 3 && cue ? <View style={{ borderLeftWidth: 2, borderLeftColor: theme.accent, paddingLeft: 14 }}>{subtitles !== 2 ? <Text style={{ color: theme.text, fontFamily: fonts.reading, fontSize: 17, lineHeight: 25 }}>{masked && !revealed.has(cue.id) ? '••••••••' : cue.en}</Text> : null}{subtitles !== 1 ? <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 21 }}>{masked && !revealed.has(cue.id) ? '点击句子揭开字幕' : cue.zh}</Text> : null}</View> : null}
-    <View style={styles.tools}>{tool('自动滚动', 'arrow-down-outline', () => setAutoScroll(!autoScroll), autoScroll, true)}{tool('已收藏句', 'star-outline', () => setSavedOnly(!savedOnly), savedOnly, true)}{tool('自动分段', 'list-outline', () => setSegmented(!segmented), segmented, true)}{tool('讲解', 'help-circle-outline', () => setSheet('explain'), false, true)}{tool('词汇', 'copy-outline', () => { setWord(''); setSheet('words'); }, false, true)}{tool('编辑', 'create-outline', () => openPage('/speaking/edit'), false, true)}{tool('查找', 'search-outline', () => { setSearching(!searching); setQuery(''); }, searching, true)}{tool('更多', 'ellipsis-horizontal', () => setSheet('more'), false, true)}</View>
+    <View style={styles.toolsSummary}>
+      <Text style={{ color: theme.textMuted, fontSize: 11, flex: 1 }}>{material.cues.length} 句字幕 · {formatSpeakingTime(playback.duration || material.duration)} · {speakingSourceLabel(material)}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={toolsExpanded ? '收起练习工具' : '展开练习工具'} accessibilityState={{ expanded: toolsExpanded }} aria-expanded={toolsExpanded} onPress={() => setToolsExpanded(value => !value)} style={[styles.toolsToggle, { borderColor: theme.border }]}>
+        <Ionicons name="options-outline" size={16} color={theme.accent} /><Text style={{ color: theme.accent, fontSize: 12 }}>{toolsExpanded ? '收起工具' : '展开工具'}</Text><Ionicons name={toolsExpanded ? 'chevron-up-outline' : 'chevron-down-outline'} size={14} color={theme.accent} />
+      </Pressable>
+    </View>
+    {toolsExpanded ? <View style={styles.tools}>{tool('自动滚动', 'arrow-down-outline', () => setAutoScroll(!autoScroll), autoScroll, true)}{tool('已收藏句', 'star-outline', () => setSavedOnly(!savedOnly), savedOnly, true)}{tool('自动分段', 'list-outline', () => setSegmented(!segmented), segmented, true)}{tool('讲解', 'help-circle-outline', () => setSheet('explain'), false, true)}{tool('词汇', 'copy-outline', () => { setWord(''); setSheet('words'); }, false, true)}{tool('编辑', 'create-outline', () => openPage('/speaking/edit'), false, true)}{tool('查找', 'search-outline', () => { setSearching(!searching); setQuery(''); }, searching, true)}{tool('更多', 'ellipsis-horizontal', () => setSheet('more'), false, true)}</View> : null}
     {searching ? <TextInput accessibilityLabel="查找字幕" placeholder="搜索英文或中文" placeholderTextColor={theme.textMuted} value={query} onChangeText={setQuery} style={[speakingStyles.input, { borderColor: theme.border, color: theme.text }]} /> : null}
-    <Text style={{ color: theme.textMuted, fontSize: 11 }}>{material.cues.length} 句字幕 · {formatSpeakingTime(playback.duration || material.duration)} · {speakingSourceLabel(material)}</Text>
   </View>;
   return <View style={[styles.page, { backgroundColor: theme.bg }]}><SpeakingHeader title="影子跟读" />
     <FlatList ref={list} initialNumToRender={8} maxToRenderPerBatch={8} windowSize={5} showsVerticalScrollIndicator={false} data={blocks} keyExtractor={item => item.id} ListHeaderComponent={header} ListEmptyComponent={<Text style={{ color: theme.textMuted, padding: 24 }}>{material.cues.length ? '没有匹配的字幕' : '还没有字幕，请点「编辑」添加或校正。'}</Text>} onScrollToIndexFailed={({ averageItemLength, index }) => list.current?.scrollToOffset({ offset: Math.max(0, averageItemLength * index), animated: true })} renderItem={({ item }) => {
@@ -209,6 +215,7 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
   </View>;
 }
 const styles = StyleSheet.create({
+  toolsSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }, toolsToggle: { minHeight: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: .5, borderRadius: 4 },
   page: { flex: 1 }, touch: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }, tools: { flexDirection: 'row', flexWrap: 'wrap', gap: 0 }, tool: { flex: 1, minWidth: '20%', minHeight: 53, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 }, cue: { paddingHorizontal: 22, paddingBottom: 20, borderBottomWidth: .5, borderLeftWidth: 2 },
   footer: { borderTopWidth: .5, paddingHorizontal: 14, paddingTop: 7 }, footerInner: { maxWidth: 920, width: '100%', alignSelf: 'center' }, controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 }, play: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginHorizontal: 5 }, progressRow: { flexDirection: 'row', gap: 10, alignItems: 'center' }, progress: { flex: 1, minHeight: 28, justifyContent: 'center' },
   backdrop: { flex: 1, backgroundColor: '#00000066', justifyContent: 'center', alignItems: 'center', padding: 20 }, sheet: { padding: 24, width: '100%', maxWidth: 520, maxHeight: '85%', borderRadius: 4 }, sheetAction: { minHeight: 50, justifyContent: 'center' },
