@@ -5,7 +5,7 @@ import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-nat
 import { fonts } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { initialShadowingState, type ShadowingController, type ShadowingPlaybackState } from './playback';
-type Props = { source: string | number; title: string; expanded: boolean; onController: (controller: ShadowingController | null) => void; onState: (state: ShadowingPlaybackState) => void };
+type Props = { source: string | number; title: string; expanded: boolean; frameWidth?: number; maxHeight?: number; onController: (controller: ShadowingController | null) => void; onState: (state: ShadowingPlaybackState) => void };
 function audioRate(player: ReturnType<typeof useAudioPlayer>, rate: number) { player.shouldCorrectPitch = true; player.setPlaybackRate(rate); }
 function videoSeek(player: ReturnType<typeof useVideoPlayer>, time: number) { player.currentTime = time; }
 function videoRate(player: ReturnType<typeof useVideoPlayer>, rate: number) { player.playbackRate = rate; }
@@ -34,8 +34,9 @@ export function ShadowingAudio(props: Props) {
 }
 export const ShadowingVideo = React.memo(function ShadowingVideo(props: Props) {
   const { width, height } = useWindowDimensions();
-  const aspectHeight = Math.max(170, (Math.min(width, 960) - 40) * 9 / 16);
-  const videoHeight = props.expanded ? Math.max(300, Math.min(aspectHeight, height * .68)) : Math.min(aspectHeight, Math.max(170, height * .42));
+  const aspectHeight = Math.max(170, (props.frameWidth || Math.min(width, 960) - 40) * 9 / 16);
+  const preferredHeight = props.expanded ? Math.max(300, Math.min(aspectHeight, height * .68)) : Math.min(aspectHeight, Math.max(170, height * .42));
+  const videoHeight = Math.min(preferredHeight, props.maxHeight ?? preferredHeight);
   const player = useVideoPlayer(props.source);
   const { onController, onState } = props;
   const controller = useMemo<ShadowingController>(() => ({ play: () => player.play(), pause: () => player.pause(), seek: async time => videoSeek(player, time), setRate: rate => videoRate(player, rate) }), [player]);

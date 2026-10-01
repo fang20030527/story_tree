@@ -82,6 +82,8 @@ it('keeps the real Expo VideoView attached to the same HTML video as playback pr
   expect(container.querySelector('video')).toBe(video);
   expect(video.currentTime).toBeGreaterThan(203);
   expect(video.paused).toBe(false);
+  expect(player._mountedVideos.has(video)).toBe(true);
+  expect(player.duration).toBe(8529);
   await act(async () => root.render(<Harness source="https://video.example.test/film?signature=renewed" />));
   expect(container.querySelector('video')).not.toBe(video);
   expect(player._mountedVideos.size).toBe(0);
