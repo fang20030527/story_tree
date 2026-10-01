@@ -15,6 +15,6 @@
 | 特朗普 · 西点军校毕业演讲 | [西点演讲记录](https://mwi.westpoint.edu/wp-content/uploads/2025/05/Modern-War-Journal-MWJ-first-edition-FINAL-as-of-01JUN25-pdf.pdf)及当前素材字幕 |
 | 阿甘正传 | [派拉蒙影片简介](https://www.paramountpictures.com/movies/forrest-gump) |
 | 泰坦尼克号 | [派拉蒙影片简介](https://www.paramountpictures.com/movies/titanic) |
-| The Odyssey（本地目录标识） | 当前素材字幕中的特洛伊战争、奥德修斯归乡及佩内洛佩情节 |
+| 奥德赛 · The Odyssey | 当前素材字幕中的特洛伊战争、奥德修斯归乡及佩内洛佩情节 |
 
 概述与字幕分开维护，进入影子跟读后仍使用完整字幕。
