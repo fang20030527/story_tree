@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import type { BottomTabBarButtonProps } from 'expo-router/js-tabs';
+import { PlatformPressable } from 'expo-router/react-navigation';
 import { useLayoutWidth } from '@/components/useLayoutWidth';
 import React from 'react';
 import { ColorValue, StatusBar } from 'react-native';
@@ -7,6 +9,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/context/ThemeContext';
 import { useLearningMode } from '@/context/LearningModeContext';
+
+function SidebarTabButton({ style, ...props }: BottomTabBarButtonProps) {
+  return <PlatformPressable {...props} style={[style, { borderRadius: 3 }]} />;
+}
 
 function ModeTabIcon({ name, oralName, color, size }: { name: keyof typeof Ionicons.glyphMap; oralName?: keyof typeof Ionicons.glyphMap; color: ColorValue; size: number }) {
   const { mode } = useLearningMode();
@@ -49,6 +55,7 @@ export default function TabLayout() {
           headerShown: false,
           tabBarPosition: wide ? 'left' : 'bottom',
           tabBarVariant: wide ? 'material' : 'uikit',
+          tabBarButton: wide ? SidebarTabButton : undefined,
           tabBarLabelPosition: wide && width >= 1100 ? 'beside-icon' : 'below-icon',
           tabBarActiveTintColor: theme.accent,
           tabBarInactiveTintColor: theme.textMuted,
@@ -74,7 +81,7 @@ export default function TabLayout() {
           },
           tabBarItemStyle: [
             { minHeight: wide ? 70 : 52 },
-            wide && { marginVertical: 6 },
+            wide && { marginVertical: 6, borderRadius: 3 },
             // 两处自动留白让主导航在「我的」上方居中，个人入口贴近底部安全区。
             wide && (route.name === 'index' || route.name === 'profile') && { marginTop: 'auto' },
           ],
