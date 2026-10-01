@@ -11,5 +11,6 @@ export const pageContent = { width: '100%' as const, maxWidth: 760, alignSelf: '
 
 const styles = StyleSheet.create({
   outer: { flex: 1 },
-  frame: { flex: 1, width: '100%', maxWidth: 1480, alignSelf: 'center' },
+  // 导航框架铺满窗口，正文由各页面限宽，避免大屏下侧栏整体右移。
+  frame: { flex: 1, width: '100%' },
 });
