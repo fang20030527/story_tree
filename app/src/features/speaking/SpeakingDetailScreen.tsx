@@ -10,6 +10,7 @@ import { SpeakingButton, SpeakingHeader, SpeakingStatus, speakingStyles } from '
 import { useSpeakingLibrary } from './useSpeakingLibrary';
 import { speakingOverview } from './overviews';
 import { speakingCover } from './covers';
+import { SpeakingTranscriptExport } from './SpeakingTranscriptExport';
 
 export function SpeakingDetailScreen() {
   const { theme } = useAppTheme();
@@ -31,6 +32,7 @@ export function SpeakingDetailScreen() {
           <Text style={{ color: theme.text, fontSize: 15, lineHeight: 26 }}>{overview}</Text>
         </View> : null}
         <SpeakingButton disabled={library.loading || Boolean(library.error)} label="开始影子跟读" onPress={() => router.push({ pathname: '/speaking/shadowing', params: { id: material.id } })} />
+        <SpeakingTranscriptExport material={material} notes={library.store.notes[material.id]} disabled={library.loading || Boolean(library.error)} />
       </View>
     </> : null}
   </ScrollView></View>;

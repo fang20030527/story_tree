@@ -65,8 +65,6 @@ export default function appConfig(): ExpoConfig {
       ...baseConfig.android,
       package: androidPackage,
     },
-    ...(appId
-      ? { plugins: [...(baseConfig.plugins ?? []), 'expo-native-wechat'] }
-      : {}),
+    plugins: [...(baseConfig.plugins ?? []), 'expo-sharing', ...(appId ? ['expo-native-wechat'] : [])],
   };
 }

@@ -5,6 +5,7 @@ import { emptySpeakingStore, type SpeakingMaterial } from './model';
 import type { ShadowingPlaybackState } from './playback';
 import { useSpeakingLibrary } from './useSpeakingLibrary';
 import { ShadowingScreen } from './ShadowingScreen';
+import { exportSpeakingTranscript } from './transcriptExport';
 
 let mockReport: ((state: ShadowingPlaybackState) => void) | undefined;
 let mockPlayerState: ShadowingPlaybackState;
@@ -23,6 +24,7 @@ jest.mock('@/context/ThemeContext', () => ({ useAppTheme: () => ({ theme: jest.r
 jest.mock('@/features/editorial/EditorialAudioProvider', () => ({ useEditorialAudio: () => ({ close: mockClose }) }));
 jest.mock('@/api/speaking', () => ({ getSpeakingCatalogPlayback: jest.fn(), getSpeakingPlayback: jest.fn() }));
 jest.mock('./useSpeakingLibrary', () => ({ useSpeakingLibrary: jest.fn() }));
+jest.mock('./transcriptExport', () => ({ exportSpeakingTranscript: jest.fn() }));
 jest.mock('./useSpeakingSession', () => ({ useSpeakingSession: () => ({ error: '', save: jest.fn() }) }));
 jest.mock('./ShadowingRecording', () => ({ ShadowingRecording: () => null }));
 jest.mock('./ShadowingSettings', () => ({ ShadowingSettings: () => null }));
@@ -56,6 +58,19 @@ beforeEach(() => {
     loading: false, error: '', catalogError: '', loadingMore: false, moreError: '', hasMore: false, loadMore: jest.fn(), accept: jest.fn(), refresh: jest.fn() });
 });
 afterEach(() => { mockReport = undefined; jest.useRealTimers(); });
+it('exports the full transcript and saved notes from the more menu even with filtered or hidden subtitles', async () => {
+  jest.mocked(getSpeakingCatalogPlayback).mockResolvedValue({ url: 'https://r2.example.test/film', expiresAt: '2026-10-01T00:10:00Z' });
+  jest.mocked(exportSpeakingTranscript).mockResolvedValue(undefined);
+  const library = jest.mocked(useSpeakingLibrary).getMockImplementation()!();
+  library.store.notes[material.id] = { 'line-one': '注意连读' };
+  const view = await render(<ShadowingScreen />);
+  await fireEvent.press(view.getByLabelText('已收藏句'));
+  await fireEvent.press(view.getByLabelText('遮挡板'));
+  await fireEvent.press(view.getByLabelText('更多'));
+  await fireEvent.press(view.getByLabelText('导出 Word 台词本'));
+  expect(exportSpeakingTranscript).toHaveBeenCalledWith(material, { 'line-one': '注意连读' }, 'word');
+  await view.unmount();
+});
 it('plays a public film for a guest and renews its signed URL while restoring playback position', async () => {
   jest.mocked(getSpeakingCatalogPlayback)
     .mockResolvedValueOnce({ url: 'https://r2.example.test/film?signature=first', expiresAt: '2026-10-01T00:10:00Z' })
