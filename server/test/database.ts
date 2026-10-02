@@ -51,14 +51,9 @@ export async function withTestDatabase<T>(
       max: 5,
       options: `-c search_path=${schemaName},public`,
     });
-    const searchPath = await pool.query<{ schema_name: string }>(
-      'select current_schema() as schema_name',
-    );
-    if (searchPath.rows[0]?.schema_name !== schemaName) {
-      throw new Error('Test database search path was not initialized');
-    }
     const database = createDatabaseFromPool(pool);
     testDatabase = database;
+    await verifyTestSchema(pool, schemaName);
     const isolatedMigrations = await prepareIsolatedMigrations(schemaName);
     temporaryMigrationRoot = isolatedMigrations.root;
 
@@ -84,6 +79,21 @@ export async function withTestDatabase<T>(
           await rm(temporaryMigrationRoot, { recursive: true, force: true });
         }
       }
+    }
+  }
+}
+
+async function verifyTestSchema(pool: Pool, schemaName: string): Promise<void> {
+  // 只重试测试连接初始化的只读检查，不重放迁移或业务写入。
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const searchPath = await pool.query<{ schema_name: string }>('select current_schema() as schema_name');
+      if (searchPath.rows[0]?.schema_name !== schemaName) {
+        throw new Error('Test database search path was not initialized');
+      }
+      return;
+    } catch (error) {
+      if (attempt === 3 || !isTransientDatabaseError(error)) throw error;
     }
   }
 }

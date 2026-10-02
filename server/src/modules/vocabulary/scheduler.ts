@@ -100,7 +100,7 @@ export function replayReviews(evidence: readonly ReviewEvidence[], createdAt: Da
 
 export function reviewPriority(state: WordReviewState, now: Date) {
   const due = Date.parse(state.nextReviewAt);
-  const group = due > +now ? 2 : state.practiceCount === 0 ? 0 : 1;
+  const group = state.practiceCount === 0 ? 0 : due > +now ? 2 : 1;
   const retrievability = state.card.last_review
     ? scheduler.get_retrievability(state.card as CardInput, now, false)
     : 0;

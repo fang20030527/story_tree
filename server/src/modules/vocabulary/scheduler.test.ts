@@ -54,4 +54,11 @@ describe('word review scheduling', () => {
     expect(reinforced.practiceCount).toBe(2);
     expect(reinforced.card.stability).toBeGreaterThan(practiced.card.stability);
   });
+
+  it('未练习新词不因数据库时间略超前而进入未到时间分组', () => {
+    const createdAt = new Date(+start + 1_000);
+    const fresh = replayReviews([], createdAt);
+    expect(reviewPriority(fresh, start).group).toBe(0);
+    expect(fresh.nextReviewAt).toBe(createdAt.toISOString());
+  });
 });
