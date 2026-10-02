@@ -45,12 +45,18 @@ npm run dev
 
 继续使用 `POST /v1/speaking/pronunciation-assessments` 和 `GET /v1/speaking/pronunciation-assessments/:id`。POST 需要 Bearer 身份与 `Idempotency-Key`；能力接口的 `pronunciation.provider` 为 `evolink`。新结果带 `kind: "ai_coaching"`，`words` 固定为空数组，包含 `transcript`、三个可空的维度分、`wordTips` 和 `feedback`。共享严格 Zod 契约区分新点评和历史专用评测。
 
-真实验证使用本机生成的短句「Stay curious.」：WAV、M4A、WebM 都能听到原句并返回中文建议，耗时约 3 秒；三秒静音返回 `PRONUNCIATION_NO_SPEECH`，不会显示假分数。仅进行了这四次受限的真实样本请求，自动测试全部使用假 provider。样本验证了接口、格式和拒绝静音的行为，不能证明专业纠音准确度。
+开发验证使用本机生成的短句「Stay curious.」：WAV、M4A、WebM 都能听到原句并返回中文建议，耗时约 3 秒；三秒静音返回 `PRONUNCIATION_NO_SPEECH`，不会显示假分数。开发阶段进行了四次受限的真实样本请求，自动测试全部使用假 provider。正式发布时另用同一句 WAV 完成一次真实录音上传与点评，并验证幂等重放、成功缓存和历史查询返回同一结果；验证账号和私有测试对象已清理。样本验证了接口、格式和拒绝静音的行为，不能证明专业纠音准确度。
 
 自动验证覆盖原始音频载荷、token 上限、思考关闭、缺失分数、异常输出、错误脱敏、超时、账号隔离、历史来源、模型缓存隔离、并发去重、失败重试及客户端展示。数据库集成测试只使用随机隔离的 `app_test_*` Schema。
 
-本地已复用现有 EvoLink Key 并配置默认模型、超时和每日限额；Neon 的 0014／0015 与正式 D1 的 0006／0007 迁移均已执行。开发 API 已启动，`/health/ready` 返回 200。正式 API 和 Web 尚未发布。
+本地已复用现有 EvoLink Key 并配置默认模型、超时和每日限额；Neon 的 0014／0015 与正式 D1 的 0006／0007 迁移均已执行。用户于 2026-10-02 授权推送 main 和正式 Web 上线，配套 API 与 Web 均已发布到 [黑洞英语](https://blackholeenglish.com)。正式 API 两项健康检查返回 200，录音上传、EvoLink 音频点评与中文反馈通过，浏览器确认「AI 口语点评」入口和来宾登录提示正常显示。
+
+Cloudflare 实际运行时不接受 `redirect: "error"`；共享适配器改为 `redirect: "manual"`，拒绝 3xx 响应且不跟随跳转。新增实际 Workers 运行时的假上游回归测试，以及四项跳转拒绝测试。
+
+原 R2 上传凭证于 10 月 1 日失效，发布时已更换为相同单桶 Object Read & Write 权限、相同一周期限的凭证，私有环境文件与 Worker 加密 secrets 已同步。新凭证有效至 **2026-10-09**，届时需要续期；密钥不进入 Git。正式版范围、版本和验收记录见 [Web 发布记录](2026-10-02-speaking-coach-web-release.md)。
 
 完整回归通过：客户端 497 项、服务端 481 项、契约 56 项、小程序 9 项，所有工作区类型检查通过；Lint 为 0 错误、24 条现有客户端警告。Cloudflare API 的 131 项测试和类型检查、Worker dry-run、服务端构建与 Web 导出通过。客户端密钥检查扫描 858 个文件，未发现已配置密钥泄漏。
+
+发布使用提交文件和锁文件安装依赖的独立工作区，保留此前已上线的封面与真实素材，并排除尚未完成的字幕文档导出。此发布包客户端 89 组／480 项、Cloudflare 131 项和契约 56 项回归通过；兼容性修复后相关 3 个文件／67 项测试、服务端与 Cloudflare 类型检查、服务端 Lint 再次通过。生产 Web 导出 39 条路由，密钥检查扫描 1066 个文件和六项实际配置密钥，无泄漏。
 
 官方参考：[EvoLink 原生接口](https://evolink.ai/docs/en/api-manual/language-series/gemini/native-api/native-api-reference)、[Gemini 2.5 Flash 价格](https://evolink.ai/gemini-2-5-flash)、[按量计费](https://evolink.ai/pricing)、[Google 音频输入](https://ai.google.dev/gemini-api/docs/audio)、[Expo SDK 57 Audio](https://docs.expo.dev/versions/v57.0.0/sdk/audio/)。
