@@ -4,7 +4,7 @@
     "slug": "waikan-reader",
     "version": "1.0.0",
     "orientation": "default",
-    "backgroundColor": "#FBFAF6",
+    "backgroundColor": "#FCF9F8",
     "icon": "./assets/images/icon.png",
     "scheme": "app",
     "userInterfaceStyle": "automatic",
@@ -34,7 +34,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FBFAF6",
+          "backgroundColor": "#FCF9F8",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
