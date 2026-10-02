@@ -9,7 +9,7 @@ import {
 import { AppError } from '../../../../server/src/core/errors';
 import { pronunciationCapability } from '../../../../server/src/modules/speaking/pronunciation-shared';
 import { readJsonBody } from '../core/http';
-import { getSpeechaceSettings, type ApiEnv } from '../env';
+import { getEvolinkAudioSettings, type ApiEnv } from '../env';
 import { signSpeakingObject } from './signing';
 
 const USER_BYTES = 10 * 1024 ** 3;
@@ -176,7 +176,7 @@ export async function handleSpeakingAssetRoute(request: Request, env: ApiEnv, us
     storage(env);
     return Response.json(SpeakingCapabilitiesDtoSchema.parse({ storage: 'r2', maxMediaBytes: SPEAKING_MAX_MEDIA_BYTES,
       maxSubtitleBytes: SPEAKING_MAX_SUBTITLE_BYTES, autoSubtitles: false,
-      pronunciation: pronunciationCapability(getSpeechaceSettings(env).apiKey) }));
+      pronunciation: pronunciationCapability(getEvolinkAudioSettings(env).apiKey) }));
   }
   if (request.method === 'POST' && path === '/v1/speaking/assets') return createAsset(request, env, userId);
   const match = /^\/v1\/speaking\/assets\/([^/]+)\/(complete|playback|content)$/u.exec(path);

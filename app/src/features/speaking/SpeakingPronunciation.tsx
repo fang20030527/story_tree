@@ -16,6 +16,20 @@ export function PronunciationResults({ result }: { result: SpeakingPronunciation
   const { theme } = useAppTheme();
   const [expanded, setExpanded] = useState<number | null>(null);
   const selected = expanded === null ? undefined : result.words[expanded];
+  if ('kind' in result) return <View style={{ gap: 12 }}>
+    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 17 }}>AI 参考分：{scoreLabel(result.score)} / 100</Text>
+    <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 19 }}>分数来自 AI 对录音的整体判断，仅供练习参考，不代表考试成绩或逐词、音素准确度。</Text>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+      {([['清晰度', result.clarityScore], ['流畅度', result.fluencyScore], ['完整度', result.completenessScore]] as const).map(([label, score]) =>
+        <Text key={label} style={{ color: theme.textSecondary, fontSize: 12 }}>{label}：{scoreLabel(score)}</Text>)}
+    </View>
+    <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 20 }}>AI 听到的内容：{result.transcript}</Text>
+    {result.wordTips.map(tip => <View key={tip.word} style={{ padding: 10, gap: 4, borderWidth: .5, borderColor: theme.border, borderRadius: 4 }}>
+      <Text style={{ color: theme.text, fontSize: 13 }}>{tip.word} · 练习建议</Text>
+      <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 20 }}>{tip.advice}</Text>
+    </View>)}
+    {result.feedback.map((feedback, index) => <Text key={index} style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 20 }}>{feedback}</Text>)}
+  </View>;
   return <View style={{ gap: 12 }}>
     <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 17 }}>句子发音分：{scoreLabel(result.score)} / 100</Text>
     <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 19 }}>逐词分数越高，发音越接近所选口音。点按单词查看音素反馈。</Text>
@@ -79,7 +93,7 @@ export function SpeakingPronunciation({ materialId, material, recording, scope, 
         setCapabilities({ scope, revision, data: response.pronunciation ?? null, error: '' });
         if (response.pronunciation) setLocale(current => response.pronunciation!.locales.includes(current) ? current : response.pronunciation!.locales[0]);
       }
-    }).catch(failure => { if (active) setCapabilities({ scope, revision, data: null, error: failure instanceof Error ? failure.message : '发音评分状态读取失败，请重试' }); });
+    }).catch(failure => { if (active) setCapabilities({ scope, revision, data: null, error: failure instanceof Error ? failure.message : 'AI 口语点评状态读取失败，请重试' }); });
     return () => { active = false; request.abort(); };
   }, [scope, guest, revision]);
 
@@ -117,7 +131,7 @@ export function SpeakingPronunciation({ materialId, material, recording, scope, 
       if (generation.current === requestGeneration && !request.signal.aborted && responseScope === scope) setAssessmentState({ scope, identity, busy: false, assessment: response, error: '', retryable: true });
     } catch (failure) {
       if (generation.current === requestGeneration && !request.signal.aborted) {
-        setAssessmentState({ scope, identity, busy: false, assessment, error: failure instanceof Error ? failure.message : '发音评分失败，请重试', retryable: !(failure instanceof ApiError) || failure.retryable });
+        setAssessmentState({ scope, identity, busy: false, assessment, error: failure instanceof Error ? failure.message : 'AI 口语点评失败，请重试', retryable: !(failure instanceof ApiError) || failure.retryable });
       }
     } finally {
       if (generation.current === requestGeneration && !request.signal.aborted) {
@@ -134,9 +148,9 @@ export function SpeakingPronunciation({ materialId, material, recording, scope, 
   const ready = !disabled && assessment?.status === 'ready' && assessment.result;
   const failed = !disabled && assessment?.status === 'failed' ? assessment.error : null;
   const processing = !disabled && assessment?.status === 'processing';
-  return <ScrollView accessibilityLabel="发音评分面板" nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 300, flexGrow: 0 }} contentContainerStyle={{ gap: 10, borderTopColor: theme.border, borderTopWidth: .5, paddingTop: 12, paddingBottom: 6 }}>
-    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 14 }}>AI 发音评分</Text>
-    {guest ? <><Text style={{ color: theme.textMuted, fontSize: 12 }}>登录后可获取句子、单词和音素的发音分数。</Text><Pressable accessibilityRole="button" onPress={() => router.push('/login')} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>登录使用发音评分</Text></Pressable></> : <>
+  return <ScrollView accessibilityLabel="AI 口语点评面板" nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 300, flexGrow: 0 }} contentContainerStyle={{ gap: 10, borderTopColor: theme.border, borderTopWidth: .5, paddingTop: 12, paddingBottom: 6 }}>
+    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 14 }}>AI 口语点评</Text>
+    {guest ? <><Text style={{ color: theme.textMuted, fontSize: 12 }}>登录后可获取录音参考分和中文练习建议。</Text><Pressable accessibilityRole="button" onPress={() => router.push('/login')} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>登录使用AI 口语点评</Text></Pressable></> : <>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {(['en-us', 'en-gb'] as const).map(value => <Pressable key={value} accessibilityRole="radio" accessibilityLabel={value === 'en-us' ? '美式发音' : '英式发音'}
           accessibilityState={{ checked: locale === value, disabled: Boolean(capability && !capability.locales.includes(value)) }}
@@ -146,12 +160,12 @@ export function SpeakingPronunciation({ materialId, material, recording, scope, 
         </Pressable>)}
       </View>
       {recording?.referenceText && !disabled ? <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 20 }}>录音目标：{recording.referenceText}</Text> : null}
-      <Text style={{ color: theme.textMuted, fontSize: 11, lineHeight: 18 }}>每次评测一条英文字幕，录音需在 30 秒以内。点击发音评分后才会进行评测。</Text>
-      {checkingCapability ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>正在检查评分服务…</Text> : capabilityError ? <><Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 12 }}>{capabilityError}</Text><Pressable accessibilityRole="button" onPress={() => setRevision(value => value + 1)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>重试读取评分服务</Text></Pressable></> : !capability?.available ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>发音评分暂未开放，录音仍可保存和回放。</Text> : null}
-      {snapshotMissing ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>这条录音没有保存目标字幕，请重新录制后评分。</Text> : longRecording ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>录音超过 30 秒，请选择一句短字幕重新录制。</Text> : incompleteSnapshot || snapshotTooLong ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>录音的目标字幕无效或过长，请选择短句重新录制。</Text> : recording?.cloudPending ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>请先完成录音云端保存，再进行评分。</Text> : !recording ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>先录下一句自己的声音，再进行发音评分。</Text> : null}
-      {capability?.available && recording && !invalid && !ready && !processing && (!failed || failed.retryable) && (!error || retryable) ? <Pressable accessibilityRole="button" accessibilityLabel={error || failed ? '重试发音评分' : '发音评分'} accessibilityState={{ disabled: busy || disabled }} disabled={busy || disabled} onPress={() => void score()}
-        style={{ minHeight: 44, justifyContent: 'center', alignItems: 'flex-start' }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>{busy ? <ActivityIndicator color={theme.accent} /> : null}<Text style={{ color: theme.accent }}>{busy ? '正在上传并评分…' : error || failed ? '重试发音评分' : '发音评分'}</Text></View></Pressable> : null}
-      {processing ? <><Text style={{ color: theme.textMuted, fontSize: 12 }}>评分正在处理中，可稍后查看结果。</Text><Pressable accessibilityRole="button" disabled={busy || disabled} onPress={() => void score(true)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>{busy ? '正在读取评分…' : '查看评分进度'}</Text></Pressable></> : null}
+      <Text style={{ color: theme.textMuted, fontSize: 11, lineHeight: 18 }}>每次评测一条英文字幕，录音需在 30 秒以内。点击 AI 口语点评后才会分析录音。</Text>
+      {checkingCapability ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>正在检查点评服务…</Text> : capabilityError ? <><Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 12 }}>{capabilityError}</Text><Pressable accessibilityRole="button" onPress={() => setRevision(value => value + 1)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>重试读取点评服务</Text></Pressable></> : !capability?.available ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>AI 口语点评暂未开放，录音仍可保存和回放。</Text> : null}
+      {snapshotMissing ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>这条录音没有保存目标字幕，请重新录制后点评。</Text> : longRecording ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>录音超过 30 秒，请选择一句短字幕重新录制。</Text> : incompleteSnapshot || snapshotTooLong ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>录音的目标字幕无效或过长，请选择短句重新录制。</Text> : recording?.cloudPending ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>请先完成录音云端保存，再进行评分。</Text> : !recording ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>先录下一句自己的声音，再进行AI 口语点评。</Text> : null}
+      {capability?.available && recording && !invalid && !ready && !processing && (!failed || failed.retryable) && (!error || retryable) ? <Pressable accessibilityRole="button" accessibilityLabel={error || failed ? '重试AI 口语点评' : 'AI 口语点评'} accessibilityState={{ disabled: busy || disabled }} disabled={busy || disabled} onPress={() => void score()}
+        style={{ minHeight: 44, justifyContent: 'center', alignItems: 'flex-start' }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>{busy ? <ActivityIndicator color={theme.accent} /> : null}<Text style={{ color: theme.accent }}>{busy ? '正在上传并点评…' : error || failed ? '重试AI 口语点评' : 'AI 口语点评'}</Text></View></Pressable> : null}
+      {processing ? <><Text style={{ color: theme.textMuted, fontSize: 12 }}>点评正在处理中，可稍后查看结果。</Text><Pressable accessibilityRole="button" disabled={busy || disabled} onPress={() => void score(true)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>{busy ? '正在读取点评…' : '查看点评进度'}</Text></Pressable></> : null}
       {failed ? <Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 12 }}>{failed.message}</Text> : null}
       {error ? <Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 12 }}>{error}</Text> : null}
       {ready ? <PronunciationResults key={assessment?.id} result={ready} /> : null}

@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { loadConfig } from './env';
 
 describe('loadConfig', () => {
-  it('发音评分缺省关闭，仅支持官方区域及限定超时，不打印错误配置值', () => {
+  it('口语点评复用现有密钥，仅支持低成本音频模型及限定超时，不打印错误配置值', () => {
     const base = { DATABASE_URL: 'postgresql://example.invalid/db', EVOLINK_API_KEY: 'secret', PUBLIC_SERVER_ORIGIN: 'http://localhost:3000' };
-    expect(loadConfig(base).SPEECHACE_API_KEY).toBe('');
-    expect(loadConfig(base).SPEECHACE_REGION).toBe('ap-southeast');
-    expect(loadConfig(base).SPEECHACE_DAILY_LIMIT).toBe(50);
-    expect(() => loadConfig({ ...base, SPEECHACE_REGION: 'private-secret-url' })).toThrow('Invalid environment variables: SPEECHACE_REGION');
-    expect(() => loadConfig({ ...base, SPEECHACE_TIMEOUT_MS: '30000' })).toThrow('SPEECHACE_TIMEOUT_MS');
+    expect(loadConfig(base).EVOLINK_AUDIO_MODEL).toBe('gemini-2.5-flash');
+    expect(loadConfig(base).EVOLINK_AUDIO_TIMEOUT_MS).toBe(20000);
+    expect(loadConfig(base).SPEAKING_COACH_DAILY_LIMIT).toBe(50);
+    expect(() => loadConfig({ ...base, EVOLINK_AUDIO_MODEL: 'private-secret-url' })).toThrow('Invalid environment variables: EVOLINK_AUDIO_MODEL');
+    expect(() => loadConfig({ ...base, EVOLINK_AUDIO_TIMEOUT_MS: '30000' })).toThrow('EVOLINK_AUDIO_TIMEOUT_MS');
   });
   it('rejects missing secrets without printing values', () => {
     expect(() => loadConfig({})).toThrow(/DATABASE_URL, EVOLINK_API_KEY/);

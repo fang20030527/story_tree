@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CreateSpeakingPronunciationRequestSchema, SpeakingPronunciationAssessmentDtoSchema, SpeakingPronunciationResultSchema } from './index';
+import { CreateSpeakingPronunciationRequestSchema, SpeakingAiCoachingResultSchema, SpeakingPronunciationAssessmentDtoSchema, SpeakingPronunciationResultSchema } from './index';
 
 const request = { assetId: '11111111-1111-4111-8111-111111111111', materialId: 'platform-one', cueId: 'cue-one', referenceText: 'Stay curious.', subtitleRevision: 1, locale: 'en-us' };
 describe('发音评测契约', () => {
@@ -22,5 +22,20 @@ describe('发音评测契约', () => {
     expect(SpeakingPronunciationAssessmentDtoSchema.safeParse(dto).success).toBe(true);
     expect(SpeakingPronunciationAssessmentDtoSchema.safeParse({ ...dto, status: 'ready' }).success).toBe(false);
     expect(SpeakingPronunciationAssessmentDtoSchema.safeParse({ ...dto, status: 'failed' }).success).toBe(false);
+  });
+  it('AI 点评明确标记参考结果，不接受伪造的逐词或音素分数', () => {
+    const result = { kind: 'ai_coaching', score: 80, words: [], transcript: 'Stay curious.',
+      clarityScore: 80, fluencyScore: null, completenessScore: 100,
+      wordTips: [{ word: 'curious', advice: '放慢速度，先听重音再读。' }], feedback: ['再完整跟读一遍。'] };
+    expect(SpeakingAiCoachingResultSchema.parse(result).fluencyScore).toBeNull();
+    expect(SpeakingAiCoachingResultSchema.safeParse({ ...result, phonemes: [] }).success).toBe(false);
+    expect(SpeakingAiCoachingResultSchema.safeParse({ ...result,
+      words: [{ word: 'Stay', score: 80, startMs: null, endMs: null, phonemes: [] }] }).success).toBe(false);
+    const dto = { ...request, id: request.assetId, provider: 'evolink', status: 'ready', result,
+      error: null, createdAt: '2026-10-02T00:00:00.000Z', updatedAt: '2026-10-02T00:00:00.000Z' };
+    expect(SpeakingPronunciationAssessmentDtoSchema.safeParse(dto).success).toBe(true);
+    expect(SpeakingPronunciationAssessmentDtoSchema.safeParse({ ...dto, provider: 'speechace' }).success).toBe(false);
+    expect(SpeakingPronunciationAssessmentDtoSchema.safeParse({ ...dto,
+      result: { score: 80, words: [{ word: 'Stay', score: 80, startMs: null, endMs: null, phonemes: [] }], feedback: [] } }).success).toBe(false);
   });
 });

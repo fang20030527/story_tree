@@ -8,14 +8,14 @@ import { speakingAssets, speakingPronunciationAssessments, users } from '../../d
 import type { AppDatabase } from '../../db/client';
 import type { MediaStore } from '../../infrastructure/media/store';
 import { createSpeakingPronunciationAssessment, getSpeakingPronunciationAssessment } from './pronunciation';
-import { pronunciationFingerprint } from './pronunciation-shared';
+import { pronunciationFingerprint, pronunciationRequestFingerprint } from './pronunciation-shared';
 import { registerAnonymous } from '../auth/service';
 import { buildApp } from '../../app';
 
-const result: SpeakingPronunciationResult = { score: 82, words: [
-  { word: 'Stay', score: 80, startMs: 100, endMs: 700, phonemes: [{ symbol: 's', spokenSymbol: 's', score: 80, stressScore: null, startMs: 100, endMs: 200 }] },
-  { word: 'curious', score: 85, startMs: 800, endMs: 1600, phonemes: [] },
-], feedback: ['留意 curious 的重音，再跟着原音读一次。'] };
+const result: SpeakingPronunciationResult = { kind: 'ai_coaching', score: 82, words: [],
+  transcript: 'Stay curious.', clarityScore: 82, fluencyScore: 80, completenessScore: 100,
+  wordTips: [{ word: 'curious', advice: '留意重音，再跟着原音读一次。' }],
+  feedback: ['先听示范，再把整句连贯读一次。'] };
 const material: SpeakingMaterialDto = { id: 'test-platform', title: '测试素材', subtitle: '', category: '测试', sourceKind: 'platform', mediaType: 'audio',
   assetId: null, videoId: null, duration: 60, revision: 1, createdAt: '2026-01-01T00:00:00.000Z', cues: [{ id: 'line-one', start: 0, end: 2, en: 'Stay curious.', zh: '' }] };
 const config = () => loadConfig({ DATABASE_URL: 'postgresql://test.invalid/db', EVOLINK_API_KEY: 'fake-test-key', PUBLIC_SERVER_ORIGIN: 'http://localhost:3000' });
@@ -38,6 +38,26 @@ async function seed(db: AppDatabase) {
 }
 
 describe('逐句发音评分 PostgreSQL', () => {
+  it('增量迁移保留旧评测来源，新点评按模型隔离缓存且同键不重复收费', async () => {
+    await withTestDatabase(async ({ db }) => {
+      const { owner, request } = await seed(db);
+      const legacyResult = { score: 91, words: [{ word: 'Stay', score: 91, startMs: null, endMs: null, phonemes: [] }], feedback: [] };
+      const [old] = await db.insert(speakingPronunciationAssessments).values({ userId: owner.id, ...request,
+        fingerprint: await pronunciationRequestFingerprint(request), status: 'ready', result: legacyResult, deadlineAt: new Date() }).returning();
+      if (!old) throw new Error('旧评分缺失');
+      const provider = { assess: vi.fn(async () => result) };
+      const deps = { db, config: config(), catalog: new Map([[material.id, material]]), mediaStore: mediaStore(), pronunciationProvider: provider };
+      expect(await getSpeakingPronunciationAssessment(deps, owner.id, old.id)).toMatchObject({ provider: 'speechace', result: legacyResult });
+      const key = crypto.randomUUID();
+      const first = await createSpeakingPronunciationAssessment(deps, owner.id, key, request);
+      expect(first).toMatchObject({ provider: 'evolink', result: { kind: 'ai_coaching', words: [] } });
+      expect(first.id).not.toBe(old.id);
+      deps.config.EVOLINK_AUDIO_MODEL = 'gemini-2.5-flash-lite';
+      expect((await createSpeakingPronunciationAssessment(deps, owner.id, key, request)).id).toBe(first.id);
+      expect((await createSpeakingPronunciationAssessment(deps, owner.id, crypto.randomUUID(), request)).id).not.toBe(first.id);
+      expect(provider.assess).toHaveBeenCalledTimes(2);
+    });
+  });
   it('同键与不同键并发只占有一次调用，成功缓存不受额度或资产清理影响', async () => {
     await withTestDatabase(async ({ db }) => {
       const { owner, other, guest, asset, request } = await seed(db);
@@ -45,7 +65,7 @@ describe('逐句发音评分 PostgreSQL', () => {
       const inProvider = new Promise<void>(resolve => { started = resolve; });
       const deferred = new Promise<SpeakingPronunciationResult>(resolve => { finish = resolve; });
       const provider = { assess: vi.fn(async () => { started(); return deferred; }) };
-      const deps = { db, config: { ...config(), SPEECHACE_DAILY_LIMIT: 1 }, catalog: new Map([[material.id, material]]), mediaStore: mediaStore(), pronunciationProvider: provider };
+      const deps = { db, config: { ...config(), SPEAKING_COACH_DAILY_LIMIT: 1 }, catalog: new Map([[material.id, material]]), mediaStore: mediaStore(), pronunciationProvider: provider };
       const key = crypto.randomUUID();
       const first = createSpeakingPronunciationAssessment(deps, owner.id, key, request);
       await inProvider;
@@ -81,7 +101,7 @@ describe('逐句发音评分 PostgreSQL', () => {
       await db.update(speakingAssets).set({ duration: 31 }).where(eq(speakingAssets.id, asset.id));
       await expect(createSpeakingPronunciationAssessment(deps, owner.id, crypto.randomUUID(), request)).rejects.toMatchObject({ code: 'PRONUNCIATION_AUDIO_INVALID' });
       await db.update(speakingAssets).set({ duration: 2 }).where(eq(speakingAssets.id, asset.id));
-      const unconfigured = { db, config: config(), catalog: deps.catalog, mediaStore: deps.mediaStore };
+      const unconfigured = { db, config: { ...config(), EVOLINK_API_KEY: '' }, catalog: deps.catalog, mediaStore: deps.mediaStore };
       await expect(createSpeakingPronunciationAssessment(unconfigured, owner.id, crypto.randomUUID(), request)).rejects.toMatchObject({ code: 'PRONUNCIATION_NOT_CONFIGURED' });
       const key = crypto.randomUUID();
       const failed = await createSpeakingPronunciationAssessment(deps, owner.id, key, request);
@@ -138,7 +158,7 @@ describe('逐句发音评分 PostgreSQL', () => {
     await withTestDatabase(async ({ db }) => {
       const { owner, request } = await seed(db);
       const provider = { assess: vi.fn(async () => result) };
-      const deps = { db, config: { ...config(), SPEECHACE_DAILY_LIMIT: 1 }, catalog: new Map([[material.id, material]]), mediaStore: mediaStore(), pronunciationProvider: provider };
+      const deps = { db, config: { ...config(), SPEAKING_COACH_DAILY_LIMIT: 1 }, catalog: new Map([[material.id, material]]), mediaStore: mediaStore(), pronunciationProvider: provider };
       // 只控制应用日期，数据库事务时间保持真实值，覆盖两者跨日不一致的情况。
       vi.useFakeTimers({ toFake: ['Date'] });
       try {

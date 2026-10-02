@@ -957,6 +957,7 @@ export const speakingPronunciationAssessments = pgTable('speaking_pronunciation_
   assetId: uuid('asset_id').notNull(), materialId: text('material_id'), cueId: text('cue_id').notNull(),
   referenceText: text('reference_text').notNull(), subtitleRevision: integer('subtitle_revision'),
   locale: text('locale').$type<SpeakingPronunciationLocale>().notNull(), fingerprint: text('fingerprint').notNull(),
+  provider: text('provider').$type<'speechace' | 'evolink'>().default('speechace').notNull(),
   status: text('status').$type<'processing' | 'ready' | 'failed'>().default('processing').notNull(),
   result: jsonb('result').$type<SpeakingPronunciationResult>(), error: jsonb('error').$type<SpeakingPronunciationError>(),
   deadlineAt: utcTimestamp('deadline_at').notNull(),
@@ -966,5 +967,6 @@ export const speakingPronunciationAssessments = pgTable('speaking_pronunciation_
   uniqueIndex('speaking_pronunciation_active_unique').on(table.userId, table.fingerprint)
     .where(sql`${table.status} in ('processing', 'ready')`),
   check('speaking_pronunciation_locale_check', sql`${table.locale} in ('en-us', 'en-gb')`),
+  check('speaking_pronunciation_provider_check', sql`${table.provider} in ('speechace', 'evolink')`),
   check('speaking_pronunciation_status_check', sql`(${table.status} = 'processing' and ${table.result} is null and ${table.error} is null) or (${table.status} = 'ready' and ${table.result} is not null and ${table.error} is null) or (${table.status} = 'failed' and ${table.result} is null and ${table.error} is not null)`),
 ]);

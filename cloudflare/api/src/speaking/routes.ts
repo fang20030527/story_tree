@@ -7,7 +7,7 @@ import {
 import type { ZodType } from 'zod';
 
 import { AppError } from '../../../../server/src/core/errors';
-import type { PronunciationProvider } from '../../../../server/src/infrastructure/speech/speechace';
+import type { PronunciationProvider } from '../../../../server/src/infrastructure/speech/provider';
 import { readJsonBody } from '../core/http';
 import type { ApiEnv } from '../env';
 import {

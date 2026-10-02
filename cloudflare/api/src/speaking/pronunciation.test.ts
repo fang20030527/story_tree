@@ -9,10 +9,11 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppError } from '../../../../server/src/core/errors';
-import type { PronunciationProvider } from '../../../../server/src/infrastructure/speech/speechace';
-import { getSpeechaceSettings, type ApiEnv, type D1DatabaseBinding, type D1StatementBinding } from '../env';
+import type { PronunciationProvider } from '../../../../server/src/infrastructure/speech/provider';
+import { getEvolinkAudioSettings, type ApiEnv, type D1DatabaseBinding, type D1StatementBinding } from '../env';
 import { handleSpeakingAssetRoute } from './assets';
 import { handleSpeakingRoute } from './routes';
+import { pronunciationRequestFingerprint } from '../../../../server/src/modules/speaking/pronunciation-shared';
 
 const catalog = vi.hoisted(() => ({ get: vi.fn(), detail: vi.fn() }));
 vi.mock('./catalog', () => ({ getPlatformCatalog: catalog.get, getPlatformMaterial: catalog.detail }));
@@ -21,12 +22,10 @@ const owner = '11111111-1111-4111-8111-111111111111';
 const other = '22222222-2222-4222-8222-222222222222';
 const guest = '33333333-3333-4333-8333-333333333333';
 const databases: DatabaseSync[] = [];
-const result: SpeakingPronunciationResult = { score: 86, words: [
-  { word: 'Stay', score: 92, startMs: 0, endMs: 500, phonemes: [
-    { symbol: 's', spokenSymbol: null, score: 92, stressScore: null, startMs: 0, endMs: 120 },
-  ] },
-  { word: 'curious', score: null, startMs: null, endMs: null, phonemes: [] },
-], feedback: ['关注较低分单词，听示范后再试一次。'] };
+const result: SpeakingPronunciationResult = { kind: 'ai_coaching', score: 86, words: [],
+  transcript: 'Stay curious.', clarityScore: 86, fluencyScore: 82, completenessScore: 100,
+  wordTips: [{ word: 'curious', advice: '先慢读，再放回整句练习。' }],
+  feedback: ['听示范后再连贯读一次。'] };
 
 // SQLite 使用和生产 D1 相同的迁移与事务，禁止事务内 await 引入假并发。
 class TestStatement implements D1StatementBinding {
@@ -94,7 +93,7 @@ function setup() {
     return object ? { size: object.size, etag: object.etag, httpEtag: `"${object.etag}"`,
       httpMetadata: { contentType: object.type }, body: new Response(new Uint8Array(object.bytes)).body! } : null;
   });
-  const env = { DB: db, SPEECHACE_API_KEY: 'fake-secret-never-return',
+  const env = { DB: db, EVOLINK_API_KEY: 'fake-secret-never-return',
     SPEAKING_BUCKET: { get, head: vi.fn(), delete: vi.fn() }, R2_ACCOUNT_ID: 'test-account',
     R2_ACCESS_KEY_ID: 'test-access', R2_SECRET_ACCESS_KEY: 'test-secret', R2_BUCKET_NAME: 'test-bucket' } as unknown as ApiEnv;
   const assess = vi.fn<PronunciationProvider['assess']>().mockResolvedValue(result);
@@ -149,6 +148,27 @@ function deferred<T>() {
 }
 
 describe('D1 发音评分路由', () => {
+  it('保留旧专用评测来源，新点评不复用旧评分；换模型后新键重评，同键继续回放', async () => {
+    const { database, env, seed, provider, assess } = setup();
+    const body = payload(seed());
+    const legacyId = crypto.randomUUID();
+    const legacyResult = { score: 91, words: [{ word: 'Stay', score: 91, startMs: null, endMs: null, phonemes: [] }], feedback: [] };
+    const now = new Date().toISOString();
+    database.prepare(`INSERT INTO speaking_pronunciation_assessments
+      (id,user_id,asset_id,cue_id,reference_text,locale,fingerprint,status,result_json,created_at,updated_at,deadline_at)
+      VALUES (?,?,?,?,?,?,?,'ready',?,?,?,?)`)
+      .run(legacyId, owner, body.assetId, body.cueId, body.referenceText, body.locale,
+        await pronunciationRequestFingerprint(body), JSON.stringify(legacyResult), now, now, now);
+    expect(await getAssessment(env, legacyId)).toMatchObject({ provider: 'speechace', result: legacyResult });
+    const key = crypto.randomUUID();
+    const first = await create(env, body, provider, key);
+    expect(first).toMatchObject({ provider: 'evolink', result: { kind: 'ai_coaching', words: [] } });
+    expect(first.id).not.toBe(legacyId);
+    env.EVOLINK_AUDIO_MODEL = 'gemini-2.5-flash-lite';
+    expect((await create(env, body, provider, key)).id).toBe(first.id);
+    expect((await create(env, body, provider)).id).not.toBe(first.id);
+    expect(assess).toHaveBeenCalledTimes(2);
+  });
   it('从私有录音读取评分并保存快照，删旧录音后同键仍回放历史结果', async () => {
     const { database, env, seed, provider, assess } = setup();
     const assetId = seed();
@@ -159,7 +179,7 @@ describe('D1 发音评分路由', () => {
     expect(assess).toHaveBeenCalledWith({ audio: new Uint8Array(64), contentType: 'audio/wav',
       referenceText: 'Stay curious.', locale: 'en-us' });
     database.prepare('DELETE FROM speaking_assets WHERE id = ?').run(assetId);
-    delete env.SPEECHACE_API_KEY;
+    delete env.EVOLINK_API_KEY;
     expect((await create(env, body, undefined, key)).id).toBe(assessment.id);
     expect((await create(env, body)).id).toBe(assessment.id);
     expect((await getAssessment(env, assessment.id)).result).toEqual(result);
@@ -230,7 +250,7 @@ describe('D1 发音评分路由', () => {
     assess.mockRejectedValueOnce(new AppError('PRONUNCIATION_NO_SPEECH', '未检测到清晰语音，请重新录制', 422));
     expect(await create(env, payload(seed()), provider)).toMatchObject({ status: 'failed', result: null,
       error: { code: 'PRONUNCIATION_NO_SPEECH', retryable: false } });
-    assess.mockResolvedValueOnce({ ...result, words: [] });
+    assess.mockResolvedValueOnce({ ...result, feedback: [] });
     expect(await create(env, payload(seed()), provider)).toMatchObject({ status: 'failed', result: null,
       error: { code: 'PRONUNCIATION_INVALID_RESULT', retryable: true } });
   });
@@ -332,7 +352,7 @@ describe('D1 发音评分路由', () => {
 
   it('日限额原子限制新尝试，缓存和幂等回放不计数，账号与 UTC 日独立', async () => {
     const { database, env, seed, provider, assess } = setup();
-    env.SPEECHACE_DAILY_LIMIT = '1';
+    env.SPEAKING_COACH_DAILY_LIMIT = '1';
     const body = payload(seed());
     const first = await create(env, body, provider);
     expect((await create(env, body, provider)).id).toBe(first.id);
@@ -345,7 +365,7 @@ describe('D1 发音评分路由', () => {
     expect((await create(env, payload(seed()), provider)).status).toBe('ready');
     expect(count(database)).toBe(3);
     const next = setup();
-    next.env.SPEECHACE_DAILY_LIMIT = '1';
+    next.env.SPEAKING_COACH_DAILY_LIMIT = '1';
     const attempts = await Promise.allSettled([
       create(next.env, payload(next.seed()), next.provider), create(next.env, payload(next.seed()), next.provider),
     ]);
@@ -442,19 +462,19 @@ describe('D1 发音评分路由', () => {
 
   it('能力明确提示未配置且新请求不占有次数，环境错误只报告变量名', async () => {
     const { database, env, seed } = setup();
-    delete env.SPEECHACE_API_KEY;
+    delete env.EVOLINK_API_KEY;
     const response = await handleSpeakingAssetRoute(request('capabilities'), env, owner);
     expect(SpeakingCapabilitiesDtoSchema.parse(await response!.json()).pronunciation).toEqual({ available: false,
-      provider: 'speechace', maxDurationMs: 30_000, maxAudioBytes: SPEAKING_PRONUNCIATION_MAX_AUDIO_BYTES,
+      provider: 'evolink', maxDurationMs: 30_000, maxAudioBytes: SPEAKING_PRONUNCIATION_MAX_AUDIO_BYTES,
       locales: ['en-us', 'en-gb'] });
     await expect(create(env, payload(seed()))).rejects.toMatchObject({ code: 'PRONUNCIATION_NOT_CONFIGURED' });
     expect(count(database)).toBe(0);
-    expect(getSpeechaceSettings(env)).toMatchObject({ apiKey: undefined, region: 'ap-southeast', timeoutMs: 20_000, dailyLimit: 50 });
-    for (const [name, value] of [['SPEECHACE_REGION', 'https://evil.example/?secret=hidden'],
-      ['SPEECHACE_TIMEOUT_MS', '40000'], ['SPEECHACE_DAILY_LIMIT', '-1']] as const) {
+    expect(getEvolinkAudioSettings(env)).toMatchObject({ apiKey: undefined, model: 'gemini-2.5-flash', timeoutMs: 20_000, dailyLimit: 50 });
+    for (const [name, value] of [['EVOLINK_AUDIO_MODEL', 'https://evil.example/?secret=hidden'],
+      ['EVOLINK_AUDIO_TIMEOUT_MS', '40000'], ['SPEAKING_COACH_DAILY_LIMIT', '-1']] as const) {
       const invalid = { ...env, [name]: value };
-      expect(() => getSpeechaceSettings(invalid)).toThrow(name);
-      try { getSpeechaceSettings(invalid); }
+      expect(() => getEvolinkAudioSettings(invalid)).toThrow(name);
+      try { getEvolinkAudioSettings(invalid); }
       catch (error) { expect(String(error)).not.toContain(value); }
     }
   });

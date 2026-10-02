@@ -9,14 +9,20 @@ export const PRONUNCIATION_PROCESSING_TTL_MS = 45_000;
 const AUDIO_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/wav', 'audio/x-wav', 'audio/webm', 'audio/ogg', 'audio/aiff']);
 
 export function pronunciationCapability(apiKey: string | undefined): SpeakingPronunciationCapability {
-  return { available: Boolean(apiKey?.trim()), provider: 'speechace',
+  return { available: Boolean(apiKey?.trim()), provider: 'evolink',
     maxDurationMs: SPEAKING_PRONUNCIATION_MAX_DURATION_MS, maxAudioBytes: SPEAKING_PRONUNCIATION_MAX_AUDIO_BYTES,
     locales: ['en-us', 'en-gb'] };
 }
-export async function pronunciationFingerprint(request: CreateSpeakingPronunciationRequest): Promise<string> {
+export async function pronunciationFingerprint(request: CreateSpeakingPronunciationRequest, model = 'gemini-2.5-flash'): Promise<string> {
+  return hash({ request, provider: 'evolink', model, version: 1 });
+}
+export async function pronunciationRequestFingerprint(request: CreateSpeakingPronunciationRequest): Promise<string> {
   const material = { assetId: request.assetId, materialId: request.materialId, cueId: request.cueId,
     referenceText: request.referenceText, subtitleRevision: request.subtitleRevision, locale: request.locale };
-  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(material))));
+  return hash(material);
+}
+async function hash(value: unknown): Promise<string> {
+  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(value))));
   return [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 export function assertPronunciationAsset(asset: { status: string; purpose: string; byteSize: number; contentType: string; duration: number }): void {
@@ -29,13 +35,13 @@ export function assertPronunciationAsset(asset: { status: string; purpose: strin
 export function assertPronunciationReference(material: SpeakingMaterialDto, request: CreateSpeakingPronunciationRequest): void {
   const cue = material.cues.find(item => item.id === request.cueId);
   if (material.revision !== request.subtitleRevision || !cue || cue.en.trim() !== request.referenceText.trim()) {
-    throw new AppError('STATE_CONFLICT', '字幕已变化，请重新打开当前句并录音后评分', 409);
+    throw new AppError('STATE_CONFLICT', '字幕已变化，请重新打开当前句并录音后点评', 409);
   }
 }
 export function pronunciationFailure(error: unknown): SpeakingPronunciationError {
   if (error instanceof AppError) return { code: error.code, message: error.message, retryable: error.retryable };
-  return { code: 'PRONUNCIATION_UPSTREAM_UNAVAILABLE', message: '发音评分暂时不可用，请稍后重试', retryable: true };
+  return { code: 'PRONUNCIATION_UPSTREAM_UNAVAILABLE', message: 'AI 口语点评暂时不可用，请稍后重试', retryable: true };
 }
 export function expiredPronunciationError(): SpeakingPronunciationError {
-  return { code: 'PRONUNCIATION_UPSTREAM_UNAVAILABLE', message: '本次评分未完成，可以重试；录音已保留', retryable: true };
+  return { code: 'PRONUNCIATION_UPSTREAM_UNAVAILABLE', message: '本次点评未完成，可以重试；录音已保留', retryable: true };
 }

@@ -30,7 +30,7 @@ import { vocabularyRoutes } from './modules/vocabulary/routes';
 import { speakingRoutes } from './modules/speaking/routes';
 import type { MediaStore } from './infrastructure/media/store';
 import type { FFmpegMediaProcessor } from './infrastructure/media/ffmpeg';
-import type { PronunciationProvider } from './infrastructure/speech/speechace';
+import type { PronunciationProvider } from './infrastructure/speech/provider';
 import {
   registerSecurity,
   type SecurityLimits,

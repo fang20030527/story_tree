@@ -1,5 +1,5 @@
 import {
-  SpeakingPronunciationAssessmentDtoSchema, SpeakingPronunciationResultSchema,
+  SpeakingPronunciationAssessmentDtoSchema, SpeakingAiCoachingResultSchema,
   type CreateSpeakingPronunciationRequest, type SpeakingPronunciationAssessmentDto,
 } from '@context-reader/contracts';
 import { and, desc, eq, gt, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
@@ -8,7 +8,8 @@ import { AppError } from '../../core/errors';
 import type { ServerConfig } from '../../config/env';
 import type { AppDatabase, AppTransaction } from '../../db/client';
 import { speakingPronunciationAssessments as assessments, users } from '../../db/schema';
-import { SpeechaceProvider, type PronunciationProvider } from '../../infrastructure/speech/speechace';
+import { EvolinkPronunciationProvider } from '../../infrastructure/speech/evolink';
+import type { PronunciationProvider } from '../../infrastructure/speech/provider';
 import type { MediaStore } from '../../infrastructure/media/store';
 import { beginIdempotentOperation, finishIdempotentOperation } from '../idempotency/service';
 import { getOwnedSpeakingAsset } from './assets';
@@ -57,13 +58,13 @@ function dto(record: Assessment): SpeakingPronunciationAssessmentDto {
   return SpeakingPronunciationAssessmentDtoSchema.parse({
     id: record.id, assetId: record.assetId, materialId: record.materialId, cueId: record.cueId,
     referenceText: record.referenceText, subtitleRevision: record.subtitleRevision, locale: record.locale,
-    provider: 'speechace', status: record.status, result: record.result, error: record.error,
+    provider: record.provider, status: record.status, result: record.result, error: record.error,
     createdAt: record.createdAt.toISOString(), updatedAt: record.updatedAt.toISOString(),
   });
 }
 async function requireRegistered(db: Db, userId: string): Promise<void> {
   const [user] = await db.select({ kind: users.kind }).from(users).where(and(eq(users.id, userId), isNull(users.deletedAt))).limit(1);
-  if (user?.kind !== 'registered') throw new AppError('UNAUTHORIZED', '请先登录后使用发音评分', 401);
+  if (user?.kind !== 'registered') throw new AppError('UNAUTHORIZED', '请先登录后使用AI 口语点评', 401);
 }
 async function expire(db: Db, userId: string): Promise<void> {
   const now = new Date();
@@ -72,7 +73,7 @@ async function expire(db: Db, userId: string): Promise<void> {
 }
 async function find(db: Db, userId: string, id: string): Promise<Assessment> {
   const [record] = await db.select().from(assessments).where(and(eq(assessments.id, id), eq(assessments.userId, userId))).limit(1);
-  if (!record) throw new AppError('NOT_FOUND', '评分记录不存在', 404);
+  if (!record) throw new AppError('NOT_FOUND', '点评记录不存在', 404);
   return record;
 }
 export async function getSpeakingPronunciationAssessment(deps: Pick<Dependencies, 'db'>, userId: string, id: string) {
@@ -84,7 +85,7 @@ export async function getSpeakingPronunciationAssessment(deps: Pick<Dependencies
 export async function createSpeakingPronunciationAssessment(deps: Dependencies, userId: string, key: string,
   request: CreateSpeakingPronunciationRequest): Promise<SpeakingPronunciationAssessmentDto> {
   await requireRegistered(deps.db, userId);
-  const fingerprint = await pronunciationFingerprint(request);
+  const fingerprint = await pronunciationFingerprint(request, deps.config.EVOLINK_AUDIO_MODEL);
   const reservation = await deps.db.transaction(async tx => {
     const previous = await beginIdempotentOperation(tx, userId, OPERATION, key, request);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`speaking-pronunciation:${userId}`}))`);
@@ -97,8 +98,8 @@ export async function createSpeakingPronunciationAssessment(deps: Dependencies, 
       await finishIdempotentOperation(tx, userId, OPERATION, key, cached.id);
       return { record: cached, owned: false };
     }
-    if (!deps.pronunciationProvider && !deps.config.SPEECHACE_API_KEY) {
-      throw new AppError('PRONUNCIATION_NOT_CONFIGURED', '发音评分服务尚未开放，请稍后再试', 503);
+    if (!deps.pronunciationProvider && !deps.config.EVOLINK_API_KEY) {
+      throw new AppError('PRONUNCIATION_NOT_CONFIGURED', 'AI 口语点评服务尚未开放，请稍后再试', 503);
     }
     if (!deps.mediaStore) throw new AppError('MEDIA_STORAGE_NOT_CONFIGURED', '录音存储暂时不可用', 503, true);
     const asset = await getOwnedSpeakingAsset(tx, userId, request.assetId);
@@ -111,12 +112,12 @@ export async function createSpeakingPronunciationAssessment(deps: Dependencies, 
     const day = new Date(now); day.setUTCHours(0, 0, 0, 0);
     const [usage] = await tx.select({ count: sql<number>`count(*)::int` }).from(assessments)
       .where(and(eq(assessments.userId, userId), gte(assessments.createdAt, day)));
-    if ((usage?.count ?? 0) >= deps.config.SPEECHACE_DAILY_LIMIT) {
-      throw new AppError('PRONUNCIATION_LIMIT_REACHED', '当日发音评分次数已达到上限，请稍后再练习', 429);
+    if ((usage?.count ?? 0) >= deps.config.SPEAKING_COACH_DAILY_LIMIT) {
+      throw new AppError('PRONUNCIATION_LIMIT_REACHED', '当日 AI 口语点评次数已达到上限，请稍后再练习', 429);
     }
-    const [record] = await tx.insert(assessments).values({ userId, ...request, fingerprint, createdAt: now, updatedAt: now,
+    const [record] = await tx.insert(assessments).values({ userId, ...request, fingerprint, provider: 'evolink', createdAt: now, updatedAt: now,
       deadlineAt: new Date(now.getTime() + PRONUNCIATION_PROCESSING_TTL_MS) }).returning();
-    if (!record) throw new AppError('DATABASE_UNAVAILABLE', '评分暂时无法保存，请重试', 503, true);
+    if (!record) throw new AppError('DATABASE_UNAVAILABLE', '点评暂时无法保存，请重试', 503, true);
     await finishIdempotentOperation(tx, userId, OPERATION, key, record.id);
     return { record, owned: true };
   });
@@ -130,13 +131,13 @@ export async function createSpeakingPronunciationAssessment(deps: Dependencies, 
     const audio = await readAudio(deps.mediaStore, asset.storageKey, asset.byteSize);
     const current = await find(deps.db, userId, record.id);
     if (current.status !== 'processing') return dto(current);
-    if (current.deadlineAt.getTime() <= Date.now()) throw new AppError('PRONUNCIATION_UPSTREAM_UNAVAILABLE', '本次评分已超时，请重试；录音已保留', 503, true);
-    const provider = deps.pronunciationProvider ?? new SpeechaceProvider({ apiKey: deps.config.SPEECHACE_API_KEY,
-      region: deps.config.SPEECHACE_REGION, timeoutMs: deps.config.SPEECHACE_TIMEOUT_MS });
-    const parsed = SpeakingPronunciationResultSchema.safeParse(await provider.assess({
+    if (current.deadlineAt.getTime() <= Date.now()) throw new AppError('PRONUNCIATION_UPSTREAM_UNAVAILABLE', '本次点评已超时，请重试；录音已保留', 503, true);
+    const provider = deps.pronunciationProvider ?? new EvolinkPronunciationProvider({ apiKey: deps.config.EVOLINK_API_KEY,
+      baseUrl: deps.config.EVOLINK_BASE_URL, model: deps.config.EVOLINK_AUDIO_MODEL, timeoutMs: deps.config.EVOLINK_AUDIO_TIMEOUT_MS });
+    const parsed = SpeakingAiCoachingResultSchema.safeParse(await provider.assess({
       audio, contentType: asset.contentType, referenceText: record.referenceText, locale: record.locale,
     }));
-    if (!parsed.success) throw new AppError('PRONUNCIATION_INVALID_RESULT', '评分结果无效，请稍后重试', 502, true);
+    if (!parsed.success) throw new AppError('PRONUNCIATION_INVALID_RESULT', '点评结果无效，请稍后重试', 502, true);
     const completedAt = new Date();
     await deps.db.update(assessments).set({ status: 'ready', result: parsed.data, error: null, updatedAt: completedAt })
       .where(and(eq(assessments.id, record.id), eq(assessments.status, 'processing'), gt(assessments.deadlineAt, completedAt)));

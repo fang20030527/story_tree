@@ -1,0 +1,2 @@
+ALTER TABLE "speaking_pronunciation_assessments" ADD COLUMN "provider" text DEFAULT 'speechace' NOT NULL;--> statement-breakpoint
+ALTER TABLE "speaking_pronunciation_assessments" ADD CONSTRAINT "speaking_pronunciation_provider_check" CHECK ("speaking_pronunciation_assessments"."provider" in ('speechace', 'evolink'));

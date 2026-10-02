@@ -1,18 +1,19 @@
 import {
   SPEAKING_PRONUNCIATION_MAX_AUDIO_BYTES,
-  SpeakingPronunciationAssessmentDtoSchema, SpeakingPronunciationResultSchema, UuidSchema,
+  SpeakingPronunciationAssessmentDtoSchema, SpeakingAiCoachingResultSchema, UuidSchema,
   type CreateSpeakingPronunciationRequest, type SpeakingMaterialDto,
   type SpeakingPronunciationAssessmentDto, type SpeakingPronunciationError,
   type SpeakingPronunciationResult,
 } from '@context-reader/contracts';
 
 import { AppError } from '../../../../server/src/core/errors';
-import { SpeechaceProvider, type PronunciationProvider } from '../../../../server/src/infrastructure/speech/speechace';
+import { EvolinkPronunciationProvider } from '../../../../server/src/infrastructure/speech/evolink';
+import type { PronunciationProvider } from '../../../../server/src/infrastructure/speech/provider';
 import {
   assertPronunciationAsset, assertPronunciationReference, expiredPronunciationError,
-  pronunciationFailure, pronunciationFingerprint, PRONUNCIATION_PROCESSING_TTL_MS,
+  pronunciationFailure, pronunciationFingerprint, pronunciationRequestFingerprint, PRONUNCIATION_PROCESSING_TTL_MS,
 } from '../../../../server/src/modules/speaking/pronunciation-shared';
-import { getSpeechaceSettings, type ApiEnv, type D1StatementBinding } from '../env';
+import { getEvolinkAudioSettings, type ApiEnv, type D1StatementBinding } from '../env';
 import {
   findSpeakingIdempotency, getSpeakingAsset, getSpeakingMaterial, runSpeakingMutation,
   speakingFirst, speakingGuard, type SpeakingAssetRow,
@@ -26,6 +27,7 @@ interface AssessmentRow {
   id: string; user_id: string; asset_id: string; material_id: string | null; cue_id: string;
   reference_text: string; subtitle_revision: number | null; locale: 'en-us' | 'en-gb';
   fingerprint: string; status: 'processing' | 'ready' | 'failed';
+  provider: 'speechace' | 'evolink';
   result_json: string | null; error_json: string | null;
   created_at: string; updated_at: string; deadline_at: string;
 }
@@ -34,7 +36,7 @@ function dto(row: AssessmentRow): SpeakingPronunciationAssessmentDto {
   return SpeakingPronunciationAssessmentDtoSchema.parse({
     id: row.id, assetId: row.asset_id, materialId: row.material_id, cueId: row.cue_id,
     referenceText: row.reference_text, subtitleRevision: row.subtitle_revision,
-    locale: row.locale, provider: 'speechace', status: row.status,
+    locale: row.locale, provider: row.provider, status: row.status,
     result: row.result_json === null ? null : JSON.parse(row.result_json) as unknown,
     error: row.error_json === null ? null : JSON.parse(row.error_json) as unknown,
     createdAt: row.created_at, updatedAt: row.updated_at,
@@ -42,7 +44,7 @@ function dto(row: AssessmentRow): SpeakingPronunciationAssessmentDto {
 }
 
 function databaseUnavailable() {
-  return new AppError('DATABASE_UNAVAILABLE', '云端发音评分暂时不可用，请稍后重试', 503, true);
+  return new AppError('DATABASE_UNAVAILABLE', '云端AI 口语点评暂时不可用，请稍后重试', 503, true);
 }
 
 async function expireAssessments(env: ApiEnv, userId: string) {
@@ -57,17 +59,17 @@ async function expireAssessments(env: ApiEnv, userId: string) {
 async function requireRegisteredUser(env: ApiEnv, userId: string) {
   const user = await speakingFirst<{ kind: string }>(env,
     'SELECT kind FROM users WHERE id = ? AND deleted_at IS NULL', userId);
-  if (user?.kind !== 'registered') throw new AppError('UNAUTHORIZED', '请先登录后再进行发音评分', 401);
+  if (user?.kind !== 'registered') throw new AppError('UNAUTHORIZED', '请先登录后再进行AI 口语点评', 401);
 }
 
 export async function getSpeakingPronunciationAssessment(env: ApiEnv, userId: string,
   id: string): Promise<SpeakingPronunciationAssessmentDto> {
   await requireRegisteredUser(env, userId);
-  if (!UuidSchema.safeParse(id).success) throw new AppError('VALIDATION_ERROR', '发音评分编号格式无效', 400);
+  if (!UuidSchema.safeParse(id).success) throw new AppError('VALIDATION_ERROR', 'AI 口语点评编号格式无效', 400);
   await expireAssessments(env, userId);
   const row = await speakingFirst<AssessmentRow>(env,
     'SELECT * FROM speaking_pronunciation_assessments WHERE id = ? AND user_id = ?', id, userId);
-  if (!row) throw new AppError('NOT_FOUND', '发音评分不存在', 404);
+  if (!row) throw new AppError('NOT_FOUND', 'AI 口语点评不存在', 404);
   return dto(row);
 }
 
@@ -84,7 +86,7 @@ async function dailyAttempts(env: ApiEnv, userId: string, now: string) {
 }
 
 function quotaError() {
-  return new AppError('PRONUNCIATION_LIMIT_REACHED', '今日发音评分次数已用完，请明天继续练习', 429);
+  return new AppError('PRONUNCIATION_LIMIT_REACHED', '今日AI 口语点评次数已用完，请明天继续练习', 429);
 }
 
 function referenceGuard(env: ApiEnv, recordId: string, userId: string,
@@ -180,24 +182,25 @@ async function readRecording(env: ApiEnv, userId: string, asset: SpeakingAssetRo
 export async function createSpeakingPronunciationAssessment(env: ApiEnv, userId: string, key: string,
   request: CreateSpeakingPronunciationRequest, provider?: PronunciationProvider): Promise<SpeakingPronunciationAssessmentDto> {
   await requireRegisteredUser(env, userId);
-  const fingerprint = await pronunciationFingerprint(request);
+  const settings = getEvolinkAudioSettings(env);
+  const fingerprint = await pronunciationFingerprint(request, settings.model);
+  const requestHash = await pronunciationRequestFingerprint(request);
   await expireAssessments(env, userId);
-  const previous = await findSpeakingIdempotency(env, userId, OPERATION, key, fingerprint);
+  const previous = await findSpeakingIdempotency(env, userId, OPERATION, key, requestHash);
   if (previous) return getSpeakingPronunciationAssessment(env, userId, previous.resource_id);
   const cached = await speakingFirst<{ id: string }>(env, `SELECT id FROM speaking_pronunciation_assessments
     WHERE user_id = ? AND fingerprint = ? AND status IN ('ready', 'processing') LIMIT 1`, userId, fingerprint);
   if (cached) {
     const resource = await runSpeakingMutation(env,
-      { userId, operation: OPERATION, key, requestHash: fingerprint, resourceId: cached.id }, recordId => [
+      { userId, operation: OPERATION, key, requestHash, resourceId: cached.id }, recordId => [
         ...speakingGuard(env, recordId, "EXISTS (SELECT 1 FROM users WHERE id = ? AND kind = 'registered' AND deleted_at IS NULL)", [userId]),
         ...speakingGuard(env, recordId, 'EXISTS (SELECT 1 FROM speaking_pronunciation_assessments WHERE id = ? AND user_id = ? AND fingerprint = ?)',
           [cached.id, userId, fingerprint]),
       ]);
     return getSpeakingPronunciationAssessment(env, userId, resource);
   }
-  const settings = getSpeechaceSettings(env);
   if (!provider && !settings.apiKey) {
-    throw new AppError('PRONUNCIATION_NOT_CONFIGURED', '发音评分服务尚未配置，请稍后再试', 503);
+    throw new AppError('PRONUNCIATION_NOT_CONFIGURED', 'AI 口语点评服务尚未配置，请稍后再试', 503);
   }
   const asset = await getSpeakingAsset(env, userId, request.assetId);
   assertPronunciationAsset({ status: asset.status, purpose: asset.purpose,
@@ -211,7 +214,7 @@ export async function createSpeakingPronunciationAssessment(env: ApiEnv, userId:
   let resource: string;
   try {
     resource = await runSpeakingMutation(env, {
-      userId, operation: OPERATION, key, requestHash: fingerprint, resourceId: id,
+      userId, operation: OPERATION, key, requestHash, resourceId: id,
     }, recordId => [
       ...speakingGuard(env, recordId, "EXISTS (SELECT 1 FROM users WHERE id = ? AND kind = 'registered' AND deleted_at IS NULL)", [userId]),
       ...referenceGuard(env, recordId, userId, material),
@@ -232,8 +235,8 @@ export async function createSpeakingPronunciationAssessment(env: ApiEnv, userId:
       [recordId, id, userId, day.start, day.end, settings.dailyLimit]),
       env.DB.prepare(`INSERT INTO speaking_pronunciation_assessments
         (id,user_id,asset_id,material_id,cue_id,reference_text,subtitle_revision,locale,fingerprint,
-          status,result_json,error_json,created_at,updated_at,deadline_at)
-        SELECT ?,?,?,?,?,?,?,?,?,'processing',NULL,NULL,?,?,?
+          provider,status,result_json,error_json,created_at,updated_at,deadline_at)
+        SELECT ?,?,?,?,?,?,?,?,?,'evolink','processing',NULL,NULL,?,?,?
         WHERE EXISTS (SELECT 1 FROM speaking_idempotency WHERE id = ? AND resource_id = ?)`)
         .bind(id, userId, asset.id, request.materialId, request.cueId, request.referenceText,
           request.subtitleRevision, request.locale, fingerprint, now, now, deadline, recordId, id),
@@ -257,12 +260,12 @@ export async function createSpeakingPronunciationAssessment(env: ApiEnv, userId:
     if (active?.status !== 'processing' || !(Date.parse(active.deadline_at) > Date.now())) {
       return getSpeakingPronunciationAssessment(env, userId, id);
     }
-    const speechace = provider ?? new SpeechaceProvider({ apiKey: settings.apiKey!,
-      region: settings.region, timeoutMs: settings.timeoutMs });
-    const output = await speechace.assess({ audio, contentType: asset.content_type,
+    const assessor = provider ?? new EvolinkPronunciationProvider({ apiKey: settings.apiKey!,
+      baseUrl: settings.baseUrl, model: settings.model, timeoutMs: settings.timeoutMs });
+    const output = await assessor.assess({ audio, contentType: asset.content_type,
       referenceText: request.referenceText, locale: request.locale });
-    const parsed = SpeakingPronunciationResultSchema.safeParse(output);
-    if (!parsed.success) throw new AppError('PRONUNCIATION_INVALID_RESULT', '发音评分结果无效，请重新尝试', 502, true);
+    const parsed = SpeakingAiCoachingResultSchema.safeParse(output);
+    if (!parsed.success) throw new AppError('PRONUNCIATION_INVALID_RESULT', 'AI 口语点评结果无效，请重新尝试', 502, true);
     result = parsed.data;
   } catch (error) { failure = pronunciationFailure(error); }
   try {

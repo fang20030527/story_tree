@@ -13,7 +13,7 @@ import { loadSpeakingStore, speakingStorageKey, updateSpeakingStore } from './sp
 
 export const pronunciationRecordingId = (recording: SpeakingRecording) => recording.assetId ?? recording.mediaId;
 export function speakingPronunciationKey(materialId: string, recording: SpeakingRecording, locale: SpeakingPronunciationLocale) {
-  return JSON.stringify([materialId, pronunciationRecordingId(recording), recording.cueId, recording.referenceText ?? null, recording.subtitleRevision ?? null, locale]);
+  return JSON.stringify(['ai_coaching:v1', materialId, pronunciationRecordingId(recording), recording.cueId, recording.referenceText ?? null, recording.subtitleRevision ?? null, locale]);
 }
 type Context = {
   materialId: string; material?: SpeakingMaterial; scope: string; recording: SpeakingRecording;
@@ -21,7 +21,7 @@ type Context = {
 };
 async function assertScope(scope: string, signal?: AbortSignal) {
   if (signal?.aborted) throw new ApiError('REQUEST_CANCELLED', '评分已取消，可稍后继续', true);
-  if (scope.endsWith(':guest')) throw new ApiError('LOGIN_REQUIRED', '请登录后再使用发音评分', false);
+  if (scope.endsWith(':guest')) throw new ApiError('LOGIN_REQUIRED', '请登录后再使用AI 口语点评', false);
   if (await speakingStorageKey() !== scope) throw new ApiError('SPEAKING_ACCOUNT_CHANGED', '登录状态已变化，请重新打开口语页面', false);
   if (signal?.aborted) throw new ApiError('REQUEST_CANCELLED', '评分已取消，可稍后继续', true);
 }
@@ -99,12 +99,12 @@ export function submitSpeakingPronunciation(context: Context & { capability: Spe
 }
 async function submit(context: Context & { capability: SpeakingPronunciationCapability }, cacheKey: string) {
   await assertScope(context.scope, context.signal);
-  if (!context.capability.available || !context.capability.locales.includes(context.locale)) throw new ApiError('SPEAKING_PRONUNCIATION_UNAVAILABLE', '发音评分暂未开放，请稍后再试', false);
-  if (!context.recording.referenceText) throw new ApiError('SPEAKING_RECORDING_SNAPSHOT_REQUIRED', '这条录音没有保存目标字幕，请重新录制后评分', false);
+  if (!context.capability.available || !context.capability.locales.includes(context.locale)) throw new ApiError('SPEAKING_PRONUNCIATION_UNAVAILABLE', 'AI 口语点评暂未开放，请稍后再试', false);
+  if (!context.recording.referenceText) throw new ApiError('SPEAKING_RECORDING_SNAPSHOT_REQUIRED', '这条录音没有保存目标字幕，请重新录制后点评', false);
   if (context.recording.cloudPending) throw new ApiError('SPEAKING_RECORDING_NOT_SYNCED', '请先完成录音云端保存，再进行评分', false);
   const maxDurationMs = Math.min(context.capability.maxDurationMs, SPEAKING_PRONUNCIATION_MAX_DURATION_MS);
   if (!Number.isFinite(context.recording.durationMs) || context.recording.durationMs <= 0 || context.recording.durationMs > maxDurationMs) {
-    throw new ApiError('SPEAKING_PRONUNCIATION_DURATION_INVALID', `请将一句话录在 ${Math.floor(maxDurationMs / 1000)} 秒以内，再进行发音评分`, false);
+    throw new ApiError('SPEAKING_PRONUNCIATION_DURATION_INVALID', `请将一句话录在 ${Math.floor(maxDurationMs / 1000)} 秒以内，再进行AI 口语点评`, false);
   }
   const cloudMaterial = context.material?.storage === 'cloud';
   if (!CreateSpeakingPronunciationRequestSchema.safeParse({

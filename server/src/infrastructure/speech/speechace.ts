@@ -10,17 +10,11 @@ import {
 import { z } from 'zod';
 
 import { AppError } from '../../core/errors';
+import type { PronunciationProvider } from './provider';
 
 export type SpeechaceRegion = 'us-west' | 'ap-southeast' | 'eu-west' | 'ap-south';
 
-export interface PronunciationProvider {
-  assess(input: {
-    audio: Uint8Array;
-    contentType: string;
-    referenceText: string;
-    locale: SpeakingPronunciationLocale;
-  }): Promise<SpeakingPronunciationResult>;
-}
+export type { PronunciationProvider } from './provider';
 
 const endpoints: Record<SpeechaceRegion, string> = {
   'us-west': 'https://api.speechace.co',

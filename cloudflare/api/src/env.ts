@@ -84,10 +84,9 @@ export interface ApiEnv {
   EVOLINK_TIMEOUT_MS?: string;
   EVOLINK_VISION_MODEL?: string;
   EVOLINK_VISION_TIMEOUT_MS?: string;
-  SPEECHACE_API_KEY?: string;
-  SPEECHACE_REGION?: string;
-  SPEECHACE_TIMEOUT_MS?: string;
-  SPEECHACE_DAILY_LIMIT?: string;
+  EVOLINK_AUDIO_MODEL?: string;
+  EVOLINK_AUDIO_TIMEOUT_MS?: string;
+  SPEAKING_COACH_DAILY_LIMIT?: string;
   GENERATION_DEADLINE_MS?: string;
   RESEND_API_KEY?: string;
   WECHAT_APP_ID?: string;
@@ -101,32 +100,34 @@ export interface ApiEnv {
   API_STAGE_OPEN?: string;
 }
 
-export interface SpeechaceSettings {
+export interface EvolinkAudioSettings {
   apiKey: string | undefined;
-  region: 'us-west' | 'ap-southeast' | 'eu-west' | 'ap-south';
+  baseUrl: string;
+  model: 'gemini-2.5-flash' | 'gemini-2.5-flash-lite';
   timeoutMs: number;
   dailyLimit: number;
 }
 
-/** 区域只能映射至官方端点；错误只包含变量名，绝不包含配置值。 */
-export function getSpeechaceSettings(env: ApiEnv): SpeechaceSettings {
-  const region = env.SPEECHACE_REGION ?? 'ap-southeast';
-  if (!['us-west', 'ap-southeast', 'eu-west', 'ap-south'].includes(region)) {
-    throw new AppError('PRONUNCIATION_NOT_CONFIGURED', '发音评分配置无效：SPEECHACE_REGION', 503);
+/** 限定低成本音频模型；错误只包含变量名，绝不包含配置值。 */
+export function getEvolinkAudioSettings(env: ApiEnv): EvolinkAudioSettings {
+  const model = env.EVOLINK_AUDIO_MODEL ?? 'gemini-2.5-flash';
+  if (!['gemini-2.5-flash', 'gemini-2.5-flash-lite'].includes(model)) {
+    throw new AppError('PRONUNCIATION_NOT_CONFIGURED', 'AI 口语点评配置无效：EVOLINK_AUDIO_MODEL', 503);
   }
   const integer = (raw: string | undefined, fallback: number, minimum: number, maximum: number, name: string) => {
     if (raw === undefined) return fallback;
     const value = Number(raw);
     if (!/^\d+$/u.test(raw) || !Number.isSafeInteger(value) || value < minimum || value > maximum) {
-      throw new AppError('PRONUNCIATION_NOT_CONFIGURED', `发音评分配置无效：${name}`, 503);
+      throw new AppError('PRONUNCIATION_NOT_CONFIGURED', `AI 口语点评配置无效：${name}`, 503);
     }
     return value;
   };
   return {
-    apiKey: env.SPEECHACE_API_KEY?.trim() || undefined,
-    region: region as SpeechaceSettings['region'],
-    timeoutMs: integer(env.SPEECHACE_TIMEOUT_MS, 20_000, 1_000, 25_000, 'SPEECHACE_TIMEOUT_MS'),
-    dailyLimit: integer(env.SPEECHACE_DAILY_LIMIT, 50, 1, 10_000, 'SPEECHACE_DAILY_LIMIT'),
+    apiKey: env.EVOLINK_API_KEY?.trim() || undefined,
+    baseUrl: env.EVOLINK_BASE_URL ?? 'https://direct.evolink.ai/v1',
+    model: model as EvolinkAudioSettings['model'],
+    timeoutMs: integer(env.EVOLINK_AUDIO_TIMEOUT_MS, 20_000, 1_000, 25_000, 'EVOLINK_AUDIO_TIMEOUT_MS'),
+    dailyLimit: integer(env.SPEAKING_COACH_DAILY_LIMIT, 50, 1, 10_000, 'SPEAKING_COACH_DAILY_LIMIT'),
   };
 }
 

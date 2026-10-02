@@ -60,7 +60,7 @@ export const speakingRoutes: FastifyPluginAsync<SpeakingRoutesOptions> = async (
     return SpeakingCapabilitiesDtoSchema.parse({ storage: store.driver,
       maxMediaBytes: options.config.SPEAKING_MAX_MEDIA_BYTES,
       maxSubtitleBytes: SPEAKING_MAX_SUBTITLE_BYTES, autoSubtitles: false,
-      pronunciation: pronunciationCapability(options.config.SPEECHACE_API_KEY || (options.pronunciationProvider ? 'test-provider' : '')) });
+      pronunciation: pronunciationCapability(options.config.EVOLINK_API_KEY || (options.pronunciationProvider ? 'test-provider' : '')) });
   });
   app.post('/v1/speaking/pronunciation-assessments', json, async (request, reply) => {
     reply.header('cache-control', 'no-store');

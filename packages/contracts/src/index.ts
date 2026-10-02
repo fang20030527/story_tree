@@ -1073,24 +1073,44 @@ export const SpeakingPronunciationWordSchema = z.object({
   startMs: PronunciationTimeSchema, endMs: PronunciationTimeSchema,
   phonemes: z.array(SpeakingPronunciationPhonemeSchema).max(100),
 }).strict().refine(value => value.startMs === null || value.endMs === null || value.endMs >= value.startMs, '单词时间无效');
-export const SpeakingPronunciationResultSchema = z.object({
+export const SpeakingAcousticPronunciationResultSchema = z.object({
   score: PronunciationScoreSchema, words: z.array(SpeakingPronunciationWordSchema).min(1).max(250),
   feedback: z.array(z.string().min(1).max(500)).max(3),
 }).strict();
+export const SpeakingAiCoachingResultSchema = z.object({
+  kind: z.literal('ai_coaching'), score: PronunciationScoreSchema,
+  // 通用音频模型只提供练习参考，不伪造逐词、音素测量值。
+  words: z.array(z.never()).max(0),
+  transcript: z.string().trim().min(1).max(2_000),
+  clarityScore: PronunciationScoreSchema.nullable(),
+  fluencyScore: PronunciationScoreSchema.nullable(),
+  completenessScore: PronunciationScoreSchema.nullable(),
+  wordTips: z.array(z.object({
+    word: z.string().trim().min(1).max(100),
+    advice: z.string().trim().min(1).max(300),
+  }).strict()).max(3),
+  feedback: z.array(z.string().trim().min(1).max(300)).min(1).max(3),
+}).strict();
+export const SpeakingPronunciationResultSchema = z.union([
+  SpeakingAcousticPronunciationResultSchema, SpeakingAiCoachingResultSchema,
+]);
+export const SpeakingPronunciationProviderSchema = z.enum(['speechace', 'evolink']);
 export const SpeakingPronunciationErrorSchema = z.object({
   code: z.string().min(1).max(80), message: z.string().min(1).max(500), retryable: z.boolean(),
 }).strict();
 export const SpeakingPronunciationAssessmentDtoSchema = z.object({
   id: UuidSchema, assetId: UuidSchema, materialId: SpeakingResourceIdSchema.nullable(), cueId: SpeakingResourceIdSchema,
   referenceText: SpeakingPronunciationReferenceSchema, subtitleRevision: z.number().int().positive().nullable(),
-  locale: SpeakingPronunciationLocaleSchema, provider: z.literal('speechace'),
+  locale: SpeakingPronunciationLocaleSchema, provider: SpeakingPronunciationProviderSchema,
   status: z.enum(['processing', 'ready', 'failed']), result: SpeakingPronunciationResultSchema.nullable(),
   error: SpeakingPronunciationErrorSchema.nullable(), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
 }).strict().refine(value => value.status === 'ready' ? value.result !== null && value.error === null :
   value.status === 'failed' ? value.result === null && value.error !== null : value.result === null && value.error === null,
-  '评测状态与结果不一致');
+  '评测状态与结果不一致').refine(value => value.result === null ||
+    (value.provider === 'evolink' ? 'kind' in value.result : !('kind' in value.result)),
+  '评测来源与结果不一致');
 export const SpeakingPronunciationCapabilitySchema = z.object({
-  available: z.boolean(), provider: z.literal('speechace'), maxDurationMs: z.number().int().positive(),
+  available: z.boolean(), provider: SpeakingPronunciationProviderSchema, maxDurationMs: z.number().int().positive(),
   maxAudioBytes: z.number().int().positive(), locales: z.array(SpeakingPronunciationLocaleSchema).min(1).max(2),
 }).strict();
 export const SpeakingCapabilitiesDtoSchema = z.object({
@@ -1101,6 +1121,8 @@ export const SpeakingCapabilitiesDtoSchema = z.object({
 export type SpeakingPronunciationLocale = z.infer<typeof SpeakingPronunciationLocaleSchema>;
 export type CreateSpeakingPronunciationRequest = z.infer<typeof CreateSpeakingPronunciationRequestSchema>;
 export type SpeakingPronunciationResult = z.infer<typeof SpeakingPronunciationResultSchema>;
+export type SpeakingAiCoachingResult = z.infer<typeof SpeakingAiCoachingResultSchema>;
+export type SpeakingPronunciationProvider = z.infer<typeof SpeakingPronunciationProviderSchema>;
 export type SpeakingPronunciationAssessmentDto = z.infer<typeof SpeakingPronunciationAssessmentDtoSchema>;
 export type SpeakingPronunciationError = z.infer<typeof SpeakingPronunciationErrorSchema>;
 export type SpeakingPronunciationCapability = z.infer<typeof SpeakingPronunciationCapabilitySchema>;
