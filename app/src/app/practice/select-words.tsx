@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getVocabularyWords } from '@/api/practices';
-import { fonts } from '@/constants/theme';
+import { fonts, radius } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { saveVocabularyDraft } from '@/features/practice/practiceStorage';
 
@@ -57,5 +57,5 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24 }, back: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   content: { padding: 24, width: '100%', maxWidth: 760, alignSelf: 'center' }, title: { fontSize: 28, lineHeight: 40, marginVertical: 18 },
   search: { borderBottomWidth: 1, minHeight: 50, marginVertical: 20, fontSize: 15 }, word: { flexDirection: 'row', gap: 20, alignItems: 'center', paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth }, term: { fontFamily: fonts.display, fontSize: 29 },
-  more: { minHeight: 48, justifyContent: 'center', alignItems: 'center' }, footer: { paddingHorizontal: 24, width: '100%', maxWidth: 760, alignSelf: 'center' }, primary: { minHeight: 52, justifyContent: 'center', alignItems: 'center', borderRadius: 3 },
+  more: { minHeight: 48, justifyContent: 'center', alignItems: 'center' }, footer: { paddingHorizontal: 24, width: '100%', maxWidth: 760, alignSelf: 'center' }, primary: { minHeight: 52, justifyContent: 'center', alignItems: 'center', borderRadius: radius.pill },
 });

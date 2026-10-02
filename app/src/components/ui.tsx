@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 
-import { Theme, weight } from '@/constants/theme';
+import { radius, Theme, weight } from '@/constants/theme';
 
 interface SectionHeaderProps {
   title: string;
@@ -18,7 +18,6 @@ interface SectionHeaderProps {
   onMore?: () => void;
 }
 
-/** Section title with the red accent bar, used across 阅读/外刊/词库 pages. */
 export function SectionHeader({ title, theme, moreLabel, onMore }: SectionHeaderProps) {
   return (
     <View style={styles.sectionHeader}>
@@ -27,8 +26,8 @@ export function SectionHeader({ title, theme, moreLabel, onMore }: SectionHeader
       </View>
       {moreLabel ? (
         <TouchableOpacity onPress={onMore} hitSlop={8} style={styles.moreRow}>
-          <Text style={{ color: theme.blue, fontSize: 14 }}>{moreLabel}</Text>
-          <Ionicons name="chevron-forward" size={14} color={theme.blue} />
+          <Text style={{ color: theme.accent, fontSize: 14 }}>{moreLabel}</Text>
+          <Ionicons name="chevron-forward" size={14} color={theme.accent} />
         </TouchableOpacity>
       ) : null}
     </View>
@@ -47,7 +46,7 @@ export function Card({ theme, children, style }: CardProps) {
       style={[
         {
           backgroundColor: theme.surface,
-          borderRadius: 8,
+          borderRadius: radius.content,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: theme.border,
         },
@@ -81,7 +80,7 @@ interface RemoteImageProps {
 export function RemoteImage({ uri, style, children }: RemoteImageProps) {
   const source: ImageSourcePropType = { uri };
   return (
-    <ImageBackground source={source} style={style} imageStyle={{ borderRadius: 8 }}>
+    <ImageBackground source={source} style={style} imageStyle={{ borderRadius: 4 }}>
       {children}
     </ImageBackground>
   );
@@ -95,13 +94,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  sectionBar: { width: 4, height: 16, borderRadius: 2, marginRight: 8 },
-  sectionTitle: { fontSize: 20, fontWeight: weight('regular') },
+  sectionTitle: { fontSize: 19, fontWeight: weight('bold') },
   moreRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   chip: {
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 5,
+    borderRadius: radius.pill,
     alignSelf: 'flex-start',
   },
 });

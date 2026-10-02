@@ -1,4 +1,4 @@
-import { fonts } from '@/constants/theme';
+import { fonts, radius } from '@/constants/theme';
 import type {
   AssistanceResponse,
   ArticleSegment,
@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
   sectionHeading: { fontSize: 23, lineHeight: 32, marginTop: 16, marginBottom: 20 },
   paragraph: { fontFamily: fonts.reading, fontSize: 17, lineHeight: 30, marginBottom: 18 },
   hint: {
-    borderRadius: 10,
+    borderRadius: radius.option,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 18,
     marginTop: -10,
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  hintTerm: { color: '#000000', fontSize: 14, fontWeight: '600' },
+  hintTerm: { color: '#000000', fontFamily: fonts.display, fontSize: 20, lineHeight: 26 },
   hintClose: { color: '#000000', fontSize: 22, lineHeight: 22 },
   hintPartOfSpeech: {
     color: '#000000',
@@ -983,7 +983,7 @@ const styles = StyleSheet.create({
   addWordButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
-    borderRadius: 8,
+    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 4,

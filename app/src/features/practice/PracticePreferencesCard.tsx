@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { Card } from '@/components/ui';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { loadPracticeTargetCount, MAX_TARGET_COUNT, parseTargetCount, savePracticeTargetCount } from './practicePreferences';
 
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: weight('bold') },
   label: { fontSize: 14, marginTop: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },
-  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingHorizontal: 14, minHeight: 46, minWidth: 84, fontSize: 20, textAlign: 'center' },
-  save: { marginLeft: 'auto', paddingHorizontal: 20, minHeight: 44, borderRadius: 10, justifyContent: 'center' },
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.pill, paddingHorizontal: 14, minHeight: 46, minWidth: 84, fontSize: 20, textAlign: 'center' },
+  save: { marginLeft: 'auto', paddingHorizontal: 20, minHeight: 44, borderRadius: radius.pill, justifyContent: 'center' },
   hint: { marginTop: 10, fontSize: 12, lineHeight: 19 },
 });

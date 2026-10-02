@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { fonts, weight } from '@/constants/theme';
+import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import type { EditorialArticle } from '@/features/editorial/catalog';
 import {
@@ -189,7 +189,7 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
                 setSummaryState({ value: null, loading: true, error: false });
                 setSummaryAttempt((current) => current + 1);
               }}>
-              <Text style={{ color: theme.blue }}>重试中文概述</Text>
+              <Text style={{ color: theme.accent }}>重试中文概述</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -209,7 +209,7 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
             accessibilityLiveRegion="polite"
             style={[
               styles.message,
-              { color: message === '已加入书架' ? theme.green : theme.danger },
+              { color: message === '已加入书架' ? theme.success : theme.danger },
             ]}>
             {message}
           </Text>
@@ -264,7 +264,7 @@ function MissingEditorialArticleState() {
           onPress={() => router.replace('/')}
           accessibilityRole="button"
           accessibilityLabel="返回外刊">
-          <Text style={{ color: theme.blue }}>返回外刊</Text>
+          <Text style={{ color: theme.accent }}>返回外刊</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   headerSpacer: { width: 26 },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 18, paddingTop: 12  },
-  cover: { borderRadius: 16, height: 210, marginBottom: 20 },
+  cover: { borderRadius: radius.content, height: 210, marginBottom: 20 },
   coverShade: {
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
     bottom: 0,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   coverActionWrap: { alignItems: 'flex-end', padding: 12 },
   coverAction: {
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: radius.pill,
     flexDirection: 'row',
     gap: 6,
     paddingHorizontal: 12,
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   },
   startButton: {
     alignItems: 'center',
-    borderRadius: 13,
+    borderRadius: radius.pill,
     flexDirection: 'row',
     gap: 7,
     justifyContent: 'center',

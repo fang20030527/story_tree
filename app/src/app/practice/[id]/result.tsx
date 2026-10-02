@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api/client';
 import { getPractice } from '@/api/practices';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { clearActivePracticeId } from '@/features/practice/practiceStorage';
 
@@ -137,7 +137,7 @@ function ResultContent({ practiceId }: { practiceId: string }) {
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}>
           <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: theme.green }]}>{correctCount}</Text>
+            <Text style={[styles.statValue, { color: theme.success }]}>{correctCount}</Text>
             <Text style={[styles.statLabel, { color: theme.textMuted }]}>答对</Text>
           </View>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, marginTop: 8 },
   summaryCard: {
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: radius.content,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     marginTop: 30,
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   divider: { height: 38, width: StyleSheet.hairlineWidth },
   finishButton: {
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: radius.pill,
     justifyContent: 'center',
     marginTop: 28,
     minHeight: 52,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   finishText: { fontSize: 16, fontWeight: weight('bold') },
   errorText: { fontSize: 13, lineHeight: 20, marginTop: 14, textAlign: 'center' },
   retryButton: {
-    borderRadius: 10,
+    borderRadius: radius.pill,
     borderWidth: 1,
     justifyContent: 'center',
     marginTop: 16,

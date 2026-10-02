@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { getDashboard, getPractice } from '@/api/practices';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { destinationForPractice, type PracticeDestination } from './resumePractice';
 import { loadActivePracticeId } from './practiceStorage';
@@ -58,7 +58,7 @@ export function ContinuePracticeCard() {
   );
 }
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderRadius: 16, marginBottom: 16 },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderRadius: radius.content, marginBottom: 16 },
   copy: { flex: 1, gap: 5 },
   title: { fontSize: 16, fontWeight: weight('semibold') },
   subtitle: { fontSize: 12, lineHeight: 18 },

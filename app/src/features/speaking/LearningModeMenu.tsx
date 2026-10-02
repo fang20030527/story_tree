@@ -3,6 +3,7 @@ import React, { useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '@/context/ThemeContext';
 import { useLearningMode, type LearningMode } from '@/context/LearningModeContext';
+import { radius } from '@/constants/theme';
 
 export function LearningModeMenu() {
   const { theme } = useAppTheme();
@@ -13,7 +14,7 @@ export function LearningModeMenu() {
   const close = () => { setOpen(false); if (Platform.OS === 'web') trigger.current?.focus(); };
   return <>
     <Pressable ref={trigger} accessibilityRole="button" accessibilityLabel={`我的，当前为${mode === 'read' ? '阅读' : '口语'}模式，切换学习模式`} aria-expanded={open} aria-haspopup="dialog" accessibilityState={{ expanded: open }} onPress={() => setOpen(true)} style={styles.trigger}>
-      <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 28 }}>我的</Text><View style={[styles.badge, { backgroundColor: mode === 'read' ? theme.pink : theme.accentSoft }]}><Text style={{ color: mode === 'read' ? theme.onPink : theme.accent, fontSize: 12 }}>{mode === 'read' ? '阅读' : '口语'}</Text></View><Ionicons name="chevron-down" color={theme.textMuted} size={16} />
+      <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 32, lineHeight: 40, fontWeight: '700' }}>我的</Text><View style={[styles.badge, { backgroundColor: theme.surfaceAlt }]}><Text style={{ color: theme.text, fontSize: 12 }}>{mode === 'read' ? '阅读' : '口语'}</Text></View><Ionicons name="chevron-down" color={theme.textMuted} size={16} />
     </Pressable>
     <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
       <Pressable accessibilityLabel="关闭模式菜单" onPress={close} style={styles.backdrop}>
@@ -34,7 +35,7 @@ export function LearningModeMenu() {
   </>;
 }
 const styles = StyleSheet.create({
-  trigger: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }, badge: { paddingVertical: 5, paddingHorizontal: 9, borderRadius: 3 },
+  trigger: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }, badge: { paddingVertical: 5, paddingHorizontal: 9, borderRadius: radius.pill },
   backdrop: { flex: 1, justifyContent: 'flex-start', backgroundColor: '#00000033', paddingTop: 80, paddingHorizontal: 24 },
   menu: { maxWidth: 360, width: '100%', borderWidth: 1, borderRadius: 4, overflow: 'hidden' }, option: { minHeight: 84, padding: 16, gap: 16, flexDirection: 'row', alignItems: 'center' },
 });

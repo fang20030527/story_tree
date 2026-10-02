@@ -20,7 +20,7 @@ import {
   saveActiveComputerSession,
   saveActiveImportId,
 } from '@/features/imports/importStorage';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -213,12 +213,12 @@ export default function ComputerImportScreen() {
               <Text style={[styles.codeLabel, { color: theme.textMuted }]}>电脑端输入此上传码</Text>
               <Text style={[styles.code, { color: theme.text }]}>{session.uploadCode}</Text>
               <Text style={[styles.expiry, { color: remaining === '0:00' ? theme.danger : theme.textSecondary }]}>有效期还剩 {remaining ?? remainingLabel(session.expiresAt)}</Text>
-              <View style={styles.codeActions}><TouchableOpacity onPress={() => void copyCode()} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}><Ionicons name="copy-outline" size={16} color={theme.blue} /><Text style={[styles.secondaryButtonText, { color: theme.blue }]}>复制上传码</Text></TouchableOpacity><TouchableOpacity onPress={() => void openBrowser()} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}><Ionicons name="open-outline" size={16} color={theme.blue} /><Text style={[styles.secondaryButtonText, { color: theme.blue }]}>打开上传页</Text></TouchableOpacity></View>
+              <View style={styles.codeActions}><TouchableOpacity onPress={() => void copyCode()} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}><Ionicons name="copy-outline" size={16} color={theme.accent} /><Text style={[styles.secondaryButtonText, { color: theme.accent }]}>复制上传码</Text></TouchableOpacity><TouchableOpacity onPress={() => void openBrowser()} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}><Ionicons name="open-outline" size={16} color={theme.accent} /><Text style={[styles.secondaryButtonText, { color: theme.accent }]}>打开上传页</Text></TouchableOpacity></View>
               <View style={[styles.urlBox, { backgroundColor: theme.surfaceAlt }]}><Text numberOfLines={2} style={[styles.urlText, { color: theme.textMuted }]}>{session.uploadUrl}</Text></View>
               <Text style={[styles.waiting, { color: theme.textSecondary }]}>等待电脑上传文件… 上传完成后会自动进入解析</Text>
             </View>
           )}
-          {message ? <Text style={[styles.message, { color: message === '上传码已复制' ? theme.green : theme.danger }]}>{message}</Text> : null}
+          {message ? <Text style={[styles.message, { color: message === '上传码已复制' ? theme.success : theme.danger }]}>{message}</Text> : null}
           <Text style={[styles.note, { color: theme.textMuted }]}>上传码十分钟内有效且只能使用一次。支持 PDF、DOCX、TXT、HTML 和常见图片格式。</Text>
         </View>
       )}
@@ -236,22 +236,22 @@ const styles = StyleSheet.create({
   heroIcon: { alignItems: 'center', borderRadius: 36, height: 72, justifyContent: 'center', width: 72 },
   title: { fontSize: 23, fontWeight: weight('bold'), marginTop: 20, textAlign: 'center' },
   subtitle: { fontSize: 14, lineHeight: 22, marginTop: 9, textAlign: 'center' },
-  codeCard: { alignItems: 'center', borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, marginTop: 24, padding: 18, width: '100%' },
+  codeCard: { alignItems: 'center', borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, marginTop: 24, padding: 18, width: '100%' },
   codeLabel: { fontSize: 12 },
   code: { fontSize: 31, fontWeight: weight('bold'), letterSpacing: 5, marginTop: 11 },
   expiry: { fontSize: 12, marginTop: 7 },
   codeActions: { flexDirection: 'row', gap: 8, marginTop: 16, width: '100%' },
-  secondaryButton: { alignItems: 'center', borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', minHeight: 42, paddingHorizontal: 8 },
+  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', minHeight: 42, paddingHorizontal: 8 },
   secondaryButtonText: { fontSize: 13, fontWeight: weight('semibold') },
-  urlBox: { borderRadius: 8, marginTop: 12, paddingHorizontal: 10, paddingVertical: 8, width: '100%' },
+  urlBox: { borderRadius: radius.content, marginTop: 12, paddingHorizontal: 10, paddingVertical: 8, width: '100%' },
   urlText: { fontSize: 10, lineHeight: 15 },
   waiting: { fontSize: 12, marginTop: 15, textAlign: 'center' },
   note: { fontSize: 12, lineHeight: 19, marginTop: 22, textAlign: 'center' },
   message: { fontSize: 13, lineHeight: 20, marginTop: 13, textAlign: 'center' },
-  primaryButton: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 24, minHeight: 50, minWidth: 180, paddingHorizontal: 18 },
+  primaryButton: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 24, minHeight: 50, minWidth: 180, paddingHorizontal: 18 },
   primaryButtonText: { fontSize: 15, fontWeight: weight('bold') },
   ageContent: { flex: 1, justifyContent: 'center', padding: 24 },
-  ageCard: { alignItems: 'center', borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 24 },
+  ageCard: { alignItems: 'center', borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, padding: 24 },
   ageIcon: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
   ageTitle: { fontSize: 20, fontWeight: weight('bold'), marginTop: 18 },
   ageBody: { fontSize: 14, lineHeight: 22, marginTop: 10, textAlign: 'center' },

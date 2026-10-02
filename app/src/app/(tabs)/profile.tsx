@@ -6,7 +6,8 @@ import { Alert, AppState, ScrollView, StyleSheet, Text, TouchableOpacity, View }
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { VocabularyWordPage } from '@context-reader/contracts';
 import { getVocabularyWords } from '@/api/practices';
-import { StatRow, TouchCard } from '@/components/brand';
+import { LogoPlanes, StatRow, TouchCard } from '@/components/brand';
+import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import * as authStorage from '@/features/auth/authStorage';
 import { loadRecentViews } from '@/features/library/libraryStorage';
@@ -81,7 +82,7 @@ export default function ProfileScreen() {
         <View style={{ flex: 1 }}><Text style={[styles.username, { color: theme.text }]}>{isRegistered ? speaking ? '学习者' : '阅读者' : '未登录'}</Text><Text numberOfLines={1} style={[styles.identityHint, { color: theme.textMuted }]}>{speaking ? isRegistered ? '口语文件与练习同步到账号' : '登录后同步口语文件与练习' : isRegistered ? authEmail ?? '继续积累你的阅读' : '登录后同步阅读记录与词库'}</Text></View>
         {!isRegistered ? <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/login')} style={styles.settings}><Text style={{ color: theme.accent }}>去登录</Text><Ionicons name="chevron-forward" size={16} color={theme.accent} /></TouchableOpacity> : null}
       </View>
-      <TouchCard onPress={() => router.push('/pro')} accessibilityLabel="升级为 VIP 版" style={[styles.vip, { backgroundColor: theme.vip }]}><View style={{ flex: 1 }}><Text style={[styles.vipCopy, { color: theme.onVip }]}>升级为 VIP，解锁全部功能</Text><Text style={[styles.vipHint, { color: theme.pink }]}>一份 VIP，阅读与口语一起进步。</Text></View><View style={[styles.vipButton, { backgroundColor: theme.pink }]}><Text style={{ color: theme.onPink, fontSize: 12 }}>查看方案</Text><Ionicons name="arrow-forward" size={17} color={theme.onPink} /></View></TouchCard>
+      <TouchCard onPress={() => router.push('/pro')} accessibilityLabel="升级为 VIP 版" style={[styles.vip, { backgroundColor: theme.surfaceAlt }]}><LogoPlanes /><View style={styles.vipCopy}><Text style={[styles.vipTitle, { color: theme.onPink }]}>VIP</Text><Text style={[styles.vipHint, { color: theme.onPink }]}>阅读与口语一起进步</Text></View><View style={[styles.vipButton, { backgroundColor: theme.text }]}><Text style={{ color: theme.bg, fontSize: 12, fontWeight: weight('semibold') }}>查看方案</Text></View></TouchCard>
       <View style={wide ? styles.columns : undefined}>
         <View style={wide ? styles.column : undefined}>
           <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>学习记录</Text>
@@ -92,7 +93,7 @@ export default function ProfileScreen() {
         </View>
         <View style={wide ? styles.column : undefined}>
           <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>我的内容</Text>
-          {(speaking ? SPEAKING_MENU : MENU).map(item => <TouchableOpacity key={item.label} accessibilityRole="button" onPress={() => router.push(item.route)} style={[styles.menu, { borderBottomColor: theme.border }]}><Ionicons name={item.icon} size={23} color={theme.accent} /><View style={{ flex: 1 }}><Text style={[styles.menuTitle, { color: theme.text }]}>{item.label}</Text>{item.sub ? <Text style={[styles.menuHint, { color: theme.textMuted }]}>{item.sub}</Text> : null}</View><Ionicons name="chevron-forward" size={17} color={theme.textMuted} /></TouchableOpacity>)}
+          {(speaking ? SPEAKING_MENU : MENU).map(item => <TouchableOpacity key={item.label} accessibilityRole="button" onPress={() => router.push(item.route)} style={[styles.menu, { borderBottomColor: theme.border }]}><Ionicons name={item.icon} size={22} color={theme.textSecondary} /><View style={{ flex: 1 }}><Text style={[styles.menuTitle, { color: theme.text }]}>{item.label}</Text>{item.sub ? <Text style={[styles.menuHint, { color: theme.textMuted }]}>{item.sub}</Text> : null}</View><Ionicons name="chevron-forward" size={17} color={theme.textMuted} /></TouchableOpacity>)}
           {!speaking ? <PracticePreferencesCard /> : null}
           {isRegistered ? <TouchableOpacity onPress={() => void logout()} style={styles.logout}><Text style={{ color: theme.danger }}>退出登录</Text></TouchableOpacity> : null}
         </View>
@@ -108,19 +109,20 @@ const styles = StyleSheet.create({
   settings: { flexDirection: 'row', gap: 7, minHeight: 44, alignItems: 'center' },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 26 },
   avatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
-  username: { fontSize: 18 },
+  username: { fontSize: 18, fontWeight: weight('semibold') },
   identityHint: { fontSize: 11, lineHeight: 18, marginTop: 5 },
-  vip: { borderRadius: 4, padding: 18, gap: 10, flexDirection: 'row', alignItems: 'center' },
-  vipCopy: { fontSize: 14, fontWeight: '500', lineHeight: 22 },
-  vipHint: { fontSize: 11, marginTop: 5, lineHeight: 18 },
-  vipButton: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, paddingHorizontal: 12, borderRadius: 3 },
+  vip: { height: 104, borderRadius: radius.content, overflow: 'hidden', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', padding: 14 },
+  vipCopy: { gap: 2 },
+  vipTitle: { fontFamily: fonts.display, fontSize: 26, lineHeight: 30 },
+  vipHint: { fontSize: 12, lineHeight: 17 },
+  vipButton: { minHeight: 34, justifyContent: 'center', paddingHorizontal: 14, borderRadius: radius.pill },
   columns: { flexDirection: 'row', gap: 40 },
   column: { flex: 1, minWidth: 0 },
-  sectionLabel: { fontSize: 13, marginTop: 28 },
+  sectionLabel: { fontSize: 12, marginTop: 30, letterSpacing: 0.5 },
   duration: { fontSize: 12, marginBottom: 6 },
   localNote: { fontSize: 10, lineHeight: 18, marginTop: 8 },
   menu: { minHeight: 74, flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: StyleSheet.hairlineWidth },
-  menuTitle: { fontSize: 16 },
+  menuTitle: { fontSize: 16, fontWeight: weight('medium') },
   menuHint: { fontSize: 11, lineHeight: 18, marginTop: 5 },
   logout: { minHeight: 52, justifyContent: 'center', alignItems: 'center', marginTop: 18 },
 });

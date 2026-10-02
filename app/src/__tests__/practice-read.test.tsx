@@ -278,9 +278,9 @@ it('restores cloud vocabulary highlights when reopening a completed article', as
     independentCorrectCount: 0, assistedCount: 0, lastPracticedAt: null, masteredAt: null,
   }] });
   const view = await render(<PracticeReaderScreen />);
-  await waitFor(() => expect(view.getByText('reader')).toHaveStyle({ backgroundColor: '#f3bb31' }));
+  await waitFor(() => expect(view.getByText('reader')).toHaveStyle({ backgroundColor: jest.requireActual('@/constants/theme').themes.light.marker }));
   await view.unmount();
   const reopened = await render(<PracticeReaderScreen />);
-  await waitFor(() => expect(reopened.getByText('reader')).toHaveStyle({ backgroundColor: '#f3bb31' }));
+  await waitFor(() => expect(reopened.getByText('reader')).toHaveStyle({ backgroundColor: jest.requireActual('@/constants/theme').themes.light.marker }));
   expect(createVocabularyItem).not.toHaveBeenCalled();
 });

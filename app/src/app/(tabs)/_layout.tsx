@@ -1,43 +1,28 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import type { BottomTabBarButtonProps } from 'expo-router/js-tabs';
 import { PlatformPressable } from 'expo-router/react-navigation';
 import { useLayoutWidth } from '@/components/useLayoutWidth';
 import React from 'react';
-import { ColorValue, StatusBar } from 'react-native';
+import { ColorValue, StatusBar, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { orbitTilt, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { useLearningMode } from '@/context/LearningModeContext';
 
 function SidebarTabButton({ style, ...props }: BottomTabBarButtonProps) {
-  return <PlatformPressable {...props} style={[style, { borderRadius: 3 }]} />;
+  return <PlatformPressable {...props} style={[style, { borderRadius: radius.pill }]} />;
 }
 
-function ModeTabIcon({ name, oralName, color, size }: { name: keyof typeof Ionicons.glyphMap; oralName?: keyof typeof Ionicons.glyphMap; color: ColorValue; size: number }) {
-  const { mode } = useLearningMode();
-  const glyph = mode === 'speak' && oralName ? oralName : name;
-  return <Ionicons name={`${glyph}-outline` as keyof typeof Ionicons.glyphMap} size={size} color={color} />;
+function TabOrbit({ focused }: { focused: boolean }) {
+  const { theme } = useAppTheme();
+  return <View style={{ width: 14, height: 5, borderRadius: '50%', backgroundColor: focused ? theme.vermilion : 'transparent', transform: [{ rotate: orbitTilt }] }} />;
 }
-const tabIcon = (name: keyof typeof Ionicons.glyphMap, oralName?: keyof typeof Ionicons.glyphMap) => {
-  const TabIcon = ({
-    color,
-    size,
-  }: {
-    color: ColorValue;
-    size: number;
-    focused: boolean;
-  }) => (
-    <ModeTabIcon
-      name={name}
-      oralName={oralName}
-      size={size}
-      color={color}
-    />
-  );
-  TabIcon.displayName = `TabIcon(${String(name)})`;
-  return TabIcon;
-};
+const tabOrbit = ({ focused }: { focused: boolean }) => <TabOrbit focused={focused} />;
+
+function TabLabel({ focused, color, children, beside }: { focused: boolean; color: ColorValue; children: string; beside: boolean }) {
+  return <Text style={{ color, fontSize: 12, fontWeight: weight(focused ? 'semibold' : 'regular'), ...(beside ? { marginStart: 8 } : { marginTop: 4 }) }}>{children}</Text>;
+}
 
 export default function TabLayout() {
   const { theme } = useAppTheme();
@@ -57,8 +42,12 @@ export default function TabLayout() {
           tabBarVariant: wide ? 'material' : 'uikit',
           tabBarButton: wide ? SidebarTabButton : undefined,
           tabBarLabelPosition: wide && width >= 1100 ? 'beside-icon' : 'below-icon',
-          tabBarActiveTintColor: theme.accent,
+          tabBarActiveTintColor: theme.text,
           tabBarInactiveTintColor: theme.textMuted,
+          tabBarActiveBackgroundColor: wide ? theme.surfaceAlt : 'transparent',
+          tabBarIcon: tabOrbit,
+          tabBarIconStyle: { height: 8, minHeight: 8 },
+          tabBarLabel: ({ focused, color, children }) => <TabLabel focused={focused} color={color} beside={wide && width >= 1100}>{children}</TabLabel>,
           tabBarStyle: {
             backgroundColor: theme.tabBar,
             borderTopColor: theme.border,
@@ -72,16 +61,11 @@ export default function TabLayout() {
               borderRightColor: theme.border,
               paddingTop: insets.top + 32,
               paddingBottom: insets.bottom + 24,
-            } : { height: 64 + insets.bottom, paddingTop: 6, paddingBottom: Math.max(6, insets.bottom) }),
-          },
-          tabBarLabelStyle: {
-            fontSize: 11,
-            marginTop: 2,
-            ...(wide && width >= 1100 ? { marginStart: 4, marginEnd: 0 } : {}),
+            } : { height: 56 + insets.bottom, paddingTop: 10, paddingBottom: Math.max(10, insets.bottom) }),
           },
           tabBarItemStyle: [
-            { minHeight: wide ? 70 : 52 },
-            wide && { marginVertical: 6, borderRadius: 3 },
+            { minHeight: wide ? 56 : 44 },
+            wide && { marginVertical: 4, borderRadius: radius.pill },
             // 两处自动留白让主导航在「我的」上方居中，个人入口贴近底部安全区。
             wide && (route.name === 'index' || route.name === 'profile') && { marginTop: 'auto' },
           ],
@@ -89,19 +73,19 @@ export default function TabLayout() {
         })}>
         <Tabs.Screen
           name="index"
-          options={{ title: speaking ? '素材' : '外刊', tabBarIcon: tabIcon('newspaper', 'mic') }}
+          options={{ title: speaking ? '素材' : '外刊' }}
         />
         <Tabs.Screen
           name="shelf"
-          options={{ title: speaking ? '文件' : '书架', tabBarIcon: tabIcon('book', 'folder') }}
+          options={{ title: speaking ? '文件' : '书架' }}
         />
         <Tabs.Screen
           name="words"
-          options={{ title: '词库', tabBarIcon: tabIcon('albums'), ...(speaking ? { href: null } : {}) }}
+          options={{ title: '词库', ...(speaking ? { href: null } : {}) }}
         />
         <Tabs.Screen
           name="profile"
-          options={{ title: '我的', tabBarIcon: tabIcon('person') }}
+          options={{ title: '我的' }}
         />
       </Tabs>
     </>

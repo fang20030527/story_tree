@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui';
-import { ThemeMode, weight } from '@/constants/theme';
+import { radius, ThemeMode, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { clearRecentViews } from '@/features/library/libraryStorage';
 
@@ -144,10 +144,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   card: { padding: 14 },
-  segment: { borderRadius: 10, flexDirection: 'row', gap: 4, padding: 4 },
+  segment: { borderRadius: radius.pill, flexDirection: 'row', gap: 4, padding: 4 },
   segmentItem: {
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: radius.pill,
     flex: 1,
     flexDirection: 'row',
     gap: 5,

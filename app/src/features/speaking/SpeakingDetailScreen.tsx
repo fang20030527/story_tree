@@ -23,7 +23,7 @@ export function SpeakingDetailScreen() {
     {!library.loading && !material ? <Text style={{ color: theme.textMuted }}>素材不存在，请返回素材页。</Text> : null}
     {material ? <>
       {cover ? <Image source={cover} accessibilityLabel={`${material.title}封面`} resizeMode="cover" style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 3, backgroundColor: theme.surfaceAlt }} /> : null}
-      <View style={{ backgroundColor: theme.pink, padding: 24, borderRadius: 3, marginBottom: 26 }}><Text style={{ color: theme.onPink, fontSize: 11, letterSpacing: 2 }}>{material.category}</Text><Text style={{ color: theme.onPink, fontFamily: fonts.display, fontSize: 32, lineHeight: 40, marginTop: 18 }}>{material.title}</Text><Text style={{ color: theme.onPink, fontSize: 15, lineHeight: 23, marginTop: 16 }}>{speakingAccentLabel(material)} · {material.subtitle}</Text></View>
+      <View style={{ borderTopWidth: 2, borderTopColor: theme.text, borderBottomWidth: 0.5, borderBottomColor: theme.border, paddingTop: 16, paddingBottom: 22, marginBottom: 26 }}><Text style={{ color: theme.textMuted, fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.3 }}>{material.category}</Text><Text style={{ color: theme.text, fontFamily: fonts.display, fontSize: 34, lineHeight: 38, marginTop: 14 }}>{material.title}</Text><Text style={{ color: theme.textSecondary, fontSize: 15, lineHeight: 23, marginTop: 12 }}>{speakingAccentLabel(material)} · {material.subtitle}</Text></View>
       <Text style={[speakingStyles.hint, { color: theme.textMuted }]}>{material.category} · {formatSpeakingTime(material.duration)} · {material.cueCount ?? material.cues.length} 句 · {speakingSourceLabel(material)}</Text>
       <View style={{ marginTop: 28 }}>
         {overview ? <View style={{ marginBottom: 32 }}>

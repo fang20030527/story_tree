@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api/client';
 import { getPractice, submitAnswer } from '@/api/practices';
-import { weight } from '@/constants/theme';
+import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { QuizArticleReference } from '@/features/practice/QuizArticleReference';
 import { isEnglishSelfTest } from '@/features/practice/isEnglishSelfTest';
@@ -189,6 +189,9 @@ function QuizContent({ practiceId }: { practiceId: string }) {
         </View>
         <View style={styles.headerSpacer} />
       </View>
+      <View style={styles.segments} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {practice.questions.map((_, index) => <View key={index} style={[styles.segment, { backgroundColor: index < (completed ? questionIndex + 1 : answeredCount) ? theme.text : theme.surfaceAlt }]} />)}
+      </View>
 
       <View style={styles.splitContent} testID="quiz-split-content">
         {!isEnglishSelfTest(question) && <QuizArticleReference
@@ -218,7 +221,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
                 <Text style={{ color: theme.textSecondary }}>
                   {mode === 'retry' ? '重新自测 · 本轮结果不覆盖首次成绩' : '回看题目 · 首次作答与解析'}
                 </Text>
-                {retryScore !== null && <Text style={{ color: theme.green }}>
+                {retryScore !== null && <Text style={{ color: theme.success }}>
                   本轮完成，答对 {retryScore}/{practice.questions.length} 题
                 </Text>}
                 {mode === 'review' && <TouchableOpacity
@@ -296,7 +299,9 @@ const styles = StyleSheet.create({
   },
   headerCenter: { alignItems: 'center', flex: 1 },
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
-  progress: { fontSize: 12, marginTop: 2 },
+  progress: { fontFamily: fonts.label, fontSize: 12, marginTop: 2 },
+  segments: { flexDirection: 'row', gap: 3, paddingHorizontal: 18, paddingBottom: 10 },
+  segment: { flex: 1, height: 4, borderRadius: 2 },
   headerSpacer: { width: 26 },
   splitContent: { flex: 1, minHeight: 0 },
   questionPane: {
@@ -308,7 +313,7 @@ const styles = StyleSheet.create({
   questionContent: { paddingHorizontal: 18, paddingTop: 20 },
   errorText: { fontSize: 14, lineHeight: 22, textAlign: 'center' },
   retryButton: {
-    borderRadius: 10,
+    borderRadius: radius.pill,
     borderWidth: 1,
     justifyContent: 'center',
     marginTop: 16,

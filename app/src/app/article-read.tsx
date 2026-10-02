@@ -25,7 +25,7 @@ import {
 } from '@/api/practices';
 import { useAppTheme } from '@/context/ThemeContext';
 import type { Theme } from '@/constants/theme';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { recordImportedRecentView } from '@/features/library/libraryStorage';
 import { ArticleMediaBlock } from '@/features/imports/ArticleMediaBlock';
 import {
@@ -122,7 +122,7 @@ function ArticleReadScreenContent() {
         <TouchableOpacity
           accessibilityRole="button"
           onPress={() => router.replace('/shelf' as never)}>
-          <Text style={{ color: theme.blue }}>返回书架</Text>
+          <Text style={{ color: theme.accent }}>返回书架</Text>
         </TouchableOpacity>
       </View>
     );
@@ -233,7 +233,7 @@ function ArticleTranslationControl({
     <View>
       <View style={styles.translationHeader}>
         <View style={styles.translationHeading}>
-          <Ionicons name="language-outline" size={18} color={theme.blue} />
+          <Ionicons name="language-outline" size={18} color={theme.accent} />
           {showLabel ? (
             <Text style={[styles.translationTitle, { color: theme.text }]}>
               {label}
@@ -246,9 +246,9 @@ function ArticleTranslationControl({
           hitSlop={8}
           onPress={handlePress}>
           {loading ? (
-            <ActivityIndicator color={theme.blue} size="small" />
+            <ActivityIndicator color={theme.accent} size="small" />
           ) : (
-            <Text style={[styles.translationAction, { color: theme.blue }]}>
+            <Text style={[styles.translationAction, { color: theme.accent }]}>
               {buttonLabel}
             </Text>
           )}
@@ -315,7 +315,7 @@ function ParagraphBlock({
       <InteractiveWordParagraph
         isHeading={isArticleSectionHeading(text)}
         addedWords={addedWords}
-        addedWordColor={theme.accentSoft}
+        addedWordColor={theme.marker}
         borderColor={theme.border}
         dangerColor={theme.danger}
         onAddToVocabulary={addToVocabulary}
@@ -336,11 +336,11 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   headerSpacer: { width: 26 },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 24, paddingTop: 12  },
-  sourcePill: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: 12, flexDirection: 'row', gap: 5, paddingHorizontal: 9, paddingVertical: 5 },
+  sourcePill: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: radius.pill, flexDirection: 'row', gap: 5, paddingHorizontal: 9, paddingVertical: 5 },
   sourcePillText: { fontSize: 11, fontWeight: weight('medium') },
   title: { fontSize: 32, fontWeight: weight('bold'), lineHeight: 41, marginTop: 14 },
   meta: { fontSize: 12, marginTop: 8 },
-  fullTranslationBox: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, marginTop: 22, padding: 13 },
+  fullTranslationBox: { borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, marginTop: 22, padding: 13 },
   translationHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   translationHeading: { alignItems: 'center', flexDirection: 'row', gap: 7 },
   translationTitle: { fontSize: 14, fontWeight: weight('semibold') },

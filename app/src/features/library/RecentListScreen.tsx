@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { getEditorialArticle } from '@/features/editorial/catalog';
 import {
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   list: { gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   row: {
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: radius.option,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 12,

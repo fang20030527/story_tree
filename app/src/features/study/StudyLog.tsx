@@ -17,7 +17,7 @@ export function StudyLog({ totals, now, error }: { totals: StudyTotals; now: Dat
   const [selection, setSelection] = useState<{ date: string; today: string } | null>(null);
   if (!ready) return <View style={[styles.log, { borderBottomColor: theme.border }]}><Text style={[styles.title, { color: theme.text }]}>学习日志</Text><Text style={[styles.detail, { color: theme.textMuted }]}>正在读取学习记录…</Text></View>;
   const selected = selection?.today === today ? selection.date : today;
-  const palette = [theme.surfaceAlt, '#F4D8E2', '#E59EB4', '#C97995', '#A84966'];
+  const palette = theme.heat;
   const level = (ms: number) => ms === 0 ? 0 : ms < 5 * 60_000 ? 1 : ms < DAILY_GOAL_MS ? 2 : ms < 20 * 60_000 ? 3 : 4;
   const weeks = studyWeeks(now);
   const activeDays = weeks.flat().filter(date => localDateKey(date) <= today && (totals[localDateKey(date)] ?? 0) > 0).length;
@@ -32,7 +32,7 @@ export function StudyLog({ totals, now, error }: { totals: StudyTotals; now: Dat
           return <Pressable key={key} disabled={future || error} accessibilityRole="button"
             accessibilityLabel={`${key}${key === today ? ' 今日' : ''}${ms >= DAILY_GOAL_MS ? ' 已打卡' : ''}，学习 ${Math.floor(ms / 60_000)} 分钟`}
             accessibilityState={{ selected: selected === key, disabled: future || error }}
-            onPress={() => setSelection({ date: key, today })} style={[styles.cell, { backgroundColor: future ? 'transparent' : palette[error ? 0 : level(ms)], borderColor: selected === key ? theme.text : 'transparent' }]} />;
+            onPress={() => setSelection({ date: key, today })} style={[styles.cell, { backgroundColor: future ? 'transparent' : palette[error ? 0 : level(ms)], borderColor: selected === key ? theme.accent : 'transparent' }]} />;
         })}
       </View>)}</View>
     </View>
@@ -44,7 +44,7 @@ export function StudyLog({ totals, now, error }: { totals: StudyTotals; now: Dat
 const styles = StyleSheet.create({
   log: { paddingVertical: 24, borderBottomWidth: StyleSheet.hairlineWidth },
   heading: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 18 },
-  title: { fontSize: 18 },
+  title: { fontSize: 18, fontWeight: '700' },
   chart: { flexDirection: 'row', gap: 7 },
   weekdays: { width: 14, paddingTop: 21, justifyContent: 'space-around' },
   dayLabel: { fontSize: 9, textAlign: 'center' },

@@ -1,7 +1,7 @@
 import type { PracticeDto } from '@context-reader/contracts';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 
 const labels: Record<PracticeDto['status'], string> = {
@@ -67,7 +67,7 @@ export function TopicGenerationProgress({ group, unavailable }: {
 }
 
 const styles = StyleSheet.create({
-  panel: { padding: 16, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, gap: 12 },
+  panel: { padding: 16, borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, gap: 12 },
   heading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   title: { fontSize: 15, fontWeight: weight('semibold') },
   percent: { fontSize: 20, fontWeight: weight('bold') },

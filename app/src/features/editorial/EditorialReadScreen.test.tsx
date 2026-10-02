@@ -18,7 +18,7 @@ import {
 import { EditorialReadScreen } from './EditorialReadScreen';
 import { getEditorialArticle } from './catalog';
 import { loadEditorialTranslation } from './editorialTranslation';
-import { themes } from '@/constants/theme';
+import { fonts, themes } from '@/constants/theme';
 
 jest.mock('@/features/study/useStudyTimer', () => ({ useStudyTimer: jest.fn() }));
 jest.mock('expo-router', () => ({ router: { back: jest.fn(), canGoBack: jest.fn(() => true), replace: jest.fn() } }));
@@ -84,9 +84,9 @@ it('renders catalog prose and records one editorial recent view', async () => {
 it('用不同字号和字重区分主标题、章节标题、正文和图片说明', async () => {
   const view = await render(<EditorialReadScreen articleId="hero" />);
   const article = getEditorialArticle('hero')!;
-  expect(view.getByText(article.titleEn)).toHaveStyle({ fontSize: 40, fontWeight: '400' });
+  expect(view.getByText(article.titleEn)).toHaveStyle({ fontFamily: fonts.readingMedium, fontSize: 30, fontWeight: '400' });
   expect(view.getByText(article.titleEn).props.accessibilityRole).toBe('header');
-  expect(view.getByText('How wild foster parents help')).toHaveStyle({ fontSize: 23, fontWeight: '700' });
+  expect(view.getByText('How wild foster parents help')).toHaveStyle({ fontFamily: fonts.readingSemibold, fontSize: 22, fontWeight: '400' });
   expect(view.getByText(/Parker hadn't even opened his eyes/u)).toHaveStyle({
     fontSize: 18, lineHeight: 31, fontWeight: '400', color: themes.light.text,
   });
@@ -180,7 +180,7 @@ it('restores saved highlights, translation visibility and scroll position after 
   const view = await render(<EditorialReadScreen articleId="hero" />);
   await waitFor(() => expect(view.getByTestId('editorial-reading-scroll')).toBeTruthy());
   await waitFor(() => expect(view.getByTestId(`editorial-paragraph-${getEditorialArticle('hero')!.paragraphs.length - 1}`)).toBeTruthy());
-  expect(view.getAllByText('Parker')[0]).toHaveStyle({ backgroundColor: '#F7E8EB' });
+  expect(view.getAllByText('Parker')[0]).toHaveStyle({ backgroundColor: themes.light.marker });
   expect(view.getByText('隐藏译文')).toBeTruthy();
   const scroll = view.getByTestId('editorial-reading-scroll');
   await fireEvent(scroll, 'layout', { nativeEvent: { layout: { height: 600 } } });
@@ -195,7 +195,7 @@ it('restores saved highlights, translation visibility and scroll position after 
   await fireEvent(reopened.getByTestId('editorial-reading-scroll'), 'contentSizeChange', 390, 8000);
   await fireEvent(reopened.getByTestId('editorial-reading-scroll'), 'layout', { nativeEvent: { layout: { height: 600 } } });
   expect(scrollTo).toHaveBeenLastCalledWith({ y: 1460, animated: false });
-  expect(reopened.getAllByText('Parker')[0]).toHaveStyle({ backgroundColor: '#F7E8EB' });
+  expect(reopened.getAllByText('Parker')[0]).toHaveStyle({ backgroundColor: themes.light.marker });
   scrollTo.mockRestore();
 });
 
@@ -262,18 +262,18 @@ it('highlights the spoken word, follows it, and lets manual scrolling suspend fo
   });
   const position = jest.mocked(EditorialAudioPlayer).mock.calls.at(-1)![0].onPositionChange!;
   await act(() => position({ currentTime: first[3], duration: 436.6, playing: true }));
-  expect(view.getByText('TWO')).toHaveStyle({ color: themes.light.blue });
+  expect(view.getByText('TWO')).toHaveStyle({ color: themes.light.accent });
   expect(scrollTo).toHaveBeenLastCalledWith({ y: 602, animated: true });
   await fireEvent(scroll, 'scrollBeginDrag');
   scrollTo.mockClear();
   await act(() => position({ currentTime: second[3], duration: 436.6, playing: true }));
-  expect(view.getByText('THINGS')).toHaveStyle({ color: themes.light.blue });
+  expect(view.getByText('THINGS')).toHaveStyle({ color: themes.light.accent });
   expect(view.getByText('TWO')).toHaveStyle({ color: themes.light.text });
   expect(scrollTo).not.toHaveBeenCalled();
   await fireEvent.press(view.getByLabelText('恢复跟随朗读'));
   expect(scrollTo).toHaveBeenCalled();
   await act(() => position({ currentTime: first[3], duration: 436.6, playing: false }));
-  expect(view.getByText('TWO')).toHaveStyle({ color: themes.light.blue });
+  expect(view.getByText('TWO')).toHaveStyle({ color: themes.light.accent });
   scrollTo.mockRestore();
 });
 it('renders all four original economic indicator charts', async () => {

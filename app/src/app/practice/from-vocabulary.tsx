@@ -8,7 +8,7 @@ import { ApiError } from '@/api/client';
 import { createPractice, getDashboard, registerAnonymous } from '@/api/practices';
 import { Card } from '@/components/ui';
 import { PageHeading } from '@/components/brand';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { ContinuePracticeCard } from '@/features/practice/ContinuePracticeCard';
 import { PracticePreferencesCard } from '@/features/practice/PracticePreferencesCard';
@@ -160,7 +160,7 @@ export default function VocabularyPracticeSetupScreen() {
               <Text style={[styles.retryText, { color: theme.text }]}>录入新单词</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/vocabulary/book')} style={styles.link}>
-              <Text style={{ color: theme.blue }}>查看生词本</Text>
+              <Text style={{ color: theme.accent }}>查看生词本</Text>
             </TouchableOpacity>
           </Card>
         ) : null}
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   messageArea: { alignItems: 'center', gap: 4 },
   primaryButton: {
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: radius.pill,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: { fontSize: 16, fontWeight: weight('bold') },
   retryButton: {
-    borderRadius: 9,
+    borderRadius: radius.pill,
     borderWidth: 1,
     justifyContent: 'center',
     marginTop: 12,

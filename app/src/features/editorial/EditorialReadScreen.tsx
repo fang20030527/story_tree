@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { VocabularyInput } from '@context-reader/contracts';
 
 import { createVocabularyItem, requestWordTranslation } from '@/api/practices';
-import { fonts, weight } from '@/constants/theme';
+import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import type { EditorialArticle } from '@/features/editorial/catalog';
 import { recordEditorialRecentView } from '@/features/library/libraryStorage';
@@ -234,7 +234,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           ]}>
           <View style={styles.translationHeader}>
             <View style={styles.translationHeading}>
-              <Ionicons name="language-outline" size={18} color={theme.blue} />
+              <Ionicons name="language-outline" size={18} color={theme.accent} />
               <Text style={[styles.translationTitle, { color: theme.text }]}>全文翻译</Text>
             </View>
             <TouchableOpacity
@@ -242,7 +242,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
               accessibilityState={{ expanded: showFullTranslation }}
               hitSlop={8}
               onPress={toggleTranslation}>
-              <Text style={[styles.translationAction, { color: theme.blue }]}>
+              <Text style={[styles.translationAction, { color: theme.accent }]}>
                 {showFullTranslation ? '隐藏译文' : '查看译文'}
               </Text>
             </TouchableOpacity>
@@ -294,7 +294,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
               setParagraphLayouts((current) => current[index] === y ? current : { ...current, [index]: y });
             }}>
               <InteractiveWordParagraph
-                playbackRange={cueParagraph === index && cue ? { start: cue[1], end: cue[2], color: theme.blue } : undefined}
+                playbackRange={cueParagraph === index && cue ? { start: cue[1], end: cue[2], color: theme.accent } : undefined}
                 onTextLayout={(event) => {
                   let cursor = 0;
                   const lines = event.nativeEvent.lines.map((line) => {
@@ -312,7 +312,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
                   block.role === 'caption' && nextBlock?.type === 'image' && styles.captionBeforeImage,
                 ]}
                 addedWords={addedWords}
-                addedWordColor={theme.accentSoft}
+                addedWordColor={theme.marker}
                 borderColor={theme.border}
                 dangerColor={theme.danger}
                 lookupWord={lookupEditorialWord}
@@ -355,8 +355,8 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
       {!following && playback.playing && article.audioCues?.length ? (
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="恢复跟随朗读"
           onPress={() => setFollowing(true)}
-          style={{ position: 'absolute', bottom: insets.bottom + 16, alignSelf: 'center', backgroundColor: theme.surface, borderColor: theme.blue, borderWidth: 1, borderRadius: 22, paddingHorizontal: 18, paddingVertical: 12 }}>
-          <Text style={{ color: theme.blue }}>恢复跟随朗读</Text>
+          style={{ position: 'absolute', bottom: insets.bottom + 16, alignSelf: 'center', backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1, borderRadius: 22, paddingHorizontal: 18, paddingVertical: 12 }}>
+          <Text style={{ color: theme.accent }}>恢复跟随朗读</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -396,7 +396,7 @@ function MissingEditorialArticleState() {
           onPress={() => router.replace('/')}
           accessibilityRole="button"
           accessibilityLabel="返回外刊">
-          <Text style={{ color: theme.blue }}>返回外刊</Text>
+          <Text style={{ color: theme.accent }}>返回外刊</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -418,13 +418,12 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 26 },
   content: { alignSelf: 'center', width: '100%', maxWidth: 720, paddingHorizontal: 22, paddingTop: 20 },
   articleHeader: { paddingBottom: 24 },
-  kicker: { fontSize: 12, lineHeight: 18, fontWeight: weight('medium'), letterSpacing: 0.5 },
-  // 为 Instrument Serif 的上伸部和下伸部留足空间，避免原生端裁切字形。
-  titleEn: { fontFamily: fonts.display, fontSize: 40, fontWeight: weight('regular'), lineHeight: 52, marginTop: 12 },
+  kicker: { fontFamily: fonts.label, fontSize: 11, lineHeight: 18, letterSpacing: 0.5 },
+  titleEn: { fontFamily: fonts.readingMedium, fontSize: 30, fontWeight: weight('regular'), lineHeight: 38, marginTop: 12 },
   titleZh: { fontSize: 17, lineHeight: 26, marginTop: 12 },
-  meta: { fontSize: 12, lineHeight: 18, marginTop: 16 },
+  meta: { fontFamily: fonts.label, fontSize: 11, lineHeight: 18, marginTop: 16 },
   translationBox: {
-    borderRadius: 12,
+    borderRadius: radius.content,
     borderWidth: StyleSheet.hairlineWidth,
     marginTop: 22,
     padding: 13,
@@ -442,12 +441,12 @@ const styles = StyleSheet.create({
   figure: { marginTop: 8, marginBottom: 24 },
   leadingFigure: { marginTop: 0 },
   figureWithCaption: { marginBottom: 0 },
-  figureImage: { width: '100%', borderRadius: 4 },
+  figureImage: { width: '100%', borderRadius: radius.content },
   figureCaption: { fontSize: 12, lineHeight: 19, fontWeight: weight('regular'), marginTop: 8 },
   caption: { fontSize: 12, lineHeight: 19, fontWeight: weight('regular'), marginTop: 8, marginBottom: 24 },
   captionBeforeImage: { marginTop: 0, marginBottom: 0 },
-  sectionHeading: { fontFamily: readingFont, fontSize: 23, lineHeight: 31, fontWeight: weight('bold'), marginTop: 24, marginBottom: 12 },
-  completeButton: { alignItems: 'center', borderRadius: 13, marginTop: 32, paddingVertical: 16 },
+  sectionHeading: { fontFamily: fonts.readingSemibold, fontSize: 22, lineHeight: 30, fontWeight: weight('regular'), marginTop: 24, marginBottom: 12 },
+  completeButton: { alignItems: 'center', borderRadius: radius.pill, marginTop: 32, paddingVertical: 16 },
   completeButtonText: { fontSize: 16, fontWeight: weight('semibold') },
   paragraph: { fontFamily: readingFont, fontSize: 18, lineHeight: 31, fontWeight: weight('regular'), marginTop: 0, marginBottom: 22 },
   missing: { alignItems: 'center', flex: 1, gap: 14, justifyContent: 'center' },

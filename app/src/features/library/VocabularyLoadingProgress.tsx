@@ -70,6 +70,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
   track: { width: '100%', height: 5, borderRadius: 3, overflow: 'hidden', marginTop: 16 },
   indicator: { width: 80, height: 5, borderRadius: 3 },
-  elapsed: { fontSize: 12, lineHeight: 18, marginTop: 12, fontVariant: ['tabular-nums'] },
+  elapsed: { fontSize: 12, lineHeight: 18, marginTop: 12 },
   hint: { fontSize: 12, lineHeight: 18, marginTop: 6, textAlign: 'center' },
 });

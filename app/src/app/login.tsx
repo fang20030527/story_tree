@@ -19,7 +19,7 @@ import { ApiError } from '@/api/client';
 import { confirmPasswordReset, loginWithEmail, requestPasswordReset } from '@/api/email';
 import { registerAnonymous } from '@/api/practices';
 import { Card } from '@/components/ui';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { clearAuthUser, saveAuthUserEmail } from '@/features/auth/authStorage';
 
@@ -368,14 +368,14 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 48,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 8,
+    borderRadius: radius.pill,
     paddingHorizontal: 13,
     fontSize: 15,
     marginBottom: 12,
   },
   emailButton: {
     minHeight: 50,
-    borderRadius: 8,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },

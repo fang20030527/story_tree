@@ -13,7 +13,7 @@ import {
   loadActiveImportId,
   saveActiveImportId,
 } from '@/features/imports/importStorage';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -106,8 +106,8 @@ export default function ImportPreviewScreen() {
         <Text style={[styles.title, { color: theme.text }]}>导入暂时无法继续</Text>
         {message ? <Text style={[styles.message, { color: theme.danger }]}>{message}</Text> : null}
         <TouchableOpacity onPress={() => router.replace('/import')} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
-          <Ionicons name="add" size={17} color={theme.blue} />
-          <Text style={[styles.secondaryButtonText, { color: theme.blue }]}>开始新的导入</Text>
+          <Ionicons name="add" size={17} color={theme.accent} />
+          <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>开始新的导入</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -124,6 +124,6 @@ const styles = StyleSheet.create({
   statusIcon: { alignItems: 'center', borderRadius: 36, height: 72, justifyContent: 'center', width: 72 },
   title: { fontSize: 22, fontWeight: weight('bold'), marginTop: 22, textAlign: 'center' },
   message: { fontSize: 13, lineHeight: 20, marginTop: 14, textAlign: 'center' },
-  secondaryButton: { alignItems: 'center', borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 20, minHeight: 46, paddingHorizontal: 16 },
+  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 20, minHeight: 46, paddingHorizontal: 16 },
   secondaryButtonText: { fontSize: 14, fontWeight: weight('semibold') },
 });

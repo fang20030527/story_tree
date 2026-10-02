@@ -3,7 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fonts } from '@/constants/theme';
+import { fonts, radius } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { useLearningMode } from '@/context/LearningModeContext';
 import { formatSpeakingTime, type SpeakingMaterial } from './model';
@@ -37,24 +37,24 @@ export function SpeakingMaterialRow({ material, onPress, position = 0 }: { mater
   const { theme } = useAppTheme();
   const cover = material.origin === 'platform' ? speakingCover(material.id) : undefined;
   return <Pressable accessibilityRole="button" accessibilityLabel={`打开${material.title}`} onPress={onPress} style={[styles.row, { borderBottomColor: theme.border }]}>
-    {cover ? <Image source={cover} accessibilityLabel={`${material.title}封面`} resizeMode="cover" style={[styles.cover, { backgroundColor: theme.surfaceAlt }]} /> : <View style={[styles.art, { backgroundColor: material.origin === 'platform' ? theme.pink : theme.surfaceAlt }]}><Ionicons name={material.mediaType === 'video' ? 'videocam-outline' : 'mic-outline'} color={material.origin === 'platform' ? theme.onPink : theme.accent} size={24} /></View>}
+    {cover ? <Image source={cover} accessibilityLabel={`${material.title}封面`} resizeMode="cover" style={[styles.cover, { backgroundColor: theme.surfaceAlt }]} /> : <View style={[styles.art, { backgroundColor: theme.surfaceAlt }]}><Ionicons name={material.mediaType === 'video' ? 'videocam-outline' : 'mic-outline'} color={theme.textSecondary} size={24} /></View>}
     <View style={{ flex: 1, minWidth: 0 }}><Text style={[styles.title, { color: theme.text }]}>{material.title}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{speakingAccentLabel(material)} · {material.subtitle || material.category}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{formatSpeakingTime(material.duration)} · {(material.cueCount ?? material.cues.length) ? `${material.cueCount ?? material.cues.length} 句字幕` : '待添加字幕'}{position > 0 ? ` · 继续 ${formatSpeakingTime(position)}` : ''}</Text></View>
     <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
   </Pressable>;
 }
 export const speakingStyles = StyleSheet.create({
   page: { flex: 1 }, content: { padding: 24, width: '100%', maxWidth: 960, alignSelf: 'center', paddingBottom: 40 },
-  heading: { fontSize: 28, lineHeight: 40, marginBottom: 10 }, hint: { fontSize: 12, lineHeight: 21 },
-  section: { fontSize: 17, marginTop: 28, marginBottom: 12 }, error: { fontSize: 12, lineHeight: 20, marginVertical: 12 },
-  input: { borderWidth: 1, borderRadius: 3, padding: 12, minHeight: 46, fontSize: 14 },
+  heading: { fontSize: 32, lineHeight: 40, fontWeight: '700', marginBottom: 10 }, hint: { fontSize: 12, lineHeight: 21 },
+  section: { fontSize: 17, fontWeight: '700', marginTop: 28, marginBottom: 12 }, error: { fontSize: 12, lineHeight: 20, marginVertical: 12 },
+  input: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 16, padding: 12, minHeight: 46, fontSize: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 16 },
-  chip: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderWidth: 1, borderRadius: 3 },
+  chip: { minHeight: 40, paddingHorizontal: 14, justifyContent: 'center', borderWidth: 1, borderRadius: radius.pill },
 });
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingBottom: 8, gap: 8 }, touch: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  primary: { paddingHorizontal: 18, minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 3, gap: 12 },
+  primary: { paddingHorizontal: 18, minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.pill, gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 20, borderBottomWidth: StyleSheet.hairlineWidth },
-  art: { width: 54, height: 64, alignItems: 'center', justifyContent: 'center', borderRadius: 3 },
-  cover: { width: 112, height: 72, borderRadius: 3 },
+  art: { width: 54, height: 64, alignItems: 'center', justifyContent: 'center', borderRadius: 4 },
+  cover: { width: 112, height: 72, borderRadius: 4 },
   title: { fontFamily: fonts.display, fontSize: 24, lineHeight: 28 }, hint: { fontSize: 11, lineHeight: 18, marginTop: 5 },
 });

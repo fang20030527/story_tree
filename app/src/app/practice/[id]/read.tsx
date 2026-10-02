@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError } from '@/api/client';
 import { createVocabularyItem, getPractice, recordAssistance, requestWordTranslation } from '@/api/practices';
 import { createIdempotencyKey } from '@/api/installation';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
 import { loadReadingPosition, saveReadingPosition } from '@/features/practice/practiceStorage';
@@ -79,15 +79,15 @@ function TranslationControl({
           },
         ]}>
         {loading ? (
-          <ActivityIndicator color={theme.blue} size="small" />
+          <ActivityIndicator color={theme.accent} size="small" />
         ) : (
           <Ionicons
             name={translation.visible ? 'chevron-up' : 'language-outline'}
             size={16}
-            color={theme.blue}
+            color={theme.accent}
           />
         )}
-        <Text style={[styles.translationButtonText, { color: theme.blue }]}>
+        <Text style={[styles.translationButtonText, { color: theme.accent }]}>
           {buttonLabel}
         </Text>
       </TouchableOpacity>
@@ -160,6 +160,7 @@ function PracticeParagraph({
         dangerColor={theme.danger}
         mutedColor={theme.textMuted}
         addedWords={addedWords}
+        addedWordColor={theme.marker}
         onWordAdded={onWordAdded}
         onAddToVocabulary={addPracticeVocabulary}
         lookupWord={(term, context) => requestWordTranslation({ term, context })}
@@ -401,7 +402,7 @@ const styles = StyleSheet.create({
   translationArea: { alignItems: 'flex-start' },
   translationButton: {
     alignItems: 'center',
-    borderRadius: 9,
+    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 6,
@@ -410,7 +411,7 @@ const styles = StyleSheet.create({
   },
   translationButtonText: { fontSize: 13, fontWeight: weight('medium') },
   translationCard: {
-    borderRadius: 10,
+    borderRadius: radius.content,
     borderWidth: StyleSheet.hairlineWidth,
     marginTop: 10,
     padding: 12,
@@ -420,7 +421,7 @@ const styles = StyleSheet.create({
   translationError: { fontSize: 12, lineHeight: 18, marginTop: 8 },
   quizButton: {
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: radius.pill,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
@@ -431,7 +432,7 @@ const styles = StyleSheet.create({
   quizButtonText: { fontSize: 16, fontWeight: weight('bold') },
   loadError: { fontSize: 14, lineHeight: 22, textAlign: 'center' },
   retryButton: {
-    borderRadius: 10,
+    borderRadius: radius.pill,
     borderWidth: 1,
     marginTop: 16,
     minHeight: 44,

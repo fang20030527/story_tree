@@ -22,7 +22,7 @@ import {
   deleteImportedArticle,
   listImportedArticles,
 } from '@/api/articles';
-import { fonts, weight } from '@/constants/theme';
+import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import {
   refreshRemoteEditorialCatalog,
@@ -279,10 +279,10 @@ export function ShelfScreen({
             {recent ? <TouchCard accessibilityLabel="继续上次阅读" onPress={() => {
               if (recent.kind === 'editorial') router.push({ pathname: '/editorial/[id]/read', params: { id: recent.articleId } });
               else router.push({ pathname: '/article-read', params: { id: recent.articleId } });
-            }} style={[styles.resume, { backgroundColor: theme.pink }]}>
-              <Text style={{ color: theme.onPink, fontSize: 12 }}>上次读到这里</Text>
-              <Text style={[styles.resumeTitle, { color: theme.onPink }]}>{recent.kind === 'editorial' ? getEditorialArticle(recent.articleId)?.titleEn ?? '继续阅读' : recent.title}</Text>
-              <View style={[styles.resumeAction, { borderTopColor: '#9C5A6D' }]}><Text style={{ color: theme.onPink }}>继续阅读</Text><Ionicons name="arrow-forward" size={24} color={theme.onPink} /></View>
+            }} style={[styles.resume, { borderTopColor: theme.text, borderBottomColor: theme.border }]}>
+              <Text style={[styles.resumeLabel, { color: theme.textMuted }]}>上次读到这里</Text>
+              <Text style={[styles.resumeTitle, { color: theme.text }]}>{recent.kind === 'editorial' ? getEditorialArticle(recent.articleId)?.titleEn ?? '继续阅读' : recent.title}</Text>
+              <View style={styles.resumeAction}><Text style={{ color: theme.accent, fontSize: 14, fontWeight: weight('semibold') }}>继续阅读</Text><Ionicons name="arrow-forward" size={16} color={theme.accent} /></View>
             </TouchCard> : null}
             <View style={styles.bookshelfHeading}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>
@@ -292,12 +292,12 @@ export function ShelfScreen({
                 accessibilityRole="button"
                 accessibilityLabel={managing ? '完成管理' : '管理书架'}
                 onPress={() => setManaging((current) => !current)}>
-                <Text style={[styles.manageHeader, { color: theme.blue }]}>
+                <Text style={[styles.manageHeader, { color: theme.accent }]}>
                   {managing ? '完成' : '管理'}
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={[styles.filters, { backgroundColor: theme.surfaceAlt }]}>
+            <View style={styles.filters}>
               {FILTERS.map(({ key, label }) => (
                 <TouchableOpacity
                   key={key}
@@ -306,10 +306,10 @@ export function ShelfScreen({
                   onPress={() => setFilter(key)}
                   style={[
                     styles.filter,
-                    filter === key && { backgroundColor: theme.surface },
+                    { backgroundColor: filter === key ? theme.text : theme.surfaceAlt },
                   ]}>
                   <Text style={{
-                    color: filter === key ? theme.text : theme.textMuted,
+                    color: filter === key ? theme.bg : theme.textSecondary,
                     fontSize: 12,
                     fontWeight: weight(filter === key ? 'semibold' : 'regular'),
                   }}>
@@ -330,7 +330,7 @@ export function ShelfScreen({
                   {cloudError.message}
                 </Text>
                 <TouchableOpacity accessibilityRole="button" onPress={retryCloud}>
-                  <Text style={{ color: theme.blue }}>重试</Text>
+                  <Text style={{ color: theme.accent }}>重试</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -351,7 +351,7 @@ export function ShelfScreen({
             <TouchableOpacity
               accessibilityRole="button"
               onPress={() => router.push('/')}>
-              <Text style={{ color: theme.blue }}>去外刊看看</Text>
+              <Text style={{ color: theme.accent }}>去外刊看看</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -390,19 +390,20 @@ const styles = StyleSheet.create({
   headerSide: { width: 36 },
   headerTitle: { fontSize: 18, fontWeight: weight('semibold') },
   content: { paddingHorizontal: 24, paddingTop: 12, width: '100%', maxWidth: 1160, alignSelf: 'center' },
-  resume: { padding: 24, borderRadius: 2, marginBottom: 28 },
-  resumeTitle: { fontFamily: fonts.display, fontSize: 34, lineHeight: 45, marginVertical: 18 },
-  resumeAction: { paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  resume: { borderTopWidth: 2, borderBottomWidth: StyleSheet.hairlineWidth, paddingTop: 14, paddingBottom: 18, marginBottom: 28 },
+  resumeLabel: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.3 },
+  resumeTitle: { fontFamily: fonts.readingMedium, fontSize: 22, lineHeight: 29, marginTop: 10, marginBottom: 14 },
+  resumeAction: { flexDirection: 'row', gap: 4, alignItems: 'center' },
   bookshelfHeading: {
     alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between',
     marginTop: 24,
   },
   sectionTitle: { fontSize: 19, fontWeight: weight('bold') },
   manageHeader: { fontSize: 14, fontWeight: weight('medium') },
-  filters: { borderRadius: 10, flexDirection: 'row', marginVertical: 12, padding: 4 },
+  filters: { borderRadius: radius.pill, overflow: 'hidden', flexDirection: 'row', gap: 3, marginVertical: 12 },
   filter: {
-    alignItems: 'center', borderRadius: 8, flex: 1,
-    justifyContent: 'center', paddingVertical: 8,
+    alignItems: 'center', flex: 1,
+    justifyContent: 'center', paddingVertical: 10,
   },
   inlineStatus: {
     alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 10,

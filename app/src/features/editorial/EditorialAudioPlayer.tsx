@@ -8,6 +8,7 @@ import {
   formatEditorialAudioTime as formatTime, useEditorialAudio,
   type EditorialAudioTrack, type EditorialPlaybackPosition,
 } from './EditorialAudioProvider';
+import { radius } from '@/constants/theme';
 
 export type { EditorialPlaybackPosition } from './EditorialAudioProvider';
 
@@ -93,8 +94,8 @@ export function EditorialAudioPlayer({ articleId, title, source, onPositionChang
         onResponderTerminate={() => { drag.current = null; setPreview(null); }}
         style={[styles.progressTouch, { opacity: canSeek ? 1 : 0.45 }]}>
         <View pointerEvents="none" style={[styles.track, { backgroundColor: theme.border }]}>
-          <View style={[styles.fill, { width: `${progress * 100}%`, backgroundColor: theme.blue }]} />
-          <View style={[styles.thumb, { left: `${progress * 100}%`, backgroundColor: theme.blue }]} />
+          <View style={[styles.fill, { width: `${progress * 100}%`, backgroundColor: theme.accent }]} />
+          <View style={[styles.thumb, { left: `${progress * 100}%`, backgroundColor: theme.accent }]} />
         </View>
       </View>
       <Text style={{ color: theme.textMuted }}>{formatTime(displayedTime)} / {formatTime(duration)}</Text>
@@ -126,7 +127,7 @@ export function EditorialAudioPlayer({ articleId, title, source, onPositionChang
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 12, borderRadius: 12, gap: 8, marginVertical: 12 },
+  container: { padding: 12, borderRadius: radius.content, gap: 8, marginVertical: 12 },
   button: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   rates: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   ratePickerHost: { minWidth: 112, minHeight: 44 },

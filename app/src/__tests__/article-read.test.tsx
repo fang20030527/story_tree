@@ -92,7 +92,7 @@ it('restores saved vocabulary highlighting in an imported article', async () => 
     independentCorrectCount: 0, assistedCount: 0, lastPracticedAt: null, masteredAt: null,
   }] });
   const view = await render(<ArticleReadScreen />);
-  await waitFor(() => expect(view.getByText('Careful')).toHaveStyle({ backgroundColor: '#F7E8EB' }));
+  await waitFor(() => expect(view.getByText('Careful')).toHaveStyle({ backgroundColor: jest.requireActual('@/constants/theme').themes.light.marker }));
 });
 
 it('records the private view without favorite or import header actions', async () => {

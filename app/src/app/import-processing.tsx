@@ -13,7 +13,7 @@ import {
   importNeedsAutoConfirmation,
 } from '@/features/imports/autoConfirm';
 import { useImportPolling } from '@/features/imports/useImportPolling';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -172,8 +172,8 @@ export default function ImportProcessingScreen() {
           <Text style={[styles.title, { color: theme.text }]}>没有待处理的导入</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>这个导入任务可能已完成、已过期，或暂时无法恢复。</Text>
           <TouchableOpacity onPress={() => router.replace('/import')} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
-            <Ionicons name="add" size={17} color={theme.blue} />
-            <Text style={[styles.secondaryButtonText, { color: theme.blue }]}>开始新的导入</Text>
+            <Ionicons name="add" size={17} color={theme.accent} />
+            <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>开始新的导入</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -219,8 +219,8 @@ export default function ImportProcessingScreen() {
         ) : null}
         {pollingError && !terminal && !retryable ? (
           <TouchableOpacity onPress={retryPolling} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
-            <Ionicons name="refresh-outline" size={17} color={theme.blue} />
-            <Text style={[styles.secondaryButtonText, { color: theme.blue }]}>重新获取状态</Text>
+            <Ionicons name="refresh-outline" size={17} color={theme.accent} />
+            <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>重新获取状态</Text>
           </TouchableOpacity>
         ) : null}
         {articleImport?.status === 'failed' && articleImport.sourceKind === 'url' ? (
@@ -229,14 +229,14 @@ export default function ImportProcessingScreen() {
               <Text style={[styles.primaryButtonText, { color: theme.accentText }]}>改用粘贴正文</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.replace({ pathname: '/import', params: { source: 'album' } })} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
-              <Text style={[styles.secondaryButtonText, { color: theme.blue }]}>导入正文截图</Text>
+              <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>导入正文截图</Text>
             </TouchableOpacity>
           </>
         ) : null}
         {terminal ? (
           <TouchableOpacity onPress={() => router.replace('/import')} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
-            <Ionicons name="arrow-back" size={17} color={theme.blue} />
-            <Text style={[styles.secondaryButtonText, { color: theme.blue }]}>返回选择导入方式</Text>
+            <Ionicons name="arrow-back" size={17} color={theme.accent} />
+            <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>返回选择导入方式</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -256,8 +256,8 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, lineHeight: 22, marginTop: 10, textAlign: 'center' },
   detail: { fontSize: 12, marginTop: 12, textAlign: 'center' },
   message: { fontSize: 13, lineHeight: 20, marginTop: 14, textAlign: 'center' },
-  primaryButton: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 24, minHeight: 50, minWidth: 160, paddingHorizontal: 18 },
+  primaryButton: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 24, minHeight: 50, minWidth: 160, paddingHorizontal: 18 },
   primaryButtonText: { fontSize: 15, fontWeight: weight('bold') },
-  secondaryButton: { alignItems: 'center', borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 16, minHeight: 46, paddingHorizontal: 16 },
+  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 16, minHeight: 46, paddingHorizontal: 16 },
   secondaryButtonText: { fontSize: 14, fontWeight: weight('semibold') },
 });

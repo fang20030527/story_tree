@@ -2,7 +2,7 @@ import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-au
 import { VideoView, useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { fonts } from '@/constants/theme';
+import { fonts, orbitTilt, radius } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { initialShadowingState, type ShadowingController, type ShadowingPlaybackState } from './playback';
 type Props = { source: string | number; title: string; expanded: boolean; frameWidth?: number; maxHeight?: number; onController: (controller: ShadowingController | null) => void; onState: (state: ShadowingPlaybackState) => void };
@@ -30,7 +30,16 @@ export function ShadowingAudio(props: Props) {
     const failed = status.playbackState === 'error';
     onState({ currentTime: status.currentTime, duration: status.duration, playing: status.playing, loaded: status.isLoaded, error: failed ? '音频播放失败，请检查文件格式后重试' : '', finished: status.didJustFinish });
   }, [status.currentTime, status.duration, status.playing, status.isLoaded, status.playbackState, status.didJustFinish, onState]);
-  return <View style={[styles.audio, { backgroundColor: theme.pink, minHeight: props.expanded ? 260 : 146 }]}><Text style={{ color: theme.onPink, fontSize: 10, letterSpacing: 2 }}>LISTEN. REPEAT. SPEAK.</Text><Text numberOfLines={2} style={{ color: theme.onPink, fontFamily: fonts.display, fontSize: 30, lineHeight: 34, marginTop: 16 }}>{props.title}</Text><View accessibilityElementsHidden style={styles.wave}>{[12, 26, 36, 21, 45, 19, 31, 24, 42, 14].map((height, i) => <View key={i} style={{ height, width: 3, backgroundColor: theme.onPink, opacity: status.playing ? 1 : .5 }} />)}</View></View>;
+  const hole = theme.mode === 'dark' ? theme.bg : theme.text;
+  return <View style={[styles.audio, { backgroundColor: theme.surfaceAlt, minHeight: props.expanded ? 260 : 146 }]}>
+    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
+      <View style={[styles.orbit, { backgroundColor: theme.vermilion, transform: [{ rotate: orbitTilt }] }]} />
+      <View style={[styles.hole, { backgroundColor: hole, transform: [{ rotate: orbitTilt }] }]} />
+    </View>
+    <Text style={{ color: theme.text, fontFamily: fonts.label, fontSize: 10, letterSpacing: 2 }}>LISTEN · REPEAT · SPEAK</Text>
+    <View style={{ flex: 1 }} />
+    <Text numberOfLines={2} style={{ color: theme.text, fontFamily: fonts.display, fontSize: 26, lineHeight: 31, marginTop: 16, maxWidth: '60%' }}>{props.title}</Text>
+    <View accessibilityElementsHidden style={styles.wave}>{[12, 26, 36, 21, 45, 19, 31, 24, 42, 14].map((height, i) => <View key={i} style={{ height, width: 3, borderRadius: 1.5, backgroundColor: theme.text, opacity: status.playing ? 1 : .45 }} />)}</View></View>;
 }
 export const ShadowingVideo = React.memo(function ShadowingVideo(props: Props) {
   const { width, height } = useWindowDimensions();
@@ -53,4 +62,4 @@ export const ShadowingVideo = React.memo(function ShadowingVideo(props: Props) {
   }, [player, controller, report, onController]);
   return <VideoView player={player} nativeControls={false} contentFit="contain" style={{ height: videoHeight, width: '100%', backgroundColor: '#191B17' }} />;
 });
-const styles = StyleSheet.create({ audio: { padding: 22, borderRadius: 3 }, wave: { flexDirection: 'row', gap: 7, alignItems: 'center', height: 40, marginTop: 12 } });
+const styles = StyleSheet.create({ audio: { padding: 22, borderRadius: radius.content, overflow: 'hidden' }, orbit: { position: 'absolute', right: '-18%', top: '-30%', width: '78%', height: '120%', borderRadius: '50%' }, hole: { position: 'absolute', right: '20%', top: '26%', width: '22%', height: '30%', borderRadius: '50%' }, wave: { flexDirection: 'row', gap: 7, alignItems: 'center', height: 40, marginTop: 12 } });

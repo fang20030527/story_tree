@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import {
   clearCreatePracticeOperation,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   errorArea: { alignItems: 'center', marginTop: 20, width: '100%' },
   primaryButton: {
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: radius.pill,
     marginTop: 24,
     minHeight: 48,
     justifyContent: 'center',
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   primaryText: { fontSize: 15, fontWeight: weight('bold') },
   secondaryButton: {
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: radius.pill,
     borderWidth: 1,
     justifyContent: 'center',
     marginTop: 14,

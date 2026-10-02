@@ -20,8 +20,11 @@ function ModeAudioOverlay() {
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     ...(Platform.OS === 'web' ? Ionicons.font : {}),
-    InstrumentSerif: require('../../assets/fonts/InstrumentSerif-Regular.ttf'),
-    SourceSerif4: require('../../assets/fonts/SourceSerif4-Regular.ttf'),
+    HeidongBrand: require('../../assets/fonts/HeidongBrand-Bold.ttf'),
+    HeidongBrandSemiBold: require('../../assets/fonts/HeidongBrand-SemiBold.ttf'),
+    HeidongReading: require('../../assets/fonts/HeidongReading-Regular.ttf'),
+    HeidongReadingMedium: require('../../assets/fonts/HeidongReading-Medium.ttf'),
+    HeidongReadingSemiBold: require('../../assets/fonts/HeidongReading-SemiBold.ttf'),
   });
   if (Platform.OS !== 'web' && !loaded && !error) return null;
   return (

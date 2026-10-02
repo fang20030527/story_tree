@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 
 import {
@@ -186,9 +186,9 @@ export function VocabularyInputList({
               <Ionicons
                 name={sourceExpanded ? 'chevron-up' : 'add'}
                 size={16}
-                color={theme.blue}
+                color={theme.accent}
               />
-              <Text style={[styles.sourceToggleText, { color: theme.blue }]}>
+              <Text style={[styles.sourceToggleText, { color: theme.accent }]}>
                 {sourceExpanded ? '收起原句' : '添加原句（可选）'}
               </Text>
             </TouchableOpacity>
@@ -242,8 +242,8 @@ export function VocabularyInputList({
             opacity: disabled || value.length >= 10 ? 0.5 : 1,
           },
         ]}>
-        <Ionicons name="add-circle-outline" size={19} color={theme.blue} />
-        <Text style={[styles.addButtonText, { color: theme.blue }]}>添加义项</Text>
+        <Ionicons name="add-circle-outline" size={19} color={theme.accent} />
+        <Text style={[styles.addButtonText, { color: theme.accent }]}>添加义项</Text>
         <Text style={[styles.rowCount, { color: theme.textMuted }]}>
           {value.length}/10
         </Text>
@@ -261,7 +261,7 @@ export function VocabularyInputList({
 const styles = StyleSheet.create({
   list: { gap: 12 },
   row: {
-    borderRadius: 12,
+    borderRadius: radius.option,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
   },
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   rowTitle: { fontSize: 16, fontWeight: weight('semibold') },
   label: { fontSize: 13, marginBottom: 6, marginTop: 8 },
   input: {
-    borderRadius: 9,
+    borderRadius: radius.pill,
     borderWidth: 1,
     fontSize: 16,
     minHeight: 46,
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   sourceToggleText: { fontSize: 13, fontWeight: weight('medium') },
   addButton: {
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: radius.pill,
     borderStyle: 'dashed',
     borderWidth: 1,
     flexDirection: 'row',

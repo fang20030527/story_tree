@@ -6,7 +6,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { createIdempotencyKey } from '@/api/installation';
 import { retryFailedTopics } from '@/api/practices';
 import { useAppTheme } from '@/context/ThemeContext';
@@ -166,7 +166,7 @@ function TopicSelection({ practiceId, vocabularyOrigin }: { practiceId: string; 
                   {article.wordCount ? `${article.wordCount} 词 · 约 ${Math.max(1, Math.ceil(article.wordCount / 120))} 分钟` : '200–300 词'}
                 </Text>
                 <View style={styles.action}>
-                  <Text style={[styles.actionText, { color: article.status === 'completed' ? theme.green : theme.accent }]}>{statusLabels[article.status]}</Text>
+                  <Text style={[styles.actionText, { color: article.status === 'completed' ? theme.success : theme.accent }]}>{statusLabels[article.status]}</Text>
                   <Ionicons name={article.status === 'completed' ? 'checkmark-circle' : available ? 'arrow-forward' : failed ? 'alert-circle-outline' : 'time-outline'} size={17} color={theme.accent} />
                 </View>
               </View>
@@ -199,11 +199,11 @@ const styles = StyleSheet.create({
   eyebrow: { marginTop: 12, fontSize: 11, letterSpacing: 2, fontWeight: weight('bold') },
   title: { fontSize: 27, lineHeight: 36, fontWeight: weight('bold') },
   subtitle: { fontSize: 14, lineHeight: 23, marginBottom: 8 },
-  notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12 },
+  notice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: radius.content },
   noticeText: { flex: 1, fontSize: 13, lineHeight: 20 },
-  retryFailedButton: { minHeight: 46, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  retryFailedButton: { minHeight: 46, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   retryFailedText: { fontSize: 14, fontWeight: weight('semibold') },
-  card: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 19, gap: 16 },
+  card: { borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, padding: 19, gap: 16 },
   cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   icon: { padding: 9, borderRadius: 12 },
   topic: { flex: 1, fontSize: 15, fontWeight: weight('semibold') },

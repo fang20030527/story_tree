@@ -30,7 +30,7 @@ import {
   restoreVocabularyWord,
 } from '@/api/practices';
 import { Card } from '@/components/ui';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { VocabularyLoadingProgress } from '@/features/library/VocabularyLoadingProgress';
 import {
@@ -159,7 +159,7 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
       </View>
       <Text style={[styles.meaning, { color: theme.accent }]}>{item.meaningZh}</Text>
       <Text style={[styles.reviewReason, {
-        color: item.reviewReason === 'scheduled' ? theme.textSecondary : theme.blue,
+        color: item.reviewReason === 'scheduled' ? theme.textSecondary : theme.accent,
       }]}>
         {wordReviewLabel(item)}
       </Text>
@@ -179,10 +179,10 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
               if (!expanded && !contexts) void loadContexts();
             }}
             style={styles.contextToggle}>
-            <Text style={{ color: theme.blue, fontSize: 12 }}>
+            <Text style={{ color: theme.accent, fontSize: 12 }}>
               {expanded ? '收起语境' : `查看 ${item.contextCount} 个已保存语境`}
             </Text>
-            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.blue} />
+            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.accent} />
           </TouchableOpacity>
           {expanded ? (
             <View style={[styles.contextPanel, { borderColor: theme.border }]}>
@@ -194,7 +194,7 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
                 <View>
                   <Text style={[styles.stateText, { color: theme.danger }]}>{error}</Text>
                   <TouchableOpacity onPress={() => void loadContexts()} accessibilityLabel={`重试加载 ${item.term} 的语境`}>
-                    <Text style={[styles.inlineRetry, { color: theme.blue }]}>重试加载语境</Text>
+                    <Text style={[styles.inlineRetry, { color: theme.accent }]}>重试加载语境</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -224,7 +224,7 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
           {masteryPending ? (
             <ActivityIndicator color={theme.accent} size="small" />
           ) : (
-            <Text style={[styles.masteryButtonText, { color: mastered ? theme.blue : theme.textSecondary }]}>
+            <Text style={[styles.masteryButtonText, { color: mastered ? theme.accent : theme.textSecondary }]}>
               {mastered ? '恢复学习' : '标记已掌握'}
             </Text>
           )}
@@ -422,7 +422,7 @@ export default function VocabularyBookScreen() {
             <Text style={[styles.stateText, { color: theme.textSecondary }]}>{empty.body}</Text>
             {filter !== DEFAULT_FILTER && summary?.totalCount !== 0 ? (
               <TouchableOpacity onPress={() => selectFilter(DEFAULT_FILTER)} style={styles.contextToggle}>
-                <Text style={{ color: theme.blue }}>查看在学单词</Text>
+                <Text style={{ color: theme.accent }}>查看在学单词</Text>
               </TouchableOpacity>
             ) : null}
           </Card>
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, fontSize: 17, fontWeight: weight('semibold'), textAlign: 'center' },
   headerButton: {
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: radius.pill,
     borderWidth: 1,
     height: 36,
     justifyContent: 'center',
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   filterChip: {
-    borderRadius: 16,
+    borderRadius: radius.pill,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 6,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 16, fontWeight: weight('semibold'), marginTop: 12 },
   retryButton: {
-    borderRadius: 9,
+    borderRadius: radius.pill,
     borderWidth: 1,
     justifyContent: 'center',
     marginTop: 14,
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   retryText: { fontSize: 14, fontWeight: weight('semibold') },
   wordCard: { marginBottom: 10, padding: 14 },
   wordHeading: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  masteredBadge: { borderRadius: 5, paddingHorizontal: 7, paddingVertical: 2 },
+  masteredBadge: { borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
   reviewReason: { fontSize: 12, lineHeight: 18, marginTop: 8 },
   contextToggle: { alignItems: 'center', flexDirection: 'row', gap: 4, minHeight: 36, marginTop: 5 },
   contextPanel: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10 },
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   metrics: { flex: 1, fontSize: 11, lineHeight: 17 },
   masteryButton: {
     alignItems: 'center',
-    borderRadius: 9,
+    borderRadius: radius.pill,
     borderWidth: 1,
     justifyContent: 'center',
     marginLeft: 12,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   inlineRetry: { fontSize: 13, fontWeight: weight('semibold'), marginTop: 6 },
   loadMoreButton: {
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: radius.pill,
     borderWidth: 1,
     justifyContent: 'center',
     marginTop: 4,

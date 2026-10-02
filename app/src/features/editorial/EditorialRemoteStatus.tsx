@@ -10,13 +10,13 @@ export function EditorialRemoteStatus({ loading, retry }: {
   const { theme } = useAppTheme();
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
-      {loading ? <ActivityIndicator color={theme.blue} /> : null}
+      {loading ? <ActivityIndicator color={theme.accent} /> : null}
       <Text style={[styles.message, { color: theme.textMuted }]}>
         {loading ? '正在加载外刊…' : '暂时无法读取这篇外刊'}
       </Text>
       {!loading ? (
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="重试加载外刊" onPress={retry}>
-          <Text style={{ color: theme.blue }}>重试</Text>
+          <Text style={{ color: theme.accent }}>重试</Text>
         </TouchableOpacity>
       ) : null}
     </View>

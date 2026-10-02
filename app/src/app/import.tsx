@@ -38,7 +38,7 @@ import {
   saveActiveImportId,
 } from '@/features/imports/importStorage';
 import { hasConfirmedAge, saveAgeConfirmation } from '@/features/practice/practiceStorage';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import type { ImportAssetDescriptor } from '@context-reader/contracts';
 
 type SourceId = (typeof importSources)[number]['id'];
@@ -493,8 +493,8 @@ export default function ImportScreen() {
               <View style={styles.labelRow}>
                 <Text style={[styles.label, { color: theme.text }]}>英文正文</Text>
                 <TouchableOpacity onPress={() => void pasteClipboard()} hitSlop={8} style={styles.clipboardButton}>
-                  <Ionicons name="clipboard-outline" size={15} color={theme.blue} />
-                  <Text style={[styles.clipboardText, { color: theme.blue }]}>读取剪贴板</Text>
+                  <Ionicons name="clipboard-outline" size={15} color={theme.accent} />
+                  <Text style={[styles.clipboardText, { color: theme.accent }]}>读取剪贴板</Text>
                 </TouchableOpacity>
               </View>
               <TextInput
@@ -673,8 +673,8 @@ function AlbumPicker({
         </View>
       )}
       <TouchableOpacity onPress={onPick} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
-        <Ionicons name="add" size={18} color={theme.blue} />
-        <Text style={[styles.secondaryButtonText, { color: theme.blue }]}>{assets.length ? '重新选择照片' : '选择照片'}</Text>
+        <Ionicons name="add" size={18} color={theme.accent} />
+        <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>{assets.length ? '重新选择照片' : '选择照片'}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -722,8 +722,8 @@ function LocalPicker({
         </View>
       )}
       <TouchableOpacity onPress={onPick} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
-        <Ionicons name="folder-open-outline" size={17} color={theme.blue} />
-        <Text style={[styles.secondaryButtonText, { color: theme.blue }]}>{asset ? '更换文件' : '打开文件选择器'}</Text>
+        <Ionicons name="folder-open-outline" size={17} color={theme.accent} />
+        <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>{asset ? '更换文件' : '打开文件选择器'}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -740,17 +740,17 @@ const styles = StyleSheet.create({
   chooserTitle: { fontSize: 25, fontWeight: weight('bold') },
   chooserSubtitle: { fontSize: 14, lineHeight: 22, marginTop: 8 },
   sourceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 24 },
-  sourceCard: { alignItems: 'center', borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, flexBasis: '31%', flexGrow: 1, minHeight: 122, paddingHorizontal: 8, paddingVertical: 16 },
+  sourceCard: { alignItems: 'center', borderRadius: radius.option, borderWidth: StyleSheet.hairlineWidth, flexBasis: '31%', flexGrow: 1, minHeight: 122, paddingHorizontal: 8, paddingVertical: 16 },
   sourceIcon: { alignItems: 'center', borderRadius: 16, height: 50, justifyContent: 'center', width: 50 },
   sourceLabel: { fontSize: 13, fontWeight: weight('medium'), marginTop: 9 },
-  limitNote: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 8, marginTop: 22, paddingHorizontal: 12, paddingVertical: 12 },
+  limitNote: { alignItems: 'center', borderRadius: radius.content, flexDirection: 'row', gap: 8, marginTop: 22, paddingHorizontal: 12, paddingVertical: 12 },
   limitText: { flex: 1, fontSize: 12, lineHeight: 18 },
-  resumeCard: { alignItems: 'center', borderRadius: 13, borderWidth: 1, flexDirection: 'row', marginTop: 16, padding: 12 },
+  resumeCard: { alignItems: 'center', borderRadius: radius.option, borderWidth: 1, flexDirection: 'row', marginTop: 16, padding: 12 },
   resumeIcon: { alignItems: 'center', borderRadius: 11, height: 40, justifyContent: 'center', width: 40 },
   resumeCopy: { flex: 1, marginHorizontal: 10 },
   resumeTitle: { fontSize: 14, fontWeight: weight('semibold') },
   resumeSubtitle: { fontSize: 11, marginTop: 4 },
-  sourceIntro: { alignItems: 'center', borderRadius: 14, flexDirection: 'row', gap: 12, marginBottom: 22, padding: 14 },
+  sourceIntro: { alignItems: 'center', borderRadius: radius.content, flexDirection: 'row', gap: 12, marginBottom: 22, padding: 14 },
   sourceIntroIcon: { alignItems: 'center', borderRadius: 15, height: 54, justifyContent: 'center', width: 54 },
   sourceIntroCopy: { flex: 1 },
   sourceIntroTitle: { fontSize: 16, fontWeight: weight('semibold') },
@@ -759,34 +759,34 @@ const styles = StyleSheet.create({
   labelRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   label: { fontSize: 15, fontWeight: weight('semibold') },
   helper: { fontSize: 12, lineHeight: 18, marginTop: 6 },
-  input: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, fontSize: 15, marginTop: 10, minHeight: 50, paddingHorizontal: 14 },
-  textArea: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, fontSize: 15, lineHeight: 22, marginTop: 10, minHeight: 230, padding: 14 },
+  input: { borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, fontSize: 15, marginTop: 10, minHeight: 50, paddingHorizontal: 14 },
+  textArea: { borderRadius: radius.option, borderWidth: StyleSheet.hairlineWidth, fontSize: 15, lineHeight: 22, marginTop: 10, minHeight: 230, padding: 14 },
   clipboardButton: { alignItems: 'center', flexDirection: 'row', gap: 5 },
   clipboardText: { fontSize: 12, fontWeight: weight('medium') },
   message: { fontSize: 13, lineHeight: 20, marginBottom: 4, marginTop: 8, textAlign: 'center' },
-  primaryButton: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 52, paddingHorizontal: 18 },
+  primaryButton: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 52, paddingHorizontal: 18 },
   primaryButtonText: { fontSize: 16, fontWeight: weight('bold') },
-  secondaryButton: { alignItems: 'center', borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 12, minHeight: 46 },
+  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 12, minHeight: 46 },
   secondaryButtonText: { fontSize: 14, fontWeight: weight('semibold') },
-  emptyPicker: { alignItems: 'center', borderRadius: 12, borderStyle: 'dashed', borderWidth: 1, justifyContent: 'center', minHeight: 130, marginTop: 12, padding: 18 },
+  emptyPicker: { alignItems: 'center', borderRadius: radius.content, borderStyle: 'dashed', borderWidth: 1, justifyContent: 'center', minHeight: 130, marginTop: 12, padding: 18 },
   emptyPickerText: { fontSize: 13, marginTop: 8 },
   thumbnailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
-  thumbnailWrap: { borderRadius: 10, height: 104, overflow: 'hidden', position: 'relative', width: 104 },
+  thumbnailWrap: { borderRadius: radius.content, height: 104, overflow: 'hidden', position: 'relative', width: 104 },
   thumbnail: { height: '100%', width: '100%' },
-  orderBadge: { alignItems: 'center', borderRadius: 10, height: 22, justifyContent: 'center', left: 6, position: 'absolute', top: 6, width: 22 },
+  orderBadge: { alignItems: 'center', borderRadius: radius.pill, height: 22, justifyContent: 'center', left: 6, position: 'absolute', top: 6, width: 22 },
   orderText: { fontSize: 11, fontWeight: weight('bold') },
-  removeBadge: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, height: 22, justifyContent: 'center', position: 'absolute', right: 6, top: 6, width: 22 },
+  removeBadge: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: radius.pill, height: 22, justifyContent: 'center', position: 'absolute', right: 6, top: 6, width: 22 },
   reorderActions: { bottom: 5, flexDirection: 'row', gap: 3, position: 'absolute', right: 5 },
-  reorderButton: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 9, height: 18, justifyContent: 'center', width: 18 },
+  reorderButton: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: radius.pill, height: 18, justifyContent: 'center', width: 18 },
   uploadOverlay: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)', bottom: 0, justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: 0 },
   totalSize: { fontSize: 12, marginTop: 4 },
-  fileCard: { alignItems: 'center', borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', marginTop: 12, padding: 12 },
+  fileCard: { alignItems: 'center', borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', marginTop: 12, padding: 12 },
   fileIcon: { alignItems: 'center', borderRadius: 10, height: 42, justifyContent: 'center', width: 42 },
   fileCopy: { flex: 1, marginHorizontal: 10 },
   fileName: { fontSize: 14, fontWeight: weight('semibold') },
   fileMeta: { fontSize: 11, marginTop: 4 },
   ageContent: { flex: 1, justifyContent: 'center', padding: 24 },
-  ageCard: { alignItems: 'center', borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 24 },
+  ageCard: { alignItems: 'center', borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, padding: 24 },
   ageIcon: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
   ageTitle: { fontSize: 20, fontWeight: weight('bold'), marginTop: 18 },
   ageBody: { fontSize: 14, lineHeight: 22, marginTop: 10, textAlign: 'center' },

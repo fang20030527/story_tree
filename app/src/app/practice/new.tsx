@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api/client';
 import { createPractice, registerAnonymous } from '@/api/practices';
-import { weight } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { VocabularyInputList } from '@/features/practice/VocabularyInputList';
 import {
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   ageContent: { flex: 1, justifyContent: 'center', padding: 24 },
   ageCard: {
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: radius.content,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 24,
   },
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: radius.pill,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',

@@ -19,7 +19,7 @@ import { isEnglishSelfTest } from './isEnglishSelfTest';
 
 import { ApiError } from '@/api/client';
 import { createIdempotencyKey } from '@/api/installation';
-import { weight } from '@/constants/theme';
+import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 
 interface QuizQuestionProps {
@@ -64,7 +64,7 @@ export function QuizQuestion({
       onWordAdded={handleWordAdded}
       onAddToVocabulary={async (input, key) => { await createVocabularyItem(input, key); }}
       targetColor={theme.accent}
-      addedWordColor={theme.accentSoft}
+      addedWordColor={theme.marker}
       surfaceColor={theme.surfaceAlt}
       borderColor={theme.border}
       mutedColor={theme.textSecondary}
@@ -136,15 +136,10 @@ export function QuizQuestion({
               style={[
                 styles.option,
                 {
-                  backgroundColor: correct
-                    ? `${theme.green}18`
-                    : selectedWrong
-                      ? `${theme.danger}14`
-                      : selected
-                        ? theme.accentSoft
-                        : theme.surface,
+                  backgroundColor: selected && !feedback ? theme.accentSoft : theme.surface,
+                  borderWidth: correct || selectedWrong || (selected && !feedback) ? 1.5 : 1,
                   borderColor: correct
-                    ? theme.green
+                    ? theme.success
                     : selectedWrong
                       ? theme.danger
                       : selected
@@ -152,9 +147,16 @@ export function QuizQuestion({
                         : theme.border,
                 },
               ]}>
-              {feedback
-                ? feedbackText(option.label, [styles.optionText, { color: theme.text }])
-                : <Text style={[styles.optionText, { color: theme.text }]}>{option.label}</Text>}
+              <View style={styles.optionHead}>
+                <View style={styles.optionLabel}>
+                  {feedback
+                    ? feedbackText(option.label, [styles.optionText, { color: selectedWrong ? theme.textMuted : theme.text },
+                      selectedWrong && { textDecorationLine: 'line-through', textDecorationColor: theme.danger }])
+                    : <Text style={[styles.optionText, { color: theme.text }]}>{option.label}</Text>}
+                </View>
+                {correct ? <Text style={[styles.optionStatus, { color: theme.success }]}>✓ 正确</Text> : null}
+                {selectedWrong ? <Text style={[styles.optionStatus, { color: theme.danger }]}>✕ 你的选择</Text> : null}
+              </View>
               {feedback?.optionExplanations[option.id] ? (
                 feedbackText(feedback.optionExplanations[option.id]!, [
                   styles.optionExplanation, { color: theme.textSecondary },
@@ -169,12 +171,12 @@ export function QuizQuestion({
         <View
           style={[
             styles.feedback,
-            { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
+            { backgroundColor: theme.surfaceAlt },
           ]}>
           <Text
             style={[
               styles.feedbackTitle,
-              { color: feedback.isCorrect ? theme.green : theme.text },
+              { color: feedback.isCorrect ? theme.success : theme.text },
             ]}>
             {feedback.isCorrect ? '回答正确' : (englishSelfTest ? '正确答案已标出' : '正确义项已标出')}
           </Text>
@@ -238,21 +240,23 @@ export function QuizQuestion({
 
 const styles = StyleSheet.create({
   term: { fontSize: 15, fontWeight: weight('bold') },
-  prompt: { fontSize: 22, fontWeight: weight('bold'), lineHeight: 31, marginTop: 8 },
+  prompt: { fontFamily: fonts.reading, fontSize: 20, fontWeight: weight('regular'), lineHeight: 31, marginTop: 8 },
   options: { gap: 10, marginTop: 24 },
   option: {
-    borderRadius: 11,
-    borderWidth: 1,
+    borderRadius: radius.option,
     justifyContent: 'center',
     minHeight: 54,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  optionText: { fontSize: 15, lineHeight: 22 },
+  optionHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  optionLabel: { flex: 1, minWidth: 0 },
+  optionText: { fontFamily: fonts.readingMedium, fontSize: 15, fontWeight: weight('regular'), lineHeight: 22 },
+  optionStatus: { fontSize: 12, fontWeight: weight('semibold') },
   optionExplanation: { fontSize: 12, lineHeight: 18, marginTop: 6 },
   primaryButton: {
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: radius.pill,
     justifyContent: 'center',
     marginTop: 24,
     minHeight: 50,
@@ -261,8 +265,7 @@ const styles = StyleSheet.create({
   dontKnowButton: { alignItems: 'center', marginTop: 12, padding: 10 },
   dontKnowText: { fontSize: 14, fontWeight: weight('medium') },
   feedback: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.content,
     marginTop: 20,
     padding: 16,
   },

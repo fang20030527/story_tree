@@ -15,10 +15,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError } from '@/api/client';
 import { InstallationCredentialUnavailableError } from '@/api/installation';
 import { getDashboard, getVocabularyWords } from '@/api/practices';
-import { BrandHeader, PageHeading, StatRow, TouchCard } from '@/components/brand';
+import { BrandHeader, OrbitMap, PageHeading, StatRow, TouchCard } from '@/components/brand';
 
 import { Card } from '@/components/ui';
-import { fonts, weight } from '@/constants/theme';
+import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 
 function dashboardErrorMessage(error: unknown): string {
@@ -69,13 +69,25 @@ export default function WordsScreen() {
       <BrandHeader />
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]} showsVerticalScrollIndicator={false}>
         <PageHeading title="词库" description="每个词，都有下次见面。" />
-        <TouchCard onPress={() => router.push('/practice/from-vocabulary')} accessibilityLabel="打开 AI 阅读练习"
-          style={[styles.review, { backgroundColor: theme.reviewPink }]}>
-          <Text style={styles.reviewIntro}>今天，和这些词再见一面</Text>
-          <View style={styles.reviewCount}><Text testID="due-learning-count" style={styles.largeCount}>{number(dashboard?.dueLearningCount)}</Text><Text style={styles.reviewIntro}>词待复习</Text></View>
-          <Text style={styles.reviewIntro}>在一篇新文章里，把它们读懂。</Text>
-          <View style={styles.reviewAction}><Text style={styles.reviewButton}>开始今天的练习</Text><Ionicons name="arrow-forward" size={24} color="#FFFFFF" /></View>
-        </TouchCard>
+        <View style={styles.review}>
+          <View style={styles.reviewTop}>
+            <View>
+              <Text testID="due-learning-count" style={[styles.largeCount, { color: dashboard ? theme.text : theme.textMuted }]}>{number(dashboard?.dueLearningCount)}</Text>
+              <Text style={[styles.reviewLabel, { color: theme.textMuted }]}>今天待复习</Text>
+            </View>
+            <View style={styles.orbit}>
+              <OrbitMap due={dashboard?.dueLearningCount ?? 0}
+                learning={Math.max((summary?.learningCount ?? 0) - (dashboard?.dueLearningCount ?? 0), 0)}
+                mastered={summary?.masteredCount ?? 0} />
+            </View>
+          </View>
+          <Text style={[styles.reviewIntro, { color: theme.textSecondary }]}>在一篇新文章里，和这些词再见一面。</Text>
+          <TouchCard onPress={() => router.push('/practice/from-vocabulary')} accessibilityLabel="打开 AI 阅读练习"
+            style={[styles.reviewAction, { backgroundColor: theme.accent }]}>
+            <Text style={[styles.reviewButton, { color: theme.accentText }]}>开始今天的练习</Text>
+            <Ionicons name="arrow-forward" size={18} color={theme.accentText} />
+          </TouchCard>
+        </View>
         <StatRow items={[
           { label: '全部单词', value: number(dashboard?.vocabularyCount), testID: 'total-word-count' },
           { label: '正在学习', value: number(summary?.learningCount) },
@@ -85,9 +97,9 @@ export default function WordsScreen() {
           <Text style={[styles.stateText, { color: theme.textSecondary }]}>{error}</Text>
           <TouchableOpacity accessibilityRole="button" onPress={() => void loadDashboard()} style={[styles.retryButton, { borderColor: theme.border }]}><Text style={{ color: theme.text }}>重试</Text></TouchableOpacity>
         </Card> : null}
-        <View style={[styles.bookHeading, { borderTopColor: theme.border }]}><Text style={[styles.bookTitle, { color: theme.text }]}>我的生词本</Text><TouchableOpacity onPress={() => router.push('/vocabulary/book')} style={styles.link}><Text style={{ color: theme.accent }}>查看全部</Text></TouchableOpacity></View>
+        <View style={styles.bookHeading}><Text style={[styles.bookTitle, { color: theme.text }]}>我的生词本</Text><TouchableOpacity onPress={() => router.push('/vocabulary/book')} style={styles.link}><Text style={{ color: theme.accent }}>查看全部</Text></TouchableOpacity></View>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="打开生词本" onPress={() => router.push('/vocabulary/book')} style={[styles.bookRow, { borderTopColor: theme.text }]}>
-          <View style={[styles.bookCover, { backgroundColor: '#B53720' }]}><Text style={styles.coverText}>{'Words\nin\ncontext.'}</Text></View>
+          <View style={[styles.bookCover, { backgroundColor: theme.pink }]}><Text style={[styles.coverText, { color: theme.onPink }]}>{'Words\nin\ncontext.'}</Text></View>
           <View style={styles.entryCopy}>
             <Text style={[styles.entryTitle, { color: theme.text }]}>生词本</Text>
             <Text style={[styles.entryMeta, { color: theme.textSecondary }]}>阅读中遇见的词</Text>
@@ -104,23 +116,25 @@ export default function WordsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { paddingHorizontal: 24, paddingTop: 12, width: '100%', maxWidth: 760, alignSelf: 'center' },
-  review: { padding: 24, borderRadius: 2 },
-  reviewIntro: { color: '#FFFFFF', fontSize: 13, lineHeight: 22 },
-  reviewCount: { flexDirection: 'row', alignItems: 'baseline', gap: 12, marginVertical: 12 },
-  largeCount: { fontFamily: fonts.display, fontSize: 100, lineHeight: 114, color: '#FFFFFF' },
-  reviewAction: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#F0C5D3', marginTop: 24, paddingTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  reviewButton: { color: '#FFFFFF', fontSize: 15, fontWeight: weight('semibold') },
-  bookHeading: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 28, marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  bookTitle: { fontSize: 20 },
+  review: { paddingBottom: 8 },
+  reviewTop: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  orbit: { flex: 1, maxWidth: 340 },
+  largeCount: { fontFamily: fonts.display, fontSize: 72, lineHeight: 80 },
+  reviewLabel: { fontSize: 13, marginTop: 2 },
+  reviewIntro: { fontSize: 14, lineHeight: 22, marginTop: 14 },
+  reviewAction: { alignSelf: 'flex-start', borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, minHeight: 46, paddingHorizontal: 18 },
+  reviewButton: { fontSize: 15, fontWeight: weight('semibold') },
+  bookHeading: { paddingTop: 20, marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  bookTitle: { fontSize: 19, fontWeight: weight('bold') },
   link: { minHeight: 44, justifyContent: 'center' },
   bookRow: { flexDirection: 'row', gap: 20, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 8 },
-  bookCover: { width: 94, minHeight: 140, padding: 12 },
-  coverText: { fontFamily: fonts.display, color: '#FFFFFF', fontSize: 30, lineHeight: 39 },
+  bookCover: { width: 94, minHeight: 136, padding: 12, borderTopLeftRadius: 14, borderTopRightRadius: 14, borderBottomLeftRadius: radius.content, borderBottomRightRadius: radius.content },
+  coverText: { fontFamily: fonts.display, fontSize: 22, lineHeight: 28 },
   entryCopy: { flex: 1, justifyContent: 'center' },
-  entryTitle: { fontSize: 17 },
+  entryTitle: { fontSize: 17, fontWeight: weight('semibold') },
   entryMeta: { fontSize: 12, lineHeight: 20, marginTop: 8 },
   entryHint: { fontSize: 13, marginTop: 18 },
   stateCard: { alignItems: 'center', marginBottom: 10, padding: 20 },
   stateText: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
-  retryButton: { borderRadius: 4, borderWidth: 1, justifyContent: 'center', marginTop: 14, minHeight: 44, paddingHorizontal: 22 },
+  retryButton: { borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center', marginTop: 14, minHeight: 44, paddingHorizontal: 22 },
 });
