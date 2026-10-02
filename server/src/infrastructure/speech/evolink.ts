@@ -120,7 +120,8 @@ export class EvolinkPronunciationProvider implements PronunciationProvider {
     let response: Response;
     try {
       response = await this.fetchImpl(this.endpoint, {
-        method: 'POST', redirect: 'error', signal,
+        // Workers 仅支持 follow／manual；手动模式不跟随跳转，也不转发密钥。
+        method: 'POST', redirect: 'manual', signal,
         headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });

@@ -21,7 +21,7 @@ describe('EvoLink 音频口语点评', () => {
     const [url, init] = fetcher.mock.calls[0]!;
     expect(url).toBe('https://direct.evolink.ai/v1beta/models/gemini-2.5-flash:generateContent');
     expect(url).not.toContain('private-test-api-key');
-    expect(init).toMatchObject({ method: 'POST', redirect: 'error',
+    expect(init).toMatchObject({ method: 'POST', redirect: 'manual',
       headers: { authorization: 'Bearer private-test-api-key', 'content-type': 'application/json' } });
     const body = JSON.parse(init!.body as string);
     expect(body.contents[0].parts[0]).toEqual({ inlineData: { mimeType: 'audio/m4a', data: 'AQID' } });
@@ -34,6 +34,15 @@ describe('EvoLink 音频口语点评', () => {
       clarityScore: 80, fluencyScore: null, completenessScore: 100,
       wordTips: output.wordTips, feedback: output.feedback });
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([301, 302, 307, 308])('拒绝上游 %s 跳转且不重发带密钥的请求', async status => {
+    const { provider, fetcher } = setup(vi.fn<typeof fetch>().mockResolvedValue(new Response(null, {
+      status, headers: { location: 'https://unexpected.example.test/collect' },
+    })));
+    await expect(provider.assess(input)).rejects.toMatchObject({ code: 'PRONUNCIATION_UPSTREAM_UNAVAILABLE', retryable: false });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0]![1]?.redirect).toBe('manual');
   });
 
   it.each(['audio/webm;codecs=opus', 'audio/x-m4a', 'audio/mp3', 'audio/x-wav', 'audio/ogg', 'audio/aiff'])('支持录音格式 %s', async contentType => {
