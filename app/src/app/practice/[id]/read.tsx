@@ -19,7 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError } from '@/api/client';
 import { createVocabularyItem, getPractice, recordAssistance, requestWordTranslation } from '@/api/practices';
 import { createIdempotencyKey } from '@/api/installation';
-import { radius, weight } from '@/constants/theme';
+import { FadeOnChange } from '@/components/motion';
+import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { InteractiveWordParagraph } from '@/features/practice/ArticleParagraph';
 import { loadReadingPosition, saveReadingPosition } from '@/features/practice/practiceStorage';
@@ -70,38 +71,19 @@ function TranslationControl({
       <TouchableOpacity
         disabled={loading}
         onPress={handlePress}
-        style={[
-          styles.translationButton,
-          {
-            backgroundColor: theme.surfaceAlt,
-            borderColor: theme.border,
-            opacity: loading ? 0.65 : 1,
-          },
-        ]}>
-        {loading ? (
-          <ActivityIndicator color={theme.accent} size="small" />
-        ) : (
-          <Ionicons
-            name={translation.visible ? 'chevron-up' : 'language-outline'}
-            size={16}
-            color={theme.accent}
-          />
-        )}
+        style={[styles.translationButton, { opacity: loading ? 0.65 : 1 }]}>
+        {loading ? <ActivityIndicator color={theme.textMuted} size="small" /> : null}
         <Text style={[styles.translationButtonText, { color: theme.accent }]}>
           {buttonLabel}
         </Text>
       </TouchableOpacity>
 
       {translation.visible && translation.translatedTextZh ? (
-        <View
-          style={[
-            styles.translationCard,
-            { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
-          ]}>
+        <FadeOnChange trigger={translation.translatedTextZh} style={[styles.translationCard, { borderTopColor: theme.border }]}>
           <Text style={[styles.translationText, { color: theme.textSecondary }]}>
             {translation.translatedTextZh}
           </Text>
-        </View>
+        </FadeOnChange>
       ) : null}
 
       {translation.error ? (
@@ -356,7 +338,8 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
 }
 
 export default function PracticeReaderScreen() {
-  return <ReadingOverlayProvider><PracticeReaderScreenContent /></ReadingOverlayProvider>;
+  const { theme } = useAppTheme();
+  return <ReadingOverlayProvider surfaceColor={theme.surface} borderColor={theme.border}><PracticeReaderScreenContent /></ReadingOverlayProvider>;
 }
 
 function PracticeReaderScreenContent() {
@@ -392,31 +375,17 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 26 },
   listContent: { paddingHorizontal: 18 },
   articleHeader: { paddingBottom: 24, paddingTop: 16 },
-  articleTitle: { fontSize: 27, fontWeight: weight('bold'), lineHeight: 36 },
-  wordCount: { fontSize: 13, marginTop: 8 },
+  articleTitle: { fontFamily: fonts.readingMedium, fontSize: 28, lineHeight: 35 },
+  wordCount: { fontFamily: fonts.label, fontSize: 12, letterSpacing: 0.4, marginTop: 10 },
   paragraphBlock: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: 'transparent',
     marginBottom: 22,
   },
   translationArea: { alignItems: 'flex-start' },
-  translationButton: {
-    alignItems: 'center',
-    borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    gap: 6,
-    minHeight: 38,
-    paddingHorizontal: 12,
-  },
-  translationButtonText: { fontSize: 13, fontWeight: weight('medium') },
-  translationCard: {
-    borderRadius: radius.content,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginTop: 10,
-    padding: 12,
-    width: '100%',
-  },
+  translationButton: { alignItems: 'center', flexDirection: 'row', gap: 6, minHeight: 36 },
+  translationButtonText: { fontSize: 12, fontWeight: weight('semibold') },
+  translationCard: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 4, paddingTop: 10, width: '100%' },
   translationText: { fontSize: 15, lineHeight: 25 },
   translationError: { fontSize: 12, lineHeight: 18, marginTop: 8 },
   quizButton: {

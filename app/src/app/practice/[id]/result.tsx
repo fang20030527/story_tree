@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import type { PracticeDto } from '@context-reader/contracts';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -6,14 +5,16 @@ import {
   ActivityIndicator,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api/client';
 import { getPractice } from '@/api/practices';
-import { radius, weight } from '@/constants/theme';
+import { StatRow } from '@/components/brand';
+import { FadeIn } from '@/components/motion';
+import { PrimaryAction, SecondaryAction, TextAction } from '@/components/subpage';
+import { fonts, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { clearActivePracticeId } from '@/features/practice/practiceStorage';
 
@@ -90,14 +91,10 @@ function ResultContent({ practiceId }: { practiceId: string }) {
         {error ? (
           <>
             <Text style={[styles.errorText, { color: theme.danger }]}>{error}</Text>
-            <TouchableOpacity
-              onPress={() => {
-                setError(null);
-                setLoadAttempt((attempt) => attempt + 1);
-              }}
-              style={[styles.retryButton, { borderColor: theme.border }]}>
-              <Text style={[styles.retryText, { color: theme.text }]}>重试</Text>
-            </TouchableOpacity>
+            <SecondaryAction label="重试" onPress={() => {
+              setError(null);
+              setLoadAttempt((attempt) => attempt + 1);
+            }} />
           </>
         ) : (
           <ActivityIndicator accessibilityLabel="正在加载练习结果" color={theme.accent} />
@@ -123,61 +120,30 @@ function ResultContent({ practiceId }: { practiceId: string }) {
         },
       ]}>
       <View style={styles.content}>
-        <View style={[styles.resultIcon, { backgroundColor: theme.accentSoft }]}>
-          <Ionicons name="trophy" size={44} color={theme.accent} />
-        </View>
-        <Text style={[styles.title, { color: theme.text }]}>练习完成</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          首次作答结果已保存
-        </Text>
-
-        <View
-          style={[
-            styles.summaryCard,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}>
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: theme.success }]}>{correctCount}</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>答对</Text>
+        <FadeIn>
+          <Text style={[styles.eyebrow, { color: theme.textMuted }]}>PRACTICE COMPLETE</Text>
+          <Text style={[styles.title, { color: theme.text }]}>练习完成</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+            首次作答结果已保存
+          </Text>
+          <View style={styles.scoreRow}>
+            <Text style={[styles.score, { color: theme.text }]}>{correctCount}</Text>
+            <Text style={[styles.scoreTotal, { color: theme.textMuted }]}>/ {practice.questions.length}</Text>
           </View>
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: theme.accent }]}>{assistedCount}</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>使用帮助</Text>
-          </View>
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: theme.text }]}>
-              {practice.questions.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>总题数</Text>
-          </View>
-        </View>
-
+        </FadeIn>
+        <FadeIn delay={120}>
+          <StatRow items={[
+            { label: '答对', value: correctCount },
+            { label: '使用帮助', value: assistedCount },
+            { label: '总题数', value: practice.questions.length },
+          ]} />
+        </FadeIn>
+        <View style={styles.spacer} />
         {error ? (
           <Text style={[styles.errorText, { color: theme.danger }]}>{error}</Text>
         ) : null}
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => router.replace({ pathname: '/practice/[id]/quiz', params: { id: practiceId } })}
-          style={[styles.retryButton, { borderColor: theme.accent }]}>
-          <Text style={[styles.retryText, { color: theme.accent }]}>回看题目 / 再练一次</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          disabled={leaving}
-          onPress={() => void finish()}
-          style={[
-            styles.finishButton,
-            { backgroundColor: theme.accent, opacity: leaving ? 0.65 : 1 },
-          ]}>
-          {leaving ? (
-            <ActivityIndicator color={theme.accentText} />
-          ) : (
-            <Text style={[styles.finishText, { color: theme.accentText }]}>
-              {practice.group ? '返回主题选择' : '返回阅读首页'}
-            </Text>
-          )}
-        </TouchableOpacity>
+        <PrimaryAction label={practice.group ? '返回主题选择' : '返回阅读首页'} busy={leaving} onPress={() => void finish()} />
+        <TextAction label="回看题目 / 再练一次" onPress={() => router.replace({ pathname: '/practice/[id]/quiz', params: { id: practiceId } })} style={styles.review} />
       </View>
     </View>
   );
@@ -201,46 +167,14 @@ export default function PracticeResultScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   centered: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 24 },
-  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  alignItems: 'center', flex: 1, justifyContent: 'center', padding: 24  },
-  resultIcon: {
-    alignItems: 'center',
-    borderRadius: 44,
-    height: 88,
-    justifyContent: 'center',
-    width: 88,
-  },
-  title: { fontSize: 27, fontWeight: weight('bold'), marginTop: 20 },
-  subtitle: { fontSize: 14, marginTop: 8 },
-  summaryCard: {
-    alignItems: 'center',
-    borderRadius: radius.content,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    marginTop: 30,
-    paddingVertical: 20,
-    width: '100%',
-  },
-  stat: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 28, fontWeight: weight('bold') },
-  statLabel: { fontSize: 12, marginTop: 5 },
-  divider: { height: 38, width: StyleSheet.hairlineWidth },
-  finishButton: {
-    alignItems: 'center',
-    borderRadius: radius.pill,
-    justifyContent: 'center',
-    marginTop: 28,
-    minHeight: 52,
-    width: '100%',
-  },
-  finishText: { fontSize: 16, fontWeight: weight('bold') },
-  errorText: { fontSize: 13, lineHeight: 20, marginTop: 14, textAlign: 'center' },
-  retryButton: {
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    justifyContent: 'center',
-    marginTop: 16,
-    minHeight: 44,
-    paddingHorizontal: 24,
-  },
-  retryText: { fontSize: 14, fontWeight: weight('semibold') },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', flex: 1, paddingHorizontal: 24, paddingTop: 48, paddingBottom: 20 },
+  eyebrow: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 1.6 },
+  title: { fontSize: 28, fontWeight: weight('bold'), marginTop: 8 },
+  subtitle: { fontSize: 14, marginTop: 6 },
+  scoreRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 28 },
+  score: { fontFamily: fonts.display, fontSize: 96, lineHeight: 104 },
+  scoreTotal: { fontFamily: fonts.display, fontSize: 28 },
+  spacer: { flex: 1, minHeight: 24 },
+  review: { alignSelf: 'center', marginTop: 6 },
+  errorText: { fontSize: 13, lineHeight: 20, marginBottom: 12, textAlign: 'center' },
 });

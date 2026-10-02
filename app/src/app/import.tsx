@@ -31,14 +31,14 @@ import {
 } from '@/api/imports';
 import { createIdempotencyKey } from '@/api/installation';
 import { importSources } from '@/data/mock';
+import { ListRow } from '@/components/subpage';
 import { useAppTheme } from '@/context/ThemeContext';
 import {
   loadOrCreateImportOperationKey,
   loadActiveImportId,
   saveActiveImportId,
 } from '@/features/imports/importStorage';
-import { hasConfirmedAge, saveAgeConfirmation } from '@/features/practice/practiceStorage';
-import { radius, weight } from '@/constants/theme';
+import { fonts, radius, weight } from '@/constants/theme';
 import type { ImportAssetDescriptor } from '@context-reader/contracts';
 
 type SourceId = (typeof importSources)[number]['id'];
@@ -160,7 +160,6 @@ export default function ImportScreen() {
     return importSources.find((item) => item.id === sourceParam) ?? importSources[0];
   }, [sourceParam]);
 
-  const [ageConfirmed, setAgeConfirmed] = useState<boolean | null>(null);
   const [url, setUrl] = useState('');
   const [text, setText] = useState('');
   const [images, setImages] = useState<SelectedAsset[]>([]);
@@ -175,21 +174,7 @@ export default function ImportScreen() {
   const importIdRef = useRef<string | null>(null);
 
   React.useEffect(() => {
-    let mounted = true;
-    hasConfirmedAge()
-      .then((confirmed) => {
-        if (mounted) setAgeConfirmed(confirmed);
-      })
-      .catch(() => {
-        if (mounted) setAgeConfirmed(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  React.useEffect(() => {
-    if (!ageConfirmed || source !== null) return;
+    if (source !== null) return;
     let mounted = true;
     loadActiveImportId()
       .then((id) => {
@@ -201,17 +186,7 @@ export default function ImportScreen() {
     return () => {
       mounted = false;
     };
-  }, [ageConfirmed, source]);
-
-  const confirmAge = async () => {
-    setMessage(null);
-    try {
-      await saveAgeConfirmation();
-      setAgeConfirmed(true);
-    } catch {
-      setMessage('暂时无法保存年龄确认，请重试');
-    }
-  };
+  }, [source]);
 
   const selectSource = (nextSource: SourceId) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -413,14 +388,6 @@ export default function ImportScreen() {
     }
   };
 
-  if (ageConfirmed === null) {
-    return (
-      <View style={[styles.centered, { backgroundColor: theme.bg }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
-
   const title = source ? `导入 · ${source.label}` : '导入外部资源';
 
   return (
@@ -440,9 +407,7 @@ export default function ImportScreen() {
         <View style={styles.headerButton} />
       </View>
 
-      {!ageConfirmed ? (
-        <AgeGate theme={theme} message={message} onConfirm={() => void confirmAge()} />
-      ) : source === null ? (
+      {source === null ? (
         <SourceChooser
           theme={theme}
           activeImportId={activeImportId}
@@ -543,32 +508,6 @@ export default function ImportScreen() {
   );
 }
 
-function AgeGate({
-  theme,
-  message,
-  onConfirm,
-}: {
-  theme: ReturnType<typeof useAppTheme>['theme'];
-  message: string | null;
-  onConfirm: () => void;
-}) {
-  return (
-    <View style={styles.ageContent}>
-      <View style={[styles.ageCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.ageIcon, { backgroundColor: theme.accentSoft }]}>
-          <Ionicons name="shield-checkmark" size={34} color={theme.accent} />
-        </View>
-        <Text style={[styles.ageTitle, { color: theme.text }]}>使用前请确认年龄</Text>
-        <Text style={[styles.ageBody, { color: theme.textSecondary }]}>AI 导入与文章服务仅面向年满 14 周岁的用户。</Text>
-        <TouchableOpacity onPress={onConfirm} style={[styles.primaryButton, { backgroundColor: theme.accent }]} activeOpacity={0.85}>
-          <Text style={[styles.primaryButtonText, { color: theme.accentText }]}>我已年满 14 周岁</Text>
-        </TouchableOpacity>
-        {message ? <Text style={[styles.message, { color: theme.danger }]}>{message}</Text> : null}
-      </View>
-    </View>
-  );
-}
-
 function SourceChooser({
   theme,
   activeImportId,
@@ -584,42 +523,27 @@ function SourceChooser({
     <ScrollView contentContainerStyle={styles.chooserContent} showsVerticalScrollIndicator={false}>
       <Text style={[styles.chooserTitle, { color: theme.text }]}>选择导入方式</Text>
       <Text style={[styles.chooserSubtitle, { color: theme.textSecondary }]}>支持网页、正文、图片、文件和电脑传输，导入完成后会自动加入书架并打开阅读。</Text>
-      <View style={styles.sourceGrid}>
+      <View style={[styles.sourceGrid, { borderTopColor: theme.text }]}>
         {importSources.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            onPress={() => onSelect(item.id)}
-            style={[styles.sourceCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-            activeOpacity={0.8}>
-            <View style={[styles.sourceIcon, { backgroundColor: theme.accentSoft }]}>
-              <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={25} color={theme.accent} />
-            </View>
-            <Text style={[styles.sourceLabel, { color: theme.text }]}>{item.label}</Text>
-            <Ionicons name="chevron-forward" size={15} color={theme.textMuted} />
-          </TouchableOpacity>
+          <ListRow key={item.id} label={item.label} onPress={() => onSelect(item.id)} />
         ))}
       </View>
       {activeImportId ? (
         <TouchableOpacity
           onPress={onResume}
-          style={[styles.resumeCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}
-          activeOpacity={0.8}
+          style={[styles.resumeCard, { borderTopColor: theme.text, borderBottomColor: theme.border }]}
+          activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="继续上次导入">
-          <View style={[styles.resumeIcon, { backgroundColor: theme.accentSoft }]}>
-            <Ionicons name="sync-outline" size={20} color={theme.accent} />
-          </View>
           <View style={styles.resumeCopy}>
+            <Text style={[styles.resumeEyebrow, { color: theme.textMuted }]}>未完成的导入</Text>
             <Text style={[styles.resumeTitle, { color: theme.text }]}>继续上次导入</Text>
             <Text style={[styles.resumeSubtitle, { color: theme.textSecondary }]}>恢复同一个导入任务，完成后自动打开文章</Text>
           </View>
-          <Ionicons name="chevron-forward" size={17} color={theme.accent} />
+          <Text style={[styles.resumeGo, { color: theme.accent }]}>继续 →</Text>
         </TouchableOpacity>
       ) : null}
-      <View style={[styles.limitNote, { backgroundColor: theme.surfaceAlt }]}>
-        <Ionicons name="lock-closed-outline" size={16} color={theme.textMuted} />
-        <Text style={[styles.limitText, { color: theme.textSecondary }]}>导入内容只属于你本人；原始文件解析完成后会被清理。</Text>
-      </View>
+      <Text style={[styles.limitText, { color: theme.textMuted }]}>导入内容只属于你本人；原始文件解析完成后会被清理。</Text>
     </ScrollView>
   );
 }
@@ -731,25 +655,26 @@ function LocalPicker({
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  centered: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 12, paddingHorizontal: 12 },
   headerButton: { alignItems: 'center', height: 40, justifyContent: 'center', width: 40 },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: weight('semibold'), textAlign: 'center' },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 24, paddingTop: 8  },
-  chooserContent: { paddingBottom: 36, paddingHorizontal: 16, paddingTop: 24 },
-  chooserTitle: { fontSize: 25, fontWeight: weight('bold') },
-  chooserSubtitle: { fontSize: 14, lineHeight: 22, marginTop: 8 },
-  sourceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 24 },
+  chooserContent: { paddingBottom: 36, paddingHorizontal: 24, paddingTop: 16 },
+  chooserTitle: { fontSize: 28, lineHeight: 36, fontWeight: weight('bold') },
+  chooserSubtitle: { fontSize: 15, lineHeight: 24, marginTop: 8 },
+  sourceGrid: { borderTopWidth: 1.5, marginTop: 24 },
   sourceCard: { alignItems: 'center', borderRadius: radius.option, borderWidth: StyleSheet.hairlineWidth, flexBasis: '31%', flexGrow: 1, minHeight: 122, paddingHorizontal: 8, paddingVertical: 16 },
   sourceIcon: { alignItems: 'center', borderRadius: 16, height: 50, justifyContent: 'center', width: 50 },
   sourceLabel: { fontSize: 13, fontWeight: weight('medium'), marginTop: 9 },
   limitNote: { alignItems: 'center', borderRadius: radius.content, flexDirection: 'row', gap: 8, marginTop: 22, paddingHorizontal: 12, paddingVertical: 12 },
-  limitText: { flex: 1, fontSize: 12, lineHeight: 18 },
-  resumeCard: { alignItems: 'center', borderRadius: radius.option, borderWidth: 1, flexDirection: 'row', marginTop: 16, padding: 12 },
+  limitText: { fontSize: 12, lineHeight: 18, marginTop: 18 },
+  resumeCard: { alignItems: 'flex-end', borderTopWidth: 2, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 12, marginTop: 24, paddingTop: 12, paddingBottom: 16 },
+  resumeEyebrow: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.4 },
+  resumeGo: { fontSize: 14, fontWeight: weight('semibold'), paddingBottom: 2 },
   resumeIcon: { alignItems: 'center', borderRadius: 11, height: 40, justifyContent: 'center', width: 40 },
-  resumeCopy: { flex: 1, marginHorizontal: 10 },
-  resumeTitle: { fontSize: 14, fontWeight: weight('semibold') },
-  resumeSubtitle: { fontSize: 11, marginTop: 4 },
+  resumeCopy: { flex: 1, gap: 4 },
+  resumeTitle: { fontSize: 16, fontWeight: weight('semibold') },
+  resumeSubtitle: { fontSize: 12, lineHeight: 18 },
   sourceIntro: { alignItems: 'center', borderRadius: radius.content, flexDirection: 'row', gap: 12, marginBottom: 22, padding: 14 },
   sourceIntroIcon: { alignItems: 'center', borderRadius: 15, height: 54, justifyContent: 'center', width: 54 },
   sourceIntroCopy: { flex: 1 },
@@ -785,9 +710,4 @@ const styles = StyleSheet.create({
   fileCopy: { flex: 1, marginHorizontal: 10 },
   fileName: { fontSize: 14, fontWeight: weight('semibold') },
   fileMeta: { fontSize: 11, marginTop: 4 },
-  ageContent: { flex: 1, justifyContent: 'center', padding: 24 },
-  ageCard: { alignItems: 'center', borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, padding: 24 },
-  ageIcon: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
-  ageTitle: { fontSize: 20, fontWeight: weight('bold'), marginTop: 18 },
-  ageBody: { fontSize: 14, lineHeight: 22, marginTop: 10, textAlign: 'center' },
 });

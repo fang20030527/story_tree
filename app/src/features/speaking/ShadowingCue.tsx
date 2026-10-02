@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import { fonts } from '@/constants/theme';
+import { fonts, orbitTilt, radius } from '@/constants/theme';
+import { FadeOnChange } from '@/components/motion';
 import { useAppTheme } from '@/context/ThemeContext';
 import { formatSpeakingTime, type SpeakingCue } from './model';
 import { SpeakingSentence } from './SpeakingSentence';
@@ -19,20 +20,29 @@ const webContainment = { contentVisibility: 'auto', containIntrinsicSize: 'auto 
 export const ShadowingCue = React.memo(function ShadowingCue({ item, selected, hidden, disabled, saved, subtitles, fontSize, onPlay, onSave, onLookup }: Props) {
   const { theme } = useAppTheme();
   const selectCue = () => onPlay(item.id, item.start, hidden);
-  return <View nativeID={`shadowing-cue-${item.index}`} style={[styles.cue, Platform.OS === 'web' && webContainment, { backgroundColor: selected ? theme.accentSoft : theme.bg, borderLeftColor: selected ? theme.accent : 'transparent', borderBottomColor: theme.border }]}>
+  const sentenceColor = selected ? theme.text : theme.textSecondary;
+  return <View nativeID={`shadowing-cue-${item.index}`} style={[styles.cue, Platform.OS === 'web' && webContainment, { borderBottomColor: theme.border }]}>
     <View style={styles.heading}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`定位第 ${item.index + 1} 句`} disabled={disabled} onPress={selectCue} style={styles.position}><Text style={{ color: theme.textMuted, fontSize: 11 }}>{item.index + 1}{item.endIndex > item.index ? `–${item.endIndex + 1}` : ''} · {formatSpeakingTime(item.start)}</Text><Ionicons name="play-outline" size={12} color={theme.accent} /></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${saved ? '取消收藏' : '收藏'}第 ${item.index + 1} 句`} accessibilityState={{ selected: saved }} onPress={() => void onSave(item.id)} style={styles.touch}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} color={theme.accent} size={19} /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`定位第 ${item.index + 1} 句`} disabled={disabled} onPress={selectCue} style={({ pressed }) => [styles.position, { opacity: pressed ? .6 : 1 }]}>
+        <View style={[styles.mark, { backgroundColor: selected ? theme.vermilion : 'transparent' }]} />
+        <Text style={[styles.index, { color: selected ? theme.accent : theme.textMuted }]}>{String(item.index + 1).padStart(2, '0')}{item.endIndex > item.index ? `–${item.endIndex + 1}` : ''}</Text>
+        <Text style={[styles.time, { color: theme.textMuted }]}>{formatSpeakingTime(item.start)}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${saved ? '取消收藏' : '收藏'}第 ${item.index + 1} 句`} accessibilityState={{ selected: saved }} onPress={() => void onSave(item.id)} style={({ pressed }) => [styles.touch, { opacity: pressed ? .6 : 1 }]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} color={saved ? theme.pink : theme.textMuted} size={18} /></Pressable>
     </View>
-    {subtitles === 3 ? <Pressable accessibilityRole="button" accessibilityLabel={`播放第 ${item.index + 1} 句`} disabled={disabled} onPress={selectCue}><Text style={{ color: theme.textMuted, fontSize: 12, paddingVertical: 12 }}>字幕已关闭 · 点按播放</Text></Pressable> : hidden ? <Pressable accessibilityRole="button" accessibilityLabel={`揭开第 ${item.index + 1} 句`} disabled={disabled} onPress={selectCue} style={{ minHeight: 44 }}><Text style={{ color: theme.text, fontFamily: fonts.reading, fontSize, lineHeight: fontSize * 1.5 }}>••••••••</Text><Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 7 }}>点按揭开</Text></Pressable> : <>
-      {subtitles !== 2 ? <SpeakingSentence text={item.en} size={fontSize} lookup={onLookup} /> : null}
-      {subtitles !== 1 ? <Pressable accessibilityRole="button" accessibilityLabel={`播放第 ${item.index + 1} 句`} disabled={disabled} onPress={selectCue} style={{ minHeight: 36, justifyContent: 'center' }}><Text style={{ color: theme.textMuted, fontSize: 13, lineHeight: 23, marginTop: 7 }}>{item.zh || '点按播放这一句'}</Text></Pressable> : null}
-    </>}
+    {subtitles === 3 ? <Pressable accessibilityRole="button" accessibilityLabel={`播放第 ${item.index + 1} 句`} disabled={disabled} onPress={selectCue}><Text style={{ color: theme.textMuted, fontSize: 12, paddingVertical: 10 }}>字幕已关闭 · 点按播放</Text></Pressable> : hidden ? <Pressable accessibilityRole="button" accessibilityLabel={`揭开第 ${item.index + 1} 句`} disabled={disabled} onPress={selectCue} style={{ minHeight: 44 }}><View style={[styles.veil, { backgroundColor: theme.surfaceAlt, height: fontSize * 1.5 }]} /><Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 8 }}>点按揭开</Text></Pressable> : <FadeOnChange trigger={selected ? 'on' : 'off'}>
+      {subtitles !== 2 ? <SpeakingSentence text={item.en} size={fontSize} lookup={onLookup} color={sentenceColor} /> : null}
+      {subtitles !== 1 ? <Pressable accessibilityRole="button" accessibilityLabel={`播放第 ${item.index + 1} 句`} disabled={disabled} onPress={selectCue} style={{ minHeight: 32, justifyContent: 'center' }}><Text style={{ color: theme.textMuted, fontSize: 13, lineHeight: 21, marginTop: 4 }}>{item.zh || '点按播放这一句'}</Text></Pressable> : null}
+    </FadeOnChange>}
   </View>;
 });
 const styles = StyleSheet.create({
-  cue: { paddingHorizontal: 22, paddingBottom: 20, borderBottomWidth: .5, borderLeftWidth: 2 },
+  cue: { paddingLeft: 4, paddingRight: 0, paddingBottom: 18, borderBottomWidth: StyleSheet.hairlineWidth },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  position: { flex: 1, minHeight: 44, flexDirection: 'row', gap: 8, alignItems: 'center' },
-  touch: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  position: { flex: 1, minHeight: 40, flexDirection: 'row', gap: 8, alignItems: 'center' },
+  mark: { width: 12, height: 4, borderRadius: '50%', transform: [{ rotate: orbitTilt }] },
+  index: { fontFamily: fonts.label, fontSize: 12, letterSpacing: 0.4 },
+  time: { fontFamily: fonts.label, fontSize: 11 },
+  veil: { borderRadius: radius.content, width: '86%' },
+  touch: { minHeight: 40, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
 });

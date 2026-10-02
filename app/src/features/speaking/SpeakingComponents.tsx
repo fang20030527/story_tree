@@ -9,6 +9,7 @@ import { useLearningMode } from '@/context/LearningModeContext';
 import { formatSpeakingTime, type SpeakingMaterial } from './model';
 import { speakingAccentLabel } from './accents';
 import { speakingCover } from './covers';
+import { speakingTitleText } from './titles';
 
 export function SpeakingHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   const { theme } = useAppTheme();
@@ -16,8 +17,8 @@ export function SpeakingHeader({ title, action }: { title: string; action?: Reac
   const { mode, setMode } = useLearningMode();
   useFocusEffect(useCallback(() => { if (mode !== 'speak') setMode('speak'); }, [mode, setMode]));
   return <View style={[styles.header, { paddingTop: insets.top + 4, backgroundColor: theme.bg }]}>
-    <Pressable accessibilityRole="button" accessibilityLabel="返回" onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={styles.touch}><Ionicons name="arrow-back" size={24} color={theme.text} /></Pressable>
-    <Text numberOfLines={1} accessibilityRole="header" style={{ color: theme.text, fontSize: 16, flex: 1, textAlign: 'center' }}>{title}</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel="返回" onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={styles.touch}><Ionicons name="chevron-back" size={24} color={theme.text} /></Pressable>
+    <Text numberOfLines={1} accessibilityRole="header" style={{ color: theme.text, fontSize: 16, fontWeight: weight('semibold'), flex: 1, textAlign: 'center' }}>{title}</Text>
     <View style={styles.touch}>{action}</View>
   </View>;
 }
@@ -33,10 +34,6 @@ export function SpeakingStatus({ loading, error, retry }: { loading: boolean; er
   if (!error) return null;
   return <View style={{ gap: 12, paddingVertical: 24 }}><Text accessibilityRole="alert" style={{ color: theme.danger }}>{error}</Text><SpeakingButton label="重试" onPress={retry} /></View>;
 }
-/** 中文标题用系统粗体；品牌圆体只含拉丁字符，原生端回落中文时字重不可控。分隔点跟随前一个词，避免出现在行首。 */
-export function speakingTitleText(title: string): string {
-  return title.replace(/ ·(?= )/gu, '\u00A0·');
-}
 
 export function SpeakingMaterialRow({ material, onPress, position = 0 }: { material: SpeakingMaterial; onPress: () => void; position?: number }) {
   const { theme } = useAppTheme();
@@ -49,7 +46,7 @@ export function SpeakingMaterialRow({ material, onPress, position = 0 }: { mater
 }
 export const speakingStyles = StyleSheet.create({
   page: { flex: 1 }, content: { padding: 24, width: '100%', maxWidth: 960, alignSelf: 'center', paddingBottom: 40 },
-  heading: { fontSize: 32, lineHeight: 40, fontWeight: '700', marginBottom: 10 }, hint: { fontSize: 12, lineHeight: 21 },
+  heading: { fontSize: 28, lineHeight: 36, fontWeight: '700', marginBottom: 10 }, hint: { fontSize: 12, lineHeight: 21 },
   section: { fontSize: 17, fontWeight: '700', marginTop: 28, marginBottom: 12 }, error: { fontSize: 12, lineHeight: 20, marginVertical: 12 },
   input: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 16, padding: 12, minHeight: 46, fontSize: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 16 },

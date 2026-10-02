@@ -10,7 +10,6 @@ import { z } from 'zod';
 import { createIdempotencyKey } from '@/api/installation';
 import {
   ACTIVE_PRACTICE_ID_KEY,
-  AGE_CONFIRMED_KEY,
   CREATE_PRACTICE_OPERATION_KEY,
   PRACTICE_DRAFT_KEY,
   READING_POSITION_KEY_PREFIX,
@@ -100,14 +99,6 @@ export function saveVocabularyDraft(
   rows: VocabularyDraftRow[],
 ): Promise<void> {
   return AsyncStorage.setItem(PRACTICE_DRAFT_KEY, JSON.stringify(rows));
-}
-
-export async function hasConfirmedAge(): Promise<boolean> {
-  return (await AsyncStorage.getItem(AGE_CONFIRMED_KEY)) === 'true';
-}
-
-export function saveAgeConfirmation(): Promise<void> {
-  return AsyncStorage.setItem(AGE_CONFIRMED_KEY, 'true');
 }
 
 export async function loadCreatePracticeOperation(): Promise<

@@ -109,9 +109,9 @@ export function QuizQuestion({
 
   return (
     <View>
-      <Text style={[styles.term, { color: theme.accent }]}>
-        {englishSelfTest ? 'Choose the word that best completes the sentence.' : question.term}
-      </Text>
+      {englishSelfTest
+        ? <Text style={[styles.instruction, { color: theme.textSecondary }]}>Choose the word that best completes the sentence.</Text>
+        : <Text style={[styles.term, { color: theme.onMarker, backgroundColor: theme.marker }]}>{question.term}</Text>}
       {feedback
         ? feedbackText(question.prompt, [styles.prompt, { color: theme.text }])
         : <Text style={[styles.prompt, { color: theme.text }]}>{question.prompt}</Text>}
@@ -239,7 +239,8 @@ export function QuizQuestion({
 }
 
 const styles = StyleSheet.create({
-  term: { fontSize: 15, fontWeight: weight('bold') },
+  term: { alignSelf: 'flex-start', fontFamily: fonts.readingSemibold, fontSize: 19, lineHeight: 26, paddingHorizontal: 4 },
+  instruction: { fontSize: 13, lineHeight: 20 },
   prompt: { fontFamily: fonts.reading, fontSize: 20, fontWeight: weight('regular'), lineHeight: 31, marginTop: 8 },
   options: { gap: 10, marginTop: 24 },
   option: {

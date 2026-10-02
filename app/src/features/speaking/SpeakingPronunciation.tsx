@@ -1,7 +1,8 @@
 import type { SpeakingPronunciationAssessmentDto, SpeakingPronunciationCapability, SpeakingPronunciationLocale, SpeakingPronunciationResult } from '@context-reader/contracts';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { fonts, radius } from '@/constants/theme';
 import { ApiError } from '@/api/client';
 import { getSpeakingCapabilities } from '@/api/speaking';
 import { useAppTheme } from '@/context/ThemeContext';
@@ -17,33 +18,33 @@ export function PronunciationResults({ result }: { result: SpeakingPronunciation
   const [expanded, setExpanded] = useState<number | null>(null);
   const selected = expanded === null ? undefined : result.words[expanded];
   if ('kind' in result) return <View style={{ gap: 12 }}>
-    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 17 }}>AI 参考分：{scoreLabel(result.score)} / 100</Text>
+    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 17, fontWeight: '600' }}>AI 参考分：{scoreLabel(result.score)} / 100</Text>
     <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 19 }}>分数来自 AI 对录音的整体判断，仅供练习参考，不代表考试成绩或逐词、音素准确度。</Text>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
       {([['清晰度', result.clarityScore], ['流畅度', result.fluencyScore], ['完整度', result.completenessScore]] as const).map(([label, score]) =>
         <Text key={label} style={{ color: theme.textSecondary, fontSize: 12 }}>{label}：{scoreLabel(score)}</Text>)}
     </View>
     <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 20 }}>AI 听到的内容：{result.transcript}</Text>
-    {result.wordTips.map(tip => <View key={tip.word} style={{ padding: 10, gap: 4, borderWidth: .5, borderColor: theme.border, borderRadius: 4 }}>
-      <Text style={{ color: theme.text, fontSize: 13 }}>{tip.word} · 练习建议</Text>
+    {result.wordTips.map(tip => <View key={tip.word} style={{ paddingVertical: 10, gap: 4, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }}>
+      <Text style={{ color: theme.text, fontSize: 13, fontWeight: '600' }}>{tip.word} · 练习建议</Text>
       <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 20 }}>{tip.advice}</Text>
     </View>)}
     {result.feedback.map((feedback, index) => <Text key={index} style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 20 }}>{feedback}</Text>)}
   </View>;
   return <View style={{ gap: 12 }}>
-    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 17 }}>句子发音分：{scoreLabel(result.score)} / 100</Text>
+    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 17, fontWeight: '600' }}>句子发音分：{scoreLabel(result.score)} / 100</Text>
     <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 19 }}>逐词分数越高，发音越接近所选口音。点按单词查看音素反馈。</Text>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 4 }}>
       {result.words.map((word, index) => <Pressable key={`${index}:${word.word}`} accessibilityRole="button"
         accessibilityLabel={`${word.word}，${scoreLabel(word.score)}，${wordLabel(word.score)}，查看音素反馈`}
         accessibilityState={{ expanded: expanded === index }} onPress={() => setExpanded(value => value === index ? null : index)}
-        style={{ minHeight: 44, paddingHorizontal: 11, paddingVertical: 9, borderRadius: 4, borderWidth: .5, borderColor: expanded === index ? theme.accent : theme.border, backgroundColor: expanded === index ? theme.accentSoft : theme.surface }}>
-        <Text style={{ color: theme.text, fontSize: 14 }}>{word.word} · {scoreLabel(word.score)}</Text>
-        <Text style={{ color: word.score !== null && word.score < 70 ? theme.accent : theme.textMuted, fontSize: 11, marginTop: 3 }}>{wordLabel(word.score)}</Text>
+        style={({ pressed }) => ({ minHeight: 44, paddingVertical: 6, opacity: pressed ? .6 : 1 })}>
+        <Text style={{ color: theme.text, fontFamily: fonts.reading, fontSize: 16, paddingBottom: 2, borderBottomWidth: 3, borderBottomColor: expanded === index ? theme.text : word.score !== null && word.score < 70 ? theme.pink : 'transparent' }}>{word.word} · {scoreLabel(word.score)}</Text>
+        <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 3 }}>{wordLabel(word.score)}</Text>
       </Pressable>)}
     </View>
-    {selected ? <View style={{ gap: 7, padding: 12, borderColor: theme.border, borderWidth: .5, borderRadius: 4 }}>
-      <Text style={{ color: theme.text, fontSize: 14 }}>{selected.word} 的音素反馈</Text>
+    {selected ? <View style={{ gap: 7, paddingTop: 12, borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth }}>
+      <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>{selected.word} 的音素反馈</Text>
       {selected.phonemes.length ? selected.phonemes.map((phoneme, index) => <View key={`${index}:${phoneme.symbol}`} style={{ gap: 3 }}>
         <Text style={{ color: theme.text, fontSize: 13 }}>目标音素 /{phoneme.symbol}/ · {scoreLabel(phoneme.score)}</Text>
         {phoneme.spokenSymbol && phoneme.spokenSymbol !== phoneme.symbol ? <Text style={{ color: theme.textSecondary, fontSize: 12 }}>识别为 /{phoneme.spokenSymbol}/，请听原音后比较口型与发音。</Text> : null}
@@ -149,14 +150,14 @@ export function SpeakingPronunciation({ materialId, material, recording, scope, 
   const failed = !disabled && assessment?.status === 'failed' ? assessment.error : null;
   const processing = !disabled && assessment?.status === 'processing';
   return <ScrollView accessibilityLabel="AI 口语点评面板" nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 300, flexGrow: 0 }} contentContainerStyle={{ gap: 10, borderTopColor: theme.border, borderTopWidth: .5, paddingTop: 12, paddingBottom: 6 }}>
-    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 14 }}>AI 口语点评</Text>
+    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>AI 口语点评</Text>
     {guest ? <><Text style={{ color: theme.textMuted, fontSize: 12 }}>登录后可获取录音参考分和中文练习建议。</Text><Pressable accessibilityRole="button" onPress={() => router.push('/login')} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>登录使用AI 口语点评</Text></Pressable></> : <>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {(['en-us', 'en-gb'] as const).map(value => <Pressable key={value} accessibilityRole="radio" accessibilityLabel={value === 'en-us' ? '美式发音' : '英式发音'}
           accessibilityState={{ checked: locale === value, disabled: Boolean(capability && !capability.locales.includes(value)) }}
           disabled={Boolean(capability && !capability.locales.includes(value))} onPress={() => setLocale(value)}
-          style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderWidth: .5, borderRadius: 4, borderColor: locale === value ? theme.accent : theme.border }}>
-          <Text style={{ color: locale === value ? theme.accent : theme.textMuted }}>{value === 'en-us' ? '美式' : '英式'}</Text>
+          style={({ pressed }) => ({ minHeight: 40, justifyContent: 'center', paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: locale === value ? theme.text : theme.surfaceAlt, opacity: pressed ? .7 : 1 })}>
+          <Text style={{ color: locale === value ? theme.bg : theme.textSecondary, fontSize: 13 }}>{value === 'en-us' ? '美式' : '英式'}</Text>
         </Pressable>)}
       </View>
       {recording?.referenceText && !disabled ? <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 20 }}>录音目标：{recording.referenceText}</Text> : null}

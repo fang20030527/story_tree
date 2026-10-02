@@ -2,7 +2,6 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { Card } from '@/components/ui';
 import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { loadPracticeTargetCount, MAX_TARGET_COUNT, parseTargetCount, savePracticeTargetCount } from './practicePreferences';
@@ -33,7 +32,7 @@ export function PracticePreferencesCard() {
     finally { setSaving(false); }
   };
   return (
-    <Card theme={theme} style={styles.card}>
+    <View style={[styles.card, { borderTopColor: theme.text }]}>
       <Text style={[styles.title, { color: theme.text }]}>练习设置</Text>
       <Text style={[styles.label, { color: theme.textSecondary }]}>每次练习单词数量</Text>
       <View style={styles.row}>
@@ -57,11 +56,11 @@ export function PracticePreferencesCard() {
         {savedCount === null ? `每组最多选取 ${MAX_TARGET_COUNT} 个词，分配到四篇短文；不足时按实际数量练习。` : `每组最多选取 ${savedCount} 个待复习词，分配到四篇短文；不足时按实际数量练习。`}
       </Text>
       {message ? <Text accessibilityLiveRegion="polite" style={[styles.hint, { color: theme.textSecondary }]}>{message}</Text> : null}
-    </Card>
+    </View>
   );
 }
 const styles = StyleSheet.create({
-  card: { padding: 16, marginTop: 16 },
+  card: { borderTopWidth: 1.5, paddingTop: 12, marginTop: 20 },
   title: { fontSize: 16, fontWeight: weight('bold') },
   label: { fontSize: 14, marginTop: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },

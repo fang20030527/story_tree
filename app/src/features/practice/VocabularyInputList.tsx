@@ -1,312 +1,204 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { radius, weight } from '@/constants/theme';
+import { FadeIn, PressFeedback, animateNextLayout, useReducedMotion } from '@/components/motion';
+import { fonts, orbitTilt, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 
 import {
-  type VocabularyDraftField,
+  MAX_DRAFT_WORDS,
   type VocabularyDraftRow,
+  emptyDraftRow,
+  isUnlistedMeaning,
   validateVocabularyDraft,
+  withTerm,
 } from './practiceDraft';
 
-const EMPTY_ROW: VocabularyDraftRow = {
-  term: '',
-  meaningZh: '',
-  sourceSentence: '',
-};
+const SETTLE_DELAY_MS = 250;
 
 interface VocabularyInputListProps {
   value: VocabularyDraftRow[];
   onChange: (rows: VocabularyDraftRow[]) => void;
+  /** 某一行输入结束（失焦或按回车）时调用，用来把查不到的词标成未收录。 */
+  onSettle: () => void;
   validationAttempted: boolean;
   disabled?: boolean;
 }
 
+/** 只录入单词：每行一个词，下方显示本地词典释义；没有卡片和输入框边框，靠细线分行。 */
 export function VocabularyInputList({
   value,
   onChange,
+  onSettle,
   validationAttempted,
   disabled = false,
 }: VocabularyInputListProps) {
   const { theme } = useAppTheme();
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(
-    () => new Set(),
-  );
-  const [touchedFields, setTouchedFields] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const validation = useMemo(
-    () => validateVocabularyDraft(value),
-    [value],
-  );
+  const reduced = useReducedMotion();
+  const inputs = useRef<(TextInput | null)[]>([]);
+  const [focused, setFocused] = useState<number | null>(null);
+  const pendingFocus = useRef<number | null>(null);
+  const [touched, setTouched] = useState<Set<number>>(() => new Set());
+  const settleTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const validation = useMemo(() => validateVocabularyDraft(value), [value]);
+  const lastIsBlank = !value[value.length - 1]?.term.trim();
+  const canAdd = !disabled && (lastIsBlank || value.length < MAX_DRAFT_WORDS);
 
-  const updateField = (
-    rowIndex: number,
-    field: VocabularyDraftField,
-    fieldValue: string,
-  ) => {
-    onChange(value.map((row, index) => (
-      index === rowIndex ? { ...row, [field]: fieldValue } : row
-    )));
+  useEffect(() => {
+    const timers = settleTimers.current;
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  // 新加的行渲染出来后再聚焦。
+  useEffect(() => {
+    const index = pendingFocus.current;
+    if (index === null || index >= value.length) return;
+    pendingFocus.current = null;
+    inputs.current[index]?.focus();
+  }, [value.length]);
+
+  const focusRow = (index: number) => {
+    if (index < value.length) inputs.current[index]?.focus();
+    else pendingFocus.current = index;
   };
 
-  const markTouched = (
-    rowIndex: number,
-    field: VocabularyDraftField,
-  ) => {
-    setTouchedFields((current) => {
-      const next = new Set(current);
-      next.add(`${rowIndex}:${field}`);
-      return next;
-    });
-  };
-
-  const showError = (
-    rowIndex: number,
-    field: VocabularyDraftField,
-  ): string | undefined => {
-    if (
-      !validationAttempted
-      && !touchedFields.has(`${rowIndex}:${field}`)
-    ) {
-      return undefined;
+  const addRow = () => {
+    if (lastIsBlank) {
+      focusRow(value.length - 1);
+      return;
     }
-    return validation.rowErrors[rowIndex]?.[field];
+    if (value.length >= MAX_DRAFT_WORDS) return;
+    animateNextLayout(reduced);
+    onChange([...value, emptyDraftRow()]);
+    focusRow(value.length);
   };
 
-  const toggleSourceSentence = (rowIndex: number) => {
-    setExpandedRows((current) => {
-      const next = new Set(current);
-      if (next.has(rowIndex)) next.delete(rowIndex);
-      else next.add(rowIndex);
-      return next;
-    });
+  const removeRow = (index: number) => {
+    animateNextLayout(reduced);
+    onChange(value.length > 1 ? value.filter((_, i) => i !== index) : [emptyDraftRow()]);
+    setTouched(new Set());
   };
 
-  const removeRow = (rowIndex: number) => {
-    if (value.length <= 1) return;
-    onChange(value.filter((_, index) => index !== rowIndex));
-    setExpandedRows(new Set());
-    setTouchedFields(new Set());
+  // Web 上按下按钮会先让输入框失焦；稍后再显示释义和提示，免得按钮在松手前被挤走。
+  const settle = (index: number) => {
+    setFocused((current) => (current === index ? null : current));
+    const timer = setTimeout(() => {
+      settleTimers.current.delete(timer);
+      setTouched((current) => new Set(current).add(index));
+      onSettle();
+    }, SETTLE_DELAY_MS);
+    settleTimers.current.add(timer);
+  };
+
+  // 焦点移到下一行时失焦会触发查词；焦点不动时才直接补释义。
+  const submitRow = (index: number) => {
+    if (index < value.length - 1) focusRow(index + 1);
+    else if (value[index]?.term.trim() && value.length < MAX_DRAFT_WORDS) addRow();
+    else onSettle();
   };
 
   return (
-    <View style={styles.list}>
-      {value.map((row, rowIndex) => {
-        const termError = showError(rowIndex, 'term');
-        const meaningError = showError(rowIndex, 'meaningZh');
-        const sourceError = showError(rowIndex, 'sourceSentence');
-        const sourceExpanded = expandedRows.has(rowIndex)
-          || Boolean(row.sourceSentence);
-
+    <View>
+      {value.map((row, index) => {
+        const meaning = row.meaningZh.trim();
+        const unlisted = meaning && isUnlistedMeaning(meaning);
+        const error = validationAttempted || touched.has(index) ? validation.rowErrors[index]?.term : undefined;
+        const removable = value.length > 1 || Boolean(row.term);
         return (
-          <View
-            key={rowIndex}
-            style={[
-              styles.row,
-              {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-              },
-            ]}>
-            <View style={styles.rowHeader}>
-              <Text style={[styles.rowTitle, { color: theme.text }]}>
-                义项 {rowIndex + 1}
-              </Text>
-              <TouchableOpacity
-                accessibilityLabel={`删除第 ${rowIndex + 1} 个义项`}
-                disabled={disabled || value.length === 1}
-                hitSlop={8}
-                onPress={() => removeRow(rowIndex)}>
-                <Ionicons
-                  name="trash-outline"
-                  size={18}
-                  color={value.length === 1 ? theme.textMuted : theme.danger}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={[styles.label, { color: theme.textSecondary }]}>单词或短语</Text>
-            <TextInput
-              accessibilityLabel={`第 ${rowIndex + 1} 个单词或短语`}
-              autoCapitalize="none"
-              editable={!disabled}
-              maxLength={80}
-              onBlur={() => markTouched(rowIndex, 'term')}
-              onChangeText={(text) => updateField(rowIndex, 'term', text)}
-              placeholder="例如 resilient"
-              placeholderTextColor={theme.textMuted}
-              style={[
-                styles.input,
-                {
-                  borderColor: termError ? theme.danger : theme.border,
-                  color: theme.text,
-                },
-              ]}
-              value={row.term}
-            />
-            {termError ? (
-              <Text style={[styles.error, { color: theme.danger }]}>{termError}</Text>
-            ) : null}
-
-            <Text style={[styles.label, { color: theme.textSecondary }]}>具体中文义项</Text>
-            <TextInput
-              accessibilityLabel={`第 ${rowIndex + 1} 个具体中文义项`}
-              editable={!disabled}
-              maxLength={200}
-              onBlur={() => markTouched(rowIndex, 'meaningZh')}
-              onChangeText={(text) => updateField(rowIndex, 'meaningZh', text)}
-              placeholder="例如 有韧性的"
-              placeholderTextColor={theme.textMuted}
-              style={[
-                styles.input,
-                {
-                  borderColor: meaningError ? theme.danger : theme.border,
-                  color: theme.text,
-                },
-              ]}
-              value={row.meaningZh}
-            />
-            {meaningError ? (
-              <Text style={[styles.error, { color: theme.danger }]}>{meaningError}</Text>
-            ) : null}
-
-            <TouchableOpacity
-              disabled={disabled}
-              onPress={() => toggleSourceSentence(rowIndex)}
-              style={styles.sourceToggle}>
-              <Ionicons
-                name={sourceExpanded ? 'chevron-up' : 'add'}
-                size={16}
-                color={theme.accent}
+          <View key={index} style={styles.row}>
+            <Text style={[styles.index, { color: focused === index ? theme.text : theme.textMuted }]}>
+              {String(index + 1).padStart(2, '0')}
+            </Text>
+            <View style={styles.body}>
+              <TextInput
+                ref={(input) => { inputs.current[index] = input; }}
+                accessibilityLabel={`第 ${index + 1} 个单词或短语`}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!disabled}
+                maxLength={80}
+                onBlur={() => settle(index)}
+                onChangeText={(text) => onChange(value.map((current, i) => (i === index ? withTerm(current, text) : current)))}
+                onFocus={() => setFocused(index)}
+                onSubmitEditing={() => submitRow(index)}
+                placeholder={index === 0 ? '例如 resilient' : '下一个单词'}
+                placeholderTextColor={theme.textMuted}
+                returnKeyType="next"
+                selectionColor={theme.accent}
+                submitBehavior="submit"
+                style={[styles.term, { color: theme.text }, Platform.OS === 'web' ? styles.webInput : null]}
+                value={row.term}
               />
-              <Text style={[styles.sourceToggleText, { color: theme.accent }]}>
-                {sourceExpanded ? '收起原句' : '添加原句（可选）'}
-              </Text>
-            </TouchableOpacity>
-
-            {sourceExpanded ? (
-              <>
-                <TextInput
-                  accessibilityLabel={`第 ${rowIndex + 1} 个英文原句`}
-                  editable={!disabled}
-                  maxLength={1_000}
-                  multiline
-                  onBlur={() => markTouched(rowIndex, 'sourceSentence')}
-                  onChangeText={(text) => updateField(
-                    rowIndex,
-                    'sourceSentence',
-                    text,
-                  )}
-                  placeholder="粘贴遇到这个义项时的英文原句"
-                  placeholderTextColor={theme.textMuted}
-                  style={[
-                    styles.input,
-                    styles.sourceInput,
-                    {
-                      borderColor: sourceError ? theme.danger : theme.border,
-                      color: theme.text,
-                    },
-                  ]}
-                  textAlignVertical="top"
-                  value={row.sourceSentence}
-                />
-                {sourceError ? (
-                  <Text style={[styles.error, { color: theme.danger }]}>
-                    {sourceError}
+              {meaning && !unlisted ? (
+                <FadeIn key={meaning}>
+                  <Text numberOfLines={2} style={[styles.meaning, { color: theme.textSecondary }]}>
+                    {meaning.replace(/\s*\n\s*/gu, '  ')}
                   </Text>
-                ) : null}
-              </>
-            ) : null}
+                </FadeIn>
+              ) : null}
+              {unlisted ? (
+                <FadeIn key="unlisted" style={styles.notice}>
+                  <View style={[styles.noticeMark, { backgroundColor: theme.vermilion }]} />
+                  <View style={styles.noticeCopy}>
+                    <Text style={[styles.noticeTitle, { color: theme.text }]}>词典未收录</Text>
+                    <Text style={[styles.noticeText, { color: theme.textMuted }]}>检查一下拼写；保留的话按常见含义生成</Text>
+                  </View>
+                </FadeIn>
+              ) : null}
+              {error ? (
+                <Text accessibilityLiveRegion="polite" style={[styles.error, { color: theme.danger }]}>{error}</Text>
+              ) : null}
+            </View>
+            {removable ? (
+              <PressFeedback
+                accessibilityRole="button"
+                accessibilityLabel={`删除第 ${index + 1} 个单词`}
+                disabled={disabled}
+                hitSlop={4}
+                onPress={() => removeRow(index)}
+                style={styles.remove}>
+                <Ionicons name="close" size={18} color={theme.textMuted} />
+              </PressFeedback>
+            ) : <View style={styles.remove} />}
+            <View style={[styles.rule, focused === index
+              ? { backgroundColor: theme.text, height: 1.5 }
+              : { backgroundColor: theme.border }]} />
           </View>
         );
       })}
 
-      <TouchableOpacity
-        accessibilityLabel="添加一个义项"
-        disabled={disabled || value.length >= 10}
-        onPress={() => onChange([...value, { ...EMPTY_ROW }])}
-        style={[
-          styles.addButton,
-          {
-            backgroundColor: theme.surfaceAlt,
-            borderColor: theme.border,
-            opacity: disabled || value.length >= 10 ? 0.5 : 1,
-          },
-        ]}>
-        <Ionicons name="add-circle-outline" size={19} color={theme.accent} />
-        <Text style={[styles.addButtonText, { color: theme.accent }]}>添加义项</Text>
-        <Text style={[styles.rowCount, { color: theme.textMuted }]}>
-          {value.length}/10
+      <PressFeedback
+        accessibilityRole="button"
+        accessibilityLabel="添加一个单词"
+        accessibilityState={{ disabled: !canAdd }}
+        disabled={!canAdd}
+        onPress={addRow}
+        style={[styles.add, { opacity: canAdd ? 1 : 0.45 }]}>
+        <Ionicons name="add" size={18} color={theme.accent} />
+        <Text style={[styles.addText, { color: theme.accent }]}>
+          {value.length >= MAX_DRAFT_WORDS && !lastIsBlank ? `最多 ${MAX_DRAFT_WORDS} 个单词` : '添加单词'}
         </Text>
-      </TouchableOpacity>
-
-      {validationAttempted && validation.formError ? (
-        <Text style={[styles.formError, { color: theme.danger }]}>
-          {validation.formError}
-        </Text>
-      ) : null}
+      </PressFeedback>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { gap: 12 },
-  row: {
-    borderRadius: radius.option,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
-  },
-  rowHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  rowTitle: { fontSize: 16, fontWeight: weight('semibold') },
-  label: { fontSize: 13, marginBottom: 6, marginTop: 8 },
-  input: {
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    fontSize: 16,
-    minHeight: 46,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  sourceInput: { minHeight: 92 },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingTop: 12, paddingBottom: 14 },
+  index: { fontFamily: fonts.display, fontSize: 13, lineHeight: 34, width: 22 },
+  body: { flex: 1, minWidth: 0 },
+  term: { fontFamily: fonts.readingSemibold, fontSize: 21, lineHeight: 28, minHeight: 34, paddingVertical: 3, paddingHorizontal: 0 },
+  webInput: { outlineWidth: 0 },
+  meaning: { fontSize: 13, lineHeight: 20, marginTop: 4 },
+  notice: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 5 },
+  noticeMark: { width: 10, height: 4, borderRadius: 5, marginTop: 8, transform: [{ rotate: orbitTilt }] },
+  noticeCopy: { flex: 1, minWidth: 0 },
+  noticeTitle: { fontSize: 13, lineHeight: 20, fontWeight: weight('semibold') },
+  noticeText: { fontSize: 12, lineHeight: 18 },
   error: { fontSize: 12, lineHeight: 18, marginTop: 4 },
-  sourceToggle: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 12,
-    paddingVertical: 4,
-  },
-  sourceToggleText: { fontSize: 13, fontWeight: weight('medium') },
-  addButton: {
-    alignItems: 'center',
-    borderRadius: radius.pill,
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    flexDirection: 'row',
-    minHeight: 48,
-    paddingHorizontal: 14,
-  },
-  addButtonText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: weight('semibold'),
-    marginLeft: 7,
-  },
-  rowCount: { fontSize: 12 },
-  formError: { fontSize: 13, textAlign: 'center' },
+  remove: { width: 34, minHeight: 34, alignItems: 'center', justifyContent: 'center' },
+  rule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: StyleSheet.hairlineWidth, pointerEvents: 'none' },
+  add: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 52, alignSelf: 'flex-start', paddingRight: 12 },
+  addText: { fontSize: 15, fontWeight: weight('semibold') },
 });

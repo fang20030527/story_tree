@@ -30,6 +30,7 @@ import {
   restoreVocabularyWord,
 } from '@/api/practices';
 import { Card } from '@/components/ui';
+import { animateNextLayout, useReducedMotion } from '@/components/motion';
 import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { VocabularyLoadingProgress } from '@/features/library/VocabularyLoadingProgress';
@@ -97,6 +98,7 @@ function emptyCopy(filter: BookFilter, summary: PageSummary | null): { title: st
 function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryChanged: () => void }) {
   const { theme } = useAppTheme();
   const [expanded, setExpanded] = useState(false);
+  const reducedMotion = useReducedMotion();
   const [contexts, setContexts] = useState<VocabularyWordContexts | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +150,7 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
   };
 
   return (
-    <Card theme={theme} style={styles.wordCard}>
+    <View style={[styles.wordCard, { borderBottomColor: theme.border }]}>
       <View style={styles.wordHeading}>
         <Text style={[styles.word, { color: theme.text }]}>{item.term}</Text>
         {mastered ? (
@@ -175,11 +177,12 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
             accessibilityLabel={`${expanded ? '收起' : '展开'} ${item.term} 的已保存语境`}
             accessibilityState={{ expanded }}
             onPress={() => {
+              animateNextLayout(reducedMotion);
               setExpanded(!expanded);
               if (!expanded && !contexts) void loadContexts();
             }}
             style={styles.contextToggle}>
-            <Text style={{ color: theme.accent, fontSize: 12 }}>
+            <Text style={{ color: theme.accent, fontSize: 13, fontWeight: weight('semibold') }}>
               {expanded ? '收起语境' : `查看 ${item.contextCount} 个已保存语境`}
             </Text>
             <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.accent} />
@@ -240,7 +243,7 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
           最近练习 {localReviewTime(item.lastPracticedAt)}
         </Text>
       ) : null}
-    </Card>
+    </View>
   );
 }
 
@@ -396,6 +399,7 @@ export default function VocabularyBookScreen() {
             );
           })}
         </ScrollView>
+        <View style={[styles.listRule, { backgroundColor: theme.text }]} />
         {initialLoading ? (
           <View style={items.length ? styles.inlineError : styles.stateArea}>
             <VocabularyLoadingProgress
@@ -465,7 +469,8 @@ const styles = StyleSheet.create({
     width: 36,
   },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 24  },
-  filterScroll: { flexGrow: 0, marginBottom: 12, marginTop: 4 },
+  filterScroll: { flexGrow: 0, marginBottom: 14, marginTop: 4 },
+  listRule: { height: 1.5 },
   filterRow: { flexDirection: 'row', gap: 6 },
   filterChip: {
     borderRadius: radius.pill,
@@ -490,7 +495,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   retryText: { fontSize: 14, fontWeight: weight('semibold') },
-  wordCard: { marginBottom: 10, padding: 14 },
+  wordCard: { borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 18 },
   wordHeading: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   masteredBadge: { borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
   reviewReason: { alignSelf: 'flex-start', borderRadius: radius.pill, overflow: 'hidden', fontSize: 11, lineHeight: 16, marginTop: 8, paddingHorizontal: 8, paddingVertical: 2 },

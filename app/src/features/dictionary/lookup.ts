@@ -65,6 +65,11 @@ function includeBaseMeaning(entry: DictionaryEntry): string {
 
 /** 随应用发布的离线词典；context 仅为兼容现有接口，不做语境消歧。 */
 export async function lookupLocalWord(request: WordTranslationRequest): Promise<WordTranslationDto> {
+  return lookupLocalWordSync(request);
+}
+
+/** 同步查词，供录入时逐行补释义；分片随包发布，查询不联网。未收录或格式无效时抛错。 */
+export function lookupLocalWordSync(request: WordTranslationRequest): WordTranslationDto {
   const parsed = WordTranslationRequestSchema.safeParse(request);
   if (!parsed.success) throw new Error('词语格式无效');
   const term = normalizeTerm(parsed.data.term);

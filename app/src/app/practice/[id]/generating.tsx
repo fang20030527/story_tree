@@ -1,16 +1,15 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { radius, weight } from '@/constants/theme';
+import { OrbitLoader } from '@/components/brand';
+import { PrimaryAction, SecondaryAction } from '@/components/subpage';
+import { fonts, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import {
   clearCreatePracticeOperation,
@@ -108,36 +107,20 @@ function GeneratingPractice({
         },
       ]}>
       <View style={styles.content}>
-        <View style={[styles.iconCircle, { backgroundColor: theme.accentSoft }]}>
-          <Ionicons
-            name={failed ? 'alert-circle-outline' : 'sparkles'}
-            size={42}
-            color={failed ? theme.danger : theme.accent}
-          />
-        </View>
-
         {failed ? (
           <>
+            <Text style={[styles.eyebrow, { color: theme.danger }]}>GENERATION STOPPED</Text>
             <Text style={[styles.title, { color: theme.text }]}>生成未完成</Text>
             <Text style={[styles.detail, { color: theme.textSecondary }]}>
               {practice.failure?.message ?? '文章暂时无法生成'}
             </Text>
-            <TouchableOpacity
-              onPress={() => void returnToForm()}
-              style={[styles.primaryButton, { backgroundColor: theme.accent }]}>
-              <Text style={[styles.primaryText, { color: theme.accentText }]}>
-                {vocabularyOrigin ? '返回调整数量' : '返回修改词义'}
-              </Text>
-            </TouchableOpacity>
+            <PrimaryAction label={vocabularyOrigin ? '返回调整数量' : '返回修改词义'} onPress={() => void returnToForm()} style={styles.primaryButton} />
           </>
         ) : (
           <>
-            <ActivityIndicator
-              color={theme.accent}
-              size="small"
-              style={styles.spinner}
-            />
+            <OrbitLoader label={safeStatus} />
             <Text style={[styles.title, { color: theme.text }]}>{safeStatus}</Text>
+            <Text style={[styles.detail, { color: theme.textSecondary }]}>通常需要半分钟到一分钟，可以离开本页，稍后在首页继续。</Text>
           </>
         )}
 
@@ -146,11 +129,7 @@ function GeneratingPractice({
             <Text style={[styles.detail, { color: theme.danger }]}>
               {error.message}
             </Text>
-            <TouchableOpacity
-              onPress={retry}
-              style={[styles.secondaryButton, { borderColor: theme.border }]}>
-              <Text style={[styles.secondaryText, { color: theme.text }]}>重试</Text>
-            </TouchableOpacity>
+            <SecondaryAction label="重试" onPress={retry} style={styles.secondaryButton} />
           </View>
         ) : null}
 
@@ -160,11 +139,7 @@ function GeneratingPractice({
               {storageError}
             </Text>
             {practice?.group || practice?.status === 'ready' || practice?.status === 'in_progress' || practice?.status === 'completed' ? (
-              <TouchableOpacity
-                onPress={() => void openNextStep()}
-                style={[styles.secondaryButton, { borderColor: theme.border }]}>
-                <Text style={[styles.secondaryText, { color: theme.text }]}>重试</Text>
-              </TouchableOpacity>
+              <SecondaryAction label="重试" onPress={() => void openNextStep()} style={styles.secondaryButton} />
             ) : null}
           </View>
         ) : null}
@@ -186,17 +161,7 @@ export default function GeneratingPracticeScreen() {
     return (
       <View style={[styles.content, { backgroundColor: theme.bg }]}>
         <Text style={[styles.title, { color: theme.text }]}>练习地址无效</Text>
-        <TouchableOpacity
-          onPress={() =>
-            router.replace(
-              vocabularyOrigin ? '/practice/from-vocabulary' : '/practice/new',
-            )
-          }
-          style={[styles.secondaryButton, { borderColor: theme.border }]}>
-          <Text style={[styles.secondaryText, { color: theme.text }]}>
-            {vocabularyOrigin ? '返回设置' : '返回录入'}
-          </Text>
-        </TouchableOpacity>
+        <SecondaryAction label={vocabularyOrigin ? '返回设置' : '返回录入'} onPress={() => router.replace(vocabularyOrigin ? '/practice/from-vocabulary' : '/practice/new')} style={styles.secondaryButton} />
       </View>
     );
   }
@@ -217,39 +182,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 28,
    },
-  iconCircle: {
-    alignItems: 'center',
-    borderRadius: 42,
-    height: 84,
-    justifyContent: 'center',
-    width: 84,
-  },
-  spinner: { marginTop: 24 },
-  title: {
-    fontSize: 23,
-    fontWeight: weight('bold'),
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  detail: { fontSize: 14, lineHeight: 22, marginTop: 10, textAlign: 'center' },
+  eyebrow: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 1.6 },
+  title: { fontSize: 22, fontWeight: weight('bold'), marginTop: 18, textAlign: 'center' },
+  detail: { fontSize: 14, lineHeight: 22, marginTop: 10, textAlign: 'center', maxWidth: 320 },
   errorArea: { alignItems: 'center', marginTop: 20, width: '100%' },
-  primaryButton: {
-    alignItems: 'center',
-    borderRadius: radius.pill,
-    marginTop: 24,
-    minHeight: 48,
-    justifyContent: 'center',
-    paddingHorizontal: 22,
-  },
-  primaryText: { fontSize: 15, fontWeight: weight('bold') },
-  secondaryButton: {
-    alignItems: 'center',
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    justifyContent: 'center',
-    marginTop: 14,
-    minHeight: 44,
-    paddingHorizontal: 24,
-  },
-  secondaryText: { fontSize: 14, fontWeight: weight('semibold') },
+  primaryButton: { marginTop: 24, alignSelf: 'center' },
+  secondaryButton: { marginTop: 14 },
 });

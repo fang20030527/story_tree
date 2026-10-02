@@ -137,34 +137,23 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
           { paddingBottom: insets.bottom + 120 },
         ]}>
         <EditorialImage uri={article.image} fallbackSource={PUBLICATION_LOGOS[article.source]}
-          style={styles.cover} priority="high">
-          <View style={styles.coverShade} />
-          <View style={styles.coverActionWrap}>
-            <TouchableOpacity
-              onPress={() => void toggleShelf()}
-              disabled={pending}
-              accessibilityRole="button"
-              accessibilityLabel={shelved ? '移出书架' : '加入书架'}
-              accessibilityState={{ disabled: pending, busy: pending }}
-              style={[
-                styles.coverAction,
-                { backgroundColor: shelved ? theme.accent : theme.surface },
-              ]}>
-              {pending ? <ActivityIndicator color={theme.text} size="small" /> : null}
-              <Text
-                style={[
-                  styles.coverActionText,
-                  { color: shelved ? theme.accentText : theme.text },
-                ]}>
-                {shelved ? '✓ 已加入' : '加入书架'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.coverCaption}>
-            <Text style={styles.coverSource}>{article.source}</Text>
-            <Text style={styles.coverCategory}>{article.category}</Text>
-          </View>
-        </EditorialImage>
+          style={styles.cover} priority="high" />
+        <View style={styles.coverMeta}>
+          <Text style={[styles.coverSource, { color: theme.textMuted }]} numberOfLines={1}>{article.source.toUpperCase()} · {article.category}</Text>
+          <TouchableOpacity
+            onPress={() => void toggleShelf()}
+            disabled={pending}
+            accessibilityRole="button"
+            accessibilityLabel={shelved ? '移出书架' : '加入书架'}
+            accessibilityState={{ disabled: pending, busy: pending }}
+            hitSlop={8}
+            style={styles.coverAction}>
+            {pending ? <ActivityIndicator color={theme.textMuted} size="small" /> : null}
+            <Text style={[styles.coverActionText, { color: shelved ? theme.textSecondary : theme.accent }]}>
+              {shelved ? '✓ 已加入' : '加入书架'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.titleZh, { color: theme.text }]}>{article.titleZh}</Text>
@@ -195,11 +184,11 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
         </View>
 
         <View style={styles.pointsSection}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>你将读到</Text>
+          <Text style={[styles.sectionTitle, styles.pointsTitle, { color: theme.text }]}>你将读到</Text>
           {article.keyPointsZh.map((point) => (
-            <View key={point} style={styles.pointRow}>
-              <Ionicons name="checkmark-circle" size={18} color={theme.accent} />
-              <Text style={[styles.point, { color: theme.textSecondary }]}>{point}</Text>
+            <View key={point} style={[styles.pointRow, { borderTopColor: theme.border }]}>
+              <Text style={[styles.pointDash, { color: theme.textMuted }]}>—</Text>
+              <Text style={[styles.point, { color: theme.text }]}>{point}</Text>
             </View>
           ))}
         </View>
@@ -283,37 +272,22 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   headerSpacer: { width: 26 },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 18, paddingTop: 12  },
-  cover: { borderRadius: radius.content, height: 210, marginBottom: 20 },
-  coverShade: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-  coverActionWrap: { alignItems: 'flex-end', padding: 12 },
-  coverAction: {
-    alignItems: 'center',
-    borderRadius: radius.pill,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  coverActionText: { fontSize: 12, fontWeight: weight('semibold') },
-  coverCaption: { bottom: 14, left: 14, position: 'absolute' },
-  coverSource: { color: '#FFFFFF', fontSize: 13, fontWeight: weight('semibold') },
-  coverCategory: { color: 'rgba(255,255,255,0.82)', fontSize: 11, marginTop: 3 },
+  cover: { borderRadius: radius.content, height: 210 },
+  coverMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10, marginBottom: 18 },
+  coverAction: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36 },
+  coverActionText: { fontSize: 13, fontWeight: weight('semibold') },
+  coverSource: { flex: 1, fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.6 },
   titleZh: { fontSize: 26, fontWeight: weight('bold'), lineHeight: 34 },
-  titleEn: { fontFamily: fonts.display, fontSize: 16, lineHeight: 24, marginTop: 8 },
-  meta: { fontSize: 12, marginTop: 10 },
+  titleEn: { fontFamily: fonts.reading, fontSize: 17, lineHeight: 25, marginTop: 8 },
+  meta: { fontFamily: fonts.label, fontSize: 12, letterSpacing: 0.3, marginTop: 12 },
   section: { borderBottomWidth: StyleSheet.hairlineWidth, marginTop: 24, paddingBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: weight('semibold') },
+  sectionTitle: { fontSize: 17, fontWeight: weight('bold') },
   summary: { fontSize: 15, lineHeight: 25, marginTop: 10 },
-  pointsSection: { gap: 11, marginTop: 22 },
-  pointRow: { alignItems: 'center', flexDirection: 'row', gap: 9 },
-  point: { flex: 1, fontSize: 14, lineHeight: 21 },
+  pointsSection: { marginTop: 22 },
+  pointsTitle: { marginBottom: 8 },
+  pointRow: { flexDirection: 'row', gap: 10, borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: 11 },
+  pointDash: { fontSize: 14, lineHeight: 22 },
+  point: { flex: 1, fontSize: 15, lineHeight: 22 },
   message: { fontSize: 13, lineHeight: 20, marginTop: 18 },
   bottomAction: {
     borderTopWidth: StyleSheet.hairlineWidth,

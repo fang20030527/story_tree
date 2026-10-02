@@ -284,7 +284,7 @@ export default function PracticeQuizScreen() {
       </View>
     );
   }
-  return <ReadingOverlayProvider><QuizContent key={practiceId} practiceId={practiceId} /></ReadingOverlayProvider>;
+  return <ReadingOverlayProvider surfaceColor={theme.surface} borderColor={theme.border}><QuizContent key={practiceId} practiceId={practiceId} /></ReadingOverlayProvider>;
 }
 
 const styles = StyleSheet.create({

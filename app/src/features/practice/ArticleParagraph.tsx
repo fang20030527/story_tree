@@ -856,12 +856,7 @@ export function InteractiveWordParagraph({
       ) : null}
       {visibleHint && isActive ? (
         <ReadingOverlay owner={owner} anchor={anchor}>
-          <View
-            style={[
-              styles.hint,
-              { marginBottom: 0, marginTop: 0 },
-              { backgroundColor: surfaceColor, borderColor },
-            ]}>
+          <View style={[styles.hint, styles.hintCard]}>
             <View style={styles.hintHeader}>
               <Text style={[styles.hintTerm, { color: textColor }]}>
                 {visibleHint.term}
@@ -884,9 +879,10 @@ export function InteractiveWordParagraph({
               term={visibleHint.term}
               phoneticUk={visibleHint.phoneticUk}
               phoneticUs={visibleHint.phoneticUs}
+              color={textColor}
             />
             {visibleHint.partOfSpeech ? (
-              <Text style={[styles.hintPartOfSpeech, { color: textColor }]}>
+              <Text style={[styles.hintPartOfSpeech, { color: mutedColor }]}>
                 {visibleHint.partOfSpeech}
               </Text>
             ) : null}
@@ -908,10 +904,10 @@ export function InteractiveWordParagraph({
                 onPress={() => void addVisibleWord()}
                 style={[
                   styles.addWordButton,
-                  {
-                    borderColor: isWordAdded(visibleHint.term) ? targetColor : borderColor,
-                    opacity: visibleHint.adding ? 0.65 : 1,
-                  },
+                  isWordAdded(visibleHint.term)
+                    ? { backgroundColor: addedWordColor, borderColor: addedWordColor }
+                    : { borderColor: targetColor },
+                  { opacity: visibleHint.adding ? 0.65 : 1 },
                 ]}>
                 {visibleHint.adding ? (
                   <ActivityIndicator color={targetColor} size="small" />
@@ -919,9 +915,7 @@ export function InteractiveWordParagraph({
                   <Text
                     style={[
                       styles.addWordIcon,
-                      {
-                        color: isWordAdded(visibleHint.term) ? targetColor : textColor,
-                      },
+                      { color: isWordAdded(visibleHint.term) ? textColor : targetColor },
                     ]}>
                     {isWordAdded(visibleHint.term) ? '✓' : '+'}
                   </Text>
@@ -929,9 +923,7 @@ export function InteractiveWordParagraph({
                 <Text
                   style={[
                     styles.addWordText,
-                    {
-                      color: isWordAdded(visibleHint.term) ? targetColor : textColor,
-                    },
+                    { color: isWordAdded(visibleHint.term) ? textColor : targetColor },
                   ]}>
                   {isWordAdded(visibleHint.term) ? '已加入生词本' : '加入生词本'}
                 </Text>
@@ -968,15 +960,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  hintTerm: { color: '#000000', fontFamily: fonts.display, fontSize: 20, lineHeight: 26 },
+  hintCard: { borderWidth: 0, marginBottom: 0, marginTop: 0, padding: 16 },
+  hintTerm: { color: '#000000', fontFamily: fonts.display, fontSize: 24, lineHeight: 30 },
   hintClose: { color: '#000000', fontSize: 22, lineHeight: 22 },
-  hintPartOfSpeech: {
-    color: '#000000',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 8,
-  },
-  hintMeaning: { color: '#000000', fontSize: 14, lineHeight: 21, marginTop: 6 },
+  hintPartOfSpeech: { color: '#000000', fontFamily: fonts.label, fontSize: 12, marginTop: 8 },
+  hintMeaning: { color: '#000000', fontSize: 15, lineHeight: 23, marginTop: 4 },
   hintError: { fontSize: 13, marginTop: 6 },
   savedContext: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#dedede', marginTop: 12, paddingTop: 10 },
   contextLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
@@ -985,13 +973,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-start',
     borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1.5,
     flexDirection: 'row',
     gap: 4,
-    marginTop: 10,
-    minHeight: 34,
-    paddingHorizontal: 9,
+    marginTop: 14,
+    minHeight: 38,
+    paddingHorizontal: 14,
   },
   addWordIcon: { color: '#000000', fontSize: 17, fontWeight: '700', lineHeight: 17 },
-  addWordText: { color: '#000000', fontSize: 12, fontWeight: '600' },
+  addWordText: { color: '#000000', fontSize: 13, fontWeight: '600' },
 });

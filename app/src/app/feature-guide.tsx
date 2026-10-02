@@ -1,10 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Card } from '@/components/ui';
+import { SectionHeading, SubpageHeader } from '@/components/subpage';
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 
@@ -109,46 +108,19 @@ export default function FeatureGuideScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.headerSide}>
-          <Ionicons name="chevron-back" size={24} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>功能概览</Text>
-        <View style={styles.headerSide} />
-      </View>
-      <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}>
+      <SubpageHeader title="功能概览" />
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]} showsVerticalScrollIndicator={false}>
+        <Text style={[styles.title, { color: theme.text }]}>黑洞英语能做什么</Text>
+        <Text style={[styles.lede, { color: theme.textSecondary }]}>读外刊、存生词、在新语境里复习，再开口跟读。</Text>
         {SECTIONS.map((section) => (
-          <View key={section.heading} style={{ marginBottom: 18 }}>
-            <Text style={[styles.sectionHeading, { color: theme.textSecondary }]}>
-              {section.heading}
-            </Text>
-            <Card theme={theme} style={styles.sectionCard}>
-              {section.items.map((item, i) => (
-                <View
-                  key={item.title}
-                  style={[
-                    styles.itemRow,
-                    i > 0 && {
-                      borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: theme.border,
-                    },
-                  ]}>
-                  <View style={[styles.itemIcon, { backgroundColor: theme.accentSoft }]}>
-                    <Ionicons name={item.icon} size={18} color={theme.accent} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={[styles.itemTitle, { color: theme.text }]}>
-                      {item.title}
-                    </Text>
-                    <Text style={[styles.itemDesc, { color: theme.textSecondary }]}>
-                      {item.desc}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </Card>
+          <View key={section.heading}>
+            <SectionHeading title={section.heading} />
+            {section.items.map((item) => (
+              <View key={item.title} style={[styles.itemRow, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.itemTitle, { color: theme.text }]}>{item.title}</Text>
+                <Text style={[styles.itemDesc, { color: theme.textSecondary }]}>{item.desc}</Text>
+              </View>
+            ))}
           </View>
         ))}
       </ScrollView>
@@ -158,25 +130,10 @@ export default function FeatureGuideScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    minHeight: 52,
-    paddingHorizontal: 16,
-  },
-  headerSide: { width: 32 },
-  headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
-  sectionHeading: { fontSize: 13, fontWeight: weight('semibold'), marginBottom: 8, marginLeft: 4 },
-  sectionCard: { paddingHorizontal: 14, paddingVertical: 4 },
-  itemRow: { alignItems: 'center', flexDirection: 'row', paddingVertical: 12 },
-  itemIcon: {
-    alignItems: 'center',
-    borderRadius: 8,
-    height: 34,
-    justifyContent: 'center',
-    width: 34,
-  },
-  itemTitle: { fontSize: 15, fontWeight: weight('semibold') },
-  itemDesc: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 24 },
+  title: { fontSize: 28, lineHeight: 36, fontWeight: weight('bold'), marginTop: 12 },
+  lede: { fontSize: 15, lineHeight: 24, marginTop: 8, marginBottom: 4 },
+  itemRow: { borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 14, gap: 4 },
+  itemTitle: { fontSize: 16, fontWeight: weight('semibold') },
+  itemDesc: { fontSize: 13, lineHeight: 20 },
 });

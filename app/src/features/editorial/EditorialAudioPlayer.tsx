@@ -8,7 +8,7 @@ import {
   formatEditorialAudioTime as formatTime, useEditorialAudio,
   type EditorialAudioTrack, type EditorialPlaybackPosition,
 } from './EditorialAudioProvider';
-import { radius } from '@/constants/theme';
+import { weight } from '@/constants/theme';
 
 export type { EditorialPlaybackPosition } from './EditorialAudioProvider';
 
@@ -48,7 +48,7 @@ export function EditorialAudioPlayer({ articleId, title, source, onPositionChang
   const label = failed ? '重试音频' : loading ? '音频加载中' : playing ? '暂停音频' : '播放音频';
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.surfaceAlt }]}>
+    <View style={[styles.container, { borderColor: theme.border }]}>
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -56,8 +56,8 @@ export function EditorialAudioPlayer({ articleId, title, source, onPositionChang
         disabled={loading || pending}
         onPress={() => audio.toggleTrack({ articleId, title, source })}
         style={styles.button}>
-        <Ionicons name={playing ? 'pause-circle' : 'play-circle'} size={32} color={theme.accent} />
-        <Text style={{ color: theme.text }}>{label}</Text>
+        <View style={[styles.playCircle, { backgroundColor: theme.accent }]}><Ionicons name={playing ? 'pause' : 'play'} size={18} color={theme.accentText} style={playing ? undefined : { marginLeft: 2 }} /></View>
+        <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
       </TouchableOpacity>
       <View
         testID="editorial-audio-progress"
@@ -94,8 +94,8 @@ export function EditorialAudioPlayer({ articleId, title, source, onPositionChang
         onResponderTerminate={() => { drag.current = null; setPreview(null); }}
         style={[styles.progressTouch, { opacity: canSeek ? 1 : 0.45 }]}>
         <View pointerEvents="none" style={[styles.track, { backgroundColor: theme.border }]}>
-          <View style={[styles.fill, { width: `${progress * 100}%`, backgroundColor: theme.accent }]} />
-          <View style={[styles.thumb, { left: `${progress * 100}%`, backgroundColor: theme.accent }]} />
+          <View style={[styles.fill, { width: `${progress * 100}%`, backgroundColor: theme.text }]} />
+          <View style={[styles.thumb, { left: `${progress * 100}%`, backgroundColor: theme.vermilion }]} />
         </View>
       </View>
       <Text style={{ color: theme.textMuted }}>{formatTime(displayedTime)} / {formatTime(duration)}</Text>
@@ -127,12 +127,14 @@ export function EditorialAudioPlayer({ articleId, title, source, onPositionChang
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 12, borderRadius: radius.content, gap: 8, marginVertical: 12 },
+  container: { paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, gap: 6, marginVertical: 12 },
+  playCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  label: { fontSize: 14, fontWeight: weight('semibold') },
   button: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   rates: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   ratePickerHost: { minWidth: 112, minHeight: 44 },
   progressTouch: { height: 44, justifyContent: 'center', marginHorizontal: 8 },
-  track: { height: 4, borderRadius: 2 },
-  fill: { height: 4, borderRadius: 2 },
-  thumb: { position: 'absolute', width: 16, height: 16, borderRadius: 8, top: -6, marginLeft: -8 },
+  track: { height: 2, borderRadius: 1 },
+  fill: { height: 2, borderRadius: 1 },
+  thumb: { position: 'absolute', width: 12, height: 12, borderRadius: 6, top: -5, marginLeft: -6 },
 });

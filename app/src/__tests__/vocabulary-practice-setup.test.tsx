@@ -7,11 +7,9 @@ import { ApiError } from '@/api/client';
 import { createPractice, getDashboard, registerAnonymous } from '@/api/practices';
 import {
   clearCreatePracticeOperation,
-  hasConfirmedAge,
   loadCreatePracticeOperation,
   prepareCreatePracticeOperation,
   saveActivePracticeId,
-  saveAgeConfirmation,
 } from '@/features/practice/practiceStorage';
 
 import { loadPracticeTargetCount } from '@/features/practice/practicePreferences';
@@ -38,11 +36,9 @@ jest.mock('@/api/practices', () => ({
 jest.mock('@/features/practice/practiceStorage', () => ({
   PendingCreateOperationError: class PendingCreateOperationError extends Error {},
   clearCreatePracticeOperation: jest.fn(),
-  hasConfirmedAge: jest.fn(),
   loadCreatePracticeOperation: jest.fn(),
   prepareCreatePracticeOperation: jest.fn(),
   saveActivePracticeId: jest.fn(),
-  saveAgeConfirmation: jest.fn(),
 }));
 jest.mock('@/context/ThemeContext', () => ({
   useAppTheme: () => ({
@@ -54,7 +50,6 @@ const mockedCreatePractice = jest.mocked(createPractice);
 const mockedGetDashboard = jest.mocked(getDashboard);
 const mockedRegisterAnonymous = jest.mocked(registerAnonymous);
 const mockedClearOperation = jest.mocked(clearCreatePracticeOperation);
-const mockedHasConfirmedAge = jest.mocked(hasConfirmedAge);
 const mockedLoadOperation = jest.mocked(loadCreatePracticeOperation);
 const mockedPrepareOperation = jest.mocked(prepareCreatePracticeOperation);
 const mockedSaveActivePracticeId = jest.mocked(saveActivePracticeId);
@@ -75,7 +70,6 @@ function dashboard(dueLearningCount = 5, unlearnedCount = 7) {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(loadPracticeTargetCount).mockResolvedValue(30);
-  mockedHasConfirmedAge.mockResolvedValue(true);
   mockedLoadOperation.mockResolvedValue(null);
   mockedClearOperation.mockResolvedValue(undefined);
   mockedGetDashboard.mockResolvedValue(dashboard());
@@ -139,18 +133,6 @@ it('keeps the original pending request even when the saved count has changed', a
   await fireEvent.press(view.getByText('开始多情景阅读练习'));
   await waitFor(() => expect(mockedCreatePractice).toHaveBeenCalledWith(request, 'original-request-key'));
   expect(mockedPrepareOperation).not.toHaveBeenCalled();
-});
-
-it('requires the existing age confirmation before creation', async () => {
-  mockedHasConfirmedAge.mockResolvedValue(false);
-  jest.mocked(saveAgeConfirmation).mockResolvedValue();
-  const view = await render(<VocabularyPracticeSetupScreen />);
-  await view.findByText('开始多情景阅读练习');
-  await fireEvent.press(view.getByText('开始多情景阅读练习'));
-  await view.findByText('使用前请确认年龄');
-  expect(mockedCreatePractice).not.toHaveBeenCalled();
-  await fireEvent.press(view.getByText('我已年满 14 周岁'));
-  await waitFor(() => expect(mockedCreatePractice).toHaveBeenCalledTimes(1));
 });
 
 it('does not silently generate with a different count when settings cannot load', async () => {

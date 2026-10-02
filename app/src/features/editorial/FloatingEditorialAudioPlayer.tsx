@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullWindowOverlay } from 'react-native-screens';
 
 import { useLayoutWidth } from '@/components/useLayoutWidth';
-import { weight } from '@/constants/theme';
+import { orbitTilt, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { formatEditorialAudioTime, useEditorialAudio, type EditorialAudioTrack } from './EditorialAudioProvider';
 
@@ -57,8 +57,8 @@ export function FloatingEditorialAudioPlayer() {
             accessibilityHint="打开文章正文，继续阅读"
             onPress={() => router.navigate({ pathname: '/editorial/[id]/read', params: { id: track.articleId } })}
             style={styles.articleButton}>
-            <View style={[styles.icon, { backgroundColor: theme.accentSoft }]}>
-              <Ionicons name="headset-outline" size={21} color={theme.accent} />
+            <View style={styles.icon}>
+              <View style={[styles.mark, { backgroundColor: audio.playing ? theme.vermilion : theme.textMuted }]} />
             </View>
             <View style={styles.caption}>
               <Text numberOfLines={1} style={[styles.title, { color: theme.text }]}>{track.title}</Text>
@@ -75,7 +75,7 @@ export function FloatingEditorialAudioPlayer() {
             onPress={audio.toggle}
             style={styles.control}>
             {loading || audio.pending ? <ActivityIndicator size="small" color={theme.accent} /> : (
-              <Ionicons name={audio.failed ? 'reload' : audio.playing ? 'pause' : 'play'} size={22} color={theme.accent} />
+              <Ionicons name={audio.failed ? 'reload' : audio.playing ? 'pause' : 'play'} size={22} color={theme.text} />
             )}
           </TouchableOpacity>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭文章音频"
@@ -92,7 +92,7 @@ export function FloatingEditorialAudioPlayer() {
             <Ionicons name="chevron-forward" size={20} color={theme.textMuted} />
           </TouchableOpacity>
           <View pointerEvents="none" style={[styles.progress, { backgroundColor: theme.border }]}>
-            <View style={{ height: 2, width: `${progress * 100}%`, backgroundColor: theme.accent }} />
+            <View style={{ height: 2, width: `${progress * 100}%`, backgroundColor: theme.text }} />
           </View>
         </>
       )}
@@ -112,12 +112,13 @@ const styles = StyleSheet.create({
     position: 'absolute', zIndex: 100, elevation: 12, width: 336, maxWidth: '92%',
     borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 8,
     flexDirection: 'row', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8,
   },
   collapsedContainer: { width: 48, padding: 0, borderTopRightRadius: 0, borderBottomRightRadius: 0 },
   expandButton: { width: 48, height: 60, alignItems: 'center', justifyContent: 'center', gap: 3 },
   articleButton: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  icon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 28, height: 36, alignItems: 'center', justifyContent: 'center' },
+  mark: { width: 14, height: 5, borderRadius: '50%', transform: [{ rotate: orbitTilt }] },
   caption: { flex: 1, gap: 4 },
   title: { fontSize: 13, fontWeight: weight('semibold') },
   status: { fontSize: 11 },

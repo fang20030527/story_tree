@@ -56,7 +56,8 @@ beforeEach(() => {
 
 it('shows four articles without navigating until the user chooses any topic', async () => {
   const view = await render(<TopicSelectionScreen />);
-  for (const topic of ['经济', '文化', '政治', '科技']) expect(view.getAllByText(topic)).toHaveLength(2);
+  // 进度区不再重复列出主题，每个主题只在下方列表出现一次。
+  for (const topic of ['经济', '文化', '政治', '科技']) expect(view.getAllByText(topic)).toHaveLength(1);
   expect(router.push).not.toHaveBeenCalled();
   expect(router.replace).not.toHaveBeenCalled();
   await fireEvent.press(view.getByLabelText('科技，开始阅读'));
@@ -169,7 +170,8 @@ it('refreshes actual completion progress and marks stale status during a network
 
   jest.mocked(usePracticePolling).mockReturnValue({ practice, error: null, retry });
   await view.rerender(<TopicSelectionScreen />);
-  expect(view.getAllByText('100%')).toHaveLength(5);
+  // 已生成的主题不再重复显示满格进度条，只保留总进度。
+  expect(view.getAllByText('100%')).toHaveLength(1);
   expect(view.getByText('四篇短文已生成')).toBeTruthy();
   expect(view.queryByText('进度更新暂时中断，当前显示上次获取的状态。')).toBeNull();
 });

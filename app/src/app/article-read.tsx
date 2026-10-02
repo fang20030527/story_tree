@@ -25,7 +25,8 @@ import {
 } from '@/api/practices';
 import { useAppTheme } from '@/context/ThemeContext';
 import type { Theme } from '@/constants/theme';
-import { radius, weight } from '@/constants/theme';
+import { FadeOnChange } from '@/components/motion';
+import { fonts, weight } from '@/constants/theme';
 import { recordImportedRecentView } from '@/features/library/libraryStorage';
 import { ArticleMediaBlock } from '@/features/imports/ArticleMediaBlock';
 import {
@@ -56,7 +57,8 @@ function sourceLabel(sourceKind: ImportedArticleDto['sourceKind']): string {
 }
 
 export default function ArticleReadScreen() {
-  return <ReadingOverlayProvider><ArticleReadScreenContent /></ReadingOverlayProvider>;
+  const { theme } = useAppTheme();
+  return <ReadingOverlayProvider surfaceColor={theme.surface} borderColor={theme.border}><ArticleReadScreenContent /></ReadingOverlayProvider>;
 }
 
 function ArticleReadScreenContent() {
@@ -145,11 +147,11 @@ function ArticleReadScreenContent() {
           {highlightError && <TouchableOpacity accessibilityRole="button" onPress={retryHighlights}>
             <Text style={{ color: theme.danger }}>生词高亮加载失败，点击重试</Text>
           </TouchableOpacity>}
-          <View style={[styles.sourcePill, { backgroundColor: theme.accentSoft }]}><Ionicons name="cloud-done-outline" size={14} color={theme.accent} /><Text style={[styles.sourcePillText, { color: theme.textSecondary }]}>{sourceLabel(article.sourceKind)} · 私人文章</Text></View>
+          <Text style={[styles.sourcePillText, { color: theme.textMuted }]}>{sourceLabel(article.sourceKind)} · 私人文章</Text>
           <Text style={[styles.title, { color: theme.text }]}>{article.title}</Text>
           <Text style={[styles.meta, { color: theme.textMuted }]}>{article.wordCount} 词 · {new Date(article.importedAt).toLocaleDateString('zh-CN')}</Text>
 
-          <View style={[styles.fullTranslationBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={[styles.fullTranslationBox, { borderColor: theme.border }]}>
             <ArticleTranslationControl
               articleId={article.id}
               actionLabel="查看译文"
@@ -233,7 +235,6 @@ function ArticleTranslationControl({
     <View>
       <View style={styles.translationHeader}>
         <View style={styles.translationHeading}>
-          <Ionicons name="language-outline" size={18} color={theme.accent} />
           {showLabel ? (
             <Text style={[styles.translationTitle, { color: theme.text }]}>
               {label}
@@ -246,7 +247,7 @@ function ArticleTranslationControl({
           hitSlop={8}
           onPress={handlePress}>
           {loading ? (
-            <ActivityIndicator color={theme.accent} size="small" />
+            <ActivityIndicator color={theme.textMuted} size="small" />
           ) : (
             <Text style={[styles.translationAction, { color: theme.accent }]}>
               {buttonLabel}
@@ -255,9 +256,11 @@ function ArticleTranslationControl({
         </TouchableOpacity>
       </View>
       {translation.visible && translation.translatedTextZh ? (
-        <Text style={[styles.translationText, { color: theme.textSecondary }]}>
-          {translation.translatedTextZh}
-        </Text>
+        <FadeOnChange trigger={translation.translatedTextZh}>
+          <Text style={[styles.translationText, { color: theme.textSecondary }]}>
+            {translation.translatedTextZh}
+          </Text>
+        </FadeOnChange>
       ) : null}
       {translation.error && translation.error.code !== 'NOT_FOUND' ? (
         <TouchableOpacity onPress={() => void translation.retry()}>
@@ -301,7 +304,7 @@ function ParagraphBlock({
   return (
     <View style={styles.paragraphBlock}>
       <View style={styles.paragraphHeader}>
-        <Text style={[styles.paragraphIndex, { color: theme.accent }]}>
+        <Text style={[styles.paragraphIndex, { color: theme.textMuted }]}>
           {String(index + 1).padStart(2, '0')}
         </Text>
         <ArticleTranslationControl
@@ -336,21 +339,20 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   headerSpacer: { width: 26 },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 24, paddingTop: 12  },
-  sourcePill: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: radius.pill, flexDirection: 'row', gap: 5, paddingHorizontal: 9, paddingVertical: 5 },
-  sourcePillText: { fontSize: 11, fontWeight: weight('medium') },
-  title: { fontSize: 32, fontWeight: weight('bold'), lineHeight: 41, marginTop: 14 },
-  meta: { fontSize: 12, marginTop: 8 },
-  fullTranslationBox: { borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, marginTop: 22, padding: 13 },
-  translationHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  sourcePillText: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.6 },
+  title: { fontFamily: fonts.readingMedium, fontSize: 30, lineHeight: 37, marginTop: 10 },
+  meta: { fontFamily: fonts.label, fontSize: 12, letterSpacing: 0.3, marginTop: 10 },
+  fullTranslationBox: { borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, marginTop: 22, paddingVertical: 4 },
+  translationHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 40 },
   translationHeading: { alignItems: 'center', flexDirection: 'row', gap: 7 },
-  translationTitle: { fontSize: 14, fontWeight: weight('semibold') },
+  translationTitle: { fontSize: 15, fontWeight: weight('semibold') },
   translationAction: { fontSize: 12, fontWeight: weight('semibold') },
-  translationText: { fontSize: 14, lineHeight: 23, marginTop: 12 },
+  translationText: { fontSize: 15, lineHeight: 25, paddingBottom: 12 },
   translationError: { fontSize: 12, lineHeight: 18, marginTop: 10 },
   articleBody: { marginTop: 24 },
   paragraphBlock: { marginBottom: 24 },
   paragraphHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 7 },
-  paragraphIndex: { fontSize: 12, fontWeight: weight('bold'), letterSpacing: 1 },
+  paragraphIndex: { fontFamily: fonts.label, fontSize: 12, letterSpacing: 0.6 },
   emptyTitle: { fontSize: 18, fontWeight: weight('semibold'), marginTop: 12 },
   emptyMessage: { fontSize: 13, lineHeight: 20, marginTop: 8, textAlign: 'center' },
 });

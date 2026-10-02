@@ -19,7 +19,8 @@ interface OverlayActions {
 }
 const OverlayContext = createContext<OverlayActions | null>(null);
 
-export function ReadingOverlayProvider({ children }: { children: ReactNode }) {
+/** surfaceColor/borderColor 由阅读页按主题传入；组件本身不依赖主题上下文。 */
+export function ReadingOverlayProvider({ children, surfaceColor = '#FFFFFF', borderColor = 'rgba(0, 0, 0, 0.12)' }: { children: ReactNode; surfaceColor?: string; borderColor?: string }) {
   const [activeId, select] = useState<string | null>(null);
   const [content, publish] = useState<OverlayContent | null>(null);
   // 句子翻译由阅读页持有，避免 FlatList 回收段落时丢失弹窗和请求。
@@ -63,18 +64,20 @@ export function ReadingOverlayProvider({ children }: { children: ReactNode }) {
         host.current?.measureInWindow((hostX, hostY) => setOrigin({ x: hostX, y: hostY }));
       }}>
         {children}
-        {sentence ? <FloatingBubble content={sentence} width={width} height={height} origin={origin} /> : null}
-        {visible ? <FloatingBubble content={visible} width={width} height={height} origin={origin} /> : null}
+        {sentence ? <FloatingBubble content={sentence} width={width} height={height} origin={origin} surfaceColor={surfaceColor} borderColor={borderColor} /> : null}
+        {visible ? <FloatingBubble content={visible} width={width} height={height} origin={origin} surfaceColor={surfaceColor} borderColor={borderColor} /> : null}
       </View>
     </OverlayContext.Provider>
   );
 }
 
-function FloatingBubble({ content, width, height, origin }: {
+function FloatingBubble({ content, width, height, origin, surfaceColor, borderColor }: {
   content: OverlayContent;
   width: number;
   height: number;
   origin: WordAnchor;
+  surfaceColor: string;
+  borderColor: string;
 }) {
   const isSentence = content.kind === 'sentence';
   const bubbleWidth = Math.min(340, width - 24);
@@ -92,6 +95,7 @@ function FloatingBubble({ content, width, height, origin }: {
       <View
         testID={isSentence ? 'sentence-floating-bubble' : 'word-floating-bubble'}
         style={[styles.bubble, {
+          backgroundColor: surfaceColor, borderColor,
           left, width: bubbleWidth, maxHeight,
           ...(isSentence ? { top: sentenceTop }
             : above ? { bottom: height - y + 18 } : { top: y + 18 }),
@@ -124,10 +128,11 @@ export function ReadingOverlay({ owner, anchor, children, kind }: OverlayContent
 
 const styles = StyleSheet.create({
   host: { flex: 1 },
+  // 平面卡片：细线边框 + 极浅投影，只用于与正文分层。
   bubble: {
-    position: 'absolute', borderRadius: 14, backgroundColor: '#fff',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18, shadowRadius: 14, elevation: 12,
+    position: 'absolute', borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
   bubbleContent: { borderRadius: 14, overflow: 'hidden' },
   fallback: { position: 'absolute', top: 36, left: 0, right: 0, zIndex: 100 },

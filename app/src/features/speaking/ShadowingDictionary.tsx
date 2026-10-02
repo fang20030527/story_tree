@@ -16,11 +16,11 @@ export function ShadowingDictionary({ term }: { term: string }) {
     return () => { active = false; };
   }, [term]);
   return <View style={{ gap: 14 }}>
-    <Text style={{ color: theme.text, fontFamily: fonts.reading, fontSize: 32 }}>{term}</Text>
+    <Text style={{ color: theme.text, fontFamily: fonts.display, fontSize: 30, lineHeight: 36 }}>{term}</Text>
     {!definition && !error ? <ActivityIndicator accessibilityLabel="正在查词" color={theme.accent} /> : null}
     {definition ? <>
       {definition.phoneticUk || definition.phoneticUs ? <Text style={{ color: theme.textMuted, fontSize: 13, lineHeight: 23 }}>{[definition.phoneticUk && `英 ${definition.phoneticUk}`, definition.phoneticUs && `美 ${definition.phoneticUs}`].filter(Boolean).join('  ')}</Text> : null}
-      <Text style={{ color: theme.accent, fontSize: 13 }}>{definition.partOfSpeech}</Text>
+      <Text style={{ color: theme.textSecondary, fontFamily: fonts.label, fontSize: 12, letterSpacing: 0.4 }}>{definition.partOfSpeech}</Text>
       <Text selectable style={{ color: theme.text, fontSize: 16, lineHeight: 28 }}>{definition.meaningZh}</Text>
     </> : null}
     {error ? <Text accessibilityRole="alert" style={{ color: theme.textMuted, fontSize: 14, lineHeight: 24 }}>{error}</Text> : null}

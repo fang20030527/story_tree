@@ -73,7 +73,7 @@ npm run build        # 构建服务端产物（tsup → server/dist，Node 22 ES
 - 所有业务路由使用 JSON 并位于 `/v1`；健康检查为 `/health/live`、`/health/ready`。
 - 安装令牌经 `Authorization: Bearer ...` 传递；所有改变资源的练习、翻译、辅助和作答请求必须带 `Idempotency-Key`。二进制资产 PUT 改用「导入 ID + 位置 + 服务端 SHA-256」实现安全重放。
 - 错误响应统一包含 `error.code`、中文 `message`、`requestId`、`retryable`。响应和日志不得包含源 URL、文件名、上传码、正文、OCR Base64、数据库 URL 或 API key。
-- 登录方式：匿名安装身份（14+ 确认）、邮箱+密码（服务端只存 scrypt 哈希，首次登录自动建号，不依赖外部邮件服务）、微信原生授权 code（需要真实开放平台凭证与 Expo Development Build，Expo Go 不含该原生模块）。
+- 登录方式：匿名安装身份（客户端自动发送 `ageConfirmed14Plus: true`，产品内没有年龄确认页，年龄只靠 App Store 14+ 分级限制）、邮箱+密码（服务端只存 scrypt 哈希，首次登录自动建号，不依赖外部邮件服务）、微信原生授权 code（需要真实开放平台凭证与 Expo Development Build，Expo Go 不含该原生模块）。
 
 ### 数据库与迁移
 

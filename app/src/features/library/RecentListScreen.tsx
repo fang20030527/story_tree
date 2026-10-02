@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { radius, weight } from '@/constants/theme';
+import { fonts, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { getEditorialArticle } from '@/features/editorial/catalog';
 import {
@@ -139,8 +139,8 @@ export function RecentListScreen({
         ]}
         ListEmptyComponent={(
           <View style={styles.empty}>
-            <Ionicons name="time-outline" size={38} color={theme.textMuted} />
-            <Text style={[styles.emptyText, { color: theme.textMuted }]}>还没有阅读记录</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>还没有阅读记录</Text>
+            <Text style={[styles.emptyText, { color: theme.textMuted }]}>读过的外刊和导入文章会按时间出现在这里。</Text>
           </View>
         )}
         renderItem={({ item }) => {
@@ -148,10 +148,7 @@ export function RecentListScreen({
           if (!description) return null;
           return (
             <View
-              style={[
-                styles.row,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-              ]}>
+              style={[styles.row, { borderColor: theme.border }]}>
               <TouchableOpacity
                 style={styles.rowBody}
                 activeOpacity={0.75}
@@ -179,7 +176,7 @@ export function RecentListScreen({
                 onPress={() => {
                   void remove(recentKey(item)).then(reload).catch(() => undefined);
                 }}>
-                <Ionicons name="trash-outline" size={18} color={theme.textMuted} />
+                <Text style={[styles.remove, { color: theme.textMuted }]}>移除</Text>
               </TouchableOpacity>
             </View>
           );
@@ -201,19 +198,19 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   headerSpacer: { width: 26 },
   clearText: { fontSize: 14 },
-  list: { gap: 10, paddingHorizontal: 16, paddingTop: 12 },
+  list: { paddingHorizontal: 24, paddingTop: 8 },
   row: {
     alignItems: 'center',
-    borderRadius: radius.option,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    gap: 16,
+    paddingVertical: 16,
   },
+  remove: { fontSize: 13 },
+  emptyTitle: { fontSize: 17, fontWeight: weight('semibold') },
   rowBody: { flex: 1 },
-  rowTitle: { fontSize: 15, fontWeight: weight('medium'), lineHeight: 21 },
-  rowMeta: { fontSize: 12, marginTop: 4 },
-  empty: { alignItems: 'center', gap: 12, paddingTop: 120 },
-  emptyText: { fontSize: 14 },
+  rowTitle: { fontSize: 16, fontWeight: weight('medium'), lineHeight: 23 },
+  rowMeta: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.3, marginTop: 6 },
+  empty: { gap: 8, paddingTop: 48 },
+  emptyText: { fontSize: 14, lineHeight: 22 },
 });

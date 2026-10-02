@@ -3,7 +3,9 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useAppTheme } from '@/context/ThemeContext';
 import { useSpeakingLibrary } from './useSpeakingLibrary';
+import { fonts } from '@/constants/theme';
 import { SpeakingHeader, SpeakingStatus, speakingStyles } from './SpeakingComponents';
+import { speakingTitleText } from './titles';
 import { syncSpeakingSession } from './cloudSync';
 import type { SpeakingSession } from './model';
 
@@ -24,6 +26,6 @@ export function SpeakingHistoryScreen() {
     <Text style={[speakingStyles.heading, { color: theme.text }]}>每一次开口，都留下积累。</Text><SpeakingStatus loading={library.loading} error={library.error} retry={library.refresh} />
     {!library.loading && !library.error && !library.store.history.length ? <Text style={[speakingStyles.hint, { color: theme.textMuted }]}>还没有练习记录。完成一次跟读后，记录会保存在这里。</Text> : null}
     {error ? <Text accessibilityRole="alert" style={{ color: theme.danger }}>{error}</Text> : null}
-    {library.store.history.map(session => <View key={session.id} style={{ paddingVertical: 24, borderBottomWidth: .5, borderBottomColor: theme.border, gap: 10 }}><Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/speaking/shadowing', params: { id: session.materialId } })} style={{ gap: 10 }}><Text style={{ color: theme.text, fontSize: 18 }}>{session.title}</Text><Text style={{ color: theme.textMuted, fontSize: 12 }}>{new Date(session.date).toLocaleString('zh-CN')} · {session.cueCount} 句 · {(session.elapsedMs / 60000).toFixed(1)} 分钟{session.cloudPending ? ' · 等待同步' : ''}</Text><Text style={{ color: theme.accent, fontSize: 12 }}>继续跟读 →</Text></Pressable>{session.cloudPending && library.cloud ? <Pressable accessibilityRole="button" disabled={Boolean(saving)} onPress={() => void retry(session)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>{saving === session.id ? '正在同步…' : '重试同步这次练习'}</Text></Pressable> : null}</View>)}
+    {library.store.history.map(session => <View key={session.id} style={{ paddingVertical: 24, borderBottomWidth: .5, borderBottomColor: theme.border, gap: 10 }}><Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/speaking/shadowing', params: { id: session.materialId } })} style={{ gap: 10 }}><Text style={{ color: theme.text, fontSize: 17, fontWeight: '600' }}>{speakingTitleText(session.title)}</Text><Text style={{ color: theme.textMuted, fontSize: 11, fontFamily: fonts.label, letterSpacing: 0.3 }}>{new Date(session.date).toLocaleString('zh-CN')} · {session.cueCount} 句 · {(session.elapsedMs / 60000).toFixed(1)} 分钟{session.cloudPending ? ' · 等待同步' : ''}</Text><Text style={{ color: theme.accent, fontSize: 13, fontWeight: '600' }}>继续跟读 →</Text></Pressable>{session.cloudPending && library.cloud ? <Pressable accessibilityRole="button" disabled={Boolean(saving)} onPress={() => void retry(session)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>{saving === session.id ? '正在同步…' : '重试同步这次练习'}</Text></Pressable> : null}</View>)}
   </ScrollView></View>;
 }

@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError } from '@/api/client';
 import { confirmPasswordReset, loginWithEmail, requestPasswordReset } from '@/api/email';
 import { registerAnonymous } from '@/api/practices';
-import { Card } from '@/components/ui';
+import { BrandLogo } from '@/components/brand';
 import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { clearAuthUser, saveAuthUserEmail } from '@/features/auth/authStorage';
@@ -213,9 +213,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.hero, keyboardVisible && styles.heroHidden]}>
-          <View style={[styles.brandMark, { backgroundColor: theme.accentSoft }]}>
-            <Ionicons name={mode === 'login' ? 'mail-outline' : 'key-outline'} size={38} color={theme.accent} />
-          </View>
+          <View style={styles.brandMark}><BrandLogo width={58} /></View>
           <Text style={[styles.title, { color: theme.text }]}>
             {mode === 'login' ? '同步你的学习进度' : mode === 'request' ? '找回邮箱账号' : '设置新密码'}
           </Text>
@@ -228,7 +226,7 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        <Card theme={theme} style={[styles.card, keyboardVisible && styles.cardWithKeyboard]}>
+        <View style={[styles.card, keyboardVisible && styles.cardWithKeyboard]}>
           {mode !== 'reset' ? <TextInput
             value={email}
             onChangeText={setEmail}
@@ -243,7 +241,7 @@ export default function LoginScreen() {
               if (mode === 'login') passwordInputRef.current?.focus();
               else void requestReset();
             }}
-            style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+            style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt }]}
           /> : null}
           {mode === 'login' ? <TextInput
             ref={passwordInputRef}
@@ -257,7 +255,7 @@ export default function LoginScreen() {
             textContentType="password"
             returnKeyType="go"
             onSubmitEditing={() => void login()}
-            style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+            style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt }]}
           /> : null}
           {mode === 'reset' ? <>
             <TextInput
@@ -267,7 +265,7 @@ export default function LoginScreen() {
               autoCorrect={false}
               placeholder="12 位邮箱验证码"
               placeholderTextColor={theme.textMuted}
-              style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+              style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt }]}
             />
             <TextInput
               value={newPassword}
@@ -278,7 +276,7 @@ export default function LoginScreen() {
               textContentType="newPassword"
               placeholder="新密码（至少 8 个字符）"
               placeholderTextColor={theme.textMuted}
-              style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+              style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt }]}
             />
             <TextInput
               value={confirmedPassword}
@@ -291,7 +289,7 @@ export default function LoginScreen() {
               placeholderTextColor={theme.textMuted}
               returnKeyType="go"
               onSubmitEditing={() => void resetPassword()}
-              style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+              style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt }]}
             />
           </> : null}
           <TouchableOpacity
@@ -305,7 +303,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.emailButtonText}>
+              <Text style={[styles.emailButtonText, { color: theme.accentText }]}>
                 {mode === 'login' ? '邮箱登录 / 注册' : mode === 'request' ? '发送验证码' : '重置密码'}
               </Text>
             )}
@@ -331,7 +329,7 @@ export default function LoginScreen() {
           {message ? (
             <Text style={[styles.message, { color: messageTone === 'error' ? theme.danger : theme.textSecondary }]}>{message}</Text>
           ) : null}
-        </Card>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -349,29 +347,21 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17, fontWeight: weight('semibold') },
   headerPlaceholder: { width: 26 },
-  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  flexGrow: 1, paddingHorizontal: 24, paddingTop: 76, paddingBottom: 32, alignItems: 'center'  },
+  content: { width: '100%', maxWidth: 520, alignSelf: 'center', flexGrow: 1, paddingHorizontal: 28, paddingTop: 40, paddingBottom: 32 },
   contentWithKeyboard: { paddingTop: 16 },
-  hero: { alignItems: 'center' },
+  hero: {},
   heroHidden: { display: 'none' },
-  brandMark: {
-    width: 76,
-    height: 76,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  title: { fontSize: 24, fontWeight: weight('bold'), marginBottom: 10 },
-  subtitle: { fontSize: 14, lineHeight: 22, textAlign: 'center', maxWidth: 300 },
-  card: { width: '100%', marginTop: 36, padding: 16 },
+  brandMark: { marginBottom: 22 },
+  title: { fontSize: 28, lineHeight: 36, fontWeight: weight('bold'), marginBottom: 10 },
+  subtitle: { fontSize: 15, lineHeight: 24 },
+  card: { width: '100%', marginTop: 32 },
   cardWithKeyboard: { marginTop: 0 },
   input: {
-    minHeight: 48,
-    borderWidth: StyleSheet.hairlineWidth,
+    minHeight: 50,
     borderRadius: radius.pill,
-    paddingHorizontal: 13,
+    paddingHorizontal: 18,
     fontSize: 15,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   emailButton: {
     minHeight: 50,
@@ -379,8 +369,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emailButtonText: { color: '#fff', fontSize: 16, fontWeight: weight('semibold') },
-  secondaryButton: { alignSelf: 'center', paddingVertical: 12, marginTop: 4 },
+  emailButtonText: { fontSize: 16, fontWeight: weight('semibold') },
+  secondaryButton: { alignSelf: 'flex-start', paddingVertical: 12, marginTop: 4 },
   secondaryButtonText: { fontSize: 14, fontWeight: weight('medium') },
-  message: { marginTop: 14, fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  message: { marginTop: 14, fontSize: 13, lineHeight: 20 },
 });

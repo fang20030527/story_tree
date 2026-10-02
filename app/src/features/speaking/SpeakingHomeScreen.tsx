@@ -8,7 +8,8 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { speakingCategories } from './catalog';
 import { speakingAccentLabel } from './accents';
 import { useSpeakingLibrary } from './useSpeakingLibrary';
-import { SpeakingMaterialRow, SpeakingStatus, speakingStyles, speakingTitleText } from './SpeakingComponents';
+import { SpeakingMaterialRow, SpeakingStatus, speakingStyles } from './SpeakingComponents';
+import { speakingTitleText } from './titles';
 import { speakingCover } from './covers';
 
 export function SpeakingHomeScreen() {

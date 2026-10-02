@@ -1,10 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { PressFeedback } from '@/components/motion';
 
 import { getDashboard, getPractice } from '@/api/practices';
-import { radius, weight } from '@/constants/theme';
+import { fonts, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { destinationForPractice, type PracticeDestination } from './resumePractice';
 import { loadActivePracticeId } from './practiceStorage';
@@ -44,22 +45,25 @@ export function ContinuePracticeCard() {
   }, []));
   if (!practiceId) return null;
   return (
-    <TouchableOpacity
+    <PressFeedback
       accessibilityRole="button"
+      accessibilityLabel={destination === 'topics' ? '继续主题短文' : '继续练习'}
       onPress={() => destination === 'new' ? router.push('/practice/new') : router.push({ pathname: `/practice/[id]/${destination}`, params: { id: practiceId } })}
-      style={[styles.card, { backgroundColor: theme.accentSoft }]}>
-      <Ionicons name="reader-outline" size={24} color={theme.accent} />
+      style={[styles.card, { borderTopColor: theme.text, borderBottomColor: theme.border }]}>
       <View style={styles.copy}>
+        <Text style={[styles.label, { color: theme.textMuted }]}>未完成的练习</Text>
         <Text style={[styles.title, { color: theme.text }]}>{destination === 'topics' ? '继续主题短文' : '继续练习'}</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{destination === 'topics' ? '回到四个主题，选择下一篇' : '接着上次的阅读和答题进度继续'}</Text>
       </View>
-      <Ionicons name="arrow-forward" size={20} color={theme.accent} />
-    </TouchableOpacity>
+      <Text style={[styles.go, { color: theme.accent }]}>继续 →</Text>
+    </PressFeedback>
   );
 }
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderRadius: radius.content, marginBottom: 16 },
-  copy: { flex: 1, gap: 5 },
-  title: { fontSize: 16, fontWeight: weight('semibold') },
+  card: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, borderTopWidth: 2, borderBottomWidth: StyleSheet.hairlineWidth, paddingTop: 12, paddingBottom: 16, marginBottom: 20 },
+  copy: { flex: 1, gap: 4 },
+  label: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.4 },
+  title: { fontSize: 17, fontWeight: weight('semibold') },
   subtitle: { fontSize: 12, lineHeight: 18 },
+  go: { fontSize: 14, fontWeight: weight('semibold'), paddingBottom: 2 },
 });

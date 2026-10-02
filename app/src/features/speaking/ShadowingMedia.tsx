@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { fonts, orbitTilt, radius } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import { speakingTitleText } from './SpeakingComponents';
+import { speakingTitleText } from './titles';
 import { initialShadowingState, type ShadowingController, type ShadowingPlaybackState } from './playback';
 type Props = { source: string | number; title: string; expanded: boolean; frameWidth?: number; maxHeight?: number; onController: (controller: ShadowingController | null) => void; onState: (state: ShadowingPlaybackState) => void };
 function audioRate(player: ReturnType<typeof useAudioPlayer>, rate: number) { player.shouldCorrectPitch = true; player.setPlaybackRate(rate); }

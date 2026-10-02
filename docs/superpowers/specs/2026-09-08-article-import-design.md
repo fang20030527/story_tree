@@ -361,7 +361,7 @@ Permission prompts occur only from explicit presses. Cancellation is a normal no
 
 ### 11.4 First-use identity
 
-Imports reuse the existing 14+ local confirmation and anonymous-registration contract. The age confirmation is factored into a shared boundary so practice creation and article import cannot diverge. Expo Web continues to render without SecureStore authentication; complete import workflows remain native-only except the capability-protected computer upload page.
+Imports reuse the anonymous-registration contract, with the client sending `ageConfirmed14Plus: true` automatically. There is no in-app age confirmation: age is limited only by the App Store 14+ rating, so practice creation and article import share the same registration path with no confirmation step. Expo Web continues to render without SecureStore authentication; complete import workflows remain native-only except the capability-protected computer upload page.
 
 ## 12. EvoLink Vision Boundary
 

@@ -13,14 +13,13 @@ import { createIdempotencyKey } from '@/api/installation';
 import { registerAnonymous } from '@/api/practices';
 import { type CreatedComputerUploadSession } from '@context-reader/contracts';
 import { useAppTheme } from '@/context/ThemeContext';
-import { hasConfirmedAge, saveAgeConfirmation } from '@/features/practice/practiceStorage';
 import {
   clearActiveComputerSessionId,
   loadActiveComputerSession,
   saveActiveComputerSession,
   saveActiveImportId,
 } from '@/features/imports/importStorage';
-import { radius, weight } from '@/constants/theme';
+import { fonts, radius, weight } from '@/constants/theme';
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -38,7 +37,6 @@ function remainingLabel(expiresAt: string): string {
 export default function ComputerImportScreen() {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const [ageConfirmed, setAgeConfirmed] = useState<boolean | null>(null);
   const [session, setSession] = useState<CreatedComputerUploadSession | null>(null);
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -47,33 +45,28 @@ export default function ComputerImportScreen() {
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([hasConfirmedAge(), loadActiveComputerSession()])
-      .then(async ([confirmed, storedSession]) => {
-        if (!mounted) return;
-        setAgeConfirmed(confirmed);
-        if (confirmed && storedSession) {
-          try {
-            const current = await getComputerUploadSession(storedSession.sessionId);
-            if (mounted && (current.status === 'awaiting_code' || current.status === 'claimed')) setSession(storedSession);
-            else await clearActiveComputerSessionId().catch(() => {});
-          } catch (error) {
-            // A transient outage must not discard the durable session. Keep it
-            // around so the polling effect can resume when the app is online
-            // again; only a non-retryable response proves it is no longer
-            // usable.
-            if (error instanceof ApiError && error.retryable) {
-              setSession(storedSession);
-              setRemaining(remainingLabel(storedSession.expiresAt));
-              setMessage(messageFor(error));
-            } else {
-              await clearActiveComputerSessionId().catch(() => {});
-            }
+    loadActiveComputerSession()
+      .then(async (storedSession) => {
+        if (!mounted || !storedSession) return;
+        try {
+          const current = await getComputerUploadSession(storedSession.sessionId);
+          if (mounted && (current.status === 'awaiting_code' || current.status === 'claimed')) setSession(storedSession);
+          else await clearActiveComputerSessionId().catch(() => {});
+        } catch (error) {
+          // A transient outage must not discard the durable session. Keep it
+          // around so the polling effect can resume when the app is online
+          // again; only a non-retryable response proves it is no longer
+          // usable.
+          if (error instanceof ApiError && error.retryable) {
+            setSession(storedSession);
+            setRemaining(remainingLabel(storedSession.expiresAt));
+            setMessage(messageFor(error));
+          } else {
+            await clearActiveComputerSessionId().catch(() => {});
           }
         }
       })
-      .catch(() => {
-        if (mounted) setAgeConfirmed(false);
-      });
+      .catch(() => {});
     return () => {
       mounted = false;
     };
@@ -134,16 +127,6 @@ export default function ComputerImportScreen() {
     };
   }, [session]);
 
-  const confirmAge = async () => {
-    try {
-      await saveAgeConfirmation();
-      setAgeConfirmed(true);
-      setMessage(null);
-    } catch {
-      setMessage('暂时无法保存年龄确认，请重试');
-    }
-  };
-
   const createSession = async () => {
     if (creating) return;
     if (Platform.OS === 'web') {
@@ -190,8 +173,6 @@ export default function ComputerImportScreen() {
 
   const sessionExpired = Boolean(session && remaining === '0:00');
 
-  if (ageConfirmed === null) return <View style={[styles.centered, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} /></View>;
-
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
@@ -199,60 +180,48 @@ export default function ComputerImportScreen() {
         <Text style={[styles.headerTitle, { color: theme.text }]}>导入 · 电脑</Text>
         <View style={styles.headerSpacer} />
       </View>
-      {!ageConfirmed ? (
-        <View style={styles.ageContent}><View style={[styles.ageCard, { backgroundColor: theme.surface, borderColor: theme.border }]}><View style={[styles.ageIcon, { backgroundColor: theme.accentSoft }]}><Ionicons name="shield-checkmark" size={34} color={theme.accent} /></View><Text style={[styles.ageTitle, { color: theme.text }]}>使用前请确认年龄</Text><Text style={[styles.ageBody, { color: theme.textSecondary }]}>电脑上传与文章服务仅面向年满 14 周岁的用户。</Text><TouchableOpacity onPress={() => void confirmAge()} style={[styles.primaryButton, { backgroundColor: theme.accent }]} activeOpacity={0.85}><Text style={[styles.primaryButtonText, { color: theme.accentText }]}>我已年满 14 周岁</Text></TouchableOpacity>{message ? <Text style={[styles.message, { color: theme.danger }]}>{message}</Text> : null}</View></View>
-      ) : (
-        <View style={styles.content}>
-          <View style={[styles.heroIcon, { backgroundColor: theme.accentSoft }]}><Ionicons name="laptop-outline" size={40} color={theme.accent} /></View>
-          <Text style={[styles.title, { color: theme.text }]}>从电脑导入文章</Text>
-          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>在电脑浏览器打开上传页，输入一次性上传码即可把文件安全传到手机。</Text>
-          {!session || sessionExpired ? (
-            <TouchableOpacity disabled={creating} onPress={() => void createSession()} style={[styles.primaryButton, { backgroundColor: theme.accent, opacity: creating ? 0.65 : 1 }]} activeOpacity={0.85}>{creating ? <ActivityIndicator color={theme.accentText} /> : <><Text style={[styles.primaryButtonText, { color: theme.accentText }]}>{session ? '重新生成上传码' : '生成上传码'}</Text><Ionicons name="key-outline" size={18} color={theme.accentText} /></>}</TouchableOpacity>
-          ) : (
-            <View style={[styles.codeCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text style={[styles.codeLabel, { color: theme.textMuted }]}>电脑端输入此上传码</Text>
-              <Text style={[styles.code, { color: theme.text }]}>{session.uploadCode}</Text>
-              <Text style={[styles.expiry, { color: remaining === '0:00' ? theme.danger : theme.textSecondary }]}>有效期还剩 {remaining ?? remainingLabel(session.expiresAt)}</Text>
-              <View style={styles.codeActions}><TouchableOpacity onPress={() => void copyCode()} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}><Ionicons name="copy-outline" size={16} color={theme.accent} /><Text style={[styles.secondaryButtonText, { color: theme.accent }]}>复制上传码</Text></TouchableOpacity><TouchableOpacity onPress={() => void openBrowser()} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}><Ionicons name="open-outline" size={16} color={theme.accent} /><Text style={[styles.secondaryButtonText, { color: theme.accent }]}>打开上传页</Text></TouchableOpacity></View>
-              <View style={[styles.urlBox, { backgroundColor: theme.surfaceAlt }]}><Text numberOfLines={2} style={[styles.urlText, { color: theme.textMuted }]}>{session.uploadUrl}</Text></View>
-              <Text style={[styles.waiting, { color: theme.textSecondary }]}>等待电脑上传文件… 上传完成后会自动进入解析</Text>
-            </View>
-          )}
-          {message ? <Text style={[styles.message, { color: message === '上传码已复制' ? theme.success : theme.danger }]}>{message}</Text> : null}
-          <Text style={[styles.note, { color: theme.textMuted }]}>上传码十分钟内有效且只能使用一次。支持 PDF、DOCX、TXT、HTML 和常见图片格式。</Text>
-        </View>
-      )}
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: theme.text }]}>从电脑导入文章</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>在电脑浏览器打开上传页，输入一次性上传码即可把文件安全传到手机。</Text>
+        {!session || sessionExpired ? (
+          <TouchableOpacity disabled={creating} onPress={() => void createSession()} style={[styles.primaryButton, { backgroundColor: theme.accent, opacity: creating ? 0.65 : 1 }]} activeOpacity={0.85}>{creating ? <ActivityIndicator color={theme.accentText} /> : <Text style={[styles.primaryButtonText, { color: theme.accentText }]}>{session ? '重新生成上传码' : '生成上传码'}</Text>}</TouchableOpacity>
+        ) : (
+          <View style={[styles.codeCard, { borderTopColor: theme.text, borderBottomColor: theme.border }]}>
+            <Text style={[styles.codeLabel, { color: theme.textMuted }]}>电脑端输入此上传码</Text>
+            <Text style={[styles.code, { color: theme.text }]}>{session.uploadCode}</Text>
+            <Text style={[styles.expiry, { color: remaining === '0:00' ? theme.danger : theme.textSecondary }]}>有效期还剩 {remaining ?? remainingLabel(session.expiresAt)}</Text>
+            <View style={styles.codeActions}><TouchableOpacity onPress={() => void copyCode()} style={[styles.secondaryButton, { borderColor: theme.accent }]} activeOpacity={0.8}><Text style={[styles.secondaryButtonText, { color: theme.accent }]}>复制上传码</Text></TouchableOpacity><TouchableOpacity onPress={() => void openBrowser()} style={[styles.secondaryButton, { borderColor: theme.accent }]} activeOpacity={0.8}><Text style={[styles.secondaryButtonText, { color: theme.accent }]}>打开上传页</Text></TouchableOpacity></View>
+            <View style={[styles.urlBox, { backgroundColor: theme.surfaceAlt }]}><Text numberOfLines={2} style={[styles.urlText, { color: theme.textMuted }]}>{session.uploadUrl}</Text></View>
+            <Text style={[styles.waiting, { color: theme.textSecondary }]}>等待电脑上传文件… 上传完成后会自动进入解析</Text>
+          </View>
+        )}
+        {message ? <Text style={[styles.message, { color: message === '上传码已复制' ? theme.success : theme.danger }]}>{message}</Text> : null}
+        <Text style={[styles.note, { color: theme.textMuted }]}>上传码十分钟内有效且只能使用一次。支持 PDF、DOCX、TXT、HTML 和常见图片格式。</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  centered: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   header: { alignItems: 'center', flexDirection: 'row', minHeight: 52, paddingHorizontal: 16 },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: weight('semibold'), textAlign: 'center' },
   headerSpacer: { width: 26 },
-  content: { width: '100%', maxWidth: 760, alignSelf: 'center',  alignItems: 'center', flex: 1, paddingHorizontal: 24, paddingTop: 70  },
-  heroIcon: { alignItems: 'center', borderRadius: 36, height: 72, justifyContent: 'center', width: 72 },
-  title: { fontSize: 23, fontWeight: weight('bold'), marginTop: 20, textAlign: 'center' },
-  subtitle: { fontSize: 14, lineHeight: 22, marginTop: 9, textAlign: 'center' },
-  codeCard: { alignItems: 'center', borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, marginTop: 24, padding: 18, width: '100%' },
+  content: { width: '100%', maxWidth: 560, alignSelf: 'center', flex: 1, paddingHorizontal: 24, paddingTop: 24 },
+  title: { fontSize: 28, lineHeight: 36, fontWeight: weight('bold') },
+  subtitle: { fontSize: 15, lineHeight: 24, marginTop: 8 },
+  codeCard: { borderTopWidth: 2, borderBottomWidth: StyleSheet.hairlineWidth, marginTop: 28, paddingTop: 14, paddingBottom: 18, width: '100%' },
   codeLabel: { fontSize: 12 },
-  code: { fontSize: 31, fontWeight: weight('bold'), letterSpacing: 5, marginTop: 11 },
+  code: { fontFamily: fonts.display, fontSize: 44, lineHeight: 52, letterSpacing: 6, marginTop: 8 },
   expiry: { fontSize: 12, marginTop: 7 },
   codeActions: { flexDirection: 'row', gap: 8, marginTop: 16, width: '100%' },
-  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', minHeight: 42, paddingHorizontal: 8 },
+  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1.5, flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', minHeight: 42, paddingHorizontal: 8 },
   secondaryButtonText: { fontSize: 13, fontWeight: weight('semibold') },
-  urlBox: { borderRadius: radius.content, marginTop: 12, paddingHorizontal: 10, paddingVertical: 8, width: '100%' },
+  urlBox: { marginTop: 12, width: '100%' },
   urlText: { fontSize: 10, lineHeight: 15 },
   waiting: { fontSize: 12, marginTop: 15, textAlign: 'center' },
   note: { fontSize: 12, lineHeight: 19, marginTop: 22, textAlign: 'center' },
   message: { fontSize: 13, lineHeight: 20, marginTop: 13, textAlign: 'center' },
-  primaryButton: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 24, minHeight: 50, minWidth: 180, paddingHorizontal: 18 },
+  primaryButton: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: radius.pill, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 24, minHeight: 50, minWidth: 180, paddingHorizontal: 22 },
   primaryButtonText: { fontSize: 15, fontWeight: weight('bold') },
-  ageContent: { flex: 1, justifyContent: 'center', padding: 24 },
-  ageCard: { alignItems: 'center', borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, padding: 24 },
-  ageIcon: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
-  ageTitle: { fontSize: 20, fontWeight: weight('bold'), marginTop: 18 },
-  ageBody: { fontSize: 14, lineHeight: 22, marginTop: 10, textAlign: 'center' },
 });

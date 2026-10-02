@@ -3,8 +3,6 @@ export const INSTALLATION_TOKEN_KEY =
 export const AUTH_USER_KEY = 'context_reader_auth_user_v1';
 export const AUTH_USER_EMAIL_KEY = 'context_reader_auth_user_email_v1';
 
-export const AGE_CONFIRMED_KEY =
-  'context_reader_age_confirmed_v1';
 export const PRACTICE_DRAFT_KEY =
   'context_reader_practice_draft_v1';
 export const CREATE_PRACTICE_OPERATION_KEY =

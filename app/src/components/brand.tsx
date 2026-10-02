@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fonts, orbitTilt, radius, weight } from '@/constants/theme';
+import { useReducedMotion } from '@/components/motion';
 import { useAppTheme } from '@/context/ThemeContext';
 
 export function BrandLogo({ width = 38 }: { width?: number }) {
@@ -107,6 +108,29 @@ export function LogoPlanes({ split = 0.62, level = 0.4 }: { split?: number; leve
         <View style={{ position: 'absolute', left: -w / 2, top: h * level + (w / 2) * TAN_TILT, width: w * 2, height: (w + h) * 2, backgroundColor: theme.pink, transformOrigin: 'left top', transform: [{ rotate: '-20deg' }] }} />
       </View>
     </> : null}
+  </View>;
+}
+
+/** logo 轨道加载：倾斜 20° 的椭圆，中心黑洞，朱橙小点沿轨道绕行；减少动态效果时静止。 */
+export function OrbitLoader({ size = 120, label = '正在生成' }: { size?: number; label?: string }) {
+  const { theme } = useAppTheme();
+  const reduced = useReducedMotion();
+  const [spin] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    if (reduced) { spin.setValue(0.15); return; }
+    const loop = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 2600, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' }));
+    loop.start();
+    return () => loop.stop();
+  }, [reduced, spin]);
+  const hole = theme.mode === 'dark' ? theme.bg : theme.text;
+  return <View accessibilityRole="progressbar" accessibilityLabel={label} style={{ width: size, height: size * 0.62, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: orbitTilt }, { scaleY: 0.42 }] }}>
+      <View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: theme.textMuted, opacity: 0.4 }} />
+      <Animated.View style={{ position: 'absolute', width: size, height: size, transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}>
+        <View style={{ position: 'absolute', top: -7, left: size / 2 - 7, width: 14, height: 14, borderRadius: 7, backgroundColor: theme.vermilion }} />
+      </Animated.View>
+      <View style={{ width: size * 0.3, height: size * 0.3, borderRadius: size * 0.15, backgroundColor: hole }} />
+    </View>
   </View>;
 }
 

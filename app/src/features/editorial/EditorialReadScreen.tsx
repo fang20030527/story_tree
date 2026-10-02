@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { VocabularyInput } from '@context-reader/contracts';
 
 import { createVocabularyItem, requestWordTranslation } from '@/api/practices';
+import { FadeOnChange } from '@/components/motion';
 import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import type { EditorialArticle } from '@/features/editorial/catalog';
@@ -40,9 +41,10 @@ import { useEditorialReadingProgress } from './useEditorialReadingProgress';
 type Props = { articleId: string };
 
 export function EditorialReadScreen({ articleId }: Props) {
+  const { theme } = useAppTheme();
   const { article, loading, error, retry } = useEditorialArticle(articleId);
   return article ? (
-    <ReadingOverlayProvider><EditorialReadContent key={article.id} article={article} /></ReadingOverlayProvider>
+    <ReadingOverlayProvider surfaceColor={theme.surface} borderColor={theme.border}><EditorialReadContent key={article.id} article={article} /></ReadingOverlayProvider>
   ) : loading || error ? (
     <EditorialRemoteStatus loading={loading} retry={retry} />
   ) : (
@@ -228,13 +230,9 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           </View>
         ) : null}
         <View
-          style={[
-            styles.translationBox,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}>
+          style={[styles.translationBox, { borderColor: theme.border }]}>
           <View style={styles.translationHeader}>
             <View style={styles.translationHeading}>
-              <Ionicons name="language-outline" size={18} color={theme.accent} />
               <Text style={[styles.translationTitle, { color: theme.text }]}>全文翻译</Text>
             </View>
             <TouchableOpacity
@@ -248,9 +246,11 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
             </TouchableOpacity>
           </View>
           {showFullTranslation && fullTranslation ? (
-            <Text style={[styles.translationText, { color: theme.textSecondary }]}>
-              {fullTranslation}
-            </Text>
+            <FadeOnChange trigger={fullTranslation}>
+              <Text style={[styles.translationText, { color: theme.textSecondary }]}>
+                {fullTranslation}
+              </Text>
+            </FadeOnChange>
           ) : null}
           {showFullTranslation && translationLoading ? (
             <Text style={[styles.translationText, { color: theme.textMuted }]}>
@@ -422,21 +422,17 @@ const styles = StyleSheet.create({
   titleEn: { fontFamily: fonts.readingMedium, fontSize: 30, fontWeight: weight('regular'), lineHeight: 38, marginTop: 12 },
   titleZh: { fontSize: 17, lineHeight: 26, marginTop: 12 },
   meta: { fontFamily: fonts.label, fontSize: 11, lineHeight: 18, marginTop: 16 },
-  translationBox: {
-    borderRadius: radius.content,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginTop: 22,
-    padding: 13,
-  },
+  translationBox: { borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, marginTop: 22, paddingVertical: 4 },
   translationHeader: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    minHeight: 44,
   },
   translationHeading: { alignItems: 'center', flexDirection: 'row', gap: 7 },
-  translationTitle: { fontSize: 14, fontWeight: weight('semibold') },
-  translationAction: { fontSize: 12, fontWeight: weight('semibold') },
-  translationText: { fontSize: 14, lineHeight: 23, marginTop: 12 },
+  translationTitle: { fontSize: 15, fontWeight: weight('semibold') },
+  translationAction: { fontSize: 13, fontWeight: weight('semibold') },
+  translationText: { fontSize: 15, lineHeight: 25, paddingBottom: 14 },
   body: { marginTop: 32 },
   figure: { marginTop: 8, marginBottom: 24 },
   leadingFigure: { marginTop: 0 },
