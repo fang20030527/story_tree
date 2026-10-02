@@ -4,22 +4,29 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  type TextStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api/client';
 import { InstallationCredentialUnavailableError } from '@/api/installation';
 import { getDashboard, getVocabularyWords } from '@/api/practices';
-import { BrandHeader, OrbitMap, PageHeading, StatRow, TouchCard } from '@/components/brand';
+import { BrandHeader, PageHeading, StatRow, TouchCard } from '@/components/brand';
 
 import { Card } from '@/components/ui';
 import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+
+// react-native-web 的 Text 默认 overflow-wrap: break-word，窄封面会把单词拆成两行；只在整词之间换行。
+const webWholeWords = Platform.OS === 'web'
+  ? ({ wordBreak: 'normal', overflowWrap: 'normal' } as unknown as TextStyle)
+  : null;
 
 function dashboardErrorMessage(error: unknown): string {
   if (error instanceof InstallationCredentialUnavailableError) {
@@ -70,17 +77,8 @@ export default function WordsScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]} showsVerticalScrollIndicator={false}>
         <PageHeading title="词库" description="每个词，都有下次见面。" />
         <View style={styles.review}>
-          <View style={styles.reviewTop}>
-            <View>
-              <Text testID="due-learning-count" style={[styles.largeCount, { color: dashboard ? theme.text : theme.textMuted }]}>{number(dashboard?.dueLearningCount)}</Text>
-              <Text style={[styles.reviewLabel, { color: theme.textMuted }]}>今天待复习</Text>
-            </View>
-            <View style={styles.orbit}>
-              <OrbitMap due={dashboard?.dueLearningCount ?? 0}
-                learning={Math.max((summary?.learningCount ?? 0) - (dashboard?.dueLearningCount ?? 0), 0)}
-                mastered={summary?.masteredCount ?? 0} />
-            </View>
-          </View>
+          <Text testID="due-learning-count" style={[styles.largeCount, { color: dashboard ? theme.text : theme.textMuted }]}>{number(dashboard?.dueLearningCount)}</Text>
+          <Text style={[styles.reviewLabel, { color: theme.textMuted }]}>今天待复习</Text>
           <Text style={[styles.reviewIntro, { color: theme.textSecondary }]}>在一篇新文章里，和这些词再见一面。</Text>
           <TouchCard onPress={() => router.push('/practice/from-vocabulary')} accessibilityLabel="打开 AI 阅读练习"
             style={[styles.reviewAction, { backgroundColor: theme.accent }]}>
@@ -99,7 +97,8 @@ export default function WordsScreen() {
         </Card> : null}
         <View style={styles.bookHeading}><Text style={[styles.bookTitle, { color: theme.text }]}>我的生词本</Text><TouchableOpacity onPress={() => router.push('/vocabulary/book')} style={styles.link}><Text style={{ color: theme.accent }}>查看全部</Text></TouchableOpacity></View>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="打开生词本" onPress={() => router.push('/vocabulary/book')} style={[styles.bookRow, { borderTopColor: theme.text }]}>
-          <View style={[styles.bookCover, { backgroundColor: theme.pink }]}><Text style={[styles.coverText, { color: theme.onPink }]}>{'Words\nin\ncontext.'}</Text></View>
+          <View style={[styles.bookCover, { backgroundColor: theme.pink }]}><Text testID="vocabulary-book-cover-title" numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.75}
+            style={[styles.coverText, webWholeWords, { color: theme.onPink }]}>{'Words\nin\ncontext.'}</Text></View>
           <View style={styles.entryCopy}>
             <Text style={[styles.entryTitle, { color: theme.text }]}>生词本</Text>
             <Text style={[styles.entryMeta, { color: theme.textSecondary }]}>阅读中遇见的词</Text>
@@ -117,11 +116,9 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { paddingHorizontal: 24, paddingTop: 12, width: '100%', maxWidth: 760, alignSelf: 'center' },
   review: { paddingBottom: 8 },
-  reviewTop: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  orbit: { flex: 1, maxWidth: 340 },
   largeCount: { fontFamily: fonts.display, fontSize: 72, lineHeight: 80 },
   reviewLabel: { fontSize: 13, marginTop: 2 },
-  reviewIntro: { fontSize: 14, lineHeight: 22, marginTop: 14 },
+  reviewIntro: { fontSize: 14, lineHeight: 22, marginTop: 18 },
   reviewAction: { alignSelf: 'flex-start', borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, minHeight: 46, paddingHorizontal: 18 },
   reviewButton: { fontSize: 15, fontWeight: weight('semibold') },
   bookHeading: { paddingTop: 20, marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -129,7 +126,8 @@ const styles = StyleSheet.create({
   link: { minHeight: 44, justifyContent: 'center' },
   bookRow: { flexDirection: 'row', gap: 20, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 8 },
   bookCover: { width: 94, minHeight: 136, padding: 12, borderTopLeftRadius: 14, borderTopRightRadius: 14, borderBottomLeftRadius: radius.content, borderBottomRightRadius: radius.content },
-  coverText: { fontFamily: fonts.display, fontSize: 22, lineHeight: 28 },
+  // 封面内宽只有 70px：17px 时最长的 context. 约 66px，整词不拆行。
+  coverText: { fontFamily: fonts.display, fontSize: 17, lineHeight: 22 },
   entryCopy: { flex: 1, justifyContent: 'center' },
   entryTitle: { fontSize: 17, fontWeight: weight('semibold') },
   entryMeta: { fontSize: 12, lineHeight: 20, marginTop: 8 },

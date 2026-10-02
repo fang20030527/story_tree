@@ -110,34 +110,6 @@ export function LogoPlanes({ split = 0.62, level = 0.4 }: { split?: number; leve
   </View>;
 }
 
-const ORBIT_SLOTS = {
-  near: { r: 0.4, angles: [200, 20, 115, 295, 65] },
-  mid: { r: 0.66, angles: [160, 340, 235, 50] },
-  far: { r: 0.93, angles: [188, 8, 262, 98] },
-};
-
-/** 记忆轨道：logo 的 20° 椭圆，越靠近中心越该复习。点数只表示各组是否有词（每组最多 5/4/4 个）。 */
-export function OrbitMap({ due, learning, mastered }: { due: number; learning: number; mastered: number }) {
-  const { theme } = useAppTheme();
-  const [{ width: w }, onLayout] = useLayoutSize();
-  const h = w / 2;
-  const hole = theme.mode === 'dark' ? theme.bg : theme.text;
-  const a = w * 0.48, b = w * 0.16, cos = Math.cos(Math.PI / 9), sin = Math.sin(Math.PI / 9);
-  const dots = ([['near', due, theme.vermilion, 11], ['mid', learning, theme.pink, 9], ['far', mastered, theme.textMuted, 6]] as const)
-    .flatMap(([group, count, color, size]) => ORBIT_SLOTS[group].angles.slice(0, Math.min(count, ORBIT_SLOTS[group].angles.length)).map((deg, i) => {
-      const t = deg * Math.PI / 180, x = ORBIT_SLOTS[group].r * a * Math.cos(t), y = ORBIT_SLOTS[group].r * b * Math.sin(t);
-      return { key: `${group}${i}`, color, size, left: w / 2 + x * cos - y * sin - size / 2, top: h / 2 + x * sin + y * cos - size / 2 };
-    }));
-  return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-    onLayout={onLayout} style={{ width: '100%', aspectRatio: 2 }}>
-    {w > 0 ? <>
-      <View style={{ position: 'absolute', left: w / 2 - a, top: h / 2 - b, width: a * 2, height: b * 2, borderRadius: '50%', backgroundColor: theme.marker, transform: [{ rotate: orbitTilt }] }} />
-      <View style={{ position: 'absolute', left: w / 2 - w * 0.1, top: h / 2 - w * 0.06, width: w * 0.2, height: w * 0.12, borderRadius: '50%', backgroundColor: hole, transform: [{ rotate: orbitTilt }] }} />
-      {dots.map(dot => <View key={dot.key} style={{ position: 'absolute', left: dot.left, top: dot.top, width: dot.size, height: dot.size, borderRadius: dot.size / 2, backgroundColor: dot.color, opacity: dot.size === 6 ? 0.55 : 1 }} />)}
-    </> : null}
-  </View>;
-}
-
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingBottom: 16, minHeight: 64 },
   brand: { flexDirection: 'row', gap: 10, alignItems: 'center' },

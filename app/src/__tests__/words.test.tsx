@@ -48,6 +48,10 @@ it('shows the two entries with whole-library counts and navigates to them', asyn
   expect(view.getByTestId('total-word-count').props.children).toBe(128);
   expect(view.getByTestId('today-added-count').props.children).toBe(3);
   expect(view.getByTestId('due-learning-count').props.children).toBe(7);
+  // 封面标题按整词分三行，不能在窄封面里拆开单词。
+  const coverTitle = view.getByTestId('vocabulary-book-cover-title');
+  expect(coverTitle.props.children).toBe('Words\nin\ncontext.');
+  expect(coverTitle.props.numberOfLines).toBe(3);
 
   await fireEvent.press(view.getByLabelText('打开生词本'));
   expect(router.push).toHaveBeenLastCalledWith('/vocabulary/book');
