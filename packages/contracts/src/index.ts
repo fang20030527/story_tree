@@ -1013,6 +1013,8 @@ export const ImportSpeakingSubtitlesRequestSchema = z.object({
 export const SpeakingRecordingSchema = z.object({
   assetId: UuidSchema, durationMs: z.number().int().positive().max(600_000),
   cueId: SpeakingResourceIdSchema,
+  referenceText: z.string().trim().min(1).max(4_000).optional(),
+  subtitleRevision: z.number().int().positive().optional(),
 }).strict();
 export const SpeakingStateDtoSchema = z.object({
   materialId: SpeakingResourceIdSchema, revision: z.number().int().nonnegative(),
@@ -1049,10 +1051,59 @@ export const SpeakingLibraryDtoSchema = z.object({
 export const SpeakingPlaybackDtoSchema = z.object({
   url: z.url(), expiresAt: z.iso.datetime(),
 }).strict();
+export const SPEAKING_PRONUNCIATION_MAX_DURATION_MS = 30_000;
+export const SPEAKING_PRONUNCIATION_MAX_AUDIO_BYTES = 2 * 1024 ** 2;
+export const SpeakingPronunciationLocaleSchema = z.enum(['en-us', 'en-gb']);
+export const SpeakingPronunciationReferenceSchema = z.string().trim().min(1).max(1_000)
+  .refine(text => /[a-z]/iu.test(text), '请提供英文字幕');
+export const CreateSpeakingPronunciationRequestSchema = z.object({
+  assetId: UuidSchema, materialId: SpeakingResourceIdSchema.nullable(), cueId: SpeakingResourceIdSchema,
+  referenceText: SpeakingPronunciationReferenceSchema,
+  subtitleRevision: z.number().int().positive().nullable(), locale: SpeakingPronunciationLocaleSchema,
+}).strict().refine(value => value.materialId === null || value.subtitleRevision !== null, '云端素材需要字幕版本');
+const PronunciationScoreSchema = z.number().finite().min(0).max(100);
+const PronunciationTimeSchema = z.number().finite().nonnegative().max(SPEAKING_PRONUNCIATION_MAX_DURATION_MS).nullable();
+export const SpeakingPronunciationPhonemeSchema = z.object({
+  symbol: z.string().min(1).max(32), spokenSymbol: z.string().min(1).max(32).nullable(),
+  score: PronunciationScoreSchema.nullable(), stressScore: PronunciationScoreSchema.nullable(),
+  startMs: PronunciationTimeSchema, endMs: PronunciationTimeSchema,
+}).strict().refine(value => value.startMs === null || value.endMs === null || value.endMs >= value.startMs, '音素时间无效');
+export const SpeakingPronunciationWordSchema = z.object({
+  word: z.string().min(1).max(200), score: PronunciationScoreSchema.nullable(),
+  startMs: PronunciationTimeSchema, endMs: PronunciationTimeSchema,
+  phonemes: z.array(SpeakingPronunciationPhonemeSchema).max(100),
+}).strict().refine(value => value.startMs === null || value.endMs === null || value.endMs >= value.startMs, '单词时间无效');
+export const SpeakingPronunciationResultSchema = z.object({
+  score: PronunciationScoreSchema, words: z.array(SpeakingPronunciationWordSchema).min(1).max(250),
+  feedback: z.array(z.string().min(1).max(500)).max(3),
+}).strict();
+export const SpeakingPronunciationErrorSchema = z.object({
+  code: z.string().min(1).max(80), message: z.string().min(1).max(500), retryable: z.boolean(),
+}).strict();
+export const SpeakingPronunciationAssessmentDtoSchema = z.object({
+  id: UuidSchema, assetId: UuidSchema, materialId: SpeakingResourceIdSchema.nullable(), cueId: SpeakingResourceIdSchema,
+  referenceText: SpeakingPronunciationReferenceSchema, subtitleRevision: z.number().int().positive().nullable(),
+  locale: SpeakingPronunciationLocaleSchema, provider: z.literal('speechace'),
+  status: z.enum(['processing', 'ready', 'failed']), result: SpeakingPronunciationResultSchema.nullable(),
+  error: SpeakingPronunciationErrorSchema.nullable(), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
+}).strict().refine(value => value.status === 'ready' ? value.result !== null && value.error === null :
+  value.status === 'failed' ? value.result === null && value.error !== null : value.result === null && value.error === null,
+  '评测状态与结果不一致');
+export const SpeakingPronunciationCapabilitySchema = z.object({
+  available: z.boolean(), provider: z.literal('speechace'), maxDurationMs: z.number().int().positive(),
+  maxAudioBytes: z.number().int().positive(), locales: z.array(SpeakingPronunciationLocaleSchema).min(1).max(2),
+}).strict();
 export const SpeakingCapabilitiesDtoSchema = z.object({
   storage: z.enum(['local', 'r2']), maxMediaBytes: z.number().int().positive(),
   maxSubtitleBytes: z.number().int().positive(), autoSubtitles: z.literal(false),
+  pronunciation: SpeakingPronunciationCapabilitySchema.optional(),
 }).strict();
+export type SpeakingPronunciationLocale = z.infer<typeof SpeakingPronunciationLocaleSchema>;
+export type CreateSpeakingPronunciationRequest = z.infer<typeof CreateSpeakingPronunciationRequestSchema>;
+export type SpeakingPronunciationResult = z.infer<typeof SpeakingPronunciationResultSchema>;
+export type SpeakingPronunciationAssessmentDto = z.infer<typeof SpeakingPronunciationAssessmentDtoSchema>;
+export type SpeakingPronunciationError = z.infer<typeof SpeakingPronunciationErrorSchema>;
+export type SpeakingPronunciationCapability = z.infer<typeof SpeakingPronunciationCapabilitySchema>;
 export type CreateSpeakingAssetRequest = z.infer<typeof CreateSpeakingAssetRequestSchema>;
 export type SpeakingAssetDto = z.infer<typeof SpeakingAssetDtoSchema>;
 export type CompleteSpeakingAssetRequest = z.infer<typeof CompleteSpeakingAssetRequestSchema>;

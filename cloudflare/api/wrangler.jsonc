@@ -59,7 +59,7 @@
     "API_CORS_ORIGINS": "https://waikan-web.zhenyufang162.workers.dev,https://blackholeenglish.com",
     "API_STAGE_OPEN": "true"
   }
-  // EVOLINK_API_KEY and RESEND_API_KEY are encrypted Worker secrets.
+  // EVOLINK_API_KEY、RESEND_API_KEY、SPEECHACE_API_KEY 均通过加密 Worker secret 配置。
   // R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME
   // are also configured as Worker secrets for private media signatures.
   // Never put their values in vars or the repository.

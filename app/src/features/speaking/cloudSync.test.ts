@@ -29,7 +29,7 @@ beforeEach(async () => {
   jest.mocked(updateSpeakingState).mockImplementation(async (_id, body) => { serverState = { ...serverState, ...body, revision: body.revision + 1 }; return serverState; });
   jest.mocked(getSpeakingState).mockImplementation(async () => serverState);
 });
-it('retains recording creation keys across lost responses and supplies a known WebM recording duration', async () => {
+it('retains recording creation keys and subtitle snapshots across lost responses and supplies a known WebM recording duration', async () => {
   const assetId = '22222222-2222-4222-8222-222222222222';
   const asset = { id: assetId, status: 'awaiting_upload' as const, uploadPath: `/v1/speaking/assets/${assetId}/content`, byteSize: 1234,
     contentType: 'audio/webm' as const, duration: 0, expiresAt: new Date(Date.now() + 600_000).toISOString() };
@@ -38,13 +38,15 @@ it('retains recording creation keys across lost responses and supplies a known W
   jest.mocked(speakingMediaInfo).mockResolvedValue({ byteSize: 1234, contentType: 'audio/webm' });
   jest.mocked(createSpeakingAsset).mockRejectedValueOnce(new Error('response lost')).mockResolvedValueOnce(asset);
   jest.mocked(uploadSpeakingAssetContent).mockResolvedValue({ ...asset, status: 'ready', duration: 1.5 });
-  const recording = { mediaId: 'recording-lost-create', durationMs: 1500, cueId: cue.id, cloudPending: true };
+  const recording = { mediaId: 'recording-lost-create', durationMs: 1500, cueId: cue.id, cloudPending: true, referenceText: cue.en, subtitleRevision: 1 };
   await expect(saveSpeakingCloudRecording(material, scope, recording)).rejects.toThrow('response lost');
   const store = await saveSpeakingCloudRecording(material, scope, recording);
   expect(jest.mocked(createSpeakingAsset).mock.calls[0]).toEqual(jest.mocked(createSpeakingAsset).mock.calls[1]);
   expect(speakingMediaInfo).toHaveBeenCalledTimes(1);
   expect(uploadSpeakingAssetContent).toHaveBeenCalledWith(asset, expect.objectContaining({ uri: 'blob:recording' }), { durationHintSeconds: 1.5 });
   expect(store.recordings[material.id]).toMatchObject({ assetId, durationMs: 1500 });
+  expect(updateSpeakingState).toHaveBeenCalledWith(material.id, expect.objectContaining({ recording: { assetId, durationMs: 1500, cueId: cue.id, referenceText: cue.en, subtitleRevision: 1 } }), expect.any(String));
+  expect(store.recordings[material.id]).toMatchObject({ referenceText: cue.en, subtitleRevision: 1, cloudPending: false });
   expect(release).toHaveBeenCalledTimes(2);
 });
 it('renews a canceled recording direct upload with the same creation key and retains the ready asset when a state write fails', async () => {

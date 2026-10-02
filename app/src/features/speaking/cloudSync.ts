@@ -58,9 +58,14 @@ function applyState(store: SpeakingStore, state: SpeakingStateDto) {
   store.notes[state.materialId] = state.notes;
   store.positions[state.materialId] = state.position;
   store.cloudStateRevisions[state.materialId] = state.revision;
+  const previousRecording = store.recordings[state.materialId];
   if (state.recording) store.recordings[state.materialId] = {
+    ...(previousRecording?.assetId === state.recording.assetId ? previousRecording : {}),
     mediaId: state.recording.assetId, assetId: state.recording.assetId,
     durationMs: state.recording.durationMs, cueId: state.recording.cueId,
+    ...(state.recording.referenceText ? { referenceText: state.recording.referenceText } : {}),
+    ...(state.recording.subtitleRevision ? { subtitleRevision: state.recording.subtitleRevision } : {}),
+    cloudPending: false,
   };
   else if (store.recordings[state.materialId]?.assetId) delete store.recordings[state.materialId];
   if (pendingRecording && (!pendingRecording.assetId || pendingRecording.assetId !== state.recording?.assetId)) store.recordings[state.materialId] = pendingRecording;
@@ -210,7 +215,8 @@ export async function saveSpeakingCloudRecording(material: SpeakingMaterial, sco
   let checkpoint = recordingAssets.get(checkpointId);
   const media = await resolveSpeakingMedia(recording.mediaId);
   try {
-    const selected = { uri: media.uri, name: media.uri.endsWith('.m4a') ? 'recording.m4a' : 'recording.webm', lastModified: Date.now() };
+    const m4a = media.uri.toLowerCase().endsWith('.m4a');
+    const selected = { uri: media.uri, name: m4a ? 'recording.m4a' : 'recording.webm', mimeType: m4a ? 'audio/mp4' : 'audio/webm', lastModified: Date.now() };
     if (!checkpoint) {
       const info = await speakingMediaInfo(selected);
       checkpoint = { key: await createIdempotencyKey(), body: { ...info, purpose: 'recording' } };
@@ -225,7 +231,11 @@ export async function saveSpeakingCloudRecording(material: SpeakingMaterial, sco
     const asset = checkpoint.asset;
     await updateSpeakingStore(store => { store.recordings[material.id] = { ...recording, assetId: asset.id, cloudPending: true }; }, scope);
     const store = await saveSpeakingMaterialState(material, scope, {
-      recording: { assetId: asset.id, cueId: recording.cueId, durationMs: Math.max(1, Math.min(600_000, Math.round(recording.durationMs))) },
+      recording: {
+        assetId: asset.id, cueId: recording.cueId, durationMs: Math.max(1, Math.min(600_000, Math.round(recording.durationMs))),
+        ...(recording.referenceText ? { referenceText: recording.referenceText } : {}),
+        ...(recording.subtitleRevision ? { subtitleRevision: recording.subtitleRevision } : {}),
+      },
     });
     recordingAssets.delete(checkpointId);
     return store;

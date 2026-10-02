@@ -1,11 +1,11 @@
 import {
   CompleteSpeakingAssetRequestSchema, CreateSpeakingAssetRequestSchema, CreateSpeakingMaterialRequestSchema,
-  ImportSpeakingSubtitlesRequestSchema, SaveSpeakingSessionRequestSchema,
+  ImportSpeakingSubtitlesRequestSchema, SaveSpeakingSessionRequestSchema, CreateSpeakingPronunciationRequestSchema,
   SpeakingAssetDtoSchema, SpeakingCapabilitiesDtoSchema, SpeakingCatalogDtoSchema, SpeakingLibraryDtoSchema,
   SpeakingMaterialDtoSchema, SpeakingPlaybackDtoSchema, SpeakingSessionDtoSchema,
-  SpeakingStateDtoSchema, UpdateSpeakingStateRequestSchema, UpdateSpeakingSubtitlesRequestSchema,
+  SpeakingStateDtoSchema, UpdateSpeakingStateRequestSchema, UpdateSpeakingSubtitlesRequestSchema, SpeakingPronunciationAssessmentDtoSchema,
   type CompleteSpeakingAssetRequest, type CreateSpeakingAssetRequest, type CreateSpeakingMaterialRequest,
-  type SaveSpeakingSessionRequest, type SpeakingAssetDto, type UpdateSpeakingStateRequest,
+  type SaveSpeakingSessionRequest, type SpeakingAssetDto, type UpdateSpeakingStateRequest, type CreateSpeakingPronunciationRequest,
 } from '@context-reader/contracts';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { File, UploadType } from 'expo-file-system';
@@ -23,7 +23,15 @@ const catalogPath = (id: string) => `/v1/speaking/catalog/${encodeURIComponent(i
 export const getSpeakingCatalog = () => publicApiRequest('/v1/speaking/catalog', SpeakingCatalogDtoSchema);
 export const getSpeakingCatalogMaterial = (id: string) => publicApiRequest(catalogPath(id), SpeakingMaterialDtoSchema);
 export const getSpeakingCatalogPlayback = (id: string) => publicApiRequest(`${catalogPath(id)}/playback`, SpeakingPlaybackDtoSchema);
-export const getSpeakingCapabilities = () => apiRequest('/v1/speaking/capabilities', SpeakingCapabilitiesDtoSchema);
+export const getSpeakingCapabilities = (options: { signal?: AbortSignal } = {}) => apiRequest('/v1/speaking/capabilities', SpeakingCapabilitiesDtoSchema, options);
+const pronunciationPath = '/v1/speaking/pronunciation-assessments';
+export const createSpeakingPronunciationAssessment = (body: CreateSpeakingPronunciationRequest, key: string, options: { signal?: AbortSignal } = {}) =>
+  apiRequest(pronunciationPath, SpeakingPronunciationAssessmentDtoSchema, {
+    method: 'POST', headers: { 'Idempotency-Key': key },
+    body: JSON.stringify(CreateSpeakingPronunciationRequestSchema.parse(body)), ...options,
+  });
+export const getSpeakingPronunciationAssessment = (id: string, options: { signal?: AbortSignal } = {}) =>
+  apiRequest(`${pronunciationPath}/${encodeURIComponent(id)}`, SpeakingPronunciationAssessmentDtoSchema, options);
 export function getSpeakingLibrary(options: { cursor?: string; limit?: number } = {}) {
   const query = new URLSearchParams();
   if (options.cursor) query.set('cursor', options.cursor);

@@ -1,17 +1,20 @@
 import {
-  CreateSpeakingMaterialRequestSchema, ImportSpeakingSubtitlesRequestSchema, SaveSpeakingSessionRequestSchema,
+  CreateSpeakingMaterialRequestSchema, CreateSpeakingPronunciationRequestSchema,
+  ImportSpeakingSubtitlesRequestSchema, SaveSpeakingSessionRequestSchema,
   SpeakingLibraryQuerySchema, SpeakingResourceIdSchema, UpdateSpeakingStateRequestSchema,
   UpdateSpeakingSubtitlesRequestSchema,
 } from '@context-reader/contracts';
 import type { ZodType } from 'zod';
 
 import { AppError } from '../../../../server/src/core/errors';
+import type { PronunciationProvider } from '../../../../server/src/infrastructure/speech/speechace';
 import { readJsonBody } from '../core/http';
 import type { ApiEnv } from '../env';
 import {
   createSpeakingMaterial, getSpeakingLibrary, getSpeakingMaterial, getSpeakingState, importSpeakingSubtitles,
   requireSpeakingIdempotencyKey, saveSpeakingSession, updateSpeakingState, updateSpeakingSubtitles,
 } from './data';
+import { createSpeakingPronunciationAssessment, getSpeakingPronunciationAssessment } from './pronunciation';
 
 const MAX_JSON_BYTES = 2 * 1024 ** 2;
 
@@ -32,10 +35,20 @@ function json(value: unknown, status = 200): Response {
   return Response.json(value, { status, headers: { 'cache-control': 'no-store' } });
 }
 
-export async function handleSpeakingRoute(request: Request, env: ApiEnv, userId: string): Promise<Response | null> {
+export async function handleSpeakingRoute(request: Request, env: ApiEnv, userId: string,
+  pronunciationProvider?: PronunciationProvider): Promise<Response | null> {
   const url = new URL(request.url);
   const path = url.pathname;
   if (!path.startsWith('/v1/speaking/')) return null;
+  if (path === '/v1/speaking/pronunciation-assessments' && request.method === 'POST') {
+    const assessment = await createSpeakingPronunciationAssessment(env, userId, requireSpeakingIdempotencyKey(request),
+      await body(request, CreateSpeakingPronunciationRequestSchema), pronunciationProvider);
+    return json(assessment, assessment.status === 'processing' ? 202 : 200);
+  }
+  const assessment = path.match(/^\/v1\/speaking\/pronunciation-assessments\/([^/]+)$/u);
+  if (assessment && request.method === 'GET') {
+    return json(await getSpeakingPronunciationAssessment(env, userId, resourceId(assessment[1]!)));
+  }
   if ((path === '/v1/speaking/library' || path === '/v1/speaking/materials') && request.method === 'GET') {
     const query = SpeakingLibraryQuerySchema.safeParse(Object.fromEntries(url.searchParams));
     if (!query.success) throw new AppError('VALIDATION_ERROR', '素材分页参数无效', 400);

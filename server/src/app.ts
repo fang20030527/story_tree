@@ -30,6 +30,7 @@ import { vocabularyRoutes } from './modules/vocabulary/routes';
 import { speakingRoutes } from './modules/speaking/routes';
 import type { MediaStore } from './infrastructure/media/store';
 import type { FFmpegMediaProcessor } from './infrastructure/media/ffmpeg';
+import type { PronunciationProvider } from './infrastructure/speech/speechace';
 import {
   registerSecurity,
   type SecurityLimits,
@@ -49,6 +50,7 @@ export const redactPaths = [
   'R2_ACCESS_KEY_ID',
   'R2_SECRET_ACCESS_KEY',
   'SPEAKING_PLAYBACK_SIGNING_KEY',
+  'SPEECHACE_API_KEY',
   '*.sourceUrl',
   '*.previewText',
   '*.previewTitle',
@@ -81,6 +83,7 @@ interface BuildAppOptions {
   wordTranslationProvider?: Pick<AiProvider, 'lookupWord'>;
   speakingMediaStore?: MediaStore;
   speakingMediaProcessor?: Pick<FFmpegMediaProcessor, 'probe'>;
+  speakingPronunciationProvider?: PronunciationProvider;
 }
 
 const knownErrorCodes = new Set<string>(errorCodes);
@@ -189,6 +192,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     config: options.config, db: options.db,
     catalogPath: fileURLToPath(new URL('../content/speaking/catalog.json', import.meta.url)),
     ...(options.speakingMediaStore ? { mediaStore: options.speakingMediaStore } : {}),
+    ...(options.speakingPronunciationProvider ? { pronunciationProvider: options.speakingPronunciationProvider } : {}),
     ...(options.speakingMediaProcessor ? { mediaProcessor: options.speakingMediaProcessor } : {}),
   });
   app.register(dashboardRoutes, { config: options.config, db: options.db });

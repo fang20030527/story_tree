@@ -12,6 +12,7 @@ export type IdempotencyOperation =
   | 'update_speaking_subtitles'
   | 'update_speaking_state'
   | 'save_speaking_session'
+  | 'create_speaking_pronunciation'
   | 'create_practice'
   | 'retry_failed_topics'
   | 'request_translation'
@@ -36,6 +37,7 @@ const resourceTypes: Record<IdempotencyOperation, string> = {
   update_speaking_subtitles: 'speaking_subtitles',
   update_speaking_state: 'speaking_state',
   save_speaking_session: 'speaking_session',
+  create_speaking_pronunciation: 'speaking_pronunciation_assessment',
   create_practice: 'practice',
   retry_failed_topics: 'practice',
   request_translation: 'translation',

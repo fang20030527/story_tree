@@ -3,6 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { loadConfig } from './env';
 
 describe('loadConfig', () => {
+  it('发音评分缺省关闭，仅支持官方区域及限定超时，不打印错误配置值', () => {
+    const base = { DATABASE_URL: 'postgresql://example.invalid/db', EVOLINK_API_KEY: 'secret', PUBLIC_SERVER_ORIGIN: 'http://localhost:3000' };
+    expect(loadConfig(base).SPEECHACE_API_KEY).toBe('');
+    expect(loadConfig(base).SPEECHACE_REGION).toBe('ap-southeast');
+    expect(loadConfig(base).SPEECHACE_DAILY_LIMIT).toBe(50);
+    expect(() => loadConfig({ ...base, SPEECHACE_REGION: 'private-secret-url' })).toThrow('Invalid environment variables: SPEECHACE_REGION');
+    expect(() => loadConfig({ ...base, SPEECHACE_TIMEOUT_MS: '30000' })).toThrow('SPEECHACE_TIMEOUT_MS');
+  });
   it('rejects missing secrets without printing values', () => {
     expect(() => loadConfig({})).toThrow(/DATABASE_URL, EVOLINK_API_KEY/);
   });

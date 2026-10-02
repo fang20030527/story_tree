@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import type { ImportedArticleMedia, SpeakingCue, SpeakingRecordingSchema } from '@context-reader/contracts';
+import type { ImportedArticleMedia, SpeakingCue, SpeakingRecordingSchema, SpeakingPronunciationResult, SpeakingPronunciationError, SpeakingPronunciationLocale } from '@context-reader/contracts';
 import type { z } from 'zod';
 import type { WordReviewState, ConsolidatedReview } from '../modules/vocabulary/scheduler';
 import {
@@ -949,3 +949,22 @@ export const speakingStorageCleanup = pgTable('speaking_storage_cleanup', {
   notBefore: utcTimestamp('not_before').notNull(),
   createdAt: utcTimestamp('created_at').defaultNow().notNull(),
 }, table => [index('speaking_storage_cleanup_due_idx').on(table.notBefore)]);
+
+export const speakingPronunciationAssessments = pgTable('speaking_pronunciation_assessments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // 录音清理后仍保留评分快照，不将结果生命周期绑定到资产外键。
+  assetId: uuid('asset_id').notNull(), materialId: text('material_id'), cueId: text('cue_id').notNull(),
+  referenceText: text('reference_text').notNull(), subtitleRevision: integer('subtitle_revision'),
+  locale: text('locale').$type<SpeakingPronunciationLocale>().notNull(), fingerprint: text('fingerprint').notNull(),
+  status: text('status').$type<'processing' | 'ready' | 'failed'>().default('processing').notNull(),
+  result: jsonb('result').$type<SpeakingPronunciationResult>(), error: jsonb('error').$type<SpeakingPronunciationError>(),
+  deadlineAt: utcTimestamp('deadline_at').notNull(),
+  createdAt: utcTimestamp('created_at').defaultNow().notNull(), updatedAt: utcTimestamp('updated_at').defaultNow().notNull(),
+}, table => [
+  index('speaking_pronunciation_user_date_idx').on(table.userId, table.createdAt),
+  uniqueIndex('speaking_pronunciation_active_unique').on(table.userId, table.fingerprint)
+    .where(sql`${table.status} in ('processing', 'ready')`),
+  check('speaking_pronunciation_locale_check', sql`${table.locale} in ('en-us', 'en-gb')`),
+  check('speaking_pronunciation_status_check', sql`(${table.status} = 'processing' and ${table.result} is null and ${table.error} is null) or (${table.status} = 'ready' and ${table.result} is not null and ${table.error} is null) or (${table.status} = 'failed' and ${table.result} is null and ${table.error} is not null)`),
+]);

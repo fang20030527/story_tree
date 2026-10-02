@@ -1,9 +1,9 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { AudioModule, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import React from 'react';
 import { ShadowingRecording } from './ShadowingRecording';
 import { persistSpeakingMedia, resolveSpeakingMedia } from './mediaStorage';
-import { emptySpeakingStore } from './model';
+import { emptySpeakingStore, type SpeakingMaterial } from './model';
 import { updateSpeakingStore } from './speakingStorage';
 
 jest.mock('expo-audio', () => ({
@@ -14,6 +14,7 @@ jest.mock('expo-router', () => ({ useFocusEffect: (callback: () => void | (() =>
 jest.mock('@/context/ThemeContext', () => ({ useAppTheme: () => ({ theme: jest.requireActual('@/constants/theme').themes.light }) }));
 jest.mock('./mediaStorage', () => ({ persistSpeakingMedia: jest.fn(), resolveSpeakingMedia: jest.fn() }));
 jest.mock('./speakingStorage', () => ({ updateSpeakingStore: jest.fn() }));
+jest.mock('./SpeakingPronunciation', () => ({ SpeakingPronunciation: () => null }));
 
 const recorder = { prepareToRecordAsync: jest.fn(), record: jest.fn(), stop: jest.fn(), uri: 'file:///recording.m4a' };
 const replay = { pause: jest.fn(), replace: jest.fn(), seekTo: jest.fn(), play: jest.fn() };
@@ -64,4 +65,44 @@ it('retries metadata without copying the recorded media again', async () => {
   expect(updateSpeakingStore).toHaveBeenLastCalledWith(expect.any(Function), 'user-a');
   expect(store.recordings.curiosity).toEqual(expect.objectContaining({ mediaId: 'saved-recording', cueId: 'cue-one' }));
   expect(resolveSpeakingMedia).not.toHaveBeenCalled();
+});
+it('saves the cue text and subtitle version captured when recording began, even after cue changes during save', async () => {
+  const original: SpeakingMaterial = { id: props.materialId, title: 'Practice', subtitle: '', category: '', origin: 'platform', mediaType: 'audio', duration: 5, revision: 3, cues: [{ id: 'cue-one', start: 0, end: 2, en: 'Hello there.', zh: '' }, { id: 'cue-two', start: 2, end: 5, en: 'Good morning.', zh: '' }] };
+  const store = emptySpeakingStore();
+  jest.mocked(updateSpeakingStore).mockImplementation(async update => { update(store); return store; });
+  let finishPersist!: (id: string) => void;
+  jest.mocked(persistSpeakingMedia).mockImplementationOnce(() => new Promise(resolve => { finishPersist = resolve; }));
+  const view = await render(<ShadowingRecording {...props} material={original} />);
+  await fireEvent.press(view.getByLabelText('开始录音'));
+  await waitFor(() => expect(recorder.record).toHaveBeenCalled());
+  jest.mocked(useAudioRecorderState).mockReturnValue(state(true));
+  await view.rerender(<ShadowingRecording {...props} material={{ ...original, revision: 4 }} cueId="cue-two" />);
+  await fireEvent.press(view.getByLabelText('停止录音'));
+  await waitFor(() => expect(persistSpeakingMedia).toHaveBeenCalled());
+  await view.rerender(<ShadowingRecording {...props} material={{ ...original, revision: 5 }} cueId="cue-two" />);
+  await act(async () => finishPersist('captured-recording'));
+  await waitFor(() => expect(props.onSaved).toHaveBeenCalledWith(store));
+  expect(store.recordings[props.materialId]).toMatchObject({ mediaId: 'captured-recording', cueId: 'cue-one', referenceText: 'Hello there.', subtitleRevision: 3 });
+});
+it('captures the target before the microphone permission request and ignores save responses after account changes', async () => {
+  const material: SpeakingMaterial = { id: props.materialId, title: 'Practice', subtitle: '', category: '', origin: 'file', mediaType: 'audio', duration: 5, cues: [{ id: 'cue-one', start: 0, end: 2, en: 'First sentence.', zh: '' }, { id: 'cue-two', start: 2, end: 5, en: 'Second sentence.', zh: '' }] };
+  let grant!: (permission: Awaited<ReturnType<typeof AudioModule.requestRecordingPermissionsAsync>>) => void;
+  jest.mocked(AudioModule.requestRecordingPermissionsAsync).mockImplementationOnce(() => new Promise(resolve => { grant = resolve; }));
+  const store = emptySpeakingStore();
+  let finishSave!: () => void;
+  jest.mocked(updateSpeakingStore).mockImplementationOnce(update => new Promise(resolve => { finishSave = () => { update(store); resolve(store); }; }));
+  const view = await render(<ShadowingRecording {...props} material={material} />);
+  await fireEvent.press(view.getByLabelText('开始录音'));
+  await view.rerender(<ShadowingRecording {...props} material={material} cueId="cue-two" />);
+  await act(async () => grant({ granted: true } as Awaited<ReturnType<typeof AudioModule.requestRecordingPermissionsAsync>>));
+  await waitFor(() => expect(recorder.record).toHaveBeenCalled());
+  jest.mocked(useAudioRecorderState).mockReturnValue(state(true));
+  await view.rerender(<ShadowingRecording {...props} material={material} cueId="cue-two" />);
+  await fireEvent.press(view.getByLabelText('停止录音'));
+  await waitFor(() => expect(updateSpeakingStore).toHaveBeenCalled());
+  await view.rerender(<ShadowingRecording {...props} scope="user-b" material={material} cueId="cue-two" />);
+  await act(async () => finishSave());
+  expect(updateSpeakingStore).toHaveBeenCalledWith(expect.any(Function), 'user-a');
+  expect(store.recordings[props.materialId]).toMatchObject({ cueId: 'cue-one', referenceText: 'First sentence.' });
+  expect(props.onSaved).not.toHaveBeenCalled();
 });

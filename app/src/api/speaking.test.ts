@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { getInstallationToken } from './installation';
 import { readSpeakingMediaDuration } from '@/features/speaking/mediaStorage';
-import { createSpeakingAsset, createSpeakingMaterial, getSpeakingCatalog, getSpeakingCatalogMaterial, getSpeakingCatalogPlayback, getSpeakingLibrary, getSpeakingPlayback, updateSpeakingState, uploadSpeakingAssetContent } from './speaking';
+import { createSpeakingAsset, createSpeakingMaterial, createSpeakingPronunciationAssessment, getSpeakingCapabilities, getSpeakingPronunciationAssessment, getSpeakingCatalog, getSpeakingCatalogMaterial, getSpeakingCatalogPlayback, getSpeakingLibrary, getSpeakingPlayback, updateSpeakingState, uploadSpeakingAssetContent } from './speaking';
 
 const mockFileUpload = jest.fn();
 const mockReadWholeFile = jest.fn(() => { throw new Error('must not buffer a movie'); });
@@ -102,6 +102,28 @@ it('keeps revisions and retry keys on state writes, and does not report an uncon
   expect(new Headers(init.headers).get('Idempotency-Key')).toBe('stable-retry');
   mockFileUpload.mockResolvedValue({ status: 200, body: JSON.stringify(asset) });
   await expect(uploadSpeakingAssetContent(asset, { uri: 'file:///movie.mp4', name: 'movie.mp4', lastModified: 0 })).rejects.toMatchObject({ code: 'INVALID_SERVER_RESPONSE' });
+});
+it('uses shared pronunciation contracts for authenticated POST/GET, retaining the caller key and cancellation signal', async () => {
+  const request = { assetId: asset.id, materialId: 'curiosity', cueId: 'line-one', referenceText: 'Hello there.', subtitleRevision: 2, locale: 'en-us' as const };
+  const assessment = { ...request, id: '22222222-2222-4222-8222-222222222222', provider: 'speechace', status: 'ready', result: { score: 81.5, words: [{ word: 'Hello', score: null, startMs: null, endMs: null, phonemes: [] }], feedback: [] }, error: null, createdAt: material.createdAt, updatedAt: material.createdAt };
+  fetchMock.mockResolvedValueOnce(reply(assessment)).mockResolvedValueOnce(reply(assessment));
+  const controller = new AbortController();
+  await expect(createSpeakingPronunciationAssessment(request, 'same-score-retry', { signal: controller.signal })).resolves.toMatchObject({ result: { score: 81.5 } });
+  await getSpeakingPronunciationAssessment(assessment.id);
+  const init = fetchMock.mock.calls[0]![1] as RequestInit;
+  expect(init.method).toBe('POST');
+  expect(new Headers(init.headers).get('Idempotency-Key')).toBe('same-score-retry');
+  expect(new Headers(init.headers).get('Authorization')).toBe('Bearer private-bearer');
+  expect(JSON.parse(init.body as string)).toEqual(request);
+  expect(init.signal).toBeInstanceOf(AbortSignal);
+  expect(fetchMock.mock.calls[1]![0]).toBe(`https://api.example.test/v1/speaking/pronunciation-assessments/${assessment.id}`);
+});
+it('rejects invented pronunciation scores and accepts legacy capabilities with scoring unavailable', async () => {
+  fetchMock.mockResolvedValueOnce(reply({ storage: 'r2', maxMediaBytes: 100000, maxSubtitleBytes: 1000, autoSubtitles: false }));
+  await expect(getSpeakingCapabilities()).resolves.toMatchObject({ storage: 'r2' });
+  fetchMock.mockResolvedValueOnce(reply({ status: 'ready', result: { score: 999 } }));
+  await expect(getSpeakingPronunciationAssessment(asset.id)).rejects.toMatchObject({ code: 'INVALID_SERVER_RESPONSE' });
+  expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
 let directId = 100;

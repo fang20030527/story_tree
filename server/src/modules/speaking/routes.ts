@@ -6,6 +6,7 @@ import {
   ImportSpeakingSubtitlesRequestSchema, SaveSpeakingSessionRequestSchema, SpeakingCapabilitiesDtoSchema,
   SpeakingLibraryQuerySchema,
   SpeakingResourceIdSchema, UpdateSpeakingStateRequestSchema, UpdateSpeakingSubtitlesRequestSchema,
+  CreateSpeakingPronunciationRequestSchema,
 } from '@context-reader/contracts';
 import { AppError } from '../../core/errors';
 import type { ServerConfig } from '../../config/env';
@@ -13,16 +14,20 @@ import type { AppDatabase } from '../../db/client';
 import { parseUuidParam, requireIdempotencyKey } from '../../http/validation';
 import { FFmpegMediaProcessor } from '../../infrastructure/media/ffmpeg';
 import type { MediaStore } from '../../infrastructure/media/store';
+import type { PronunciationProvider } from '../../infrastructure/speech/speechace';
 import { requireAuth } from '../auth/routes';
 import { configuredSpeakingMediaStore, createSpeakingAsset, requireMediaStore, sweepSpeakingAssets, uploadSpeakingAsset } from './assets';
 import { getPublicSpeakingCatalog, getPublicSpeakingMaterial, getPublicSpeakingPlayback, loadSpeakingCatalogData } from './catalog';
 import { getSpeakingPlayback, serveSpeakingMedia, SpeakingPlaybackSigner } from './playback';
 import { createSpeakingMaterial, getSpeakingLibrary, getSpeakingMaterial, getSpeakingState,
   importSpeakingSubtitles, saveSpeakingSession, updateSpeakingState, updateSpeakingSubtitles } from './service';
+import { createSpeakingPronunciationAssessment, getSpeakingPronunciationAssessment } from './pronunciation';
+import { pronunciationCapability } from './pronunciation-shared';
 
 export interface SpeakingRoutesOptions {
   db: AppDatabase; config: ServerConfig; catalogPath: string;
   mediaStore?: MediaStore; mediaProcessor?: Pick<FFmpegMediaProcessor, 'probe'>;
+  pronunciationProvider?: PronunciationProvider;
 }
 const jsonLimit = 2 * 1024 ** 2;
 
@@ -33,6 +38,7 @@ export const speakingRoutes: FastifyPluginAsync<SpeakingRoutesOptions> = async (
     mediaStore: options.mediaStore ?? configuredSpeakingMediaStore(options.config),
     mediaProcessor: options.mediaProcessor ?? new FFmpegMediaProcessor({ ffmpegPath: options.config.FFMPEG_PATH,
       ffprobePath: options.config.FFPROBE_PATH }),
+    ...(options.pronunciationProvider ? { pronunciationProvider: options.pronunciationProvider } : {}),
   };
   const signer = new SpeakingPlaybackSigner(options.config.SPEAKING_PLAYBACK_SIGNING_KEY);
   const auth = requireAuth(options.db);
@@ -53,7 +59,18 @@ export const speakingRoutes: FastifyPluginAsync<SpeakingRoutesOptions> = async (
     const store = requireMediaStore(deps);
     return SpeakingCapabilitiesDtoSchema.parse({ storage: store.driver,
       maxMediaBytes: options.config.SPEAKING_MAX_MEDIA_BYTES,
-      maxSubtitleBytes: SPEAKING_MAX_SUBTITLE_BYTES, autoSubtitles: false });
+      maxSubtitleBytes: SPEAKING_MAX_SUBTITLE_BYTES, autoSubtitles: false,
+      pronunciation: pronunciationCapability(options.config.SPEECHACE_API_KEY || (options.pronunciationProvider ? 'test-provider' : '')) });
+  });
+  app.post('/v1/speaking/pronunciation-assessments', json, async (request, reply) => {
+    reply.header('cache-control', 'no-store');
+    const result = await createSpeakingPronunciationAssessment(deps, request.authUser.userId,
+      requireIdempotencyKey(request.headers['idempotency-key']), parseBody(CreateSpeakingPronunciationRequestSchema, request.body));
+    return reply.status(result.status === 'processing' ? 202 : 200).send(result);
+  });
+  app.get('/v1/speaking/pronunciation-assessments/:id', authenticated, async (request, reply) => {
+    reply.header('cache-control', 'no-store');
+    return getSpeakingPronunciationAssessment(deps, request.authUser.userId, parseUuidParam(request.params, 'id', '评分编号格式无效'));
   });
   app.post('/v1/speaking/assets', authenticated, async (request, reply) => {
     const body = parseBody(CreateSpeakingAssetRequestSchema, request.body);
