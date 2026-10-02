@@ -1,19 +1,12 @@
 import type { SpeakingMaterial, SpeakingStore } from './model';
-import fixture from '../../../assets/speaking/catalog.json';
-
-export const speakingCatalog: SpeakingMaterial[] = fixture.materials.map(material => ({ ...material, origin: 'platform', mediaType: 'audio' }));
-const sources: Record<string, number> = {
-  curiosity: require('../../../assets/speaking/curiosity.wav'),
-  conversation: require('../../../assets/speaking/conversation.wav'),
-  'small-steps': require('../../../assets/speaking/small-steps.wav'),
-};
-export const speakingSource = (id: string) => sources[id];
+const retiredExamples = new Set(['curiosity', 'conversation', 'small-steps']);
 export const speakingSourceLabel = (material: SpeakingMaterial) =>
-  material.origin === 'file' ? '我的文件' : material.mediaType === 'video' ? '影片原声' : '原创合成示范音';
+  material.origin === 'file' ? '我的文件' : material.mediaType === 'video' ? '影片原声' : '音频原声';
 export const speakingCategories = ['日常表达', '访谈对话', '演讲片段', '电影对白'];
 export function speakingMaterials(store: SpeakingStore): SpeakingMaterial[] {
-  const materials = new Map(speakingCatalog.map(material => [material.id, material]));
-  for (const material of store.cloudMaterials.filter(item => item.origin === 'platform')) materials.set(material.id, material);
+  const materials = new Map<string, SpeakingMaterial>();
+  // 旧安装缓存可能仍包含已下架的三个占位素材。
+  for (const material of store.cloudMaterials.filter(item => item.origin === 'platform' && !retiredExamples.has(item.id))) materials.set(material.id, material);
   for (const material of store.files.filter(item => item.origin === 'file')) materials.set(material.id, material);
   return [...materials.values()].map(material => {
     const override = store.localSubtitleOverrides[material.id];

@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { speakingCatalog, speakingMaterials } from './catalog';
+import { speakingMaterials } from './catalog';
 import { emptySpeakingStore, type SpeakingStore } from './model';
 import { loadSpeakingStore, speakingStorageKey, updateSpeakingStore } from './speakingStorage';
 import { getSpeakingCatalog, getSpeakingCatalogMaterial, getSpeakingLibrary, getSpeakingMaterial, getSpeakingState } from '@/api/speaking';
@@ -52,7 +52,7 @@ export function useSpeakingLibrary(materialId?: string) {
           const [details, state] = await Promise.all([getSpeakingMaterial(materialId), getSpeakingState(materialId)]);
           if (!active || await speakingStorageKey() !== key) return;
           merged = await updateSpeakingStore(current => cacheSpeakingDetails(current, details, state), key);
-        } else if (!speakingCatalog.some(item => item.id === materialId)) {
+        } else {
           const details = await getSpeakingCatalogMaterial(materialId);
           if (!active || await speakingStorageKey() !== key) return;
           merged = await updateSpeakingStore(current => cacheSpeakingPublicDetails(current, details), key);

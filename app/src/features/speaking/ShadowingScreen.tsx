@@ -6,10 +6,10 @@ import { FlatList, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, Tex
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import { speakingAccentLabel } from './accents';
 import { useEditorialAudio } from '@/features/editorial/EditorialAudioProvider';
 import { curiosityNotes, speakingVocabulary } from './annotations';
-import { speakingSource, speakingSourceLabel } from './catalog';
+import { speakingSourceLabel } from './catalog';
+import { speakingAccentLabel } from './accents';
 import { resolveSpeakingMedia } from './mediaStorage';
 import { formatSpeakingTime, type SpeakingMaterial } from './model';
 import { updateSpeakingStore } from './speakingStorage';
@@ -52,7 +52,7 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
   const playback = useShadowingPlayback(material.cues);
   const { loaded, duration, seek, playing, loop, currentTime, index } = playback;
   const reportMediaState = playback.onState;
-  const [source, setSource] = useState<string | number | null>(() => speakingSource(material.id) ?? null);
+  const [source, setSource] = useState<string | number | null>(null);
   const [mediaError, setMediaError] = useState('');
   const [revision, setRevision] = useState(0);
   const [expanded, setExpanded] = useState(false);

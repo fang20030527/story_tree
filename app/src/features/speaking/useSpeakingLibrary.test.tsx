@@ -109,13 +109,18 @@ it('merges platform ids once and opens the account subtitle override rather than
   expect(account.result.current.store.positions[shared.id]).toBe(50);
   expect(getSpeakingCatalogMaterial).not.toHaveBeenCalled();
 });
-it('keeps the packaged demo available when the public catalog is offline', async () => {
+it('keeps real cached videos offline and hides retired examples from older installations', async () => {
   jest.mocked(loadAuthUser).mockResolvedValue(null);
   jest.mocked(getSpeakingCatalog).mockRejectedValueOnce(new Error('catalog offline'));
-  const demo = await renderHook(() => useSpeakingLibrary('curiosity'));
-  await waitFor(() => expect(demo.result.current.loading).toBe(false));
-  expect(demo.result.current.error).toBe('');
-  expect(demo.result.current.catalogError).toContain('读取失败');
-  expect(demo.result.current.materials.find(item => item.id === 'curiosity')?.cues.length).toBeGreaterThan(0);
+  await updateSpeakingStore(store => {
+    const cached = { id: shared.id, title: shared.title, subtitle: '', category: '电影对白', origin: 'platform' as const, mediaType: 'video' as const, duration: shared.duration, cues: shared.cues };
+    store.cloudMaterials.push(cached, ...['curiosity', 'conversation', 'small-steps'].map(id => ({ ...cached, id })));
+  });
+  const library = await renderHook(() => useSpeakingLibrary());
+  await waitFor(() => expect(library.result.current.loading).toBe(false));
+  expect(library.result.current.error).toBe('');
+  expect(library.result.current.catalogError).toContain('读取失败');
+  expect(library.result.current.materials.map(item => item.id)).toEqual([shared.id]);
+  expect(library.result.current.materials[0]?.cues).toEqual(shared.cues);
   expect(getSpeakingCatalogMaterial).not.toHaveBeenCalled();
 });

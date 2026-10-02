@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import { speakingAccentLabel } from './accents';
 import { useLearningMode } from '@/context/LearningModeContext';
 import { formatSpeakingTime, type SpeakingMaterial } from './model';
+import { speakingAccentLabel } from './accents';
+import { speakingCover } from './covers';
 
 export function SpeakingHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   const { theme } = useAppTheme();
@@ -34,8 +35,9 @@ export function SpeakingStatus({ loading, error, retry }: { loading: boolean; er
 }
 export function SpeakingMaterialRow({ material, onPress, position = 0 }: { material: SpeakingMaterial; onPress: () => void; position?: number }) {
   const { theme } = useAppTheme();
+  const cover = material.origin === 'platform' ? speakingCover(material.id) : undefined;
   return <Pressable accessibilityRole="button" accessibilityLabel={`打开${material.title}`} onPress={onPress} style={[styles.row, { borderBottomColor: theme.border }]}>
-    <View style={[styles.art, { backgroundColor: material.origin === 'platform' ? theme.pink : theme.surfaceAlt }]}><Ionicons name={material.mediaType === 'video' ? 'videocam-outline' : 'mic-outline'} color={material.origin === 'platform' ? theme.onPink : theme.accent} size={24} /></View>
+    {cover ? <Image source={cover} accessibilityLabel={`${material.title}封面`} resizeMode="cover" style={[styles.cover, { backgroundColor: theme.surfaceAlt }]} /> : <View style={[styles.art, { backgroundColor: material.origin === 'platform' ? theme.pink : theme.surfaceAlt }]}><Ionicons name={material.mediaType === 'video' ? 'videocam-outline' : 'mic-outline'} color={material.origin === 'platform' ? theme.onPink : theme.accent} size={24} /></View>}
     <View style={{ flex: 1, minWidth: 0 }}><Text style={[styles.title, { color: theme.text }]}>{material.title}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{speakingAccentLabel(material)} · {material.subtitle || material.category}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{formatSpeakingTime(material.duration)} · {(material.cueCount ?? material.cues.length) ? `${material.cueCount ?? material.cues.length} 句字幕` : '待添加字幕'}{position > 0 ? ` · 继续 ${formatSpeakingTime(position)}` : ''}</Text></View>
     <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
   </Pressable>;
@@ -53,5 +55,6 @@ const styles = StyleSheet.create({
   primary: { paddingHorizontal: 18, minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 3, gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 20, borderBottomWidth: StyleSheet.hairlineWidth },
   art: { width: 54, height: 64, alignItems: 'center', justifyContent: 'center', borderRadius: 3 },
+  cover: { width: 112, height: 72, borderRadius: 3 },
   title: { fontFamily: fonts.display, fontSize: 24, lineHeight: 28 }, hint: { fontSize: 11, lineHeight: 18, marginTop: 5 },
 });
