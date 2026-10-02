@@ -389,7 +389,7 @@ export function ClickableArticleParagraph({
       }}
       selectable={!onSentenceLongPress}
       accessibilityRole={isHeading ? 'header' : undefined}
-      style={[styles.paragraph, isHeading && styles.sectionHeading, { color: unaddedWordColor, fontWeight: isHeading ? '700' : '600' }, textStyle]}>
+      style={[styles.paragraph, isHeading && styles.sectionHeading, { color: unaddedWordColor, fontWeight: '400' }, textStyle]}>
       {tokens.map((token) => token.isWord ? (
         <Text
           key={token.key}
@@ -424,7 +424,7 @@ export function ClickableArticleParagraph({
             backgroundColor: !token.targetId && addedWords?.has(normalizeWord(token.text))
               ? savedWordHighlight
               : undefined,
-            fontWeight: customTextStyle?.fontWeight ?? (isHeading ? '700' : '600'),
+            fontWeight: customTextStyle?.fontWeight ?? '400',
           }}>
           {token.text}
         </Text>
@@ -953,7 +953,8 @@ export function InteractiveWordParagraph({
 }
 
 const styles = StyleSheet.create({
-  sectionHeading: { fontSize: 23, lineHeight: 32, marginTop: 16, marginBottom: 20 },
+  // 阅读字体每个字重是独立文件；标题换用 SemiBold 文件，不叠加 fontWeight，否则 Web 合成加粗、iOS 不加粗。
+  sectionHeading: { fontFamily: fonts.readingSemibold, fontSize: 23, lineHeight: 32, marginTop: 16, marginBottom: 20 },
   paragraph: { fontFamily: fonts.reading, fontSize: 17, lineHeight: 30, marginBottom: 18 },
   hint: {
     borderRadius: radius.option,

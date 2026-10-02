@@ -47,7 +47,7 @@ export function PracticePreferencesCard() {
           selectTextOnFocus
           style={[styles.input, { borderColor: theme.border, color: theme.text, backgroundColor: theme.bg }]}
         />
-        <Text style={{ color: theme.textSecondary }}>个词</Text>
+        <Text style={[styles.unit, { color: theme.textSecondary }]}>个词</Text>
         <TouchableOpacity accessibilityRole="button" disabled={saving} onPress={() => void save()}
           style={[styles.save, { backgroundColor: theme.accent, opacity: saving ? 0.6 : 1 }]}>
           <Text style={{ color: theme.accentText }}>{saving ? '保存中…' : '保存'}</Text>
@@ -65,7 +65,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: weight('bold') },
   label: { fontSize: 14, marginTop: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },
-  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.pill, paddingHorizontal: 14, minHeight: 46, minWidth: 84, fontSize: 20, textAlign: 'center' },
+  // Web 输入框有浏览器默认宽度，会把单位挤成竖排；固定宽度让两端一致。
+  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.pill, paddingHorizontal: 14, minHeight: 46, width: 96, fontSize: 20, textAlign: 'center' },
+  unit: { flexShrink: 0 },
   save: { marginLeft: 'auto', paddingHorizontal: 20, minHeight: 44, borderRadius: radius.pill, justifyContent: 'center' },
   hint: { marginTop: 10, fontSize: 12, lineHeight: 19 },
 });

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { fonts, orbitTilt, radius } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { speakingTitleText } from './SpeakingComponents';
 import { initialShadowingState, type ShadowingController, type ShadowingPlaybackState } from './playback';
 type Props = { source: string | number; title: string; expanded: boolean; frameWidth?: number; maxHeight?: number; onController: (controller: ShadowingController | null) => void; onState: (state: ShadowingPlaybackState) => void };
 function audioRate(player: ReturnType<typeof useAudioPlayer>, rate: number) { player.shouldCorrectPitch = true; player.setPlaybackRate(rate); }
@@ -38,7 +39,7 @@ export function ShadowingAudio(props: Props) {
     </View>
     <Text style={{ color: theme.text, fontFamily: fonts.label, fontSize: 10, letterSpacing: 2 }}>LISTEN · REPEAT · SPEAK</Text>
     <View style={{ flex: 1 }} />
-    <Text numberOfLines={2} style={{ color: theme.text, fontFamily: fonts.display, fontSize: 26, lineHeight: 31, marginTop: 16, maxWidth: '60%' }}>{props.title}</Text>
+    <Text numberOfLines={2} style={{ color: theme.text, fontSize: 22, lineHeight: 28, fontWeight: '700', marginTop: 16, maxWidth: '60%' }}>{speakingTitleText(props.title)}</Text>
     <View accessibilityElementsHidden style={styles.wave}>{[12, 26, 36, 21, 45, 19, 31, 24, 42, 14].map((height, i) => <View key={i} style={{ height, width: 3, borderRadius: 1.5, backgroundColor: theme.text, opacity: status.playing ? 1 : .45 }} />)}</View></View>;
 }
 export const ShadowingVideo = React.memo(function ShadowingVideo(props: Props) {

@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import type { SpeakingMaterial } from './model';
 import { TranscriptExportError, type TranscriptExportFormat, type TranscriptNotes } from './transcriptDocument';
@@ -22,15 +23,15 @@ export function SpeakingTranscriptExport({ material, notes = {}, disabled = fals
     } finally { pending.current = false; setExporting(null); }
   };
   return <View style={styles.container}>
-    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 16 }}>导出台词本</Text>
+    <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 17, fontWeight: weight('bold') }}>导出台词本</Text>
     <Text style={[styles.hint, { color: theme.textMuted }]}>{material.summary ? '字幕加载完成后可以导出。' : !material.cues.length ? '先添加字幕，再导出台词本。' : '导出全部台词，包含时间戳、中英文和已保存笔记。'}</Text>
     <View style={styles.actions}>{(['pdf', 'word'] as const).map(format => {
       const label = `导出 ${format === 'pdf' ? 'PDF' : 'Word'} 台词本`;
       const blocked = Boolean(unavailable || exporting);
       return <Pressable key={format} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: blocked, busy: exporting === format }}
-        disabled={blocked} onPress={() => void run(format)} style={[styles.button, { borderColor: theme.border, opacity: blocked ? .5 : 1 }]}>
+        disabled={blocked} onPress={() => void run(format)} style={[styles.button, { borderColor: theme.accent, opacity: blocked ? .5 : 1 }]}>
         {exporting === format ? <ActivityIndicator size="small" color={theme.accent} /> : null}
-        <Text style={{ color: theme.accent, fontSize: 14 }}>{exporting === format ? '正在导出…' : `${format === 'pdf' ? 'PDF' : 'Word'} 台词本`}</Text>
+        <Text style={{ color: theme.accent, fontSize: 14, fontWeight: weight('semibold') }}>{exporting === format ? '正在导出…' : `${format === 'pdf' ? 'PDF' : 'Word'} 台词本`}</Text>
       </Pressable>;
     })}</View>
     {!unavailable && Platform.OS === 'web' ? <Text style={[styles.hint, { color: theme.textMuted }]}>PDF 打开打印窗口，请选择「另存为 PDF」；Word 直接下载。</Text> : null}
@@ -41,5 +42,5 @@ export function SpeakingTranscriptExport({ material, notes = {}, disabled = fals
 const styles = StyleSheet.create({
   container: { gap: 8, paddingVertical: 18 }, hint: { fontSize: 12, lineHeight: 20 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  button: { minHeight: 46, borderWidth: .5, borderRadius: 3, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  button: { minHeight: 44, borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

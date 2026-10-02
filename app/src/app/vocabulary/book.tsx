@@ -30,7 +30,7 @@ import {
   restoreVocabularyWord,
 } from '@/api/practices';
 import { Card } from '@/components/ui';
-import { radius, weight } from '@/constants/theme';
+import { fonts, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { VocabularyLoadingProgress } from '@/features/library/VocabularyLoadingProgress';
 import {
@@ -152,15 +152,15 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
       <View style={styles.wordHeading}>
         <Text style={[styles.word, { color: theme.text }]}>{item.term}</Text>
         {mastered ? (
-          <View style={[styles.masteredBadge, { backgroundColor: theme.accentSoft }]}>
-            <Text style={{ color: theme.accent, fontSize: 11, fontWeight: weight('medium') }}>已掌握</Text>
+          <View style={[styles.masteredBadge, { backgroundColor: theme.surfaceAlt }]}>
+            <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: weight('medium') }}>已掌握</Text>
           </View>
         ) : null}
       </View>
-      <Text style={[styles.meaning, { color: theme.accent }]}>{item.meaningZh}</Text>
-      <Text style={[styles.reviewReason, {
-        color: item.reviewReason === 'scheduled' ? theme.textSecondary : theme.accent,
-      }]}>
+      <Text style={[styles.meaning, { color: theme.text }]}>{item.meaningZh}</Text>
+      <Text style={[styles.reviewReason, item.reviewReason === 'scheduled'
+        ? { color: theme.textSecondary, backgroundColor: theme.surfaceAlt }
+        : { color: theme.onPink, backgroundColor: theme.pink }]}>
         {wordReviewLabel(item)}
       </Text>
       {item.sourceSentence ? (
@@ -379,7 +379,7 @@ export default function VocabularyBookScreen() {
         </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
-        <View style={styles.filterRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow} style={styles.filterScroll}>
           {FILTERS.map((option) => {
             const selected = filter === option.value;
             return (
@@ -388,17 +388,14 @@ export default function VocabularyBookScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 onPress={() => selectFilter(option.value)}
-                style={[styles.filterChip, {
-                  backgroundColor: selected ? theme.accentSoft : theme.surface,
-                  borderColor: selected ? theme.accent : theme.border,
-                }]}>
-                <Text style={{ color: selected ? theme.accent : theme.textSecondary, fontSize: 13, fontWeight: weight(selected ? 'semibold' : 'regular') }}>
+                style={[styles.filterChip, { backgroundColor: selected ? theme.text : theme.surfaceAlt }]}>
+                <Text style={{ color: selected ? theme.bg : theme.textSecondary, fontSize: 13, fontWeight: weight(selected ? 'semibold' : 'regular') }}>
                   {option.label}{summary ? ` ${option.count(summary)}` : ''}
                 </Text>
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
         {initialLoading ? (
           <View style={items.length ? styles.inlineError : styles.stateArea}>
             <VocabularyLoadingProgress
@@ -468,16 +465,10 @@ const styles = StyleSheet.create({
     width: 36,
   },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center',  paddingHorizontal: 24  },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-    marginTop: 4,
-  },
+  filterScroll: { flexGrow: 0, marginBottom: 12, marginTop: 4 },
+  filterRow: { flexDirection: 'row', gap: 6 },
   filterChip: {
     borderRadius: radius.pill,
-    borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
@@ -502,12 +493,12 @@ const styles = StyleSheet.create({
   wordCard: { marginBottom: 10, padding: 14 },
   wordHeading: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   masteredBadge: { borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
-  reviewReason: { fontSize: 12, lineHeight: 18, marginTop: 8 },
+  reviewReason: { alignSelf: 'flex-start', borderRadius: radius.pill, overflow: 'hidden', fontSize: 11, lineHeight: 16, marginTop: 8, paddingHorizontal: 8, paddingVertical: 2 },
   contextToggle: { alignItems: 'center', flexDirection: 'row', gap: 4, minHeight: 36, marginTop: 5 },
   contextPanel: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10 },
   savedContext: { marginTop: 12 },
-  word: { fontSize: 17, fontWeight: weight('bold') },
-  meaning: { fontSize: 13, fontWeight: weight('medium'), marginTop: 3 },
+  word: { fontFamily: fonts.readingSemibold, fontSize: 18, lineHeight: 24 },
+  meaning: { fontSize: 14, fontWeight: weight('medium'), marginTop: 4 },
   context: { fontSize: 13, fontStyle: 'italic', lineHeight: 19, marginTop: 9 },
   wordFooter: {
     alignItems: 'flex-end',

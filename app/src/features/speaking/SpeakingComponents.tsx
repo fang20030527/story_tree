@@ -3,7 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fonts, radius } from '@/constants/theme';
+import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { useLearningMode } from '@/context/LearningModeContext';
 import { formatSpeakingTime, type SpeakingMaterial } from './model';
@@ -33,12 +33,17 @@ export function SpeakingStatus({ loading, error, retry }: { loading: boolean; er
   if (!error) return null;
   return <View style={{ gap: 12, paddingVertical: 24 }}><Text accessibilityRole="alert" style={{ color: theme.danger }}>{error}</Text><SpeakingButton label="重试" onPress={retry} /></View>;
 }
+/** 中文标题用系统粗体；品牌圆体只含拉丁字符，原生端回落中文时字重不可控。分隔点跟随前一个词，避免出现在行首。 */
+export function speakingTitleText(title: string): string {
+  return title.replace(/ ·(?= )/gu, '\u00A0·');
+}
+
 export function SpeakingMaterialRow({ material, onPress, position = 0 }: { material: SpeakingMaterial; onPress: () => void; position?: number }) {
   const { theme } = useAppTheme();
   const cover = material.origin === 'platform' ? speakingCover(material.id) : undefined;
   return <Pressable accessibilityRole="button" accessibilityLabel={`打开${material.title}`} onPress={onPress} style={[styles.row, { borderBottomColor: theme.border }]}>
     {cover ? <Image source={cover} accessibilityLabel={`${material.title}封面`} resizeMode="cover" style={[styles.cover, { backgroundColor: theme.surfaceAlt }]} /> : <View style={[styles.art, { backgroundColor: theme.surfaceAlt }]}><Ionicons name={material.mediaType === 'video' ? 'videocam-outline' : 'mic-outline'} color={theme.textSecondary} size={24} /></View>}
-    <View style={{ flex: 1, minWidth: 0 }}><Text style={[styles.title, { color: theme.text }]}>{material.title}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{speakingAccentLabel(material)} · {material.subtitle || material.category}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{formatSpeakingTime(material.duration)} · {(material.cueCount ?? material.cues.length) ? `${material.cueCount ?? material.cues.length} 句字幕` : '待添加字幕'}{position > 0 ? ` · 继续 ${formatSpeakingTime(position)}` : ''}</Text></View>
+    <View style={{ flex: 1, minWidth: 0 }}><Text style={[styles.title, { color: theme.text }]}>{speakingTitleText(material.title)}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{speakingAccentLabel(material)} · {material.subtitle || material.category}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{formatSpeakingTime(material.duration)} · {(material.cueCount ?? material.cues.length) ? `${material.cueCount ?? material.cues.length} 句字幕` : '待添加字幕'}{position > 0 ? ` · 继续 ${formatSpeakingTime(position)}` : ''}</Text></View>
     <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
   </Pressable>;
 }
@@ -56,5 +61,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 20, borderBottomWidth: StyleSheet.hairlineWidth },
   art: { width: 54, height: 64, alignItems: 'center', justifyContent: 'center', borderRadius: 4 },
   cover: { width: 112, height: 72, borderRadius: 4 },
-  title: { fontFamily: fonts.display, fontSize: 24, lineHeight: 28 }, hint: { fontSize: 11, lineHeight: 18, marginTop: 5 },
+  title: { fontSize: 20, lineHeight: 26, fontWeight: weight('bold') }, hint: { fontSize: 11, lineHeight: 18, marginTop: 5 },
 });
