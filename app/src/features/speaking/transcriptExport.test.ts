@@ -1,5 +1,5 @@
 import { exportSpeakingTranscript } from './transcriptExport';
-import { buildTranscriptHtml, transcriptDocxMimeType } from './transcriptDocument';
+import { buildTranscriptHtml, transcriptDocxMimeType, transcriptMarkdownMimeType } from './transcriptDocument';
 import type { SpeakingMaterial } from './model';
 import { printToFileAsync } from 'expo-print';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
@@ -22,7 +22,7 @@ jest.mock('expo-file-system', () => ({
   File: class {
     uri: string; exists = true;
     constructor(parent: string | { uri: string }, name?: string) { this.uri = (typeof parent === 'string' ? parent : parent.uri) + (name ? `/${name}` : ''); }
-    create() {} write(bytes: Uint8Array) { mockFileWrite(bytes); }
+    create() {} write(content: string | Uint8Array) { mockFileWrite(content); }
     // Matches expo-file-system 57, where File#copy resolves asynchronously.
     copy(target: { uri: string }) { mockFileCopy(this.uri, target.uri); return mockCopyResult().then(() => mockCopyDone(target.uri)); }
     delete() { mockFileDelete(this.uri); }
@@ -57,6 +57,27 @@ it('writes real Word bytes and uses the DOCX MIME type when sharing', async () =
   expect(Array.from((mockFileWrite.mock.calls[0][0] as Uint8Array).slice(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
   expect(printToFileAsync).not.toHaveBeenCalled();
   expect(shareAsync).toHaveBeenCalledWith(expect.stringContaining('/测试素材 台词本.docx'), expect.objectContaining({ mimeType: transcriptDocxMimeType, UTI: 'org.openxmlformats.wordprocessingml.document' }));
+  expect(mockDirectoryDelete).toHaveBeenCalledTimes(1);
+});
+
+it('将 Markdown 文本写入命名的 md 文件并通过系统分享，结束后清理缓存', async () => {
+  await exportSpeakingTranscript(material, { one: '重音\n注意连读' }, 'markdown');
+  const content = mockFileWrite.mock.calls[0][0] as string;
+  expect(typeof content).toBe('string');
+  expect(content).toContain('# 测试素材 台词本');
+  expect(content).toContain('## 1  00:00 - 00:05');
+  expect(content).toContain('Hello\\!\n\n你好！');
+  expect(content).toContain('> **笔记：** 重音  \n> 注意连读');
+  expect(printToFileAsync).not.toHaveBeenCalled();
+  expect(mockFileCopy).not.toHaveBeenCalled();
+  expect(shareAsync).toHaveBeenCalledWith(expect.stringContaining('/测试素材 台词本.md'), expect.objectContaining({ mimeType: transcriptMarkdownMimeType, UTI: 'public.plain-text' }));
+  expect(mockDirectoryDelete).toHaveBeenCalledTimes(1);
+});
+
+it('Markdown 写入失败时提示具体步骤并清理临时文件', async () => {
+  mockFileWrite.mockImplementationOnce(() => { throw Object.assign(new Error('write failed at file:///private/cache'), { code: 'ERR_FILE_WRITE' }); });
+  await expect(exportSpeakingTranscript(material, {}, 'markdown')).rejects.toThrow(/^Markdown 文件写入失败，请检查手机存储空间后重试（ERR_FILE_WRITE）$/);
+  expect(shareAsync).not.toHaveBeenCalled();
   expect(mockDirectoryDelete).toHaveBeenCalledTimes(1);
 });
 

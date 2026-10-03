@@ -84,6 +84,10 @@ export default function TabLayout() {
           options={{ title: '词库', ...(speaking ? { href: null } : {}) }}
         />
         <Tabs.Screen
+          name="message-bottles"
+          options={{ title: '留言瓶' }}
+        />
+        <Tabs.Screen
           name="profile"
           options={{ title: '我的' }}
         />

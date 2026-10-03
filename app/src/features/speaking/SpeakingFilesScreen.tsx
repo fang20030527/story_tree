@@ -5,6 +5,7 @@ import { BrandHeader, PageHeading } from '@/components/brand';
 import { useAppTheme } from '@/context/ThemeContext';
 import { useSpeakingLibrary } from './useSpeakingLibrary';
 import { SpeakingButton, SpeakingMaterialRow, SpeakingStatus, speakingStyles } from './SpeakingComponents';
+import { SpeakingImportSources } from './SpeakingImportSources';
 
 export function SpeakingFilesScreen() {
   const { theme } = useAppTheme();
@@ -16,6 +17,7 @@ export function SpeakingFilesScreen() {
     <PageHeading title="文件" description="把想练的声音，留在这里。" />
     {continuation ? <View style={{ padding: 20, backgroundColor: theme.accentSoft, marginBottom: 24 }}><Text style={{ color: theme.accent, fontSize: 12 }}>继续跟读</Text><SpeakingMaterialRow material={continuation} position={library.store.positions[continuation.id]} onPress={() => router.push({ pathname: '/speaking/shadowing', params: { id: continuation.id } })} /></View> : null}
     <SpeakingButton label="导入音频或视频" onPress={() => router.push('/speaking/import')} />
+    <SpeakingImportSources onSelect={source => router.push({ pathname: '/speaking/import', params: { source } })} />
     <View style={speakingStyles.chips}>{['全部', '音频', '视频'].map(label => <Pressable key={label} accessibilityRole="button" accessibilityState={{ selected: filter === label }} onPress={() => setFilter(label)} style={[speakingStyles.chip, { borderColor: filter === label ? theme.text : theme.border, backgroundColor: filter === label ? theme.text : 'transparent' }]}><Text style={{ color: filter === label ? theme.bg : theme.textSecondary }}>{label}</Text></Pressable>)}</View>
     <SpeakingStatus loading={library.loading} error={library.error} retry={library.refresh} />
     {!library.loading && !library.error && !library.store.files.length ? <View style={{ paddingVertical: 40, gap: 14 }}><Text style={{ color: theme.text, fontSize: 20 }}>这里，等着你的第一段声音。</Text><Text style={[speakingStyles.hint, { color: theme.textMuted }]}>添加音频或视频，导入字幕，再逐句跟读。</Text></View> : null}

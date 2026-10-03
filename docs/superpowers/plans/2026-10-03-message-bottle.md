@@ -30,10 +30,10 @@ type MessageBottlePage = { items: MessageBottleDto[]; nextCursor: string | null 
 type MessageBottleProfile = { username: string | null; canPost: boolean };
 ```
 
-- [ ] 先写契约边界测试，执行 `npm test --workspace=@context-reader/contracts -- messageBottles.test.ts`，验证新导出尚未存在。
-- [ ] 增加用户名规范化、严格请求／响应和分页校验；重跑契约测试。
-- [ ] `users` 增加 `username`、`username_key`，后者建唯一索引；留言表增加作者关联、署名快照、内容和创建时间。
-- [ ] 执行 `npm run db:generate --workspace=@context-reader/server`，检查生成迁移仅增加本功能字段／表；编写对应 D1 SQL 并用本地 SQLite 测试执行全部迁移。
+- [x] 先写契约边界测试，执行 `npm test --workspace=@context-reader/contracts -- messageBottles.test.ts`，验证新导出尚未存在。
+- [x] 增加用户名规范化、严格请求／响应和分页校验；重跑契约测试。
+- [x] `users` 增加 `username`、`username_key`，后者建唯一索引；留言表增加作者关联、署名快照、内容和创建时间。
+- [x] 执行 `npm run db:generate --workspace=@context-reader/server`，检查生成迁移仅增加本功能字段／表；编写对应 D1 SQL 并用本地 SQLite 测试执行全部迁移。
 
 ## 任务二：后端完整行为
 
@@ -41,11 +41,11 @@ type MessageBottleProfile = { username: string | null; canPost: boolean };
 
 **接口：** GET 和 POST `/v1/message-bottles`，GET `/v1/message-bottles/profile`。
 
-- [ ] 测试注册账号提交、游客拒绝、跨账号读取、用户名唯一及同账号固定署名、幂等重放／冲突、相同时间分页、超过发布上限。
-- [ ] Fastify 复用身份校验和现有幂等操作事务；按账号获取事务锁，读注册状态、旧用户名、幂等结果和最近发布数量，再原子绑定新用户名与留言。
-- [ ] Cloudflare 用 D1 batch 事务和现有幂等表；插入语句对账号、用户名和次数再次校验，失败时回滚首次用户名分配，竞争请求按最终记录返回相同结果。
-- [ ] 按 `created_at DESC, id DESC` 做游标查询，限量读取 `limit + 1` 条判断下一页；公开 DTO 只映射契约字段。
-- [ ] 注册两套路由。执行 `npm test --workspace=@context-reader/server -- message-bottles` 及新 Cloudflare 本地 SQLite 测试，预期成功。
+- [x] 测试注册账号提交、游客拒绝、跨账号读取、用户名唯一及同账号固定署名、幂等重放／冲突、相同时间分页、超过发布上限。
+- [x] Fastify 复用身份校验和现有幂等操作事务；按账号获取事务锁，读注册状态、旧用户名、幂等结果和最近发布数量，再原子绑定新用户名与留言。
+- [x] Cloudflare 用 D1 batch 事务和现有幂等表；插入语句对账号、用户名和次数再次校验，失败时回滚首次用户名分配，竞争请求按最终记录返回相同结果。
+- [x] 按 `created_at DESC, id DESC` 做游标查询，限量读取 `limit + 1` 条判断下一页；公开 DTO 只映射契约字段。
+- [x] 注册两套路由；Neon 留言集成测试已纳入全量服务端检查，Cloudflare 本地 SQLite 测试通过。
 
 ## 任务三：导航与实名留言页面
 
@@ -53,18 +53,23 @@ type MessageBottleProfile = { username: string | null; canPost: boolean };
 
 **接口：** `getMessageBottles(cursor?)`、`getMessageBottleProfile()`、`createMessageBottle(input, idempotencyKey)`。
 
-- [ ] 先写导航和页面行为测试，执行 `npm test --workspace=app -- message-bottles tabs-layout`，预期新入口和页面尚不存在。
-- [ ] 在「我的」前增加留言瓶标签，阅读和口语模式都显示。
-- [ ] API 模块使用共享 schema、安装身份和幂等键；页面聚焦时初始化身份并同时加载公共列表与发布资格。
-- [ ] 页面显示标题、公开署名提示、首次用户名输入或固定署名、多行反馈及提交状态。游客显示登录入口，列表独立可用。
-- [ ] 请求使用版本编号忽略失焦／旧请求；失败保留草稿，同一草稿重试复用幂等键；成功立即插入留言并刷新，清空草稿。
-- [ ] 列表提供刷新、加载更多、空状态和重试，追加时按 ID 去重；使用主题、安全区与键盘避让适配手机和宽屏。
-- [ ] 重跑客户端测试，预期成功。
+- [x] 先写导航和页面行为测试，执行 `npm test --workspace=app -- message-bottles tabs-layout`，预期新入口和页面尚不存在。
+- [x] 在「我的」前增加留言瓶标签，阅读和口语模式都显示。
+- [x] API 模块使用共享 schema、安装身份和幂等键；页面聚焦时初始化身份并同时加载公共列表与发布资格。
+- [x] 页面显示标题、公开署名提示、首次用户名输入或固定署名、多行反馈及提交状态。游客显示登录入口，列表独立可用。
+- [x] 请求使用版本编号忽略失焦／旧请求；失败保留草稿，同一草稿重试复用幂等键；成功立即插入留言并更新最新列表，清空草稿。
+- [x] 列表提供刷新、加载更多、空状态和重试，追加时按 ID 去重；使用主题、安全区与键盘避让适配手机和宽屏。
+- [x] 重跑客户端测试，预期成功。
 
 ## 任务四：整体验证与交付
 
-- [ ] 执行 `npm run check`。
-- [ ] 执行 `npm run cloudflare:typecheck:api`，运行 Cloudflare 留言路由测试。
-- [ ] 执行 `npm run build --workspace=@context-reader/server`。
-- [ ] 执行 `npm exec --workspace=app expo export -- --platform web --output-dir dist-smoke`。
-- [ ] 审查变更范围、请求日志脱敏、实名显示和迁移顺序；在设计稿记录验证结果并向用户说明结果。
+- [x] 执行 `npm run check`。
+- [x] 执行 `npm run cloudflare:typecheck:api`，运行 Cloudflare 留言路由测试。
+- [x] 执行 `npm run build --workspace=@context-reader/server`。
+- [x] 执行 `npm exec --workspace=app expo export -- --platform web --output-dir dist-smoke`。
+- [x] 审查变更范围、请求日志脱敏、实名显示和迁移顺序；在设计稿记录验证结果并向用户说明结果。
+
+
+## 验证结果
+
+提交前完整 `npm run check` 已通过，包含 Neon 留言集成测试；客户端 599 项、服务端 494 项、契约 61 项、小程序 9 项测试全部通过。Cloudflare 类型检查及 157 项测试通过，客户端密钥泄漏检查通过。检查中发现的任务入队时钟差与租约测试时间边界已修复，具体记录见 ../../2026-10-03-message-bottle.md。未执行生产迁移和部署。

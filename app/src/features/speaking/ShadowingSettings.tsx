@@ -21,7 +21,7 @@ export function ShadowingSettings(props: Props) {
       <Text style={[styles.rate, { color: theme.text }]}>{props.rate.toFixed(2)}×</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="加快 0.05 倍" onPress={() => props.changeRate(Math.min(2, Math.round((props.rate + .05) * 100) / 100))} style={[styles.step, { borderColor: theme.border }]}><Text style={[styles.stepText, { color: theme.text }]}>＋</Text></Pressable>
     </View>
-    {choices('复读次数', [1, 3, 5, 0], props.repeatCount, props.setRepeatCount)}{choices('复读停顿', [0, 1, 2], props.gap, props.setGap, '秒')}{choices('字幕字号', [17, 21, 25], props.fontSize, props.setFontSize)}
+    {choices('复读次数', [1, 3, 5, 0], props.repeatCount, props.setRepeatCount)}{choices('复读停顿', [0, 1, 2], props.gap, props.setGap, '秒')}{choices('台词字号', [17, 21, 25], props.fontSize, props.setFontSize)}
     <Pressable accessibilityRole="switch" accessibilityState={{ checked: props.skipGaps }} onPress={() => props.setSkipGaps(!props.skipGaps)} style={[styles.switchRow, { borderTopColor: theme.border }]}>
       <View style={{ flex: 1 }}><Text style={[styles.label, { color: theme.text, marginBottom: 2 }]}>跳过空白</Text><Text style={{ color: theme.textMuted, fontSize: 12 }}>句与句之间的静音直接跳过</Text></View>
       <View style={[styles.switchTrack, { backgroundColor: props.skipGaps ? theme.accent : theme.surfaceAlt }]}><View style={[styles.switchKnob, { backgroundColor: theme.surface, alignSelf: props.skipGaps ? 'flex-end' : 'flex-start' }]} /></View>

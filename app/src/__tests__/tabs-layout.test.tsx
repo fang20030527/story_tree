@@ -27,14 +27,14 @@ jest.mock('expo-router', () => {
 it('switches to speaking materials, files and profile while hiding vocabulary', async () => {
   mockMode.mode = 'speak';
   await render(<TabLayout />);
-  expect(mockScreens.filter(screen => screen.options.href !== null).map(screen => screen.options.title)).toEqual(['素材', '文件', '我的']);
+  expect(mockScreens.filter(screen => screen.options.href !== null).map(screen => screen.options.title)).toEqual(['素材', '文件', '留言瓶', '我的']);
   expect(mockScreens.find(screen => screen.name === 'words')?.options.href).toBeNull();
 });
 jest.mock('@/context/ThemeContext', () => ({
   useAppTheme: () => ({ theme: require('@/constants/theme').themes.light }),
 }));
 
-it('declares exactly the four semantic navigation tabs', async () => {
+it('declares reading tabs with a shared message bottle before profile', async () => {
   mockScreens.length = 0;
   await render(<TabLayout />);
   expect(mockScreens.map(({ name, options }) => ({
@@ -43,6 +43,7 @@ it('declares exactly the four semantic navigation tabs', async () => {
     { name: 'index', title: '外刊' },
     { name: 'shelf', title: '书架' },
     { name: 'words', title: '词库' },
+    { name: 'message-bottles', title: '留言瓶' },
     { name: 'profile', title: '我的' },
   ]);
   expect(mockScreens.some(({ name }) => name === 'feed')).toBe(false);

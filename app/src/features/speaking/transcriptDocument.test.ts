@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import { strFromU8, unzipSync } from 'fflate';
 import type { SpeakingMaterial } from './model';
-import { buildTranscriptDocx, buildTranscriptHtml, transcriptFilename } from './transcriptDocument';
+import { buildTranscriptDocx, buildTranscriptHtml, buildTranscriptMarkdown, transcriptFilename } from './transcriptDocument';
 
 const material: SpeakingMaterial = {
   id: 'transcript-test', title: '中文 & English <台词>', subtitle: '英式英语', category: '演讲',
@@ -58,7 +58,34 @@ it('generates a real DOCX with well-formed XML, editable dialogue, valid relatio
   }
 });
 
-it.each([buildTranscriptHtml, buildTranscriptDocx])('rejects absent or partially loaded subtitles', build => {
+it('生成包含全部双语台词、小时级时间戳和多行笔记的 Markdown', () => {
+  const markdown = buildTranscriptMarkdown(material, notes);
+  expect(markdown).toContain('# 中文 &amp; English \\<台词\\> 台词本\n\n');
+  expect(markdown).toContain('演讲 · 英式英语 · 01:02:00 · 2 句');
+  expect(markdown.match(/^## /gm)).toHaveLength(2);
+  expect(markdown).toContain('## 1  00:00 - 00:03\n\nSay "hello" &amp; stay \\<curious\\>\\.  \nKeep going\\!');
+  expect(markdown).toContain('说「你好」并保持好奇。  \n继续前进！');
+  expect(markdown).toContain('> **笔记：** \\<script\\>alert\\("note"\\)\\</script\\>  \n> 连读 &amp; 重音');
+  expect(markdown).toContain('## 2  01:00:01 - 01:00:05\n\nOnly English here\\.\n');
+  expect(markdown).not.toContain(notes.orphan);
+  expect(markdown).not.toContain('\u0000');
+});
+
+it('保留 Markdown 特殊字符并规范化标题、字幕和笔记中的换行', () => {
+  const markdown = buildTranscriptMarkdown({
+    ...material, title: '# 标题\n<script> &amp;', subtitle: '英式英语\n> 引用',
+    cues: [{ ...material.cues[0], en: '**English**\r\n[link](url)\n# heading\n`code`\n===', zh: '译文 _内容_' }],
+  }, { one: '第一行\r\n\r\n- 第二行', two: '无关笔记' });
+  expect(markdown).toContain('# \\# 标题 \\<script\\> &amp;amp; 台词本\n\n');
+  expect(markdown).toContain('演讲 · 英式英语 \\> 引用');
+  expect(markdown).toContain('\\*\\*English\\*\\*  \n\\[link\\]\\(url\\)  \n\\# heading  \n\\`code\\`  \n\\=\\=\\=');
+  expect(markdown).toContain('译文 \\_内容\\_');
+  expect(markdown).toContain('> **笔记：** 第一行  \n>   \n> \\- 第二行');
+  expect(markdown).not.toContain('\r');
+  expect(markdown).not.toContain('无关笔记');
+});
+
+it.each([buildTranscriptHtml, buildTranscriptDocx, buildTranscriptMarkdown])('rejects absent or partially loaded subtitles', build => {
   expect(() => build({ ...material, cues: [] })).toThrow('还没有台词');
   expect(() => build({ ...material, summary: true, cueCount: 500 })).toThrow('字幕尚未加载完成');
 });
@@ -68,4 +95,5 @@ it('creates portable filenames without paths and retains Chinese titles and safe
   expect(transcriptFilename('  ... ', 'pdf')).toBe('跟读素材 台词本.pdf');
   expect(transcriptFilename('长'.repeat(200), 'word')).toBe(`${'长'.repeat(50)} 台词本.docx`);
   expect(transcriptFilename('🎬'.repeat(100), 'pdf')).toBe(`${'🎬'.repeat(50)} 台词本.pdf`);
+  expect(transcriptFilename('../你好:世界?\\test', 'markdown')).toBe('_你好_世界__test 台词本.md');
 });

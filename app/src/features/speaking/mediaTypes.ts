@@ -2,8 +2,15 @@ import { SpeakingMediaTypeSchema } from '@context-reader/contracts';
 
 const extensions: Record<string, string> = {
   mp3: 'audio/mpeg', m4a: 'audio/mp4', wav: 'audio/wav', aac: 'audio/aac',
-  ogg: 'audio/ogg', mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
+  ogg: 'audio/ogg', oga: 'audio/ogg', mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
 };
+export function speakingMediaKind(name: string, mimeType?: string): 'audio' | 'video' {
+  return speakingContentType(name, mimeType).startsWith('video/') ? 'video' : 'audio';
+}
+export function speakingMediaExtension(contentType: string): string {
+  return Object.entries(extensions).find(([, type]) => type === contentType)?.[0]
+    ?? (contentType === 'audio/webm' ? 'webm' : contentType === 'audio/mp3' ? 'mp3' : contentType === 'audio/x-m4a' ? 'm4a' : contentType === 'audio/x-wav' ? 'wav' : '');
+}
 export function speakingContentType(name: string, mimeType?: string) {
   const parsed = SpeakingMediaTypeSchema.safeParse(mimeType?.toLowerCase());
   if (parsed.success) return parsed.data;

@@ -41,6 +41,9 @@ describe('article import worker', () => {
       await registerAnonymous(db, token, true);
       const app = buildApp({ config, db, logger: false });
       try {
+        // 本机时钟快一分钟时，立即入队的任务仍应能由数据库时钟领取。
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(Date.now() + 60_000);
         const created = await app.inject({
           method: 'POST',
           url: '/v1/imports',
@@ -49,7 +52,7 @@ describe('article import worker', () => {
             sourceKind: 'url',
             url: 'https://example.com/synthetic-report',
           },
-        });
+        }).finally(() => { vi.useRealTimers(); });
         const importId = ArticleImportDtoSchema.parse(created.json()).id;
         const job = await claimNextJob(db, 'url-worker', 60_000, [
           'article_import',

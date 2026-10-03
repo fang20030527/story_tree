@@ -4,6 +4,43 @@ export { abbreviatePartOfSpeech } from './part-of-speech';
 
 export const UuidSchema = z.uuid();
 
+export const MESSAGE_BOTTLE_CONTENT_LIMIT = 1_000;
+export const MessageBottleUsernameSchema = z.string().trim()
+  .transform(value => value.normalize('NFKC'))
+  .pipe(z.string().min(2).max(24).regex(/^[\p{L}\p{N}_·.-]+$/u));
+export const CreateMessageBottleSchema = z.object({
+  username: MessageBottleUsernameSchema,
+  content: z.string().trim().min(1).max(MESSAGE_BOTTLE_CONTENT_LIMIT),
+}).strict();
+export const MessageBottleCursorSchema = z.string().max(80).refine(value => {
+  const parts = value.split('_');
+  return parts.length === 2 && z.iso.datetime().safeParse(parts[0]).success && UuidSchema.safeParse(parts[1]).success;
+});
+export const MessageBottleListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: MessageBottleCursorSchema.optional(),
+}).strict();
+export const MessageBottleDtoSchema = z.object({
+  id: UuidSchema,
+  username: MessageBottleUsernameSchema,
+  content: z.string().min(1).max(MESSAGE_BOTTLE_CONTENT_LIMIT),
+  createdAt: z.iso.datetime(),
+  isMine: z.boolean(),
+}).strict();
+export const MessageBottlePageSchema = z.object({
+  items: z.array(MessageBottleDtoSchema).max(50),
+  nextCursor: MessageBottleCursorSchema.nullable(),
+}).strict();
+export const MessageBottleProfileSchema = z.object({
+  username: MessageBottleUsernameSchema.nullable(),
+  canPost: z.boolean(),
+}).strict();
+export type CreateMessageBottle = z.infer<typeof CreateMessageBottleSchema>;
+export type MessageBottleDto = z.infer<typeof MessageBottleDtoSchema>;
+export type MessageBottlePage = z.infer<typeof MessageBottlePageSchema>;
+export type MessageBottleListQuery = z.infer<typeof MessageBottleListQuerySchema>;
+export type MessageBottleProfile = z.infer<typeof MessageBottleProfileSchema>;
+
 export const EditorialImageParamsSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{24}\.webp$/u),
 }).strict();
@@ -925,6 +962,17 @@ export const SentenceTranslationDtoSchema = z.object({
 // 口语素材的音视频与字幕单独上传，个人资源始终按账号隔离。
 export const SPEAKING_MAX_MEDIA_BYTES = 3 * 1024 * 1024 * 1024;
 export const SPEAKING_MAX_SUBTITLE_BYTES = 512 * 1024;
+// 网页媒体先下载到设备再沿用文件上传，限制浏览器与原生端的临时内存占用。
+export const SPEAKING_MAX_REMOTE_MEDIA_BYTES = 100 * 1024 * 1024;
+export const SpeakingRemoteMediaRequestSchema = z.object({
+  url: z.url().max(2_048).refine(value => {
+    try {
+      const url = new URL(value);
+      return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password;
+    } catch { return false; }
+  }, '请填写公开的 HTTP(S) 音视频或网页链接'),
+}).strict();
+export type SpeakingRemoteMediaRequest = z.infer<typeof SpeakingRemoteMediaRequestSchema>;
 export const SpeakingResourceIdSchema = z.string().min(1).max(100).regex(/^[A-Za-z0-9_-]+$/u)
   .refine(value => !['__proto__', 'constructor', 'prototype'].includes(value), '资源编号无效');
 export const SpeakingMediaTypeSchema = z.enum([

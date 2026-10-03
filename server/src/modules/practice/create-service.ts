@@ -194,7 +194,6 @@ async function createPracticeWithTargetResolver(
       status: 'queued' as const,
       attemptCount: 0,
       maxAttempts: 3,
-      availableAt: new Date(),
       deadlineAt: new Date(Date.now() + input.generationDeadlineMs * members.length),
     })));
     await finishIdempotentOperation(

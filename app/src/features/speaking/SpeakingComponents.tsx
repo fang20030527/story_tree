@@ -10,6 +10,7 @@ import { formatSpeakingTime, type SpeakingMaterial } from './model';
 import { speakingAccentLabel } from './accents';
 import { speakingCover } from './covers';
 import { speakingTitleText } from './titles';
+import { speakingSectionTitle } from './catalog';
 
 export function SpeakingHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   const { theme } = useAppTheme();
@@ -39,8 +40,8 @@ export function SpeakingMaterialRow({ material, onPress, position = 0 }: { mater
   const { theme } = useAppTheme();
   const cover = material.origin === 'platform' ? speakingCover(material.id) : undefined;
   return <Pressable accessibilityRole="button" accessibilityLabel={`打开${material.title}`} onPress={onPress} style={[styles.row, { borderBottomColor: theme.border }]}>
-    {cover ? <Image source={cover} accessibilityLabel={`${material.title}封面`} resizeMode="cover" style={[styles.cover, { backgroundColor: theme.surfaceAlt }]} /> : <View style={[styles.art, { backgroundColor: theme.surfaceAlt }]}><Ionicons name={material.mediaType === 'video' ? 'videocam-outline' : 'mic-outline'} color={theme.textSecondary} size={24} /></View>}
-    <View style={{ flex: 1, minWidth: 0 }}><Text style={[styles.title, { color: theme.text }]}>{speakingTitleText(material.title)}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{speakingAccentLabel(material)} · {material.subtitle || material.category}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{formatSpeakingTime(material.duration)} · {(material.cueCount ?? material.cues.length) ? `${material.cueCount ?? material.cues.length} 句字幕` : '待添加字幕'}{position > 0 ? ` · 继续 ${formatSpeakingTime(position)}` : ''}</Text></View>
+    {cover ? <Image source={cover} accessibilityLabel={`${material.title}封面`} resizeMode="cover" style={[styles.cover, material.category === '播客' && styles.podcastCover, { backgroundColor: theme.surfaceAlt }]} /> : <View style={[styles.art, { backgroundColor: theme.surfaceAlt }]}><Ionicons name={material.mediaType === 'video' ? 'videocam-outline' : 'mic-outline'} color={theme.textSecondary} size={24} /></View>}
+    <View style={{ flex: 1, minWidth: 0 }}><Text style={[styles.title, { color: theme.text }]}>{speakingTitleText(material.title)}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{speakingAccentLabel(material)} · {material.subtitle || speakingSectionTitle(material.category)}</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{formatSpeakingTime(material.duration)} · {(material.cueCount ?? material.cues.length) ? `${material.cueCount ?? material.cues.length} 句字幕` : '待添加字幕'}{position > 0 ? ` · 继续 ${formatSpeakingTime(position)}` : ''}</Text></View>
     <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
   </Pressable>;
 }
@@ -58,5 +59,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 20, borderBottomWidth: StyleSheet.hairlineWidth },
   art: { width: 54, height: 64, alignItems: 'center', justifyContent: 'center', borderRadius: 4 },
   cover: { width: 112, height: 72, borderRadius: 4 },
+  podcastCover: { width: 72 },
   title: { fontSize: 20, lineHeight: 26, fontWeight: weight('bold') }, hint: { fontSize: 11, lineHeight: 18, marginTop: 5 },
 });

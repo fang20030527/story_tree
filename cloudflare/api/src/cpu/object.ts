@@ -31,6 +31,7 @@ import { publicError } from '../core/http';
 import { handlePublicSpeakingRoute } from '../speaking/catalog';
 import { handleSpeakingAssetRoute } from '../speaking/assets';
 import { handleSpeakingRoute } from '../speaking/routes';
+import { handleSpeakingRemoteMediaRoute } from '../speaking/remote-media';
 
 const MAX_PASTED_TEXT_BYTES = 128 * 1024;
 
@@ -97,6 +98,8 @@ export class CpuBoundary extends DurableObject<ApiEnv> {
       if (published) return published;
       const identity = UuidSchema.safeParse(request.headers.get('x-speaking-user-id'));
       if (!identity.success) throw new AppError('UNAUTHORIZED', '身份凭据无效', 401);
+      const remoteMedia = await handleSpeakingRemoteMediaRoute(request);
+      if (remoteMedia) return remoteMedia;
       const assets = await handleSpeakingAssetRoute(request, this.env, identity.data);
       if (assets) return assets;
       const data = await handleSpeakingRoute(request, this.env, identity.data);

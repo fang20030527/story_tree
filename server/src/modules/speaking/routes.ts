@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import type { Readable } from 'node:stream';
+import { Readable } from 'node:stream';
 import { z, type ZodType } from 'zod';
 import {
   SPEAKING_MAX_SUBTITLE_BYTES, CreateSpeakingAssetRequestSchema, CreateSpeakingMaterialRequestSchema,
@@ -7,6 +7,7 @@ import {
   SpeakingLibraryQuerySchema,
   SpeakingResourceIdSchema, UpdateSpeakingStateRequestSchema, UpdateSpeakingSubtitlesRequestSchema,
   CreateSpeakingPronunciationRequestSchema,
+  SpeakingRemoteMediaRequestSchema,
 } from '@context-reader/contracts';
 import { AppError } from '../../core/errors';
 import type { ServerConfig } from '../../config/env';
@@ -23,6 +24,8 @@ import { createSpeakingMaterial, getSpeakingLibrary, getSpeakingMaterial, getSpe
   importSpeakingSubtitles, saveSpeakingSession, updateSpeakingState, updateSpeakingSubtitles } from './service';
 import { createSpeakingPronunciationAssessment, getSpeakingPronunciationAssessment } from './pronunciation';
 import { pronunciationCapability } from './pronunciation-shared';
+import { fetchSpeakingRemoteMedia } from './remote-media';
+import { openSpeakingRemoteUrlOnNode } from './remote-media-node';
 
 export interface SpeakingRoutesOptions {
   db: AppDatabase; config: ServerConfig; catalogPath: string;
@@ -77,6 +80,22 @@ export const speakingRoutes: FastifyPluginAsync<SpeakingRoutesOptions> = async (
     const asset = await createSpeakingAsset(deps, request.authUser.userId,
       requireIdempotencyKey(request.headers['idempotency-key']), body);
     return reply.status(201).send(asset);
+  });
+  app.post('/v1/speaking/remote-media', { preHandler: auth, bodyLimit: 4096 }, async (request, reply) => {
+    const body = parseBody(SpeakingRemoteMediaRequestSchema, request.body);
+    const abort = new AbortController();
+    const cancel = () => abort.abort();
+    reply.raw.once('close', cancel);
+    try {
+      const response = await fetchSpeakingRemoteMedia(body.url, openSpeakingRemoteUrlOnNode, abort.signal);
+      response.headers.forEach((value, key) => reply.header(key, value));
+      const reader = response.body!.getReader();
+      const stream = Readable.from((async function* () {
+        try { while (true) { const item = await reader.read(); if (item.done) return; yield item.value; } }
+        finally { await reader.cancel().catch(() => undefined); reader.releaseLock(); }
+      })());
+      return reply.send(stream);
+    } catch (error) { reply.raw.removeListener('close', cancel); throw error; }
   });
   app.put('/v1/speaking/assets/:id/content', authenticated, async request => {
     if (!request.body || typeof (request.body as Readable).pipe !== 'function') {

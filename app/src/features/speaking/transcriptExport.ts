@@ -1,5 +1,5 @@
 import { speakingId, type SpeakingMaterial } from './model';
-import { assertTranscriptAvailable, buildTranscriptDocx, buildTranscriptHtml, transcriptDocxMimeType, TranscriptExportError, transcriptExportFailure, transcriptFilename, type TranscriptExportFormat, type TranscriptNotes } from './transcriptDocument';
+import { assertTranscriptAvailable, buildTranscriptDocx, buildTranscriptHtml, buildTranscriptMarkdown, transcriptDocxMimeType, transcriptMarkdownMimeType, transcriptFormatLabels, TranscriptExportError, transcriptExportFailure, transcriptFilename, type TranscriptExportFormat, type TranscriptNotes } from './transcriptDocument';
 
 async function step<T>(failure: string, run: () => T | Promise<T>): Promise<T> {
   try { return await run(); } catch (error) { throw transcriptExportFailure(failure, error); }
@@ -24,7 +24,7 @@ export async function exportSpeakingTranscript(material: SpeakingMaterial, notes
     });
     if (format === 'pdf') {
       const printed = await step('PDF 生成失败，请重试', () => {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Word exports do not need the native PDF renderer.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Only PDF exports need the native PDF renderer.
         const { printToFileAsync } = require('expo-print') as typeof import('expo-print');
         return printToFileAsync({ html: buildTranscriptHtml(material, notes), width: 595.28, height: 841.89 });
       });
@@ -32,11 +32,18 @@ export async function exportSpeakingTranscript(material: SpeakingMaterial, notes
       // File#copy is asynchronous since expo-file-system 57; sharing before it finishes fails the readable-file check.
       await step('PDF 保存失败，请检查手机存储空间后重试', () => printedFile!.copy(file));
     } else {
-      await step('Word 文件写入失败，请检查手机存储空间后重试', () => { file.create(); file.write(buildTranscriptDocx(material, notes)); });
+      await step(`${transcriptFormatLabels[format]} 文件写入失败，请检查手机存储空间后重试`, () => {
+        file.create();
+        file.write(format === 'markdown' ? buildTranscriptMarkdown(material, notes) : buildTranscriptDocx(material, notes));
+      });
     }
+    const shareType = {
+      pdf: { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' },
+      word: { mimeType: transcriptDocxMimeType, UTI: 'org.openxmlformats.wordprocessingml.document' },
+      markdown: { mimeType: transcriptMarkdownMimeType, UTI: 'public.plain-text' },
+    }[format];
     await step('无法打开分享面板，请重试', () => sharing.shareAsync(file.uri, {
-      mimeType: format === 'pdf' ? 'application/pdf' : transcriptDocxMimeType,
-      UTI: format === 'pdf' ? 'com.adobe.pdf' : 'org.openxmlformats.wordprocessingml.document',
+      ...shareType,
       dialogTitle: `${material.title} 台词本`,
     }));
   } finally {

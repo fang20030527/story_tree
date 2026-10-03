@@ -263,7 +263,6 @@ async function createArticleTranslationJob(
     status: 'queued',
     attemptCount: 0,
     maxAttempts: 3,
-    availableAt: new Date(),
     deadlineAt: new Date(Date.now() + deadlineMs),
   });
 }

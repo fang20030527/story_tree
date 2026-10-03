@@ -45,7 +45,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "允许黑洞英语读取照片，用于导入文章截图。",
+          "photosPermission": "允许黑洞英语读取照片和视频，用于导入文章截图与口语跟读视频。",
           "microphonePermission": false
         }
       ],

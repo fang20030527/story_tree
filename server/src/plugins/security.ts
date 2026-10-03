@@ -24,6 +24,7 @@ const defaultLimits: SecurityLimits = {
 };
 
 const tokenLimitedRoutes = new Set([
+  'POST /v1/speaking/remote-media',
   'POST /v1/speaking/assets',
   'PUT /v1/speaking/assets/:id/content',
   'POST /v1/speaking/materials',

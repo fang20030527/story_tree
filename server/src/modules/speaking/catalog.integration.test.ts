@@ -17,7 +17,7 @@ const OTHER_TOKEN = 'b2'.repeat(32);
 const sharedFilm = {
   id: 'film-shared', title: 'A shared movie', subtitle: '固定素材', category: '电影对白',
   sourceKind: 'platform', mediaType: 'video', assetId: null, videoId: null,
-  duration: 60, revision: 1, createdAt: '2026-10-01T08:00:00.000Z',
+  duration: 60, revision: 3, createdAt: '2026-10-01T08:00:00.000Z',
   cues: [{ id: 'public-cue', start: 1, end: 3, en: 'The original shared sentence.', zh: '公开原字幕。' }],
 };
 
@@ -63,16 +63,25 @@ describe('所有用户可见的口语固定电影', () => {
           expect((await app.inject({ method: 'GET', url: '/v1/speaking/catalog/missing' })).statusCode).toBe(404);
           expect((await app.inject({ method: 'PATCH', url: '/v1/speaking/catalog/film-shared', payload: {} })).statusCode).toBe(404);
           expect((await app.inject({ method: 'GET', url: '/v1/speaking/library' })).statusCode).toBe(401);
+          // 旧状态默认 subtitleRevision=1，但没有个人字幕时必须使用发布版本。
+          const initialState = await app.inject({ method: 'PATCH', url: '/v1/speaking/materials/film-shared/state',
+            headers: { authorization: `Bearer ${OWNER_TOKEN}`, 'idempotency-key': crypto.randomUUID() },
+            payload: { revision: 0, position: 2 } });
+          expect(initialState.statusCode).toBe(200);
+          const beforePatch = await app.inject({ method: 'GET', url: '/v1/speaking/materials/film-shared', headers: { authorization: `Bearer ${OWNER_TOKEN}` } });
+          expect(SpeakingMaterialDtoSchema.parse(beforePatch.json())).toEqual(sharedFilm);
+          const initialLibrary = await app.inject({ method: 'GET', url: '/v1/speaking/library', headers: { authorization: `Bearer ${OWNER_TOKEN}` } });
+          expect(SpeakingLibraryDtoSchema.parse(initialLibrary.json()).materials).toContainEqual(expect.objectContaining({ id: 'film-shared', revision: 3 }));
           const privateCues = [{ ...sharedFilm.cues[0]!, en: 'Only this account corrected the line.' }];
           const privatePatch = await app.inject({ method: 'PATCH', url: '/v1/speaking/materials/film-shared/subtitles',
             headers: { authorization: `Bearer ${OWNER_TOKEN}`, 'idempotency-key': crypto.randomUUID() },
-            payload: { revision: 1, cues: privateCues } });
+            payload: { revision: 3, cues: privateCues } });
           expect(privatePatch.statusCode).toBe(200);
           expect(SpeakingMaterialDtoSchema.parse(privatePatch.json()).cues).toEqual(privateCues);
           const owner = await app.inject({ method: 'GET', url: '/v1/speaking/materials/film-shared', headers: { authorization: `Bearer ${OWNER_TOKEN}` } });
           const other = await app.inject({ method: 'GET', url: '/v1/speaking/materials/film-shared', headers: { authorization: `Bearer ${OTHER_TOKEN}` } });
           const publicAfter = await app.inject({ method: 'GET', url: '/v1/speaking/catalog/film-shared', headers: { authorization: `Bearer ${OWNER_TOKEN}` } });
-          expect(SpeakingMaterialDtoSchema.parse(owner.json()).revision).toBe(2);
+          expect(SpeakingMaterialDtoSchema.parse(owner.json()).revision).toBe(4);
           expect(SpeakingMaterialDtoSchema.parse(other.json())).toEqual(sharedFilm);
           expect(SpeakingMaterialDtoSchema.parse(publicAfter.json())).toEqual(sharedFilm);
           const library = await app.inject({ method: 'GET', url: '/v1/speaking/library', headers: { authorization: `Bearer ${OWNER_TOKEN}` } });

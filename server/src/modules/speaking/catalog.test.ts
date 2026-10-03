@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  getPublicSpeakingCatalog, getPublicSpeakingMaterial, getPublicSpeakingPlayback,
+  assertPlatformTranslationsComplete, getPublicSpeakingCatalog, getPublicSpeakingMaterial, getPublicSpeakingPlayback,
   loadSpeakingCatalog, loadSpeakingCatalogData,
 } from './catalog';
 import type { MediaStore } from '../../infrastructure/media/store';
@@ -39,11 +39,30 @@ afterEach(async () => {
 });
 
 describe('口语固定发布目录', () => {
+  it('发布前要求所有平台字幕都自带真实中文，拒绝缺失或英文冒充译文', async () => {
+    await publish(cloudFixture);
+    const bilingual = loadSpeakingCatalogData(catalogPath);
+    expect(() => assertPlatformTranslationsComplete(bilingual)).not.toThrow();
+    for (const zh of ['', '  ', 'We can start here.']) {
+      const entry = cloudFixture.materials[0]!;
+      await publish({ materials: [{ ...entry, material: { ...entry.material, cues: [{ ...entry.material.cues[0], zh }] } }] });
+      expect(() => assertPlatformTranslationsComplete(loadSpeakingCatalogData(catalogPath))).toThrow('固定素材的中文字幕尚未准备完整');
+    }
+  });
   it('可选云清单不存在时保留原创素材，示范音不伪造云端播放', async () => {
     const catalog = loadSpeakingCatalogData(catalogPath);
     expect([...loadSpeakingCatalog(catalogPath).keys()]).toEqual(['demo-audio']);
     expect(catalog.media.size).toBe(0);
     await expect(getPublicSpeakingPlayback(catalog, undefined, 'demo-audio')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('原创素材的预译版本写入摘要和详情，旧目录仍默认版本 1', async () => {
+    expect(loadSpeakingCatalog(catalogPath).get('demo-audio')?.revision).toBe(1);
+    await writeFile(catalogPath, JSON.stringify({ ...originalFixture,
+      materials: originalFixture.materials.map(item => ({ ...item, revision: 2 })) }));
+    const catalog = loadSpeakingCatalogData(catalogPath);
+    expect(getPublicSpeakingMaterial(catalog, 'demo-audio').revision).toBe(2);
+    expect(getPublicSpeakingCatalog(catalog).materials[0]?.revision).toBe(2);
   });
 
   it('合并公共素材，摘要和详情不泄露内部媒体字段', async () => {

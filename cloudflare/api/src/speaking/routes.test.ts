@@ -72,8 +72,8 @@ function platform(id: string): SpeakingMaterialDto {
     sourceKind: 'platform', mediaType: 'audio', assetId: null, videoId: null,
     duration: 60, cues, revision: 1, createdAt: '2026-01-01T00:00:00.000Z' });
 }
-function setCatalog(count = 3) {
-  const materials = Array.from({ length: count }, (_, index) => platform(`platform-${index}`));
+function setCatalog(count = 3, revision = 1, contents = cues) {
+  const materials = Array.from({ length: count }, (_, index) => ({ ...platform(`platform-${index}`), revision, cues: contents }));
   catalog.get.mockResolvedValue(SpeakingCatalogDtoSchema.parse({ materials: materials.map(material => {
     const { cues: contents, ...summary } = material;
     return { ...summary, cueCount: contents.length };
@@ -287,6 +287,30 @@ describe('生产 D1 口语数据路由', () => {
     expect(library.materials.find(item => item.id === 'platform-0')).toMatchObject({ revision: 2, cueCount: 1 });
     expect(library.states).toHaveLength(1);
     expect(count(database, 'speaking_materials')).toBe(0);
+  });
+
+  it('预译字幕升级使用发布版本，旧播放状态不遮盖新版，个人字幕仍保留', async () => {
+    const { env } = setup();
+    await call(env, 'materials/platform-0/state', 'PATCH', { revision: 0, position: 2 });
+    const personalCues = [{ ...cues[0]!, en: 'Personal subtitle.', zh: '个人校正。' }];
+    await call(env, 'materials/platform-0/subtitles', 'PATCH', { revision: 1, cues: personalCues }, crypto.randomUUID(), other);
+
+    const bundledCues = cues.map(cue => ({ ...cue, zh: '新版预置中文。' }));
+    setCatalog(3, 3, bundledCues);
+    const material = SpeakingMaterialDtoSchema.parse(await (await call(env, 'materials/platform-0')).json());
+    expect(material).toMatchObject({ revision: 3, cues: bundledCues });
+    const library = SpeakingLibraryDtoSchema.parse(await (await call(env, 'library')).json());
+    expect(library.materials.find(item => item.id === 'platform-0')).toMatchObject({ revision: 3, cueCount: 2 });
+    await call(env, 'materials/platform-0/state', 'PATCH', { revision: 1, position: 4 });
+    expect(await state(env, 'platform-0')).toMatchObject({ revision: 2, position: 4 });
+
+    await expect(call(env, 'materials/platform-0/subtitles', 'PATCH', { revision: 1, cues })).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
+    const corrected = SpeakingMaterialDtoSchema.parse(await (await call(env, 'materials/platform-0/subtitles', 'PATCH', { revision: 3, cues: bundledCues })).json());
+    expect(corrected.revision).toBe(4);
+    const personal = SpeakingMaterialDtoSchema.parse(await (await call(env, 'materials/platform-0', 'GET', undefined, null, other)).json());
+    expect(personal).toMatchObject({ revision: 2, cues: personalCues });
+    const personalLibrary = SpeakingLibraryDtoSchema.parse(await (await call(env, 'library', 'GET', undefined, null, other)).json());
+    expect(personalLibrary.materials.find(item => item.id === 'platform-0')).toMatchObject({ revision: 2, cueCount: 1 });
   });
 
   it('录音归属、唯一绑定、替换及字幕失效后的释放均原子提交', async () => {

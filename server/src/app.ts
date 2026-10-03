@@ -28,6 +28,7 @@ import { practiceRoutes } from './modules/practice/routes';
 import { translationRoutes } from './modules/translation/routes';
 import { vocabularyRoutes } from './modules/vocabulary/routes';
 import { speakingRoutes } from './modules/speaking/routes';
+import { messageBottleRoutes } from './modules/message-bottles/routes';
 import type { MediaStore } from './infrastructure/media/store';
 import type { FFmpegMediaProcessor } from './infrastructure/media/ffmpeg';
 import type { PronunciationProvider } from './infrastructure/speech/provider';
@@ -188,6 +189,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
       : {}),
   });
   app.register(vocabularyRoutes, { db: options.db });
+  app.register(messageBottleRoutes, { db: options.db });
   app.register(speakingRoutes, {
     config: options.config, db: options.db,
     catalogPath: fileURLToPath(new URL('../content/speaking/catalog.json', import.meta.url)),

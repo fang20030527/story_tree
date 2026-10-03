@@ -23,6 +23,7 @@ import { speakingAssets, speakingStorageCleanup } from '../../db/schema';
 import { createMediaStore } from '../../infrastructure/media/store';
 import { registerAnonymous } from '../auth/service';
 import { sweepSpeakingAssets } from './assets';
+import * as remoteMediaNode from './remote-media-node';
 
 const OWNER_TOKEN = 'a1'.repeat(32);
 const OTHER_TOKEN = 'a2'.repeat(32);
@@ -103,6 +104,32 @@ async function removeTestDirectory(path: string): Promise<void> {
 }
 
 describe('已有字幕的口语练习 API', () => {
+  it('仅为已认证用户读取网页媒体，返回完整二进制且不创建上传资产', async () => {
+    const bytes = wavFixture();
+    const close = vi.fn(async () => undefined);
+    const open = vi.spyOn(remoteMediaNode, 'openSpeakingRemoteUrlOnNode').mockImplementation(async url => ({
+      url: new URL(url), response: new Response(new Uint8Array(bytes), { headers: { 'content-type': 'audio/wav', 'set-cookie': 'private=value' } }), close,
+    }));
+    try {
+      await withTestDatabase(async ({ db }) => {
+        await registerAnonymous(db, OWNER_TOKEN, true);
+        const config = loadConfig({ DATABASE_URL: 'postgresql://example.invalid/db', EVOLINK_API_KEY: 'test-key', PUBLIC_SERVER_ORIGIN: 'http://localhost:3000' });
+        const app = buildApp({ config, db, logger: false });
+        try {
+          const url = '/v1/speaking/remote-media';
+          expect((await app.inject({ method: 'POST', url, payload: { url: 'https://example.com/audio' } })).statusCode).toBe(401);
+          expect((await request(app, 'POST', url, { url: 'invalid-url' })).statusCode).toBe(400);
+          expect(open).not.toHaveBeenCalled();
+          const response = await request(app, 'POST', url, { url: 'https://example.com/audio' });
+          expect(response.statusCode).toBe(200); expect(response.rawPayload).toEqual(bytes);
+          expect(response.headers['content-type']).toBe('audio/wav'); expect(response.headers['cache-control']).toBe('no-store');
+          expect(response.headers['set-cookie']).toBeUndefined(); expect(close).toHaveBeenCalledTimes(1);
+          expect(await db.select().from(speakingAssets)).toHaveLength(0);
+        } finally { await app.close(); }
+      });
+    } finally { open.mockRestore(); }
+  });
+
   it('隔离私有媒体、保存字幕与练习进度，并提供受限的签名 Range 播放', async () => {
     const root = await mkdtemp(join(tmpdir(), 'speaking-integration-'));
     const logs: string[] = [];

@@ -65,6 +65,11 @@ export default function appConfig(): ExpoConfig {
       ...baseConfig.android,
       package: androidPackage,
     },
-    plugins: [...(baseConfig.plugins ?? []), 'expo-sharing', ...(appId ? ['expo-native-wechat'] : [])],
+    plugins: [...(baseConfig.plugins ?? []), ['./plugins/withSpeakingSharing', {
+      ios: { enabled: true, activationRule: { supportsFileWithMaxCount: 2, supportsMovieWithMaxCount: 1,
+        supportsAttachmentsWithMaxCount: 2, supportsWebUrlWithMaxCount: 1, supportsText: true } },
+      android: { enabled: true, singleShareMimeTypes: ['audio/*', 'video/*', 'text/*', 'application/x-subrip', 'application/octet-stream'],
+        multipleShareMimeTypes: ['audio/*', 'video/*', 'text/*', 'application/x-subrip', 'application/octet-stream'] },
+    }], ...(appId ? ['expo-native-wechat'] : [])],
   };
 }

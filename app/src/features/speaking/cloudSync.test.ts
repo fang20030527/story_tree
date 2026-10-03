@@ -7,7 +7,7 @@ import { resolveSpeakingMedia, speakingMediaInfo } from './mediaStorage';
 import type { SpeakingLibraryDto, SpeakingMaterialDto, SpeakingStateDto } from '@context-reader/contracts';
 import { emptySpeakingStore, type SpeakingMaterial } from './model';
 import { loadSpeakingStore, updateSpeakingStore } from './speakingStorage';
-import { cacheSpeakingMaterial, cacheSpeakingPublicDetails, mergeSpeakingCloudLibrary, saveSpeakingCloudRecording, saveSpeakingMaterialState, saveSpeakingMaterialSubtitles } from './cloudSync';
+import { cacheSpeakingMaterial, cacheSpeakingPublicDetails, mergeSpeakingCatalog, mergeSpeakingCloudLibrary, saveSpeakingCloudRecording, saveSpeakingMaterialState, saveSpeakingMaterialSubtitles } from './cloudSync';
 
 jest.mock('@/features/auth/authStorage', () => ({ loadAuthUser: jest.fn() }));
 jest.mock('@/api/installation', () => ({ createIdempotencyKey: jest.fn() }));
@@ -199,4 +199,24 @@ it('keeps only the current shared film captions cached without losing guest corr
   expect(store.localSubtitleOverrides[first.id]).toEqual(corrected);
   expect(updateSpeakingState).not.toHaveBeenCalled();
   expect(updateSpeakingSubtitles).not.toHaveBeenCalled();
+});
+
+it('refreshes cached English-only captions when a bilingual platform release advances its revision', () => {
+  const store = emptySpeakingStore();
+  const original: SpeakingMaterialDto = { ...cloud.materials[0]!, mediaType: 'video', cues: [cue] };
+  cacheSpeakingPublicDetails(store, original);
+  const corrected = [{ ...cue, en: 'My own correction.' }];
+  store.localSubtitleOverrides[original.id] = corrected;
+  store.saved[original.id] = [cue.id];
+  store.positions[original.id] = 1;
+  const { cues: contents, ...summary } = original;
+  mergeSpeakingCatalog(store, { materials: [{ ...summary, sourceKind: 'platform', assetId: null, videoId: null, revision: 2, cueCount: contents.length }] }, false);
+  expect(store.cues[original.id]).toBeUndefined();
+  expect(store.cloudMaterials[0]).toMatchObject({ revision: 2, summary: true });
+  const bilingual = [{ ...cue, zh: '你好。' }];
+  cacheSpeakingPublicDetails(store, { ...original, revision: 2, cues: bilingual });
+  expect(store.cues[original.id]).toEqual(bilingual);
+  expect(store.localSubtitleOverrides[original.id]).toEqual(corrected);
+  expect(store.saved[original.id]).toEqual([cue.id]);
+  expect(store.positions[original.id]).toBe(1);
 });

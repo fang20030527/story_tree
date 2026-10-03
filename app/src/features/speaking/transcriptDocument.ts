@@ -1,8 +1,9 @@
 import { strToU8, zipSync } from 'fflate';
 import { formatSpeakingTime, type SpeakingMaterial } from './model';
 
-export type TranscriptExportFormat = 'pdf' | 'word';
+export type TranscriptExportFormat = 'pdf' | 'word' | 'markdown';
 export type TranscriptNotes = Readonly<Record<string, string>>;
+export const transcriptFormatLabels: Record<TranscriptExportFormat, string> = { pdf: 'PDF', word: 'Word', markdown: 'Markdown' };
 
 export class TranscriptExportError extends Error {}
 
@@ -28,7 +29,8 @@ export function transcriptFilename(title: string, format: TranscriptExportFormat
   // Keep Chinese titles while removing path separators and unsupported filename characters.
   const safe = title.replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '_').replace(/\s+/g, ' ').replace(/^[. ]+|[. ]+$/g, '');
   const stem = Array.from(safe).slice(0, 50).join('').replace(/[. ]+$/g, '') || '跟读素材';
-  return `${stem} 台词本.${format === 'word' ? 'docx' : 'pdf'}`;
+  const extension = { pdf: 'pdf', word: 'docx', markdown: 'md' }[format];
+  return `${stem} 台词本.${extension}`;
 }
 
 function escapeText(value: string) {
@@ -45,6 +47,32 @@ function metadata(material: SpeakingMaterial) {
 
 function cueHeading(index: number, start: number, end: number) {
   return `${index + 1}  ${formatSpeakingTime(start)} - ${formatSpeakingTime(end)}`;
+}
+
+function escapeMarkdown(value: string) {
+  // 保留字幕与笔记的原文显示，避免其中的 Markdown 或 HTML 改变文档结构。
+  return value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g, '')
+    .replace(/\r\n?/g, '\n').replace(/&/g, '&amp;')
+    .replace(/[\\`*_{}[\]()#+.!|<>=~-]/g, '\\$&').replace(/\n/g, '  \n');
+}
+
+export function buildTranscriptMarkdown(material: SpeakingMaterial, notes: TranscriptNotes = {}) {
+  assertTranscriptAvailable(material);
+  const lines = material.cues.map((cue, index) => {
+    const note = notes[cue.id];
+    return [
+      `## ${cueHeading(index, cue.start, cue.end)}`,
+      escapeMarkdown(cue.en),
+      ...(cue.zh.trim() ? [escapeMarkdown(cue.zh)] : []),
+      ...(note?.trim() ? [`> **笔记：** ${escapeMarkdown(note).replace(/\n/g, '\n> ')}`] : []),
+    ].join('\n\n');
+  });
+  return [
+    `# ${escapeMarkdown(material.title.replace(/\s+/g, ' ').trim())} 台词本`,
+    escapeMarkdown(metadata(material).replace(/\s+/g, ' ').trim()),
+    '黑洞英语 · 中英双语跟读台词',
+    ...lines,
+  ].join('\n\n') + '\n';
 }
 
 export function buildTranscriptHtml(material: SpeakingMaterial, notes: TranscriptNotes = {}) {
@@ -121,3 +149,4 @@ export function buildTranscriptDocx(material: SpeakingMaterial, notes: Transcrip
 }
 
 export const transcriptDocxMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+export const transcriptMarkdownMimeType = 'text/markdown';

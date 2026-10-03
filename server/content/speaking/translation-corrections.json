@@ -1,0 +1,866 @@
+[
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-fa6ce12b9434fc007cb8",
+    "sourceText": "Then join me,",
+    "translatedTextZh": "那就加入我吧，"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-f36d773d15ee8a1a113b",
+    "sourceText": "and we will make stories that they will never forget.",
+    "translatedTextZh": "我们会创造让人们永远难忘的故事。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-3850702206a9d0fcb5ef",
+    "sourceText": "And I promise you, it will be anything but boring.",
+    "translatedTextZh": "我保证，这趟旅程绝不会无聊。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-c4ac9ec6a9d9dcbf971f",
+    "sourceText": "And once we reach Ithaca, you can join my guard",
+    "translatedTextZh": "等我们到了伊萨卡，你可以加入我的卫队，"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-751f399c9aa3ded8a9d2",
+    "sourceText": "and help me protect our fair kingdom.",
+    "translatedTextZh": "帮我守护我们美丽的王国。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-5e3cc4c98a0a9b6d1d58",
+    "sourceText": "My king.",
+    "translatedTextZh": "陛下。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-9c5977931d79495b7562",
+    "sourceText": "Now, how are you at fighting?",
+    "translatedTextZh": "那么，你的身手怎么样？"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-247ed70231f142d682e1",
+    "sourceText": "I can handle my own.",
+    "translatedTextZh": "我能应付。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-bd2c4e366578b8760c2f",
+    "sourceText": "But if you want a force to be reckoned with,",
+    "translatedTextZh": "不过，你要是想找个真正厉害的人，"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-f226f62fbd9838959eb0",
+    "sourceText": "you want to recruit Eurylochus,",
+    "translatedTextZh": "就去招募欧律洛库斯。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-c1d0e12c90724ed87a91",
+    "sourceText": "I’ve never seen another man fight quite like he has.",
+    "translatedTextZh": "我从没见过有人像他那样善战。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-14bf55af031dc0090637",
+    "sourceText": "We’ll pay him a visit next.",
+    "translatedTextZh": "接下来我们就去找他。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-6dc5a628078a29859187",
+    "sourceText": "So what say you, Eurylochus?",
+    "translatedTextZh": "那么，你意下如何，欧律洛库斯？"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-83ea76f461682492e1cc",
+    "sourceText": "I have killed a lot of men to protect my home.",
+    "translatedTextZh": "为了保护家园，我杀过很多人。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-9d04f21e62a11d24c65a",
+    "sourceText": "War has plagued our country for many years.",
+    "translatedTextZh": "战争蹂躏了我们的国家多年。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-485ef960ae764b0b9fbb",
+    "sourceText": "How are you at sea?",
+    "translatedTextZh": "你擅长航海吗？"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-a7f4570dafa06b0fd9c7",
+    "sourceText": "I’m a fast swimmer, and even faster with a sword.",
+    "translatedTextZh": "我游得很快，使剑的速度更快。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-573dea60ac8a520492f9",
+    "sourceText": "Hm. Is that so?",
+    "translatedTextZh": "嗯，是吗？"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-7f88f144207efe4d65fe",
+    "sourceText": "Hm.",
+    "translatedTextZh": "嗯。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-45b8f3a4682d46aada6c",
+    "sourceText": "But now that the war is over,",
+    "translatedTextZh": "不过，如今战争已经结束，"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-7230ec38a58dfa701ee5",
+    "sourceText": "I’ve found work at a vineyard up the road.",
+    "translatedTextZh": "我在前面的一座葡萄园找了份工作。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-87edfabcd0244d7976e4",
+    "sourceText": "The owner, he treats me well.",
+    "translatedTextZh": "园主对我很好。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-449762058ece269dca68",
+    "sourceText": "And his daughter, Talia, she’s...",
+    "translatedTextZh": "而他的女儿塔莉娅，她……"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-79b13ac5fb2d79e14bef",
+    "sourceText": "I just don’t know if I can commit to a journey this long.",
+    "translatedTextZh": "我真不确定能不能踏上这么漫长的旅程。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-f5a3114b4a581677d540",
+    "sourceText": "You will be in Ithaca before sundown two days hence.",
+    "translatedTextZh": "两天后日落之前，你就能到达伊萨卡。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-0a658dc865fc271c5f84",
+    "sourceText": "We have to be.",
+    "translatedTextZh": "我们必须赶到。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-9d7ef9c2d35cf20a2bbb",
+    "sourceText": "And if you decide to stay in our fair kingdom,",
+    "translatedTextZh": "如果你决定留在我们美丽的王国，"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-c8728170ca05228c2f5d",
+    "sourceText": "you will live a life of ease in Ithaca.",
+    "translatedTextZh": "你会在伊萨卡过上安逸的生活。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-e56fd9ac6cfd383e6a83",
+    "sourceText": "And once there, she can join you.",
+    "translatedTextZh": "到了那里，她也可以来与你团聚。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-f04cae9dd244e63518d1",
+    "sourceText": "If you teach me how to be as fast",
+    "translatedTextZh": "如果你能教我怎么变得和你一样快，"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-32f19d249301b9fe868c",
+    "sourceText": "as you, my king Odysseus, then I’m in.",
+    "translatedTextZh": "奥德修斯陛下，那我就加入。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-453b39018fd70f2f869e",
+    "sourceText": "And as I promised...",
+    "translatedTextZh": "正如我所承诺的……"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-73dcbf6453f1ea98b2d9",
+    "sourceText": "We need gold.",
+    "translatedTextZh": "我们需要金子。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-634063c687f94adf3cc3",
+    "sourceText": "You said we need to be to Ithaca in two days.",
+    "translatedTextZh": "你说我们必须在两天内到达伊萨卡。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-4e685d2f845c9f7c1b5a",
+    "sourceText": "Yes. I have a plan.",
+    "translatedTextZh": "是的。我有个计划。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-16dc43d8071adae25767",
+    "sourceText": "But you must trust me.",
+    "translatedTextZh": "不过，你必须相信我。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-7d54c8174f3823c446fc",
+    "sourceText": "I’m with you to the end, my king.",
+    "translatedTextZh": "我会追随你到底，陛下。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-0b9c7e962c1ab326e7f9",
+    "sourceText": "Or thereabouts.",
+    "translatedTextZh": "差不多就是这个意思。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-f40f769ee81c329b9ab6",
+    "sourceText": "From Troy, Odysseus launched his journey home",
+    "translatedTextZh": "奥德修斯从特洛伊启程返乡，"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-6be7a1c429e99236ed4d",
+    "sourceText": "with 12 ships and 600 men.",
+    "translatedTextZh": "率领十二艘船和六百名士兵。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-c40a08bea67a4a2f3ea2",
+    "sourceText": "Back in Ithaca, Odysseus’s dear wife Penelope",
+    "translatedTextZh": "在伊萨卡，奥德修斯深爱的妻子佩涅洛佩"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-ac38a1bb99d4fcfa5576",
+    "sourceText": "dreams of her love bearing the brutal seas",
+    "translatedTextZh": "梦见她的爱人穿越狂暴的大海，"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-d0a3130d387fccd7656f",
+    "sourceText": "to find his way home to her.",
+    "translatedTextZh": "回到家中，与她重聚。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-513c59ae38a5d433edaf",
+    "sourceText": "Odysseus?",
+    "translatedTextZh": "奥德修斯？"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-2e69190ef23decf60c2e",
+    "sourceText": "God’s above.",
+    "translatedTextZh": "天上的神明啊。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-1dbedf71404db99ee5f2",
+    "sourceText": "You’ve shown me Odysseus lives.",
+    "translatedTextZh": "你们让我知道奥德修斯还活着。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-cf128c52bc900aabeadc",
+    "sourceText": "Now bring him home.",
+    "translatedTextZh": "现在请让他回家吧。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-14094b88cbbef7b4b2c1",
+    "sourceText": "Bring him home now, or these lips",
+    "translatedTextZh": "快让他回家，否则这双唇"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-a8ce9847fca04fd71c1c",
+    "sourceText": "shall never again speak your names.",
+    "translatedTextZh": "将再也不会呼唤你们的名字。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-77091505b76cd1a94122",
+    "sourceText": "A growing boy needs food.",
+    "translatedTextZh": "长身体的孩子需要吃东西。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-11737656073443db52ca",
+    "sourceText": "A boy needs many things, mother, but I am not a boy.",
+    "translatedTextZh": "孩子需要很多东西，母亲。但我已经不是孩子了。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-e27c99a9cb07e240df02",
+    "sourceText": "Not any...",
+    "translatedTextZh": "不再是……"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-1424e1aa09fc48d27d93",
+    "sourceText": "Mother.",
+    "translatedTextZh": "母亲。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-9285e8d24d7c53d42853",
+    "sourceText": "I’ve seen him, Telemachus.",
+    "translatedTextZh": "我见到他了，忒勒马科斯。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-80892e238a67ff605272",
+    "sourceText": "I’ve seen your father.",
+    "translatedTextZh": "我见到你父亲了。"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-e8c718c3a70d4e3df21a",
+    "sourceText": "My mama always said life was like a box of chocolates.",
+    "translatedTextZh": "妈妈总说，人生就像一盒巧克力。"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-00c8daef7537cbfa687a",
+    "sourceText": "You never know what you're gonna get.",
+    "translatedTextZh": "你永远不知道下一颗会是什么。"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-81a6585391cdd3aaee0c",
+    "sourceText": "We're talking about five little points here.",
+    "translatedTextZh": "我们说的不过是相差五分而已。"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-3fdfe71a562a692b5b75",
+    "sourceText": "Mama says, \"Stupid is as stupid does.\"",
+    "translatedTextZh": "妈妈说：“做傻事的才是傻子。”"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-b12d255c4982907fa558",
+    "sourceText": "Jenny and me was like peas and carrots.",
+    "translatedTextZh": "珍妮和我形影不离，就像豌豆和胡萝卜总是搭配在一起。"
+  },
+  {
+    "materialId": "titanic-1997",
+    "cueId": "cue-c6f7131b98b9427f8076",
+    "sourceText": "G-60.",
+    "translatedTextZh": "G-60号。"
+  },
+  {
+    "materialId": "rick-and-morty-s08e01",
+    "cueId": "cue-3d4a482c3c039b8349a4",
+    "sourceText": "C... CJ.",
+    "translatedTextZh": "西……西杰。"
+  },
+  {
+    "materialId": "rick-and-morty-s08e01",
+    "cueId": "cue-8a8d37d302605e6e4fe8",
+    "sourceText": "CJ!",
+    "translatedTextZh": "西杰！"
+  },
+  {
+    "materialId": "rick-and-morty-s08e01",
+    "cueId": "cue-f286842a34e3c9a81a2e",
+    "sourceText": "CJ! CJ!",
+    "translatedTextZh": "西杰！西杰！"
+  },
+  {
+    "materialId": "rick-and-morty-s08e08",
+    "cueId": "cue-a9640a25a1b61d9993ae",
+    "sourceText": "Blah, blah, blah...",
+    "translatedTextZh": "巴拉，巴拉，巴拉……"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-b7234911910a3c2d63b4",
+    "sourceText": "\"When I was in China on the All-America Ping-Pong team,",
+    "translatedTextZh": "“当我代表全美乒乓球队去中国时，"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-936b72629b20c80d1afb",
+    "sourceText": "\"I just loved playing Ping-Pong with my Flex-O-Light Ping-Pong paddle,\"",
+    "translatedTextZh": "“我就特别喜欢用我的Flex-O-Light球拍打乒乓球。”"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-04959f704f8ee5972787",
+    "sourceText": "which everybody knows isn't true,",
+    "translatedTextZh": "可大家都知道，这并不是真的，"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-eb091c4c38a08c0b445e",
+    "sourceText": "but Mama says it's just a little white lie",
+    "translatedTextZh": "但妈妈说，这只是个无伤大雅的小谎，"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-e9c67145fe23c656ef17",
+    "sourceText": "so it wouldn't hurt nobody.",
+    "translatedTextZh": "所以不会伤害到任何人。"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-1493640cbb57cffe388b",
+    "sourceText": "So, anyway, I'm putting all that on gas, ropes and new nets",
+    "translatedTextZh": "总之，我把那些钱都花在了燃油、绳索和新渔网上，"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-f57ccd1f57a5f2867167",
+    "sourceText": "and a brand-new shrimping boat.",
+    "translatedTextZh": "还买了一艘崭新的捕虾船。"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-b79dbe0a60a3f49ccded",
+    "sourceText": "Now, Bubba had told me everything he knew about shrimping,",
+    "translatedTextZh": "布巴把他知道的捕虾知识全都告诉了我，"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-1d4c1093b01ad6f75b72",
+    "sourceText": "but you know what I found out?",
+    "translatedTextZh": "可你知道我后来发现了什么吗？"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-7404df8de695fef15ac9",
+    "sourceText": "Shrimping is tough.",
+    "translatedTextZh": "捕虾可真难。"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-2718ae712ba52c7dd896",
+    "sourceText": "I only caught five.",
+    "translatedTextZh": "我只捕到了五只。"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-20971d8de85e1587fa88",
+    "sourceText": "A couple more, you could have yourself a cocktail.",
+    "translatedTextZh": "再多捕几只，就能做一份虾仁鸡尾酒了。"
+  },
+  {
+    "materialId": "friends-s01e05",
+    "cueId": "cue-93057ed0037993aad564",
+    "sourceText": "Would you let it go? It's not a big deal.",
+    "translatedTextZh": "你能别揪着这事不放吗？这没什么大不了的。"
+  },
+  {
+    "materialId": "friends-s01e05",
+    "cueId": "cue-6d5eb76d9d2adac236da",
+    "sourceText": "Big glamour night. Me and Monica at Launderama.",
+    "translatedTextZh": "今晚可真够风光的，我和莫妮卡要去自助洗衣店。"
+  },
+  {
+    "materialId": "friends-s01e05",
+    "cueId": "cue-9c8421b7111ca40da770",
+    "sourceText": "It's the first time she'll see your underwear. You want it to be dirty?",
+    "translatedTextZh": "这是她第一次看到你的内裤，你想让她看见脏的吗？"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-97fb23e8b3c906cda3b8",
+    "sourceText": "From the nursery rhyme.",
+    "translatedTextZh": "就是那首童谣里唱的。"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-2f8d04876a895fe84552",
+    "sourceText": "\"There was a crooked man who had a crooked smile",
+    "translatedTextZh": "“有个歪扭的男人，带着歪歪的笑容，"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-acc0a9089272e24b58b5",
+    "sourceText": "who lived in a shoe for a while...\"",
+    "translatedTextZh": "曾在一只鞋子里住过一阵子……”"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-88bb6d00efc27433fa03",
+    "sourceText": "So I think Alan",
+    "translatedTextZh": "所以我觉得艾伦，"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-1f3be910c8d9748da298",
+    "sourceText": "will become the yardstick",
+    "translatedTextZh": "会成为一把衡量的尺子，"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-f0b82315f1c11126be49",
+    "sourceText": "against which all future boyfriends will be measured.",
+    "translatedTextZh": "以后所有男朋友都要拿他来比较。"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-19d74ced25360a289be9",
+    "sourceText": "What future boyfriends?",
+    "translatedTextZh": "什么以后的男朋友？"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-94f56ac5c776c8746385",
+    "sourceText": "No, no. I think this could be, you know, \"it.\"",
+    "translatedTextZh": "不，不，我觉得他可能就是那个……对的人。"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-5d1d3b2ef28b2e5127eb",
+    "sourceText": "- Really? - Oh, yeah.",
+    "translatedTextZh": "- 真的吗？- 当然。"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-8a7f4e863903a24858f0",
+    "sourceText": "I'd marry him just for his David Hasselhoff impression alone.",
+    "translatedTextZh": "光凭他模仿大卫·哈塞尔霍夫的本事，我就愿意嫁给他。"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-39bab8e6d22b3aa68f5e",
+    "sourceText": "You know I'm gonna be doing that at parties, right?",
+    "translatedTextZh": "你知道我以后会在聚会上模仿他，对吧？"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-7dba242f8a2ce469fca6",
+    "sourceText": "- You know what I like most about him? - \"What?\"",
+    "translatedTextZh": "- 你知道我最喜欢他哪一点吗？- 什么？"
+  },
+  {
+    "materialId": "joe-rogan-experience-2219",
+    "cueId": "cue-fff00e143e5b198784b6",
+    "sourceText": "Nobody's ever come up to me and say, President, you've got to let the world come into our country.",
+    "translatedTextZh": "从来没有人走过来对我说：“总统先生，你必须让全世界的人都进我们国家。”"
+  },
+  {
+    "materialId": "joe-rogan-experience-2219",
+    "cueId": "cue-6d6e976b35cd68d6c309",
+    "sourceText": "You know, gotaways where they just walk in.",
+    "translatedTextZh": "你知道，就是那些没被抓到、直接走进来的人。"
+  },
+  {
+    "materialId": "joe-rogan-experience-2404",
+    "cueId": "cue-53f3a89cbc24bde16115",
+    "sourceText": "At the very least, it would have buried into one of the seats.",
+    "translatedTextZh": "最起码，它也会嵌进某个座椅里。"
+  },
+  {
+    "materialId": "joe-rogan-experience-2404",
+    "cueId": "cue-0986609e849d04344a50",
+    "sourceText": "the Starship launch program, which anyone can go and see if they just go to South Texas and they can just rent a hotel",
+    "translatedTextZh": "星舰发射计划，任何人都可以去看，只要到得克萨斯州南部，订一家酒店，"
+  },
+  {
+    "materialId": "joe-rogan-experience-2404",
+    "cueId": "cue-953ae6ea7cf9d6da6ba8",
+    "sourceText": "I mean, you've got to hand it to him.",
+    "translatedTextZh": "我是说，你不得不佩服他。"
+  },
+  {
+    "materialId": "joe-rogan-experience-2422",
+    "cueId": "cue-3a9bd3db04d1ddf9b2ca",
+    "sourceText": "SpaceX.",
+    "translatedTextZh": "SpaceX公司。"
+  },
+  {
+    "materialId": "joe-rogan-experience-2422",
+    "cueId": "cue-53a1ad9475747290441e",
+    "sourceText": "And the fact that he came into office and the first thing that he said was drill, baby, drill.",
+    "translatedTextZh": "而且他一上任，第一句话就是：“钻探吧，宝贝，钻探吧！”"
+  },
+  {
+    "materialId": "titanic-1997",
+    "cueId": "cue-aafecb3829dbfd3b4e5a",
+    "sourceText": "They're — they're very good, actually.",
+    "translatedTextZh": "它们……它们其实很不错。"
+  },
+  {
+    "materialId": "the-odyssey-local",
+    "cueId": "cue-191e4c667fcdfa001c65",
+    "sourceText": "Picked them off one by one.",
+    "translatedTextZh": "把他们一个个干掉了。"
+  },
+  {
+    "materialId": "friends-s01e01",
+    "cueId": "cue-d20e22ed51f02d83549b",
+    "sourceText": "- So, who? - You know Paul?",
+    "translatedTextZh": "- 那是谁啊？- 你认识保罗吗？"
+  },
+  {
+    "materialId": "friends-s01e03",
+    "cueId": "cue-74098504e223da36ca02",
+    "sourceText": "you know, things change. People change.",
+    "translatedTextZh": "你知道，世事在变，人也在变。"
+  },
+  {
+    "materialId": "the-diary-of-a-ceo-ai-experts-debate",
+    "cueId": "cue-3886f9a3f6b5826695b8",
+    "sourceText": "How could an AI that knows we would shut it down lie low until it has access to its own",
+    "translatedTextZh": "一个知道我们会关闭它的人工智能，要如何潜伏，直到能使用自己的"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-togi",
+    "cueId": "cue-2754914cda46783fc0c7",
+    "sourceText": "Notion.",
+    "translatedTextZh": "Notion笔记工具。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-togi",
+    "cueId": "cue-56ba8a9a9ab02e78e869",
+    "sourceText": "You guys have no fucking idea.",
+    "translatedTextZh": "你们他妈的根本就不懂。"
+  },
+  {
+    "materialId": "forrest-gump-1994",
+    "cueId": "cue-d579e9d0f400a6ae6a12",
+    "sourceText": "Yeah, but don't you be thinking that I'm going to be calling you \"sir.\"",
+    "translatedTextZh": "没错，不过别以为我会管你叫“长官”。"
+  },
+  {
+    "materialId": "rick-and-morty-s08e02",
+    "cueId": "cue-805f09f6cde31bc9f9e6",
+    "sourceText": "No, the other side says \"ordinary sand.\"",
+    "translatedTextZh": "不是，另一面写着“普通沙子”。"
+  },
+  {
+    "materialId": "rick-and-morty-s08e02",
+    "cueId": "cue-4b9476f2558dbdbac8ed",
+    "sourceText": "I said \"new,\" not \"creatively trailblazing.\"",
+    "translatedTextZh": "我说的是“新的”，可没说要“独具创造性、开拓先河”。"
+  },
+  {
+    "materialId": "rick-and-morty-s08e07",
+    "cueId": "cue-68c254f4d99aec6a601c",
+    "sourceText": "\"antagonist not found\" and \"no third act.\"",
+    "translatedTextZh": "“未找到反派”和“没有第三幕”。"
+  },
+  {
+    "materialId": "rick-and-morty-s08e09",
+    "cueId": "cue-10edf79bd082891130de",
+    "sourceText": "It just says \"The Hospital.\"",
+    "translatedTextZh": "上面只写着“医院”。"
+  },
+  {
+    "materialId": "friends-s01e02",
+    "cueId": "cue-47a009e22103424a4f9f",
+    "sourceText": "Still, you say \"Minnie,\" you hear \"Mouse.\"",
+    "translatedTextZh": "不过，一说“米妮”，你就会想到那只老鼠。"
+  },
+  {
+    "materialId": "friends-s01e05",
+    "cueId": "cue-98d51d2c360638459e93",
+    "sourceText": "It was horrible! He called me \"young lady.\"",
+    "translatedTextZh": "太可怕了！他居然叫我“小姑娘”。"
+  },
+  {
+    "materialId": "friends-s01e05",
+    "cueId": "cue-9e24eb2efaed17360c76",
+    "sourceText": "Sorry, Joey. You said, \"Let's just be friends.\"",
+    "translatedTextZh": "抱歉，乔伊，是你说“我们就做朋友吧”的。"
+  },
+  {
+    "materialId": "friends-s01e06",
+    "cueId": "cue-267008f2318012258ddb",
+    "sourceText": "Her name's Aurora. She's Italian and she pronounces my name \"Chandler.\"",
+    "translatedTextZh": "她叫奥罗拉，是意大利人，她把我的名字念作“钱德勒”。"
+  },
+  {
+    "materialId": "friends-s01e10",
+    "cueId": "cue-8611ce6b5f13cdca54ca",
+    "sourceText": "Uh, sorry, that's \"pathet,\" which is Sanskrit for \"really cool way to live.\"",
+    "translatedTextZh": "呃，抱歉，我说的是“pathet”，这是梵语，意思是“酷毙了的生活方式”。"
+  },
+  {
+    "materialId": "friends-s01e11",
+    "cueId": "cue-832f7e0884533e4ff313",
+    "sourceText": "Oh, and on page two, he's not reaching for her \"heaving beasts.\"",
+    "translatedTextZh": "哦，第二页那里，他要摸的可不是她那“起伏的野兽”。"
+  },
+  {
+    "materialId": "friends-s01e20",
+    "cueId": "cue-9d73452c8ee87ee7bb18",
+    "sourceText": "Four letters, \"circle or hoop.\"",
+    "translatedTextZh": "四个字母，意思是“圆圈或环”。"
+  },
+  {
+    "materialId": "friends-s01e14",
+    "cueId": "cue-d0c5642df6888f2c9634",
+    "sourceText": "- But... - No \"but.\" No \"but.\"",
+    "translatedTextZh": "- 但是……- 别说“但是”，没有“但是”。"
+  },
+  {
+    "materialId": "friends-s01e22",
+    "cueId": "cue-7f00f92378f9cd1cf331",
+    "sourceText": "That's right. \"JUMBO\" with a U, sir.",
+    "translatedTextZh": "没错，先生。是“JUMBO”，里面有个U。"
+  },
+  {
+    "materialId": "friends-s01e11",
+    "cueId": "cue-cae4433e1adfbb53c069",
+    "sourceText": "What's a \"niffle\"?",
+    "translatedTextZh": "“niffle”是什么？"
+  },
+  {
+    "materialId": "friends-s01e11",
+    "cueId": "cue-6441277f3be129a8c62a",
+    "sourceText": "You can usually find them on the heaving beasts.",
+    "translatedTextZh": "通常在那些“起伏的野兽”上就能找到它们。"
+  },
+  {
+    "materialId": "friends-s01e11",
+    "cueId": "cue-db987c65f27e635b2a2b",
+    "sourceText": "Wait, did you get to the part about his \"huge, throbbing pens\"?",
+    "translatedTextZh": "等等，你看到他那“巨大、跳动的笔”的段落了吗？"
+  },
+  {
+    "materialId": "friends-s01e11",
+    "cueId": "cue-7ddd98a6d3dfc82266dd",
+    "sourceText": "Tell you, you don't wanna be around when he starts writing with those.",
+    "translatedTextZh": "跟你说，等他拿那些“笔”开始写字时，你可千万别在旁边。"
+  },
+  {
+    "materialId": "rick-and-morty-s08e09",
+    "cueId": "cue-d21b1f5021473c299eab",
+    "sourceText": "Oh. Hey, Junior.",
+    "translatedTextZh": "哦，嗨，小莫蒂。"
+  },
+  {
+    "materialId": "rick-and-morty-s08e09",
+    "cueId": "cue-4aa46ce885bad8b30077",
+    "sourceText": "- Ugh! Boo. - Guys, come on.",
+    "translatedTextZh": "- 呃！嘘！- 各位，别这样。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-billionaire",
+    "cueId": "cue-934e118e42dbcce23d9a",
+    "sourceText": "J.",
+    "translatedTextZh": "字母J。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-f4d1ae4b1752e1f55433",
+    "sourceText": "And the crazy thing was at the same time, like my whole business model had collapsed because I lost my safety net, which",
+    "translatedTextZh": "更不可思议的是，与此同时，我的整个商业模式都崩塌了，因为我失去了那张安全网，这"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-397fb9e538a8542ce826",
+    "sourceText": "is really kind of, you know, this is a, it's a very personal thing, but like what you find out who you are pretty quick, you",
+    "translatedTextZh": "其实……这是非常私人的事，但你会很快认清自己，你"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-91efd6c9778cbdfff83c",
+    "sourceText": "know?",
+    "translatedTextZh": "懂吗？"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-490d02193b028288b647",
+    "sourceText": "And the thing is like, if you're up on the tightrope and you look down and you see the safety net, you know, you.",
+    "translatedTextZh": "事情是这样的，如果你走在钢丝上，低头看到安全网，你知道，你……"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-494e70316e1632aca6ba",
+    "sourceText": "and you don't fall, like nothing changes.",
+    "translatedTextZh": "只要你没掉下去，一切都不会变。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-5262a63a9ebda02e8eda",
+    "sourceText": "It's just that the net's gone.",
+    "translatedTextZh": "只是那张安全网不在了。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-1f2bcc4f02d6c991e31e",
+    "sourceText": "It only changes if you fall.",
+    "translatedTextZh": "只有当你掉下去，情况才会改变。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-b7e55572bcb157bd532b",
+    "sourceText": "But I was just.",
+    "translatedTextZh": "可我当时只是……"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-d75ff7ecba9f3f2f666c",
+    "sourceText": "I did something that I didn't think I would ever do after the third firing from QVC all those years before.",
+    "translatedTextZh": "自从多年前第三次被QVC解雇以后，我以为自己再也不会做这件事，可我还是做了。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-3b6edb3f260234dd0cc0",
+    "sourceText": "I was like, I got a job.",
+    "translatedTextZh": "于是，我找了份工作。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-36cd53f2f9af6ef1116d",
+    "sourceText": "I took a job hosting a show called Evening Magazine right here in San Francisco, which brought me right here into this recording studio 22 years",
+    "translatedTextZh": "我就在旧金山接了主持《晚间杂志》的工作，也因此在22年前来到这间录音室，"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-mike-rowe",
+    "cueId": "cue-d788350d54f2bd41cf10",
+    "sourceText": "ago because I felt like I needed to work.",
+    "translatedTextZh": "因为我觉得自己得找份工作。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-thestradman",
+    "cueId": "cue-385c54f649236a43b92c",
+    "sourceText": "opus.pro slash ICH.",
+    "translatedTextZh": "网址是 opus.pro/ICH。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-thestradman",
+    "cueId": "cue-22fdf9a1099027605c99",
+    "sourceText": "DDE.",
+    "translatedTextZh": "DDE频道。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-thestradman",
+    "cueId": "cue-c0f7449f05935034d64a",
+    "sourceText": "DDE.",
+    "translatedTextZh": "DDE频道。"
+  },
+  {
+    "materialId": "the-iced-coffee-hour-thestradman",
+    "cueId": "cue-b8906b19f266f65308e4",
+    "sourceText": "TikTok, Facebook.",
+    "translatedTextZh": "TikTok和脸书。"
+  },
+  {
+    "materialId": "friends-s01e17",
+    "cueId": "cue-e33bde3c89d66eac2458",
+    "sourceText": "MONICA: Okay. Whew.",
+    "translatedTextZh": "莫妮卡：好了，呼。"
+  }
+]

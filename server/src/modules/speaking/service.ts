@@ -23,7 +23,7 @@ export async function getSpeakingMaterial(deps: SpeakingDataDependencies, userId
   if (platform) {
     const state = await findState(db, userId, materialId);
     return SpeakingMaterialDtoSchema.parse({ ...platform, cues: state?.customCues ?? platform.cues,
-      revision: state?.subtitleRevision ?? 1 });
+      revision: state?.customCues != null ? state.subtitleRevision : platform.revision });
   }
   if (!UuidSchema.safeParse(materialId).success) throw notFound();
   const [material] = await db.select().from(speakingMaterials).where(and(
@@ -62,7 +62,8 @@ export async function getSpeakingLibrary(deps: SpeakingDataDependencies, userId:
   const materials: SpeakingMaterialSummary[] = [...deps.catalog.values()].map(item => {
     const state = states.find(value => value.materialId === item.id);
     const { cues, ...summary } = item;
-    return { ...summary, cueCount: state?.customCueCount ?? cues.length, revision: state?.subtitleRevision ?? 1 };
+    return { ...summary, cueCount: state?.customCueCount ?? cues.length,
+      revision: state?.customCueCount != null ? state.subtitleRevision : item.revision };
   });
   for (const item of selected) materials.push({ ...item, createdAt: item.createdAt.toISOString(),
     subtitle: item.sourceKind === 'youtube' ? '我的 YouTube 跟读' : '我的跟读文件', category: '个人文件' });
@@ -119,12 +120,13 @@ export async function updateSpeakingSubtitles(deps: SpeakingDataDependencies, us
     if (deps.catalog.has(materialId)) {
       const state = await lockedState(tx, userId, materialId);
       const platform = deps.catalog.get(materialId)!;
-      if (state.subtitleRevision !== request.revision) throw conflict();
+      const revision = state.customCues != null ? state.subtitleRevision : platform.revision;
+      if (revision !== request.revision) throw conflict();
       const cues = validateSpeakingCues(request.cues, platform.duration);
-      await tx.update(speakingStates).set({ customCues: cues, subtitleRevision: state.subtitleRevision + 1,
+      await tx.update(speakingStates).set({ customCues: cues, subtitleRevision: revision + 1,
         updatedAt: new Date() }).where(eq(speakingStates.id, state.id));
       resourceId = state.id;
-      result = { ...platform, cues, revision: state.subtitleRevision + 1 };
+      result = { ...platform, cues, revision: revision + 1 };
     } else {
       const [current] = await tx.select().from(speakingMaterials).where(and(
         eq(speakingMaterials.id, materialId), eq(speakingMaterials.userId, userId))).for('update');

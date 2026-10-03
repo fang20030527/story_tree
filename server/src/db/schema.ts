@@ -105,7 +105,21 @@ export const users = pgTable('users', {
   ageConfirmedAt: utcTimestamp('age_confirmed_at').notNull(),
   createdAt: utcTimestamp('created_at').defaultNow().notNull(),
   deletedAt: utcTimestamp('deleted_at'),
+  username: text('username'),
+  usernameKey: text('username_key').unique(),
 });
+
+export const messageBottles = pgTable('message_bottles', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  username: text('username').notNull(),
+  content: text('content').notNull(),
+  createdAt: utcTimestamp('created_at').defaultNow().notNull(),
+}, table => [
+  index('message_bottles_created_idx').on(table.createdAt, table.id),
+  index('message_bottles_user_created_idx').on(table.userId, table.createdAt),
+  check('message_bottles_content_length', sql`char_length(${table.content}) between 1 and 1000`),
+]);
 
 export const authIdentities = pgTable(
   'auth_identities',

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { withTestDatabase } from '../../../test/database';
@@ -116,14 +116,16 @@ describe('database job leases', () => {
         examPath: 'ielts',
         status: 'queued',
       });
-      const retryDeadline = new Date(Date.now() + 30_000);
       const retryJobId = crypto.randomUUID();
-      await db.insert(jobs).values({
+      // 截止时间短于租约，并使用数据库时间，避免本机时钟差影响边界断言。
+      const [retryTiming] = await db.insert(jobs).values({
         id: retryJobId,
         kind: 'practice_generation',
         resourceId: retryPracticeId,
-        deadlineAt: retryDeadline,
-      });
+        deadlineAt: sql`now() + interval '20 seconds'`,
+      }).returning({ deadlineAt: jobs.deadlineAt });
+      expect(retryTiming).toBeDefined();
+      const retryDeadline = retryTiming!.deadlineAt;
       const retryJob = await claimNextJob(
         db,
         'retry-worker',

@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 import { Platform, type ScrollView } from 'react-native';
-import { scrollToRenderedSubtitle } from './subtitleScrolling';
+import { observeRenderedSubtitles, scrollToRenderedSubtitle } from './subtitleScrolling';
 
 afterEach(() => { jest.restoreAllMocks(); document.body.replaceChildren(); });
 
@@ -37,4 +37,33 @@ it('leaves native and unrendered cues to the regular list scrolling path', () =>
   jest.replaceProperty(Platform, 'OS', 'web');
   expect(scrollToRenderedSubtitle(list, 'shadowing-cue-999', 0)).toBe(false);
   expect(scrollTo).not.toHaveBeenCalled();
+});
+
+it('reports only intersecting Web rows and disconnects when the transcript changes', () => {
+  jest.replaceProperty(Platform, 'OS', 'web');
+  const { list } = transcript({ top: 80, height: 500, scrollTop: 0, cueTop: 100, cueHeight: 100 });
+  const viewport = list.getNativeScrollRef() as unknown as HTMLElement;
+  const first = viewport.firstElementChild!;
+  const second = document.createElement('div'); second.id = 'shadowing-cue-259'; viewport.append(second);
+  let changed!: IntersectionObserverCallback;
+  const observe = jest.fn(); const disconnect = jest.fn();
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'IntersectionObserver');
+  const observer = { observe, disconnect } as unknown as IntersectionObserver;
+  const create = jest.fn((callback: IntersectionObserverCallback) => { changed = callback; return observer; });
+  Object.defineProperty(globalThis, 'IntersectionObserver', { configurable: true, value: create });
+  try {
+    const onVisible = jest.fn();
+    const close = observeRenderedSubtitles(list, onVisible);
+    expect(create).toHaveBeenCalledWith(expect.any(Function), { root: viewport });
+    expect(observe).toHaveBeenCalledTimes(2);
+    changed([{ target: first, isIntersecting: true }, { target: second, isIntersecting: false }] as IntersectionObserverEntry[], observer);
+    expect(onVisible).toHaveBeenLastCalledWith([258]);
+    changed([{ target: first, isIntersecting: false }, { target: second, isIntersecting: true }] as IntersectionObserverEntry[], observer);
+    expect(onVisible).toHaveBeenLastCalledWith([259]);
+    close?.();
+    expect(disconnect).toHaveBeenCalledTimes(1);
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'IntersectionObserver', original);
+    else Reflect.deleteProperty(globalThis, 'IntersectionObserver');
+  }
 });

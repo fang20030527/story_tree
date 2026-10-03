@@ -164,8 +164,8 @@ function ensureState(env: ApiEnv, recordId: string, userId: string, material: Sp
 }
 function materialCondition(material: SpeakingMaterialDto, userId: string): { sql: string; values: unknown[] } {
   return material.sourceKind === 'platform' ? {
-    sql: 'COALESCE((SELECT subtitle_revision FROM speaking_states WHERE user_id = ? AND material_id = ?), ?) = ?',
-    values: [userId, material.id, material.revision, material.revision],
+    sql: 'COALESCE((SELECT CASE WHEN custom_cues_json IS NOT NULL THEN subtitle_revision ELSE ? END FROM speaking_states WHERE user_id = ? AND material_id = ?), ?) = ?',
+    values: [material.revision, userId, material.id, material.revision, material.revision],
   } : {
     sql: 'EXISTS (SELECT 1 FROM speaking_materials WHERE user_id = ? AND id = ? AND revision = ?)',
     values: [userId, material.id, material.revision],
@@ -183,7 +183,7 @@ export async function getSpeakingMaterial(env: ApiEnv, userId: string, materialI
     const [platform, state] = await Promise.all([getPlatformMaterial(env, materialId), stateRow(env, userId, materialId)]);
     return SpeakingMaterialDtoSchema.parse({ ...platform,
       cues: state?.custom_cues_json ? SpeakingCuesSchema.parse(JSON.parse(state.custom_cues_json) as unknown) : platform.cues,
-      revision: state?.subtitle_revision ?? platform.revision });
+      revision: state?.custom_cues_json ? state.subtitle_revision : platform.revision });
   }
   if (!UuidSchema.safeParse(materialId).success) throw notFound();
   const row = await speakingFirst<MaterialRow>(env, 'SELECT * FROM speaking_materials WHERE user_id = ? AND id = ?', userId, materialId);
@@ -220,7 +220,8 @@ export async function getSpeakingLibrary(env: ApiEnv, userId: string, query: { c
     'SELECT user_id, client_id, material_id, title, started_at, elapsed_ms, cue_count FROM speaking_sessions WHERE user_id = ? ORDER BY started_at DESC, client_id DESC LIMIT 1000', userId);
   const materials: SpeakingMaterialSummary[] = catalog.materials.map(item => {
     const state = states.find(row => row.material_id === item.id);
-    return { ...item, cueCount: state?.custom_cue_count ?? item.cueCount, revision: state?.subtitle_revision ?? item.revision };
+    return { ...item, cueCount: state?.custom_cue_count ?? item.cueCount,
+      revision: state?.custom_cue_count != null ? state.subtitle_revision : item.revision };
   });
   for (const row of selected) materials.push(SpeakingMaterialSummarySchema.parse({ id: row.id, title: row.title,
     subtitle: row.source_kind === 'youtube' ? '我的 YouTube 跟读' : '我的跟读文件', category: '个人文件',

@@ -1,11 +1,13 @@
 import type { SpeakingMaterial } from './model';
-import { assertTranscriptAvailable, buildTranscriptDocx, buildTranscriptHtml, transcriptDocxMimeType, TranscriptExportError, transcriptExportFailure, transcriptFilename, type TranscriptExportFormat, type TranscriptNotes } from './transcriptDocument';
+import { assertTranscriptAvailable, buildTranscriptDocx, buildTranscriptHtml, buildTranscriptMarkdown, transcriptDocxMimeType, transcriptMarkdownMimeType, TranscriptExportError, transcriptExportFailure, transcriptFilename, type TranscriptExportFormat, type TranscriptNotes } from './transcriptDocument';
 
 export async function exportSpeakingTranscript(material: SpeakingMaterial, notes: TranscriptNotes, format: TranscriptExportFormat): Promise<void> {
   assertTranscriptAvailable(material);
-  if (format === 'word') {
-    const bytes = buildTranscriptDocx(material, notes);
-    const url = URL.createObjectURL(new Blob([new Uint8Array(bytes).buffer], { type: transcriptDocxMimeType }));
+  if (format !== 'pdf') {
+    const blob = format === 'markdown'
+      ? new Blob([buildTranscriptMarkdown(material, notes)], { type: `${transcriptMarkdownMimeType};charset=utf-8` })
+      : new Blob([new Uint8Array(buildTranscriptDocx(material, notes)).buffer], { type: transcriptDocxMimeType });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = transcriptFilename(material.title, format);

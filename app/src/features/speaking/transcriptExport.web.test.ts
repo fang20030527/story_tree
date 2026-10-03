@@ -2,7 +2,7 @@
 import { TextDecoder, TextEncoder } from 'node:util';
 import { Blob as NodeBlob } from 'node:buffer';
 import { exportSpeakingTranscript } from './transcriptExport.web';
-import { buildTranscriptHtml, transcriptDocxMimeType } from './transcriptDocument';
+import { buildTranscriptHtml, transcriptDocxMimeType, transcriptMarkdownMimeType } from './transcriptDocument';
 import type { SpeakingMaterial } from './model';
 
 const material: SpeakingMaterial = { id: 'test', title: '测试素材', subtitle: '', category: '文件',
@@ -32,6 +32,31 @@ it('downloads a real DOCX with a meaningful filename and releases its object URL
   expect(revoke).not.toHaveBeenCalled();
   jest.advanceTimersByTime(60_000);
   expect(revoke).toHaveBeenCalledWith('blob:transcript');
+});
+
+it('直接下载 UTF-8 Markdown，保留双语字幕与笔记并释放下载资源', async () => {
+  const create = jest.fn<string, [Blob]>(() => 'blob:markdown');
+  const revoke = jest.fn();
+  Object.defineProperty(URL, 'createObjectURL', { value: create, configurable: true });
+  Object.defineProperty(URL, 'revokeObjectURL', { value: revoke, configurable: true });
+  let filename = '';
+  const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { filename = this.download; });
+  const open = jest.spyOn(window, 'open');
+  await exportSpeakingTranscript(material, { one: '注意连读' }, 'markdown');
+  expect(click).toHaveBeenCalledTimes(1);
+  expect(filename).toBe('测试素材 台词本.md');
+  const blob = create.mock.calls[0][0] as Blob;
+  expect(blob.type).toBe(`${transcriptMarkdownMimeType};charset=utf-8`);
+  const content = await blob.text();
+  expect(content).toContain('# 测试素材 台词本');
+  expect(content).toContain('## 1  00:00 - 00:05');
+  expect(content).toContain('Hello\\!\n\n你好！');
+  expect(content).toContain('> **笔记：** 注意连读');
+  expect(open).not.toHaveBeenCalled();
+  expect(document.querySelector('a')).toBeNull();
+  expect(revoke).not.toHaveBeenCalled();
+  jest.advanceTimersByTime(60_000);
+  expect(revoke).toHaveBeenCalledWith('blob:markdown');
 });
 
 it('prints an isolated transcript document rather than the application UI', async () => {

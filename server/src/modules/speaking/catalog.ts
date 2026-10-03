@@ -31,6 +31,15 @@ export interface LoadedSpeakingCatalog {
   media: ReadonlyMap<string, z.infer<typeof PublishedMediaSchema>>;
 }
 
+/** 平台发布包必须自带中文；用户播放时不再通过翻译接口补齐。 */
+export function assertPlatformTranslationsComplete(catalog: LoadedSpeakingCatalog): void {
+  for (const material of catalog.materials.values()) {
+    if (material.cues.some(cue => !/\p{Script=Han}/u.test(cue.zh.trim()))) {
+      throw new AppError('INTERNAL_ERROR', '固定素材的中文字幕尚未准备完整', 500);
+    }
+  }
+}
+
 export function loadSpeakingCatalog(path: string): ReadonlyMap<string, SpeakingMaterialDto> {
   return loadSpeakingCatalogData(path).materials;
 }
@@ -41,7 +50,7 @@ export function loadSpeakingCatalogData(path: string): LoadedSpeakingCatalog {
     const raw: unknown = JSON.parse(readFileSync(path, 'utf8'));
     const fixture = z.object({ materials: z.array(z.object({
       id: z.string(), title: z.string(), subtitle: z.string(), category: z.string(),
-      duration: z.number(), cues: z.array(z.unknown()),
+      duration: z.number(), cues: z.array(z.unknown()), revision: z.number().int().positive().optional(),
     })).max(100) }).parse(raw);
     const materials = new Map<string, SpeakingMaterialDto>();
     const media = new Map<string, z.infer<typeof PublishedMediaSchema>>();
@@ -51,7 +60,7 @@ export function loadSpeakingCatalogData(path: string): LoadedSpeakingCatalog {
       materials.set(material.id, material);
     };
     for (const item of fixture.materials) append(SpeakingMaterialDtoSchema.parse({ ...item,
-      sourceKind: 'platform', mediaType: 'audio', assetId: null, videoId: null, revision: 1,
+      sourceKind: 'platform', mediaType: 'audio', assetId: null, videoId: null, revision: item.revision ?? 1,
       createdAt: '2026-09-30T00:00:00.000Z' }));
     const publishedText = optionalPublishedText(join(dirname(path), 'cloud-catalog.json'));
     if (publishedText !== null) {

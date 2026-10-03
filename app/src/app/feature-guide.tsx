@@ -22,7 +22,7 @@ const SECTIONS: GuideSection[] = [
   {
     heading: '阅读与口语',
     items: [
-      { icon: 'swap-horizontal-outline', title: '切换学习模式', desc: '点击「我的」标题旁的模式按钮，切换阅读或口语。口语导航为素材、文件、我的。' },
+      { icon: 'swap-horizontal-outline', title: '切换学习模式', desc: '点击「我的」标题旁的模式按钮，切换阅读或口语。口语导航为素材、文件、留言瓶、我的。' },
       { icon: 'mic-outline', title: '影子跟读', desc: '同步字幕、变速、逐句与 AB 复读，录下自己的声音并回放。当前不提供 AI 发音评分。' },
       { icon: 'search-outline', title: '字幕查词与积累', desc: '点按英文单词查询离线词典；收藏句子、写台词笔记。云素材的练习位置和记录同步到账号。' },
     ],
@@ -33,6 +33,12 @@ const SECTIONS: GuideSection[] = [
       { icon: 'videocam-outline', title: '导入自己的音视频', desc: '登录后可上传最多 3 GB 的音视频；未登录可使用最多 100 MB 的本地文件。支持 SRT／VTT 双语字幕，保存后可以校正文本和时间轴。' },
       { icon: 'text-outline', title: '没有字幕怎么办', desc: '当前可手动添加字幕。自动语音识别和 AI 台词讲解需要接入服务后开放。' },
       { icon: 'diamond-outline', title: 'VIP 方案', desc: '阅读与口语同享。当前可查看套餐和权益，购买、支付与邀请码兑换尚未开放。' },
+    ],
+  },
+  {
+    heading: '留言与反馈',
+    items: [
+      { icon: 'paper-plane-outline', title: '留言瓶', desc: '在底部「留言瓶」查看所有人的意见。登录后设置用户名并投递留言，留言与用户名会公开显示。' },
     ],
   },
   {

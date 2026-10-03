@@ -7,6 +7,7 @@ import type { AppTransaction } from '../../db/client';
 import { idempotencyRecords } from '../../db/schema';
 
 export type IdempotencyOperation =
+  | 'create_message_bottle'
   | 'create_speaking_asset'
   | 'create_speaking_material'
   | 'update_speaking_subtitles'
@@ -32,6 +33,7 @@ export type IdempotencyOperation =
   | 'restore_vocabulary_word';
 
 const resourceTypes: Record<IdempotencyOperation, string> = {
+  create_message_bottle: 'message_bottle',
   create_speaking_asset: 'speaking_asset',
   create_speaking_material: 'speaking_material',
   update_speaking_subtitles: 'speaking_subtitles',

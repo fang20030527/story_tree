@@ -18,6 +18,7 @@ export interface PageResponse {
 export type RequestPinnedPage = (
   target: SafeHttpTarget,
   signal: AbortSignal,
+  accept?: string,
 ) => Promise<PageResponse>;
 
 export interface SafeFetchOptions {
@@ -104,7 +105,7 @@ export async function safeFetchHtml(
   }
 }
 
-export const requestPinnedPage: RequestPinnedPage = async (target, signal) => {
+export const requestPinnedPage: RequestPinnedPage = async (target, signal, accept = 'text/html,application/xhtml+xml') => {
   const dispatcher = new Agent({
     connections: 1,
     connect: {
@@ -124,7 +125,7 @@ export const requestPinnedPage: RequestPinnedPage = async (target, signal) => {
       bodyTimeout: 15_000,
       signal,
       headers: {
-        accept: 'text/html,application/xhtml+xml',
+        accept,
         'accept-encoding': 'identity',
         'user-agent': 'ContextReaderFetcher/1.0',
       },

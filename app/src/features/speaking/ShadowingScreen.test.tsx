@@ -1,7 +1,10 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
 import { FlatList } from 'react-native';
 import { getSpeakingCatalogPlayback, getSpeakingPlayback } from '@/api/speaking';
+import { registerAnonymous } from '@/api/practices';
+import { requestSentenceTranslation } from '@/api/sentences';
 import { emptySpeakingStore, type SpeakingMaterial } from './model';
 import type { ShadowingPlaybackState } from './playback';
 import { useSpeakingLibrary } from './useSpeakingLibrary';
@@ -28,6 +31,8 @@ jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({
 jest.mock('@/context/ThemeContext', () => ({ useAppTheme: () => ({ theme: jest.requireActual('@/constants/theme').themes.light }) }));
 jest.mock('@/features/editorial/EditorialAudioProvider', () => ({ useEditorialAudio: () => ({ close: mockClose }) }));
 jest.mock('@/api/speaking', () => ({ getSpeakingCatalogPlayback: jest.fn(), getSpeakingPlayback: jest.fn() }));
+jest.mock('@/api/sentences', () => ({ requestSentenceTranslation: jest.fn() }));
+jest.mock('@/api/practices', () => ({ registerAnonymous: jest.fn() }));
 jest.mock('./useSpeakingLibrary', () => ({ useSpeakingLibrary: jest.fn() }));
 jest.mock('./transcriptExport', () => ({ exportSpeakingTranscript: jest.fn() }));
 jest.mock('./useSpeakingSession', () => ({ useSpeakingSession: () => ({ error: '', save: jest.fn() }) }));
@@ -40,8 +45,10 @@ jest.mock('./SpeakingComponents', () => ({ SpeakingHeader: () => null, SpeakingS
 jest.mock('./ShadowingMedia', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
-  const MockMediaPlayer = ({ source, onController, onState }: {
+  const { ShadowingVideoSubtitles } = jest.requireActual<typeof import('./ShadowingVideoSubtitles')>('./ShadowingVideoSubtitles');
+  const MockMediaPlayer = ({ source, onController, onState, subtitleCue }: {
     source: string; onController: (controller: unknown) => void; onState: (state: ShadowingPlaybackState) => void;
+    subtitleCue?: SpeakingMaterial['cues'][number] | null;
   }) => {
     React.useEffect(() => {
       mockReport = onState;
@@ -49,7 +56,8 @@ jest.mock('./ShadowingMedia', () => {
       onController({ seek: mockSeek, play: mockPlay, pause: mockPause, setRate: jest.fn() }); onState(mockPlayerState);
       return () => { onController(null); };
     }, [source, onController, onState]);
-    return React.createElement(Text, { testID: 'media-source' }, source);
+    return React.createElement(React.Fragment, null, React.createElement(Text, { testID: 'media-source' }, source),
+      React.createElement(ShadowingVideoSubtitles, { cue: subtitleCue ?? null, frameWidth: 640 }));
   };
   return { ShadowingVideo: MockMediaPlayer, ShadowingAudio: MockMediaPlayer };
 });
@@ -57,14 +65,130 @@ const material: SpeakingMaterial = {
   id: 'forrest-gump-1994', title: '阿甘正传', subtitle: '电影对白', category: '电影对白', origin: 'platform', mediaType: 'video',
   duration: 7200, cues: [{ id: 'line-one', start: 0, end: 3, en: 'Hello there.', zh: '' }],
 };
-beforeEach(() => {
+beforeEach(async () => {
   jest.useFakeTimers(); jest.setSystemTime(new Date('2026-10-01T00:00:00Z')); jest.clearAllMocks();
+  await AsyncStorage.clear();
+  jest.mocked(registerAnonymous).mockResolvedValue({ userId: '11111111-1111-4111-8111-111111111111', kind: 'guest', remainingFreePractices: 3 });
+  jest.mocked(requestSentenceTranslation).mockResolvedValue('你好。');
   const store = emptySpeakingStore(); store.positions[material.id] = 45;
   jest.mocked(useSpeakingLibrary).mockReturnValue({ materials: [material], store, scope: 'speaking:v1:guest', cloud: false,
     loading: false, error: '', catalogError: '', loadingMore: false, moreError: '', hasMore: false, loadMore: jest.fn(), accept: jest.fn(), refresh: jest.fn() });
 });
 afterEach(() => { mockReport = undefined; mockDragChange = undefined; jest.useRealTimers(); });
-it('exports the full transcript and saved notes from the more menu even with filtered or hidden subtitles', async () => {
+function useImportedFilm() {
+  const library = jest.mocked(useSpeakingLibrary).getMockImplementation()!();
+  jest.mocked(useSpeakingLibrary).mockReturnValue({ ...library, cloud: true, scope: 'speaking:v1:account', materials: [{ ...material, origin: 'file', storage: 'cloud', assetId: '22222222-2222-4222-8222-222222222222' }] });
+  jest.mocked(getSpeakingPlayback).mockResolvedValue({ url: 'https://r2.example.test/imported-film', expiresAt: '2026-10-01T01:00:00Z' });
+}
+it('shows bundled Chinese immediately in bilingual mode without authentication or translation calls', async () => {
+  const library = jest.mocked(useSpeakingLibrary).getMockImplementation()!();
+  jest.mocked(useSpeakingLibrary).mockReturnValue({ ...library, materials: [{ ...material, cues: [{ ...material.cues[0]!, zh: '预置中文译文。' }] }] });
+  jest.mocked(getSpeakingCatalogPlayback).mockResolvedValue({ url: 'https://r2.example.test/film', expiresAt: '2026-10-01T01:00:00Z' });
+  const view = await render(<ShadowingScreen />);
+  expect(view.getByText('预置中文译文。')).toBeTruthy();
+  await act(async () => { jest.advanceTimersByTime(60_000); });
+  expect(requestSentenceTranslation).not.toHaveBeenCalled();
+  expect(registerAnonymous).not.toHaveBeenCalled();
+  expect(view.queryByText('等待中文翻译…')).toBeNull();
+  await view.unmount();
+});
+it('translates missing Chinese for imported films, switches transcript modes and reuses the cached result', async () => {
+  useImportedFilm();
+  const view = await render(<ShadowingScreen />);
+  await act(async () => { jest.advanceTimersByTime(300); });
+  await waitFor(() => expect(requestSentenceTranslation).toHaveBeenCalledTimes(1));
+  expect(await view.findByText('你好。')).toBeTruthy();
+  expect(requestSentenceTranslation).toHaveBeenCalledWith('Hello there.');
+  const seeks = mockSeek.mock.calls.length;
+  await fireEvent.press(view.getByLabelText(/^(字幕|台词)·双语$/));
+  expect(view.queryByText('你好。')).toBeNull();
+  await fireEvent.press(view.getByLabelText(/^(字幕|台词)·英文$/));
+  expect(view.getByText('你好。')).toBeTruthy();
+  expect(view.queryByLabelText('查词 Hello')).toBeNull();
+  expect(mockSeek).toHaveBeenCalledTimes(seeks);
+  await view.unmount();
+  const reopened = await render(<ShadowingScreen />);
+  expect(await reopened.findByText('你好。')).toBeTruthy();
+  expect(requestSentenceTranslation).toHaveBeenCalledTimes(1);
+  await reopened.unmount();
+});
+it('shows a retry action when subtitle translation fails, then displays the recovered Chinese', async () => {
+  useImportedFilm();
+  jest.mocked(requestSentenceTranslation).mockRejectedValueOnce(new Error('网络不可用')).mockResolvedValueOnce('你好。');
+  const view = await render(<ShadowingScreen />);
+  await act(async () => { jest.advanceTimersByTime(300); });
+  await waitFor(() => expect(requestSentenceTranslation).toHaveBeenCalledTimes(1));
+  await fireEvent.press(await view.findByLabelText('重试第 1 句翻译'));
+  await act(async () => { jest.advanceTimersByTime(1100); });
+  expect(await view.findByText('你好。')).toBeTruthy();
+  expect(view.queryByLabelText('重试第 1 句翻译')).toBeNull();
+  expect(requestSentenceTranslation).toHaveBeenCalledTimes(2);
+  await view.unmount();
+});
+it('syncs video subtitles to cue boundaries and toggles them independently of the transcript tools', async () => {
+  jest.mocked(getSpeakingCatalogPlayback).mockResolvedValue({ url: 'https://r2.example.test/film', expiresAt: '2026-10-01T01:00:00Z' });
+  const library = jest.mocked(useSpeakingLibrary).getMockImplementation()!();
+  library.materials = [{ ...material, cues: [
+    { id: 'first', start: 5, end: 8, en: 'Hello there.', zh: '你好。' },
+    { id: 'second', start: 10, end: 12, en: 'See you soon.', zh: '' },
+  ] }];
+  library.store.positions[material.id] = 0;
+  const view = await render(<ShadowingScreen />);
+  const reportTime = async (currentTime: number, loaded = true) => act(async () => {
+    mockPlayerState = { ...mockPlayerState, currentTime, loaded }; mockReport?.(mockPlayerState);
+  });
+  expect(view.getByRole('header', { name: '台词' })).toBeTruthy();
+  expect(view.getByLabelText('字幕开启').props.accessibilityState.selected).toBe(true);
+  expect(view.queryByTestId('video-subtitles')).toBeNull();
+  await reportTime(5);
+  expect(view.getByTestId('video-subtitle-en').props.children).toBe('Hello there.');
+  expect(view.getByTestId('video-subtitle-zh').props.children).toBe('你好。');
+  const seeks = mockSeek.mock.calls.length;
+  const pauses = mockPause.mock.calls.length;
+  await fireEvent.press(view.getByLabelText('字幕开启'));
+  expect(view.getByLabelText('字幕关闭').props.accessibilityState.selected).toBe(false);
+  expect(view.queryByTestId('video-subtitles')).toBeNull();
+  expect(view.getByLabelText('跟读台词列表')).toBeTruthy();
+  await fireEvent.press(view.getByLabelText('字幕关闭'));
+  expect(view.getByTestId('video-subtitle-en').props.children).toBe('Hello there.');
+  expect(mockSeek).toHaveBeenCalledTimes(seeks);
+  expect(mockPause).toHaveBeenCalledTimes(pauses);
+  expect(getSpeakingCatalogPlayback).toHaveBeenCalledTimes(1);
+
+  await fireEvent.press(view.getByLabelText('台词·双语'));
+  await fireEvent.press(view.getByLabelText('台词·英文'));
+  await fireEvent.press(view.getByLabelText('台词·中文'));
+  expect(view.getByLabelText('台词·隐藏')).toBeTruthy();
+  await fireEvent.press(view.getByLabelText('遮挡板'));
+  await fireEvent.press(view.getByLabelText('已收藏句'));
+  await fireEvent.press(view.getByLabelText('查找'));
+  await fireEvent.changeText(view.getByLabelText('查找台词'), 'no matching sentence');
+  expect(view.getByTestId('video-subtitle-en').props.children).toBe('Hello there.');
+  expect(view.getByTestId('video-subtitle-zh').props.children).toBe('你好。');
+  await reportTime(8);
+  expect(view.queryByTestId('video-subtitles')).toBeNull();
+  await reportTime(10);
+  expect(view.getByTestId('video-subtitle-en').props.children).toBe('See you soon.');
+  expect(view.queryByTestId('video-subtitle-zh')).toBeNull();
+  await reportTime(10, false);
+  expect(view.queryByTestId('video-subtitles')).toBeNull();
+  await reportTime(6);
+  expect(view.getByTestId('video-subtitle-en').props.children).toBe('Hello there.');
+  await reportTime(12);
+  expect(view.queryByTestId('video-subtitles')).toBeNull();
+  await view.unmount();
+});
+it('keeps transcript controls available for audio without offering a video subtitle toggle', async () => {
+  const library = jest.mocked(useSpeakingLibrary).getMockImplementation()!();
+  library.materials = [{ ...material, mediaType: 'audio' }];
+  const view = await render(<ShadowingScreen />);
+  expect(view.getByRole('header', { name: '台词' })).toBeTruthy();
+  expect(view.getByLabelText('台词·双语')).toBeTruthy();
+  expect(view.queryByLabelText('字幕开启')).toBeNull();
+  expect(view.queryByLabelText('字幕关闭')).toBeNull();
+  await view.unmount();
+});
+it.each([['word', 'Word'], ['markdown', 'Markdown']] as const)('exports the full transcript and saved notes from the more menu even with filtered or hidden subtitles (%s)', async (format, label) => {
   jest.mocked(getSpeakingCatalogPlayback).mockResolvedValue({ url: 'https://r2.example.test/film', expiresAt: '2026-10-01T00:10:00Z' });
   jest.mocked(exportSpeakingTranscript).mockResolvedValue(undefined);
   const library = jest.mocked(useSpeakingLibrary).getMockImplementation()!();
@@ -73,8 +197,8 @@ it('exports the full transcript and saved notes from the more menu even with fil
   await fireEvent.press(view.getByLabelText('已收藏句'));
   await fireEvent.press(view.getByLabelText('遮挡板'));
   await fireEvent.press(view.getByLabelText('更多'));
-  await fireEvent.press(view.getByLabelText('导出 Word 台词本'));
-  expect(exportSpeakingTranscript).toHaveBeenCalledWith(material, { 'line-one': '注意连读' }, 'word');
+  await fireEvent.press(view.getByLabelText(`导出 ${label} 台词本`));
+  expect(exportSpeakingTranscript).toHaveBeenCalledWith(material, { 'line-one': '注意连读' }, format);
   await view.unmount();
 });
 const failPlayer = async (message = '视频播放失败，请重试') => act(async () => {
@@ -136,14 +260,14 @@ it('pauses swipe-back and transcript scrolling while the seek bar is dragged', a
   const view = await render(<ShadowingScreen />);
   // iOS 26 默认全屏侧滑返回：本页始终只保留边缘返回。
   expect(mockSetOptions).toHaveBeenLastCalledWith({ fullScreenGestureEnabled: false, gestureEnabled: true });
-  expect(view.getByLabelText('跟读字幕列表').props.scrollEnabled).toBe(true);
+  expect(view.getByLabelText('跟读台词列表').props.scrollEnabled).toBe(true);
   await act(async () => { mockDragChange?.(true); });
   expect(mockSetOptions).toHaveBeenLastCalledWith({ fullScreenGestureEnabled: false, gestureEnabled: false });
-  expect(view.getByLabelText('跟读字幕列表').props.scrollEnabled).toBe(false);
+  expect(view.getByLabelText('跟读台词列表').props.scrollEnabled).toBe(false);
   expect(view.getByLabelText('播放器与练习工具').props.scrollEnabled).toBe(false);
   await act(async () => { mockDragChange?.(false); });
   expect(mockSetOptions).toHaveBeenLastCalledWith({ fullScreenGestureEnabled: false, gestureEnabled: true });
-  expect(view.getByLabelText('跟读字幕列表').props.scrollEnabled).toBe(true);
+  expect(view.getByLabelText('跟读台词列表').props.scrollEnabled).toBe(true);
   await view.unmount();
 });
 function useStatefulLibrary() {
