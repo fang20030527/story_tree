@@ -58,7 +58,7 @@ describe('所有用户可见的口语固定电影', () => {
           expect(playback.statusCode).toBe(200);
           expect(playback.headers['cache-control']).toBe('no-store');
           expect(SpeakingPlaybackDtoSchema.parse(playback.json()).url).toContain('signature=test-only');
-          expect(signedReadUrl).toHaveBeenCalledWith(storageKey, 600);
+          expect(signedReadUrl).toHaveBeenCalledWith(storageKey, 3600);
           expect((await app.inject({ method: 'GET', url: '/v1/speaking/catalog/demo-audio/playback' })).statusCode).toBe(404);
           expect((await app.inject({ method: 'GET', url: '/v1/speaking/catalog/missing' })).statusCode).toBe(404);
           expect((await app.inject({ method: 'PATCH', url: '/v1/speaking/catalog/film-shared', payload: {} })).statusCode).toBe(404);

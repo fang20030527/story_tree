@@ -1,0 +1,239 @@
+diff --git a/node_modules/expo-video/ios/VideoModule.swift b/node_modules/expo-video/ios/VideoModule.swift
+index 2bf2f75..13f333e 100644
+--- a/node_modules/expo-video/ios/VideoModule.swift
++++ b/node_modules/expo-video/ios/VideoModule.swift
+@@ -164,36 +164,40 @@ public final class VideoModule: Module {
+         return player.isMuted
+       }
+       .set { (player, muted: Bool) in
+-        player.isMuted = muted
++        player.runOnMainThreadIfNotReleased { $0.isMuted = muted }
+       }
+ 
+       Property("allowsExternalPlayback") { player -> Bool in
+         return player.ref.allowsExternalPlayback
+       }
+       .set { (player, allowsExternalPlayback: Bool) in
+-        player.ref.allowsExternalPlayback = allowsExternalPlayback
++        player.runOnMainThreadIfNotReleased { $0.ref.allowsExternalPlayback = allowsExternalPlayback }
+       }
+ 
+       Property("staysActiveInBackground") { player -> Bool in
+         return player.staysActiveInBackground
+       }
+       .set { (player, staysActive: Bool) in
+-        player.staysActiveInBackground = staysActive
++        player.runOnMainThreadIfNotReleased { $0.staysActiveInBackground = staysActive }
+       }
+ 
+       Property("loop") { player -> Bool in
+         return player.loop
+       }
+       .set { (player, loop: Bool) in
+-        player.loop = loop
++        player.runOnMainThreadIfNotReleased { $0.loop = loop }
+       }
+ 
+       Property("currentTime") { player -> Double in
+         return player.currentTime
+       }
+       .set { (player, time: Double) in
++        // NaN and infinite values can't be converted into a valid seek target.
++        guard time.isFinite else {
++          return
++        }
+         // Only clamp the lower limit, AVPlayer automatically clamps the upper limit.
+-        player.currentTime = time
++        player.runOnMainThreadIfNotReleased { $0.currentTime = time }
+       }
+ 
+       Property("currentLiveTimestamp") { player -> Double? in
+@@ -208,8 +212,11 @@ public final class VideoModule: Module {
+         return player.ref.currentItem?.configuredTimeOffsetFromLive.seconds ?? 0
+       }
+       .set { (player, timeOffset: Double) in
++        guard timeOffset.isFinite else {
++          return
++        }
+         let timeOffset = CMTime(seconds: timeOffset, preferredTimescale: .max)
+-        player.ref.currentItem?.configuredTimeOffsetFromLive = timeOffset
++        player.runOnMainThreadIfNotReleased { $0.ref.currentItem?.configuredTimeOffsetFromLive = timeOffset }
+       }
+ 
+       Property("duration") { player -> Double in
+@@ -221,7 +228,10 @@ public final class VideoModule: Module {
+         return player.playbackRate
+       }
+       .set { (player, playbackRate: Float) in
+-        player.playbackRate = playbackRate
++        guard playbackRate.isFinite else {
++          return
++        }
++        player.runOnMainThreadIfNotReleased { $0.playbackRate = playbackRate }
+       }
+ 
+       Property("isLive") { player -> Bool in
+@@ -232,21 +242,21 @@ public final class VideoModule: Module {
+         return player.preservesPitch
+       }
+       .set { (player, preservesPitch: Bool) in
+-        player.preservesPitch = preservesPitch
++        player.runOnMainThreadIfNotReleased { $0.preservesPitch = preservesPitch }
+       }
+ 
+       Property("timeUpdateEventInterval") { player -> Double in
+         return player.timeUpdateEventInterval
+       }
+       .set { (player, timeUpdateEventInterval: Double) in
+-        player.timeUpdateEventInterval = timeUpdateEventInterval
++        player.runOnMainThreadIfNotReleased { $0.timeUpdateEventInterval = timeUpdateEventInterval }
+       }
+ 
+       Property("showNowPlayingNotification") { player -> Bool in
+         return player.showNowPlayingNotification
+       }
+       .set { (player, showNowPlayingNotification: Bool) in
+-        player.showNowPlayingNotification = showNowPlayingNotification
++        player.runOnMainThreadIfNotReleased { $0.showNowPlayingNotification = showNowPlayingNotification }
+       }
+ 
+       Property("status") { player in
+@@ -257,7 +267,7 @@ public final class VideoModule: Module {
+         return player.volume
+       }
+       .set { (player, volume: Float) in
+-        player.volume = volume
++        player.runOnMainThreadIfNotReleased { $0.volume = volume }
+       }
+ 
+       Property("bufferedPosition") { player -> Double in
+@@ -268,14 +278,14 @@ public final class VideoModule: Module {
+         return player.bufferOptions.toDictionary()
+       }
+       .set { (player, bufferOptions: BufferOptions) in
+-        player.bufferOptions = bufferOptions
++        player.runOnMainThreadIfNotReleased { $0.bufferOptions = bufferOptions }
+       }
+ 
+       Property("audioMixingMode") { player -> AudioMixingMode in
+         return player.audioMixingMode
+       }
+-      .set { player, audioMixingMode in
+-        player.audioMixingMode = audioMixingMode
++      .set { (player, audioMixingMode: AudioMixingMode) in
++        player.runOnMainThreadIfNotReleased { $0.audioMixingMode = audioMixingMode }
+       }
+ 
+       Property("availableVideoTracks") { player -> [VideoTrack] in
+@@ -293,8 +303,8 @@ public final class VideoModule: Module {
+       Property("subtitleTrack") { player -> SubtitleTrack? in
+         return player.subtitles.currentSubtitleTrack
+       }
+-      .set { player, subtitleTrack in
+-        player.subtitles.selectSubtitleTrack(subtitleTrack: subtitleTrack)
++      .set { (player, subtitleTrack: SubtitleTrack?) in
++        player.runOnMainThreadIfNotReleased { $0.subtitles.selectSubtitleTrack(subtitleTrack: subtitleTrack) }
+       }
+ 
+       Property("availableAudioTracks") { player -> [AudioTrack] in
+@@ -304,8 +314,8 @@ public final class VideoModule: Module {
+       Property("audioTrack") { player -> AudioTrack? in
+         return player.audioTracks.currentAudioTrack
+       }
+-      .set { player, audioTrack in
+-        player.audioTracks.selectAudioTrack(audioTrack: audioTrack)
++      .set { (player, audioTrack: AudioTrack?) in
++        player.runOnMainThreadIfNotReleased { $0.audioTracks.selectAudioTrack(audioTrack: audioTrack) }
+       }
+ 
+       Property("isExternalPlaybackActive") { player -> Bool in
+@@ -315,30 +325,30 @@ public final class VideoModule: Module {
+       Property("keepScreenOnWhilePlaying") { player -> Bool in
+         return player.ref.preventsDisplaySleepDuringVideoPlayback
+       }
+-      .set { player, keepScreenOnWhilePlaying in
+-        player.ref.preventsDisplaySleepDuringVideoPlayback = keepScreenOnWhilePlaying
++      .set { (player, keepScreenOnWhilePlaying: Bool) in
++        player.runOnMainThreadIfNotReleased { $0.ref.preventsDisplaySleepDuringVideoPlayback = keepScreenOnWhilePlaying }
+       }
+ 
+       Property("seekTolerance") { player -> SeekTolerance in
+         return player.seeker.seekTolerance
+       }
+-      .set { player, seekTolerance in
+-        player.seeker.seekTolerance = seekTolerance
++      .set { (player, seekTolerance: SeekTolerance) in
++        player.runOnMainThreadIfNotReleased { $0.seeker.seekTolerance = seekTolerance }
+       }
+ 
+       Property("scrubbingModeOptions") { player -> ScrubbingModeOptions in
+         return player.seeker.scrubbingModeOptions
+       }
+-      .set { player, options in
+-        player.seeker.scrubbingModeOptions = options
++      .set { (player, options: ScrubbingModeOptions) in
++        player.runOnMainThreadIfNotReleased { $0.seeker.scrubbingModeOptions = options }
+       }
+ 
+       Function("play") { player in
+-        player.ref.play()
++        player.runOnMainThreadIfNotReleased { $0.ref.play() }
+       }
+ 
+       Function("pause") { player in
+-        player.ref.pause()
++        player.runOnMainThreadIfNotReleased { $0.ref.pause() }
+       }
+ 
+       Function("replace") { (player, source: Either<String, VideoSource>?) in
+@@ -352,14 +362,21 @@ public final class VideoModule: Module {
+       }
+ 
+       Function("seekBy") { (player, seconds: Double) in
+-        let newTime = player.ref.currentTime() + CMTime(seconds: seconds, preferredTimescale: .max)
++        guard seconds.isFinite else {
++          return
++        }
++        player.runOnMainThreadIfNotReleased { player in
++          let newTime = player.ref.currentTime() + CMTime(seconds: seconds, preferredTimescale: .max)
+ 
+-        player.seeker.seek(to: newTime)
++          player.seeker.seek(to: newTime)
++        }
+       }
+ 
+       Function("replay") { player in
+-        player.seeker.seek(to: CMTime.zero)
+-        player.ref.play()
++        player.runOnMainThreadIfNotReleased { player in
++          player.seeker.seek(to: CMTime.zero)
++          player.ref.play()
++        }
+       }
+ 
+       AsyncFunction("generateThumbnailsAsync") { (player: VideoPlayer, times: [CMTime]?, options: VideoThumbnailOptions?) -> [VideoThumbnail] in
+diff --git a/node_modules/expo-video/ios/VideoPlayer.swift b/node_modules/expo-video/ios/VideoPlayer.swift
+index ab8807e..a664d87 100644
+--- a/node_modules/expo-video/ios/VideoPlayer.swift
++++ b/node_modules/expo-video/ios/VideoPlayer.swift
+@@ -351,6 +351,20 @@ internal final class VideoPlayer: SharedRef<AVPlayer>, Hashable, VideoPlayerObse
+     return didRelease.withLock { $0 }
+   }
+ 
++  /**
++   * Runs a mutation requested from JavaScript on the main thread, skipping it once the player has been released.
++   * AVKit's `AVPlayerController` (backing `VideoView`) observes the `AVPlayer` with KVO on the main thread, so
++   * mutating the player from the JS thread races with those observers and can crash with `EXC_BAD_ACCESS`.
++   */
++  func runOnMainThreadIfNotReleased(_ operation: @escaping (VideoPlayer) -> Void) {
++    runOnMainThread { [weak self] in
++      guard let self, !self.hasBeenReleased else {
++        return
++      }
++      operation(self)
++    }
++  }
++
+   private func getBufferedPosition() -> Double {
+     guard let currentItem = ref.currentItem else {
+       return -1

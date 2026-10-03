@@ -1,14 +1,16 @@
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { fonts, orbitTilt, radius } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { speakingTitleText } from './titles';
 import { initialShadowingState, type ShadowingController, type ShadowingPlaybackState } from './playback';
+import { clampSeekTarget, createSeekCoalescer } from './seekCoalescer';
 type Props = { source: string | number; title: string; expanded: boolean; frameWidth?: number; maxHeight?: number; onController: (controller: ShadowingController | null) => void; onState: (state: ShadowingPlaybackState) => void };
 function audioRate(player: ReturnType<typeof useAudioPlayer>, rate: number) { player.shouldCorrectPitch = true; player.setPlaybackRate(rate); }
 function videoSeek(player: ReturnType<typeof useVideoPlayer>, time: number) { player.currentTime = time; }
+function videoPause(player: ReturnType<typeof useVideoPlayer>) { try { player.pause(); } catch { /* 播放器可能已被原生端释放。 */ } }
 function videoRate(player: ReturnType<typeof useVideoPlayer>, rate: number) { player.playbackRate = rate; }
 function videoUpdates(player: ReturnType<typeof useVideoPlayer>, interval: number) { player.timeUpdateEventInterval = interval; }
 
@@ -18,7 +20,8 @@ export function ShadowingAudio(props: Props) {
   const status = useAudioPlayerStatus(player);
   const { onController, onState } = props;
   const controller = useMemo<ShadowingController>(() => ({
-    play: () => player.play(), pause: () => player.pause(), seek: time => player.seekTo(time),
+    play: () => player.play(), pause: () => player.pause(),
+    seek: async time => { const target = clampSeekTarget(time, player.duration); if (target !== null) await player.seekTo(target); },
     setRate: rate => audioRate(player, rate),
   }), [player]);
   useEffect(() => {
@@ -49,7 +52,12 @@ export const ShadowingVideo = React.memo(function ShadowingVideo(props: Props) {
   const videoHeight = Math.min(preferredHeight, props.maxHeight ?? preferredHeight);
   const player = useVideoPlayer(props.source);
   const { onController, onState } = props;
-  const controller = useMemo<ShadowingController>(() => ({ play: () => player.play(), pause: () => player.pause(), seek: async time => videoSeek(player, time), setRate: rate => videoRate(player, rate) }), [player]);
+  // 连续拖动进度条时只保留最后一个目标，每 250ms 最多向原生播放器定位一次。
+  const seeks = useMemo(() => createSeekCoalescer(time => videoSeek(player, time)), [player]);
+  const controller = useMemo<ShadowingController>(() => ({
+    play: () => player.play(), pause: () => player.pause(), setRate: rate => videoRate(player, rate),
+    seek: time => { const target = clampSeekTarget(time, player.duration); return target === null ? Promise.resolve() : seeks.request(target); },
+  }), [player, seeks]);
   const report = useCallback((finished = false) => onState({ currentTime: player.currentTime, duration: player.duration, playing: player.playing, loaded: player.status === 'readyToPlay', error: player.status === 'error' ? '视频播放失败，请检查文件格式后重试' : '', finished }), [player, onState]);
   useEffect(() => {
     onController(controller); report();
@@ -61,6 +69,8 @@ export const ShadowingVideo = React.memo(function ShadowingVideo(props: Props) {
       subscriptions.forEach(subscription => subscription.remove()); onController(null);
     };
   }, [player, controller, report, onController]);
+  // 布局清理先于播放器 hook 的释放执行：丢弃未发出的定位，并在释放前暂停。
+  useLayoutEffect(() => () => { seeks.cancel(); videoPause(player); }, [player, seeks]);
   return <VideoView player={player} nativeControls={false} contentFit="contain" style={{ height: videoHeight, width: '100%', backgroundColor: '#191B17' }} />;
 });
 const styles = StyleSheet.create({ audio: { padding: 22, borderRadius: radius.content, overflow: 'hidden' }, orbit: { position: 'absolute', right: '-18%', top: '-30%', width: '78%', height: '120%', borderRadius: '50%' }, hole: { position: 'absolute', right: '20%', top: '26%', width: '22%', height: '30%', borderRadius: '50%' }, wave: { flexDirection: 'row', gap: 7, alignItems: 'center', height: 40, marginTop: 12 } });

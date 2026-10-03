@@ -88,7 +88,8 @@ export async function getPublicSpeakingPlayback(catalog: LoadedSpeakingCatalog, 
   if (store?.driver !== 'r2' || !store.signedReadUrl) {
     throw new AppError('MEDIA_STORAGE_NOT_CONFIGURED', '固定素材的云端播放尚未配置', 503, true);
   }
-  const expiresSeconds = 600;
+  // 固定影片较长且常拖动进度；一小时只读链接，播放器报错时客户端再续期。
+  const expiresSeconds = 3600;
   const expiresAt = Date.now() + expiresSeconds * 1000;
   const url = await store.signedReadUrl(media.storageKey, expiresSeconds);
   return SpeakingPlaybackDtoSchema.parse({ url, expiresAt: new Date(expiresAt).toISOString() });

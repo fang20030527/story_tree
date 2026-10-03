@@ -100,30 +100,49 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
   const resumeAt = useRef<number | null>(null);
   const resumePlaying = useRef(false);
   const livePlayback = useRef({ time: playback.currentTime, playing: playback.playing });
-  useEffect(() => { if (loaded) livePlayback.current = { time: playback.currentTime, playing: playback.playing }; }, [loaded, playback.currentTime, playback.playing]);
+  // 出错瞬间的状态（playing 已变 false）不覆盖，续链后才能回到出错前的位置并继续播放。
+  useEffect(() => { if (loaded && !playback.playerError) livePlayback.current = { time: playback.currentTime, playing: playback.playing }; }, [loaded, playback.currentTime, playback.playing, playback.playerError]);
   useEffect(() => { closeEditorialAudio(); }, [closeEditorialAudio]);
+  const cloudMedia = Boolean(material.assetId || (material.origin === 'platform' && material.mediaType === 'video'));
+  // 自动续链只换 URL、不额外重建播放器：不放进 engineKey，新链接到达后 source 变化才会重建一次。
+  const [linkRevision, setLinkRevision] = useState(0);
+  const linkExpiresAt = useRef(0);
+  const autoRefreshBudget = useRef(1);
   useEffect(() => {
     let active = true;
     let release: (() => void) | undefined;
-    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    if (material.assetId || (material.origin === 'platform' && material.mediaType === 'video')) {
-      const load = async () => {
+    if (cloudMedia) {
+      // 不再按定时器在播放中途销毁/重建播放器（缓冲中销毁 AVPlayer 有崩溃风险）；
+      // 签名链接有效期 1 小时，只有播放器报错或加载超时且链接已过期时才续签。
+      void (async () => {
         const media = material.origin === 'platform'
           ? await getSpeakingCatalogPlayback(material.id) : await getSpeakingPlayback(material.assetId!);
         if (!active) return;
+        const expiresAt = Date.parse(media.expiresAt);
+        linkExpiresAt.current = Number.isFinite(expiresAt) ? expiresAt : 0;
         reportMediaState(initialShadowingState);
         setSource(media.url); setMediaError('');
-        refreshTimer = setTimeout(() => {
-          resumeAt.current = livePlayback.current.time; resumePlaying.current = livePlayback.current.playing; resumed.current = false;
-          void load().catch(() => { if (active) setMediaError('云端播放链接更新失败，请重试音视频'); });
-        }, Math.max(30_000, Date.parse(media.expiresAt) - Date.now() - 15_000));
-      };
-      void load().catch((failure) => { if (active) setMediaError(failure instanceof Error ? failure.message : '云端音视频读取失败，请重试'); });
+      })().catch((failure) => { if (active) setMediaError(failure instanceof Error ? failure.message : '云端音视频读取失败，请重试'); });
     } else if (material.mediaId) void resolveSpeakingMedia(material.mediaId).then(media => {
       if (!active) { media.release(); return; } release = media.release; setSource(media.uri); setMediaError('');
     }).catch(() => { if (active) setMediaError('音视频读取失败，请重试或重新导入文件'); });
-    return () => { active = false; release?.(); clearTimeout(refreshTimer); };
-  }, [material.mediaId, material.assetId, material.id, material.origin, material.mediaType, revision, reportMediaState]);
+    return () => { active = false; release?.(); };
+  }, [cloudMedia, material.mediaId, material.assetId, material.id, material.origin, revision, linkRevision, reportMediaState]);
+  const linkExpired = useCallback(() => Date.now() >= linkExpiresAt.current - 60_000, []);
+  // 链接已过期时总是允许续签（新链接 1 小时内不会再过期，不会循环）；
+  // 未过期的播放器错误只自动重试一次，之后交给“重试音视频”按钮，避免坏文件反复重建播放器。
+  const refreshCloudLink = useCallback(() => {
+    const expired = linkExpired();
+    if (!expired && autoRefreshBudget.current <= 0) return false;
+    if (!expired) autoRefreshBudget.current -= 1;
+    resumeAt.current = livePlayback.current.time; resumePlaying.current = livePlayback.current.playing; resumed.current = false;
+    setMediaError(''); setLinkRevision(value => value + 1);
+    return true;
+  }, [linkExpired]);
+  const playerError = playback.playerError;
+  useEffect(() => {
+    if (cloudMedia && source !== null && playerError) refreshCloudLink();
+  }, [cloudMedia, source, playerError, refreshCloudLink]);
   useEffect(() => {
     if (!loaded || duration <= 0 || resumed.current) return;
     resumed.current = true;
@@ -134,9 +153,13 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
   }, [loaded, duration, seek, material.id, material.origin, material.storage, material.duration, scope, library.store.positions, accept]);
   useEffect(() => {
     if (source === null || loaded) return;
-    const timeout = setTimeout(() => setMediaError('音视频加载超时，请重试'), 15000);
+    const timeout = setTimeout(() => {
+      // 过期链接上的 AVPlayer 可能一直卡在加载而不报错：此时续签而不是直接报超时。
+      if (cloudMedia && linkExpired() && refreshCloudLink()) return;
+      setMediaError('音视频加载超时，请重试');
+    }, 15000);
     return () => clearTimeout(timeout);
-  }, [source, loaded, revision]);
+  }, [source, loaded, revision, cloudMedia, linkExpired, refreshCloudLink]);
   const blocks = useMemo(() => material.cues.flatMap((item, index, all) => {
     if (!segmented && index % 2 === 1) return [];
     const tail = !segmented ? all[index + 1] : undefined;
@@ -216,7 +239,7 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
     </View>
     <ScrollView accessibilityLabel="播放器与练习工具" onLayout={measureMediaBody} style={styles.mediaBody} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
     <View onLayout={measureMedia} style={{ backgroundColor: theme.bg, paddingBottom: 12 }}>{source !== null ? engine : null}</View>
-    {mediaError || playback.error ? <View><Text accessibilityRole="alert" style={[speakingStyles.error, { color: theme.danger }]}>{mediaError || playback.error}</Text><Pressable accessibilityRole="button" onPress={() => { resumeAt.current = livePlayback.current.time; resumed.current = false; setMediaError(''); setRevision(value => value + 1); }} style={styles.touch}><Text style={{ color: theme.accent }}>重试音视频</Text></Pressable></View> : null}
+    {mediaError || playback.error ? <View><Text accessibilityRole="alert" style={[speakingStyles.error, { color: theme.danger }]}>{mediaError || playback.error}</Text><Pressable accessibilityRole="button" onPress={() => { resumeAt.current = livePlayback.current.time; resumed.current = false; autoRefreshBudget.current = 1; setMediaError(''); setRevision(value => value + 1); }} style={styles.touch}><Text style={{ color: theme.accent }}>重试音视频</Text></Pressable></View> : null}
     {toolsExpanded ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tools}>{tool('自动滚动', () => setAutoScroll(!autoScroll), autoScroll)}{tool('自动分段', () => setSegmented(!segmented), segmented)}{tool('已收藏句', () => setSavedOnly(!savedOnly), savedOnly)}{tool('查找', () => { setSearching(!searching); setQuery(''); }, searching)}<View style={[styles.toolDivider, { backgroundColor: theme.border }]} />{tool('讲解', () => setSheet('explain'))}{tool('词汇', () => { setWord(''); setSheet('words'); })}{tool('编辑', () => openPage('/speaking/edit'))}{tool('更多', () => setSheet('more'))}</ScrollView> : null}
     </ScrollView>
     </View>

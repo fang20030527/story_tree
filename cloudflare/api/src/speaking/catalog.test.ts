@@ -78,7 +78,7 @@ describe('生产固定口语目录', () => {
     expect(get.mock.calls).toEqual([[`${PREFIX}/catalog.json`], [`${PREFIX}/forrest-gump/material.json`]]);
   });
 
-  it('影片播放仅生成十分钟私有签名，不读取整部视频对象', async () => {
+  it('影片播放仅生成一小时私有签名，不读取整部视频对象', async () => {
     const { env, get } = fixture();
     const now = Date.now();
     const response = await handlePublicSpeakingRoute(
@@ -87,9 +87,9 @@ describe('生产固定口语目录', () => {
     const playback = await response!.json() as { url: string; expiresAt: string };
     const signed = new URL(playback.url);
     expect(signed.pathname).toBe(`/waikan-2026-audio/${MOVIE_KEY}`);
-    expect(signed.searchParams.get('X-Amz-Expires')).toBe('600');
-    expect(new Date(playback.expiresAt).getTime()).toBeGreaterThanOrEqual(now + 599_000);
-    expect(new Date(playback.expiresAt).getTime()).toBeLessThan(Date.now() + 601_000);
+    expect(signed.searchParams.get('X-Amz-Expires')).toBe('3600');
+    expect(new Date(playback.expiresAt).getTime()).toBeGreaterThanOrEqual(now + 3_599_000);
+    expect(new Date(playback.expiresAt).getTime()).toBeLessThan(Date.now() + 3_601_000);
     expect(response?.headers.get('cache-control')).toBe('no-store');
     expect(response?.headers.get('referrer-policy')).toBe('no-referrer');
     expect(get.mock.calls).toEqual([[`${PREFIX}/catalog.json`]]);

@@ -19,6 +19,7 @@
     "test-renderer": "1.1.0"
   },
   "scripts": {
+    "postinstall": "patch-package",
     "dev": "npm run dev --workspace=@context-reader/server",
     "dev:app": "npm run start --workspace=app",
     "build": "npm run build --workspaces --if-present",
@@ -44,6 +45,7 @@
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "3.1139.0",
+    "patch-package": "8.0.1",
     "react-native-web": "0.21.2",
     "test-renderer": "1.1.0",
     "wrangler": "4.138.0"

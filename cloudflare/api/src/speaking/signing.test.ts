@@ -3,7 +3,7 @@ import { HttpRequest } from '@smithy/core/protocols';
 import { SignatureV4 } from '@smithy/signature-v4';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ApiEnv } from '../env';
-import { assertSpeakingObjectKey, signSpeakingObject } from './signing';
+import { assertSpeakingObjectKey, signSpeakingObject, SPEAKING_CATALOG_PLAYBACK_SECONDS } from './signing';
 
 const ACCOUNT = 'ABCDEF0123456789ABCDEF0123456789';
 const SIGNING_DATE = new Date('2026-10-01T12:34:56.000Z');
@@ -21,7 +21,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function sdkSignature(method: 'GET' | 'PUT', key: string, headers: Record<string, string> = {}) {
+async function sdkSignature(method: 'GET' | 'PUT', key: string, headers: Record<string, string> = {}, expiresIn = 600) {
   // 独立用已安装的 AWS 签名实现作离线参考；生产模块完全不导入 SDK。
   const hostname = `${ACCOUNT.toLowerCase()}.r2.cloudflarestorage.com`;
   const sdk = new SignatureV4({
@@ -31,7 +31,7 @@ async function sdkSignature(method: 'GET' | 'PUT', key: string, headers: Record<
   return sdk.presign(new HttpRequest({
     hostname, protocol: 'https:', method, path: `/waikan-2026-audio/${key}`,
     headers: { host: hostname, 'X-Amz-Content-Sha256': 'UNSIGNED-PAYLOAD', ...headers },
-  }), { signingDate: SIGNING_DATE, expiresIn: 600 });
+  }), { signingDate: SIGNING_DATE, expiresIn });
 }
 
 describe('口语私有 R2 签名', () => {
@@ -47,6 +47,23 @@ describe('口语私有 R2 签名', () => {
     expect(url.searchParams.get('X-Amz-Expires')).toBe('600');
     expect(url.searchParams.get('X-Amz-SignedHeaders')).toBe('host');
     expect(url.href).not.toContain(env.R2_SECRET_ACCESS_KEY);
+  });
+
+  it('固定影片 GET 可签一小时，签名仍与官方实现相同', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(SIGNING_DATE);
+    const url = new URL(await signSpeakingObject(env, VIDEO, 'GET', undefined, undefined, SPEAKING_CATALOG_PLAYBACK_SECONDS));
+    const reference = await sdkSignature('GET', VIDEO, {}, 3600);
+    expect(Object.fromEntries(url.searchParams)).toEqual(reference.query);
+    expect(url.searchParams.get('X-Amz-Expires')).toBe('3600');
+  });
+
+  it.each([
+    ['GET', 0], ['GET', 3601], ['GET', 1.5], ['GET', Number.NaN], ['PUT', 3600],
+  ] as Array<['GET' | 'PUT', number]>)('拒绝无效有效期 %s %s', async (method, seconds) => {
+    const key = method === 'PUT' ? USER_KEY : VIDEO;
+    await expect(signSpeakingObject(env, key, method, method === 'PUT' ? 'video/mp4' : undefined,
+      method === 'PUT' ? 12 : undefined, seconds)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
   it('PUT 同时签入准确字节数、媒体类型和禁止覆盖条件', async () => {

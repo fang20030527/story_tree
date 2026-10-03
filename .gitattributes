@@ -1,0 +1,2 @@
+# patch-package 补丁必须保持 LF，否则 Windows 检出后会把 CR 写进被打补丁的源码。
+patches/*.patch text eol=lf

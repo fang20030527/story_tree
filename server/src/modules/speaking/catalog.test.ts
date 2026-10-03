@@ -69,9 +69,9 @@ describe('口语固定发布目录', () => {
     const store = { driver: 'r2', signedReadUrl } as unknown as MediaStore;
     const before = Date.now();
     const playback = await getPublicSpeakingPlayback(catalog, store, 'film-example');
-    expect(signedReadUrl).toHaveBeenCalledWith(cloudFixture.materials[0]!.media.storageKey, 600);
-    expect(Date.parse(playback.expiresAt)).toBeGreaterThanOrEqual(before + 600_000);
-    expect(Date.parse(playback.expiresAt)).toBeLessThanOrEqual(Date.now() + 600_000);
+    expect(signedReadUrl).toHaveBeenCalledWith(cloudFixture.materials[0]!.media.storageKey, 3600);
+    expect(Date.parse(playback.expiresAt)).toBeGreaterThanOrEqual(before + 3_600_000);
+    expect(Date.parse(playback.expiresAt)).toBeLessThanOrEqual(Date.now() + 3_600_000);
     await expect(getPublicSpeakingPlayback(catalog, undefined, 'film-example')).rejects.toMatchObject({ code: 'MEDIA_STORAGE_NOT_CONFIGURED' });
     await expect(getPublicSpeakingPlayback(catalog, store, 'missing')).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });

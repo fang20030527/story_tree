@@ -74,5 +74,5 @@ export function useShadowingPlayback(cues: SpeakingCue[]) {
     } catch { setError('播放失败，请重试'); }
   };
   const changeRate = (value: number) => { try { controller.current?.setRate(value); rateRef.current = value; setRate(value); } catch { setError('倍速调整失败，请重试'); } };
-  return { ...state, error: error || state.error, onController, onState, controller, rate, changeRate, loop, startLoop, repeatCount, setRepeatCount, gap, setGap, waiting, pause, seek, toggle, index: currentCueIndex(cues, state.currentTime) };
+  return { ...state, error: error || state.error, playerError: state.error, onController, onState, controller, rate, changeRate, loop, startLoop, repeatCount, setRepeatCount, gap, setGap, waiting, pause, seek, toggle, index: currentCueIndex(cues, state.currentTime) };
 }

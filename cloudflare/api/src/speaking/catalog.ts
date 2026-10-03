@@ -15,7 +15,7 @@ import type { ApiEnv } from '../env';
 import {
   assertSpeakingObjectKey,
   signSpeakingObject,
-  SPEAKING_SIGNED_URL_SECONDS,
+  SPEAKING_CATALOG_PLAYBACK_SECONDS,
 } from './signing';
 
 const RELEASE_PREFIX = 'speaking/platform/release';
@@ -68,8 +68,8 @@ export async function getPlatformPlayback(env: ApiEnv, id: string) {
   assertMaterialId(id);
   const entry = findEntry(await readCatalog(env), id);
   if (!entry.media) throw new AppError('NOT_FOUND', '此示范素材没有云端视频', 404);
-  const expiresAt = new Date(Date.now() + SPEAKING_SIGNED_URL_SECONDS * 1000).toISOString();
-  const url = await signSpeakingObject(env, entry.media.storageKey, 'GET');
+  const expiresAt = new Date(Date.now() + SPEAKING_CATALOG_PLAYBACK_SECONDS * 1000).toISOString();
+  const url = await signSpeakingObject(env, entry.media.storageKey, 'GET', undefined, undefined, SPEAKING_CATALOG_PLAYBACK_SECONDS);
   return SpeakingPlaybackDtoSchema.parse({ url, expiresAt });
 }
 

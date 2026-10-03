@@ -3,9 +3,10 @@ import React from 'react';
 import { Platform, Text, View } from 'react-native';
 import type VideoPlayerWeb from 'expo-video/build/VideoPlayer.web';
 import { ShadowingVideo } from './ShadowingMedia';
+import type { ShadowingController } from './playback';
 import { useShadowingPlayback } from './useShadowingPlayback';
 
-type MockVideo = { currentTime: number; duration: number; paused: boolean };
+type MockVideo = { currentTime: number; duration: number; paused: boolean; pause: jest.Mock };
 const mockPlayers: VideoPlayerWeb[] = [];
 const mockVideos = new Map<VideoPlayerWeb, MockVideo>();
 const mockRenders = jest.fn();
@@ -76,4 +77,31 @@ it('ignores identical Web SDK ticks while keeping real progress updates and clea
   await view.unmount();
   expect(next.timeUpdateEventInterval).toBe(0);
   expect(next.listenerCount('timeUpdate')).toBe(0);
+});
+it('clamps and coalesces video seeks, then pauses the player before it is released', async () => {
+  let controller: ShadowingController | null = null;
+  const view = await render(<ShadowingVideo source="https://video.example.test/film" title="Movie" expanded={false}
+    onController={value => { controller = value; }} onState={() => undefined} />);
+  const player = mockPlayers[0]!;
+  const video = mockVideos.get(player)!;
+  video.duration = 100; player._status = 'readyToPlay';
+  const seek = (time: number) => controller!.seek(time);
+  await act(async () => { await seek(Number.NaN); });
+  expect(video.currentTime).toBe(0);
+  await act(async () => { await seek(5000); });
+  expect(video.currentTime).toBe(99.75);
+  let pending: Promise<void>[] = [];
+  await act(async () => { pending = [seek(10), seek(-5), seek(30)]; });
+  expect(video.currentTime).toBe(99.75);
+  await act(async () => { jest.advanceTimersByTime(250); await Promise.all(pending); });
+  expect(video.currentTime).toBe(30);
+
+  const pause = video.pause;
+  pause.mockClear();
+  await act(async () => { pending = [seek(50)]; });
+  await view.unmount();
+  await Promise.all(pending);
+  expect(pause).toHaveBeenCalled();
+  jest.advanceTimersByTime(1000);
+  expect(video.currentTime).toBe(30);
 });

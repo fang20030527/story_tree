@@ -71,10 +71,13 @@ it('exports the full transcript and saved notes from the more menu even with fil
   expect(exportSpeakingTranscript).toHaveBeenCalledWith(material, { 'line-one': '注意连读' }, 'word');
   await view.unmount();
 });
-it('plays a public film for a guest and renews its signed URL while restoring playback position', async () => {
+const failPlayer = async (message = '视频播放失败，请重试') => act(async () => {
+  mockPlayerState = { ...mockPlayerState, playing: false, error: message }; mockReport?.(mockPlayerState);
+});
+it('keeps the public film player alive past the old timer and renews the expired URL only after a player error', async () => {
   jest.mocked(getSpeakingCatalogPlayback)
-    .mockResolvedValueOnce({ url: 'https://r2.example.test/film?signature=first', expiresAt: '2026-10-01T00:10:00Z' })
-    .mockResolvedValueOnce({ url: 'https://r2.example.test/film?signature=renewed', expiresAt: '2026-10-01T00:20:00Z' });
+    .mockResolvedValueOnce({ url: 'https://r2.example.test/film?signature=first', expiresAt: '2026-10-01T01:00:00Z' })
+    .mockResolvedValueOnce({ url: 'https://r2.example.test/film?signature=renewed', expiresAt: '2026-10-01T02:01:00Z' });
   const view = await render(<ShadowingScreen />);
   await waitFor(() => expect(view.getByTestId('media-source').props.children).toContain('signature=first'));
   await waitFor(() => expect(mockSeek).toHaveBeenCalledWith(45));
@@ -82,11 +85,42 @@ it('plays a public film for a guest and renews its signed URL while restoring pl
   await act(async () => {
     mockPlayerState = { ...mockPlayerState, currentTime: 68, playing: true }; mockReport?.(mockPlayerState);
   });
-  await act(async () => { jest.advanceTimersByTime(585_000); });
+  // 旧实现在 585s 时销毁重建播放器；现在链接过期前后都不应因定时器重新取链。
+  await act(async () => { jest.advanceTimersByTime(3_660_000); });
+  expect(getSpeakingCatalogPlayback).toHaveBeenCalledTimes(1);
+  expect(view.getByTestId('media-source').props.children).toContain('signature=first');
+
+  await failPlayer();
   await waitFor(() => expect(view.getByTestId('media-source').props.children).toContain('signature=renewed'));
   await waitFor(() => expect(mockSeek).toHaveBeenLastCalledWith(68));
   expect(mockPlay).toHaveBeenCalledTimes(2);
+  expect(getSpeakingCatalogPlayback).toHaveBeenCalledTimes(2);
   expect(getSpeakingCatalogPlayback).toHaveBeenNthCalledWith(2, material.id);
   expect(getSpeakingPlayback).not.toHaveBeenCalled();
+  expect(view.queryByRole('alert')).toBeNull();
+  await view.unmount();
+});
+it('auto-renews a valid URL once after a player error, then leaves further retries to the user', async () => {
+  jest.mocked(getSpeakingCatalogPlayback)
+    .mockResolvedValueOnce({ url: 'https://r2.example.test/film?signature=first', expiresAt: '2026-10-01T01:00:00Z' })
+    .mockResolvedValueOnce({ url: 'https://r2.example.test/film?signature=second', expiresAt: '2026-10-01T01:00:00Z' })
+    .mockResolvedValueOnce({ url: 'https://r2.example.test/film?signature=third', expiresAt: '2026-10-01T01:00:00Z' });
+  const view = await render(<ShadowingScreen />);
+  await waitFor(() => expect(view.getByTestId('media-source').props.children).toContain('signature=first'));
+  await waitFor(() => expect(mockSeek).toHaveBeenCalledWith(45));
+  await act(async () => { mockPlayerState = { ...mockPlayerState, currentTime: 120 }; mockReport?.(mockPlayerState); });
+  await failPlayer();
+  await waitFor(() => expect(view.getByTestId('media-source').props.children).toContain('signature=second'));
+  await waitFor(() => expect(mockSeek).toHaveBeenLastCalledWith(120));
+
+  await failPlayer();
+  expect(await view.findByRole('alert')).toBeTruthy();
+  await act(async () => { jest.advanceTimersByTime(30_000); });
+  expect(getSpeakingCatalogPlayback).toHaveBeenCalledTimes(2);
+  expect(view.getByTestId('media-source').props.children).toContain('signature=second');
+
+  await fireEvent.press(view.getByText('重试音视频'));
+  await waitFor(() => expect(view.getByTestId('media-source').props.children).toContain('signature=third'));
+  expect(getSpeakingCatalogPlayback).toHaveBeenCalledTimes(3);
   await view.unmount();
 });

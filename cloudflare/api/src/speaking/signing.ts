@@ -3,6 +3,8 @@ import { AppError } from '../../../../server/src/core/errors';
 import type { ApiEnv } from '../env';
 
 export const SPEAKING_SIGNED_URL_SECONDS = 600;
+/** 固定影片动辄两三小时且经常拖动；只读播放链接给一小时，播放器报错时客户端再续期。 */
+export const SPEAKING_CATALOG_PLAYBACK_SECONDS = 3600;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const encoder = new TextEncoder();
 
@@ -26,9 +28,14 @@ export async function signSpeakingObject(
   method: 'GET' | 'PUT',
   contentType?: string,
   byteSize?: number,
+  expiresSeconds: number = SPEAKING_SIGNED_URL_SECONDS,
 ): Promise<string> {
   assertSpeakingObjectKey(key);
   if (method !== 'GET' && method !== 'PUT') throw invalidKey();
+  if (!Number.isSafeInteger(expiresSeconds) || expiresSeconds < 1 || expiresSeconds > SPEAKING_CATALOG_PLAYBACK_SECONDS ||
+      (method === 'PUT' && expiresSeconds > SPEAKING_SIGNED_URL_SECONDS)) {
+    throw new AppError('VALIDATION_ERROR', '媒体链接有效期无效', 400);
+  }
   if (method === 'PUT' && (
     !contentType || contentType.length > 128 || /[^a-z0-9!#$&^_.+/-]/iu.test(contentType) ||
     !/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/iu.test(contentType) ||
@@ -54,7 +61,7 @@ export async function signSpeakingObject(
     ['X-Amz-Content-Sha256', 'UNSIGNED-PAYLOAD'],
     ['X-Amz-Credential', `${accessKeyId}/${scope}`],
     ['X-Amz-Date', date],
-    ['X-Amz-Expires', String(SPEAKING_SIGNED_URL_SECONDS)],
+    ['X-Amz-Expires', String(expiresSeconds)],
     ['X-Amz-SignedHeaders', signedHeaders],
   ].map(([name, value]) => `${encode(name!)}=${encode(value!)}`).sort().join('&');
   const canonicalRequest = [
