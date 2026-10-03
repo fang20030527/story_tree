@@ -12,7 +12,8 @@ type Props = {
   item: ShadowingBlock; selected: boolean; hidden: boolean; disabled: boolean; saved: boolean;
   subtitles: number; fontSize: number;
   onPlay: (id: string, start: number, reveal: boolean) => void;
-  onSave: (id: string) => Promise<void>;
+  /** 第二个参数是点按后期望的收藏状态（显式设置，连续点按不会因请求排队而互相抵消）。 */
+  onSave: (id: string, saved: boolean) => Promise<void>;
   onLookup: (word: string) => void;
 };
 const webContainment = { contentVisibility: 'auto', containIntrinsicSize: 'auto 170px' } as unknown as ViewStyle;
@@ -28,7 +29,7 @@ export const ShadowingCue = React.memo(function ShadowingCue({ item, selected, h
         <Text style={[styles.index, { color: selected ? theme.accent : theme.textMuted }]}>{String(item.index + 1).padStart(2, '0')}{item.endIndex > item.index ? `–${item.endIndex + 1}` : ''}</Text>
         <Text style={[styles.time, { color: theme.textMuted }]}>{formatSpeakingTime(item.start)}</Text>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${saved ? '取消收藏' : '收藏'}第 ${item.index + 1} 句`} accessibilityState={{ selected: saved }} onPress={() => void onSave(item.id)} style={({ pressed }) => [styles.touch, { opacity: pressed ? .6 : 1 }]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} color={saved ? theme.pink : theme.textMuted} size={18} /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${saved ? '取消收藏' : '收藏'}第 ${item.index + 1} 句`} accessibilityState={{ selected: saved }} onPress={() => void onSave(item.id, !saved)} hitSlop={4} style={({ pressed }) => [styles.touch, { opacity: pressed ? .6 : 1 }]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} color={saved ? theme.vermilion : theme.textMuted} size={18} /></Pressable>
     </View>
     {subtitles === 3 ? <Pressable accessibilityRole="button" accessibilityLabel={`播放第 ${item.index + 1} 句`} disabled={disabled} onPress={selectCue}><Text style={{ color: theme.textMuted, fontSize: 12, paddingVertical: 10 }}>字幕已关闭 · 点按播放</Text></Pressable> : hidden ? <Pressable accessibilityRole="button" accessibilityLabel={`揭开第 ${item.index + 1} 句`} disabled={disabled} onPress={selectCue} style={{ minHeight: 44 }}><View style={[styles.veil, { backgroundColor: theme.surfaceAlt, height: fontSize * 1.5 }]} /><Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 8 }}>点按揭开</Text></Pressable> : <FadeOnChange trigger={selected ? 'on' : 'off'}>
       {subtitles !== 2 ? <SpeakingSentence text={item.en} size={fontSize} lookup={onLookup} color={sentenceColor} /> : null}

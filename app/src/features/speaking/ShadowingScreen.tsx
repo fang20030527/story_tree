@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation, type NativeStackNavigationOptions } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
@@ -84,6 +84,12 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
   const [note, setNote] = useState('');
   const [actionError, setActionError] = useState('');
   const [saving, setSaving] = useState(false);
+  // 拖动进度条期间暂停字幕/工具区滚动和返回手势，避免同一次横向拖动被判定为滚动或侧滑返回。
+  const [seeking, setSeeking] = useState(false);
+  // 收藏点按后立即显示目标状态，云端写入（会排在练习记录同步之后）完成或失败后再以存储为准。
+  const [pendingSaves, setPendingSaves] = useState<Record<string, boolean>>({});
+  const saveTokens = useRef(new Map<string, number>());
+  const navigation = useNavigation<{ setOptions: (options: Partial<NativeStackNavigationOptions>) => void }>();
   const list = useRef<FlatList>(null);
   const webTranscript = useRef<ScrollView>(null);
   const scrollRetry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -92,6 +98,9 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
   const cue = material.cues[playback.index];
   const saved = library.store.saved[material.id] ?? emptySavedCues;
   usePreventRemove(recordActive, () => setActionError('请先停止录音或回放，再离开练习'));
+  // iOS 26 起原生栈默认开启“全屏侧滑返回”，横向拖动进度条、工具行都会被当成返回手势并取消 JS 触摸。
+  // 本页只保留屏幕左边缘返回；拖动进度条期间连边缘返回也暂时关闭。
+  useEffect(() => { navigation.setOptions({ fullScreenGestureEnabled: false, gestureEnabled: !seeking }); }, [navigation, seeking]);
   const session = useSpeakingSession(material, scope, playback.playing || recordActive, playback.currentTime, playback.index);
   const onRecordingActive = useCallback((active: boolean) => setRecordActive(active), []);
   const accept = library.accept;
@@ -169,25 +178,41 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
     if (Platform.OS === 'web') webTranscript.current?.scrollTo({ y: 0, animated: false });
   }, [query, segmented, savedOnly]);
   const selectedBlock = blocks.findIndex(item => playback.index >= item.index && playback.index <= item.endIndex);
+  // 只依赖当前句的位置：收藏、取消收藏会生成新的 blocks，但不应把列表拉回当前播放句。
+  const selectedCueIndex = blocks[selectedBlock]?.index ?? -1;
   const scrollToCurrent = useCallback(() => {
     clearTimeout(scrollRetry.current); scrollAttempts.current = 0;
-    const target = blocks[selectedBlock];
-    if (!target) return;
+    if (selectedBlock < 0) return;
     if (Platform.OS === 'web') {
-      if (webTranscript.current) scrollToRenderedSubtitle(webTranscript.current, `shadowing-cue-${target.index}`, splitLayout ? .3 : 0);
+      if (webTranscript.current) scrollToRenderedSubtitle(webTranscript.current, `shadowing-cue-${selectedCueIndex}`, splitLayout ? .3 : 0);
     } else list.current?.scrollToIndex({ index: selectedBlock, viewPosition: splitLayout ? .3 : 0, animated: true });
-  }, [selectedBlock, splitLayout, blocks]);
+  }, [selectedBlock, selectedCueIndex, splitLayout]);
   useEffect(() => {
     if (autoScroll && loaded) { scrollToCurrent(); scrollRetry.current = setTimeout(scrollToCurrent, 150); }
   }, [autoScroll, loaded, scrollToCurrent]);
   useEffect(() => {
     if (skipGaps && playing && !loop && cue && currentTime >= cue.end && material.cues[index + 1]) void seek(material.cues[index + 1].start, true);
   }, [skipGaps, playing, loop, currentTime, index, seek, cue, material.cues]);
-  const toggleSaved = useCallback(async (cueId: string) => {
+  const setCueSaved = useCallback(async (cueId: string, desired: boolean) => {
     setActionError('');
-    try { accept(await saveSpeakingMaterialState(material, scope, current => { const values = current.saved[material.id] ?? []; return { savedCueIds: values.includes(cueId) ? values.filter(value => value !== cueId) : [...values, cueId] }; })); }
-    catch (failure) { setActionError(failure instanceof Error ? `收藏保存失败：${failure.message}` : '收藏保存失败，请重试'); }
+    const token = (saveTokens.current.get(cueId) ?? 0) + 1;
+    saveTokens.current.set(cueId, token);
+    setPendingSaves(current => ({ ...current, [cueId]: desired }));
+    try {
+      accept(await saveSpeakingMaterialState(material, scope, current => {
+        const values = current.saved[material.id] ?? [];
+        return { savedCueIds: desired ? values.includes(cueId) ? values : [...values, cueId] : values.filter(value => value !== cueId) };
+      }));
+    } catch (failure) { setActionError(failure instanceof Error ? `收藏保存失败：${failure.message}` : '收藏保存失败，请重试'); }
+    finally {
+      // 只有最后一次点按结束时才撤掉临时状态，期间的旧结果不会让图标来回跳。
+      if (saveTokens.current.get(cueId) === token) setPendingSaves(current => { const next = { ...current }; delete next[cueId]; return next; });
+    }
   }, [accept, material, scope]);
+  const isSaved = useCallback((cueId: string) => pendingSaves[cueId] ?? saved.includes(cueId), [pendingSaves, saved]);
+  // 合并分段时一个字幕块以首句编号收藏，与列表中的收藏按钮保持一致。
+  const currentSaveId = segmented ? cue?.id : material.cues[playback.index - (playback.index % 2)]?.id;
+  const currentSaved = currentSaveId ? isSaved(currentSaveId) : false;
   const finish = async () => {
     if (recordActive) { setActionError('请先停止录音或回放'); return; }
     pauseOriginal(); setSaving(true); setActionError('');
@@ -223,7 +248,7 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
   const engineKey = `${revision}:${source}`;
   const engine = material.mediaType === 'video' ? <ShadowingVideo key={engineKey} {...mediaProps} /> : <ShadowingAudio key={engineKey} {...mediaProps} />;
   const subtitleLabels = ['双语', '英文', '中文', '关闭'];
-  const renderCue = useCallback(({ item }: { item: ShadowingBlock }) => <ShadowingCue key={item.id} item={item} selected={index >= item.index && index <= item.endIndex} hidden={masked && !revealed.has(item.id)} disabled={!loaded || recordActive} saved={saved.includes(item.id)} subtitles={subtitles} fontSize={fontSize} onPlay={playCue} onSave={toggleSaved} onLookup={lookup} />, [index, masked, revealed, loaded, recordActive, saved, subtitles, fontSize, playCue, toggleSaved, lookup]);
+  const renderCue = useCallback(({ item }: { item: ShadowingBlock }) => <ShadowingCue key={item.id} item={item} selected={index >= item.index && index <= item.endIndex} hidden={masked && !revealed.has(item.id)} disabled={!loaded || recordActive} saved={isSaved(item.id)} subtitles={subtitles} fontSize={fontSize} onPlay={playCue} onSave={setCueSaved} onLookup={lookup} />, [index, masked, revealed, loaded, recordActive, isSaved, subtitles, fontSize, playCue, setCueSaved, lookup]);
   const webRows = useMemo(() => Platform.OS === 'web' ? blocks.map(item => renderCue({ item })) : null, [blocks, renderCue]);
   const onTranscriptLayout = useCallback(() => { if (autoScroll && loaded) { clearTimeout(scrollRetry.current); scrollRetry.current = setTimeout(scrollToCurrent, 150); } }, [autoScroll, loaded, scrollToCurrent]);
   const emptyTranscript = <Text style={{ color: theme.textMuted, padding: 24 }}>{material.cues.length ? '没有匹配的字幕' : '还没有字幕，请展开工具后点「编辑」添加或校正。'}</Text>;
@@ -237,10 +262,10 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
       <TextAction label={toolsExpanded ? '收起工具' : '工具'} accessibilityLabel={toolsExpanded ? '收起练习工具' : '展开练习工具'} tone="muted" onPress={() => { animateNextLayout(reducedMotion); setToolsExpanded(value => !value); }} />
       <Pressable accessibilityRole="button" accessibilityLabel={expanded ? '收起播放器' : '展开播放器'} onPress={() => setExpanded(value => !value)} style={styles.touch}><Ionicons name={expanded ? 'contract-outline' : 'expand-outline'} color={theme.textSecondary} size={19} /></Pressable>
     </View>
-    <ScrollView accessibilityLabel="播放器与练习工具" onLayout={measureMediaBody} style={styles.mediaBody} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <ScrollView accessibilityLabel="播放器与练习工具" scrollEnabled={!seeking} onLayout={measureMediaBody} style={styles.mediaBody} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
     <View onLayout={measureMedia} style={{ backgroundColor: theme.bg, paddingBottom: 12 }}>{source !== null ? engine : null}</View>
     {mediaError || playback.error ? <View><Text accessibilityRole="alert" style={[speakingStyles.error, { color: theme.danger }]}>{mediaError || playback.error}</Text><Pressable accessibilityRole="button" onPress={() => { resumeAt.current = livePlayback.current.time; resumed.current = false; autoRefreshBudget.current = 1; setMediaError(''); setRevision(value => value + 1); }} style={styles.touch}><Text style={{ color: theme.accent }}>重试音视频</Text></Pressable></View> : null}
-    {toolsExpanded ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tools}>{tool('自动滚动', () => setAutoScroll(!autoScroll), autoScroll)}{tool('自动分段', () => setSegmented(!segmented), segmented)}{tool('已收藏句', () => setSavedOnly(!savedOnly), savedOnly)}{tool('查找', () => { setSearching(!searching); setQuery(''); }, searching)}<View style={[styles.toolDivider, { backgroundColor: theme.border }]} />{tool('讲解', () => setSheet('explain'))}{tool('词汇', () => { setWord(''); setSheet('words'); })}{tool('编辑', () => openPage('/speaking/edit'))}{tool('更多', () => setSheet('more'))}</ScrollView> : null}
+    {toolsExpanded ? <ScrollView horizontal scrollEnabled={!seeking} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tools}>{tool('自动滚动', () => setAutoScroll(!autoScroll), autoScroll)}{tool('自动分段', () => setSegmented(!segmented), segmented)}{tool('已收藏句', () => setSavedOnly(!savedOnly), savedOnly)}{tool('查找', () => { setSearching(!searching); setQuery(''); }, searching)}<View style={[styles.toolDivider, { backgroundColor: theme.border }]} />{tool('讲解', () => setSheet('explain'))}{tool('词汇', () => { setWord(''); setSheet('words'); })}{tool('编辑', () => openPage('/speaking/edit'))}{tool('更多', () => setSheet('more'))}</ScrollView> : null}
     </ScrollView>
     </View>
     <View style={[styles.transcriptPane, { borderLeftWidth: splitLayout ? .5 : 0, borderTopWidth: splitLayout ? 0 : .5, borderColor: theme.border, paddingLeft: splitLayout ? 24 : 0 }]}>
@@ -249,7 +274,7 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
       <Meta>{speakingAccentLabel(material)} · {material.cues.length} 句 · {formatSpeakingTime(playback.duration || material.duration)} · {speakingSourceLabel(material)}{cue ? ` · 第 ${playback.index + 1} 句` : ''}</Meta>
     </View>
     {searching ? <TextInput accessibilityLabel="查找字幕" placeholder="搜索英文或中文" placeholderTextColor={theme.textMuted} value={query} onChangeText={setQuery} style={[speakingStyles.input, styles.search, { borderColor: theme.border, color: theme.text, backgroundColor: theme.surfaceAlt }]} /> : null}
-    {Platform.OS === 'web' ? <ScrollView ref={webTranscript} accessibilityLabel="跟读字幕列表" tabIndex={0} style={styles.transcriptList} onLayout={onTranscriptLayout} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator contentContainerStyle={{ paddingBottom: 24, width: '100%' }}>{blocks.length ? webRows : emptyTranscript}</ScrollView> : <FlatList key={`${splitLayout}:${subtitleAnchor ?? 'start'}:${subtitleRevision}:${segmented}:${savedOnly}:${query.trim()}`} ref={list} accessibilityLabel="跟读字幕列表" tabIndex={0} style={styles.transcriptList} onLayout={onTranscriptLayout} initialScrollIndex={Math.max(0, selectedBlock)} initialNumToRender={8} maxToRenderPerBatch={8} windowSize={5} showsVerticalScrollIndicator data={blocks} keyExtractor={item => item.id} ListEmptyComponent={emptyTranscript} onScrollToIndexFailed={({ averageItemLength, highestMeasuredFrameIndex, index }) => {
+    {Platform.OS === 'web' ? <ScrollView ref={webTranscript} accessibilityLabel="跟读字幕列表" tabIndex={0} scrollEnabled={!seeking} style={styles.transcriptList} onLayout={onTranscriptLayout} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator contentContainerStyle={{ paddingBottom: 24, width: '100%' }}>{blocks.length ? webRows : emptyTranscript}</ScrollView> : <FlatList key={`${splitLayout}:${subtitleAnchor ?? 'start'}:${subtitleRevision}:${segmented}:${savedOnly}:${query.trim()}`} ref={list} accessibilityLabel="跟读字幕列表" tabIndex={0} scrollEnabled={!seeking} style={styles.transcriptList} onLayout={onTranscriptLayout} initialScrollIndex={Math.max(0, selectedBlock)} initialNumToRender={8} maxToRenderPerBatch={8} windowSize={5} showsVerticalScrollIndicator data={blocks} keyExtractor={item => item.id} ListEmptyComponent={emptyTranscript} onScrollToIndexFailed={({ averageItemLength, highestMeasuredFrameIndex, index }) => {
       // 长影片远距离跳转时只重建字幕列表，避免逐段测量，同时保持播放器挂载。
       const target = blocks[index];
       if (target && index > highestMeasuredFrameIndex + 32 && target.id !== subtitleAnchor) {
@@ -262,7 +287,7 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
     </View>
     </View>
     <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: Math.max(8, insets.bottom) }]}><View style={styles.footerInner}>
-    <ShadowingProgress time={playback.currentTime} duration={playback.duration} enabled={playback.loaded && !recordActive} seek={time => void playback.seek(time)} />
+    <ShadowingProgress time={playback.currentTime} duration={playback.duration} enabled={playback.loaded && !recordActive} seek={time => void playback.seek(time)} onDragChange={setSeeking} />
     <View style={styles.transport}>
       <TextAction label={recordActive ? '录音中' : '录音'} accessibilityLabel={recordActive ? '录音／回放中' : '录音'} tone={recordPanel ? 'accent' : 'muted'} onPress={() => { if (!recordActive) { animateNextLayout(reducedMotion); setRecordPanel(!recordPanel); } }} style={styles.transportSide} />
       <View style={styles.transportCenter}>
@@ -272,13 +297,13 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
       </View>
       <TextAction label="设置" tone="muted" onPress={() => setSettings(true)} style={[styles.transportSide, { alignItems: 'flex-end' }]} />
     </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modes}>{tool('逐句复读', () => { if (cue && !recordActive && playback.loaded) playback.startLoop(playback.loop?.kind === 'sentence' ? null : { kind: 'sentence', start: cue.start, end: cue.end }); }, playback.loop?.kind === 'sentence')}{tool(abStart !== null ? '设置 B 点' : 'AB 复读', () => {
+    <ScrollView horizontal scrollEnabled={!seeking} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modes}>{tool('逐句复读', () => { if (cue && !recordActive && playback.loaded) playback.startLoop(playback.loop?.kind === 'sentence' ? null : { kind: 'sentence', start: cue.start, end: cue.end }); }, playback.loop?.kind === 'sentence')}{tool(abStart !== null ? '设置 B 点' : 'AB 复读', () => {
       if (!playback.loaded || recordActive) return;
       if (playback.loop?.kind === 'ab') { playback.startLoop(null); setAbStart(null); setActionError(''); return; }
       if (abStart === null) { setAbStart(playback.currentTime); setActionError(''); }
       else if (playback.currentTime <= abStart + .1) setActionError('B 点需要晚于 A 点，请继续播放后设置');
       else { playback.startLoop({ kind: 'ab', start: abStart, end: playback.currentTime }); setAbStart(null); setActionError(''); }
-    }, playback.loop?.kind === 'ab' || abStart !== null)}{tool(`字幕·${subtitleLabels[subtitles]}`, () => setSubtitles((subtitles + 1) % 4))}{tool('遮挡板', () => { setMasked(!masked); setRevealed(new Set()); }, masked)}{tool(`${playback.rate}×`, () => setSettings(true), playback.rate !== 1)}</ScrollView>
+    }, playback.loop?.kind === 'ab' || abStart !== null)}<ToggleText key="收藏本句" label="收藏本句" accessibilityLabel={currentSaved ? '取消收藏当前句' : '收藏当前句'} active={currentSaved} disabled={!currentSaveId} onPress={() => { if (currentSaveId) void setCueSaved(currentSaveId, !currentSaved); }} />{tool(`字幕·${subtitleLabels[subtitles]}`, () => setSubtitles((subtitles + 1) % 4))}{tool('遮挡板', () => { setMasked(!masked); setRevealed(new Set()); }, masked)}{tool(`${playback.rate}×`, () => setSettings(true), playback.rate !== 1)}</ScrollView>
     {playback.waiting ? <FadeOnChange trigger={playback.waiting}><Text style={[styles.waiting, { color: theme.textSecondary }]}>留一点停顿，跟着说。</Text></FadeOnChange> : null}{actionError ? <Text accessibilityRole="alert" style={[speakingStyles.error, { color: theme.danger }]}>{actionError}</Text> : null}
     {session.error ? <View><Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 12 }}>{session.error}</Text><Pressable accessibilityRole="button" disabled={saving} onPress={() => { setSaving(true); void session.save().then(store => { if (store) accept(store); }).catch(() => undefined).finally(() => setSaving(false)); }} style={styles.touch}><Text style={{ color: theme.accent }}>重试保存练习</Text></Pressable></View> : null}
     <View style={{ display: recordPanel ? 'flex' : 'none' }}><ShadowingRecording materialId={material.id} material={material} cueId={cue?.id ?? ''} scope={scope} saved={library.store.recordings[material.id]} pauseOriginal={pauseOriginal} onActive={onRecordingActive} onSaved={accept} /></View>

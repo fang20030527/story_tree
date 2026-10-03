@@ -12,6 +12,9 @@ import { SpeakingPronunciation } from './SpeakingPronunciation';
 type Props = { materialId: string; material?: SpeakingMaterial; cueId: string; scope: string; saved?: SpeakingRecording; pauseOriginal: () => void; onActive: (active: boolean) => void; onSaved: (store: SpeakingStore) => void };
 type RecordingContext = { materialId: string; material?: SpeakingMaterial; cueId: string; scope: string; referenceText?: string; subtitleRevision?: number };
 type PendingRecording = { recording: SpeakingRecording; context: RecordingContext };
+// 离开练习页时 useAudioPlayer 已先释放回放播放器，随后的失焦清理再调用 pause 会抛出
+// “Unable to find the native shared object”，在正式包里属于未捕获错误，会直接闪退。
+function pauseReplay(player: ReturnType<typeof useAudioPlayer>) { try { player.pause(); } catch { /* 播放器已被释放。 */ } }
 export function ShadowingRecording({ materialId, material, cueId, scope, saved, pauseOriginal, onActive, onSaved }: Props) {
   const { theme } = useAppTheme();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -78,8 +81,8 @@ export function ShadowingRecording({ materialId, material, cueId, scope, saved, 
   useFocusEffect(useCallback(() => {
     active.current = true;
     setError(''); setPendingRecording(value => value?.context.scope === scope && value.context.materialId === materialId ? value : null);
-    const subscription = AppState.addEventListener('change', state => { if (state !== 'active') { replay.pause(); void stopRef.current(); } });
-    return () => { active.current = false; replay.pause(); void stopRef.current(); subscription.remove(); };
+    const subscription = AppState.addEventListener('change', state => { if (state !== 'active') { pauseReplay(replay); void stopRef.current(); } });
+    return () => { active.current = false; subscription.remove(); pauseReplay(replay); void stopRef.current(); };
   }, [replay, scope, materialId]));
   const start = async () => {
     if (operationBusy.current) return;

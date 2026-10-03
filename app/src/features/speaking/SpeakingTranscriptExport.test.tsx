@@ -37,11 +37,14 @@ it('prevents duplicate requests while an export is pending and restores both but
 it('shows actionable errors, permits retries and hides internal file paths', async () => {
   jest.mocked(exportSpeakingTranscript).mockRejectedValueOnce(new TranscriptExportError('请允许弹出窗口后重试'))
     .mockRejectedValueOnce(new Error('private://cache/account-id/transcript.docx'));
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
   const view = await render(<SpeakingTranscriptExport material={material} />);
   await fireEvent.press(view.getByLabelText('导出 PDF 台词本'));
   await waitFor(() => expect(view.getByRole('alert').props.children).toBe('请允许弹出窗口后重试'));
   await fireEvent.press(view.getByLabelText('导出 Word 台词本'));
   await waitFor(() => expect(view.getByRole('alert').props.children).toBe('Word 导出失败，请重试'));
+  expect(warn).toHaveBeenCalledTimes(1);
+  warn.mockRestore();
   await fireEvent.press(view.getByLabelText('导出 Word 台词本'));
   expect(view.queryByRole('alert')).toBeNull();
   expect(exportSpeakingTranscript).toHaveBeenCalledTimes(3);

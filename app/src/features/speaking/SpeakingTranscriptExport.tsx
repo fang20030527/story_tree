@@ -19,6 +19,7 @@ export function SpeakingTranscriptExport({ material, notes = {}, disabled = fals
     pending.current = true; setExporting(format); setError('');
     try { await exportSpeakingTranscript(material, notes, format); }
     catch (failure) {
+      if (!(failure instanceof TranscriptExportError)) console.warn('[台词本导出] 未分类的导出失败', failure);
       setError(failure instanceof TranscriptExportError ? failure.message : `${format === 'pdf' ? 'PDF' : 'Word'} 导出失败，请重试`);
     } finally { pending.current = false; setExporting(null); }
   };

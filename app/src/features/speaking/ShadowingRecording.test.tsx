@@ -106,3 +106,18 @@ it('captures the target before the microphone permission request and ignores sav
   expect(store.recordings[props.materialId]).toMatchObject({ cueId: 'cue-one', referenceText: 'First sentence.' });
   expect(props.onSaved).not.toHaveBeenCalled();
 });
+it('leaves the screen without crashing when the replay player was already released by its hook', async () => {
+  // Mirrors useReleasingSharedObject: the player is released in a passive cleanup that runs before
+  // the later focus-effect cleanup, and native methods throw once the shared object is gone.
+  let released = false;
+  const releasingReplay = { ...replay, pause: jest.fn(() => { if (released) throw new Error('Unable to find the native shared object associated with given JavaScript object'); }) };
+  jest.mocked(useAudioPlayer).mockImplementation(() => {
+    jest.requireActual<typeof import('react')>('react').useEffect(() => () => { released = true; }, []);
+    return releasingReplay as unknown as ReturnType<typeof useAudioPlayer>;
+  });
+  const view = await render(<ShadowingRecording {...props} />);
+  await act(async () => { await view.unmount(); });
+  await act(async () => undefined);
+  expect(released).toBe(true);
+  expect(releasingReplay.pause).toHaveBeenCalled();
+});

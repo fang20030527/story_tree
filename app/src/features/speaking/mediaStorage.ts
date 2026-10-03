@@ -51,7 +51,12 @@ export async function persistSpeakingMedia(asset: DocumentPickerAsset): Promise<
   directory.create({ idempotent: true, intermediates: true });
   const extension = asset.name.match(/\.[a-z0-9]{1,8}$/i)?.[0] ?? '.m4a';
   const target = new File(directory, `${speakingId()}${extension}`);
-  source.copy(target);
+  // expo-file-system 57 的 File#copy 是异步的：必须等复制完成再返回路径，否则调用方可能拿到尚未写完的文件。
+  try { await source.copy(target); }
+  catch (error) {
+    try { if (target.exists) target.delete(); } catch { /* 清理失败不覆盖原始错误。 */ }
+    throw error;
+  }
   return target.uri;
 }
 export async function resolveSpeakingMedia(id: string): Promise<{ uri: string; release: () => void }> {

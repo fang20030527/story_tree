@@ -1,5 +1,5 @@
 import type { SpeakingMaterial } from './model';
-import { assertTranscriptAvailable, buildTranscriptDocx, buildTranscriptHtml, transcriptDocxMimeType, TranscriptExportError, transcriptFilename, type TranscriptExportFormat, type TranscriptNotes } from './transcriptDocument';
+import { assertTranscriptAvailable, buildTranscriptDocx, buildTranscriptHtml, transcriptDocxMimeType, TranscriptExportError, transcriptExportFailure, transcriptFilename, type TranscriptExportFormat, type TranscriptNotes } from './transcriptDocument';
 
 export async function exportSpeakingTranscript(material: SpeakingMaterial, notes: TranscriptNotes, format: TranscriptExportFormat): Promise<void> {
   assertTranscriptAvailable(material);
@@ -25,8 +25,8 @@ export async function exportSpeakingTranscript(material: SpeakingMaterial, notes
     await preview.document.fonts?.ready;
     preview.focus();
     preview.print();
-  } catch {
+  } catch (error) {
     preview.close();
-    throw new TranscriptExportError('PDF 导出失败，请重试，或换一个支持打印的浏览器');
+    throw transcriptExportFailure('PDF 导出失败，请重试，或换一个支持打印的浏览器', error);
   }
 }

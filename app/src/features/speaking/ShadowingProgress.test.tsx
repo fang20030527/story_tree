@@ -41,3 +41,41 @@ it('ignores drags before layout and seeks once with the released position', asyn
   expect(seek).toHaveBeenCalledTimes(1);
   expect(seek).toHaveBeenLastCalledWith(100);
 });
+it('claims the gesture from parent scrollers, keeps it until release and reports drag state', async () => {
+  const seek = jest.fn();
+  const onDragChange = jest.fn();
+  const view = await render(<ShadowingProgress time={0} duration={100} enabled seek={seek} onDragChange={onDragChange} />);
+  const slider = view.getByLabelText('原音播放进度');
+  // 捕获阶段认领、拒绝外层 ScrollView 的转让请求，并扩大细进度条的触控范围。
+  expect(slider.props.onStartShouldSetResponderCapture()).toBe(true);
+  expect(slider.props.onMoveShouldSetResponderCapture()).toBe(true);
+  expect(slider.props.onResponderTerminationRequest()).toBe(false);
+  expect(slider.props.hitSlop).toMatchObject({ top: 10, bottom: 10 });
+  const touch = (locationX: number, pageX: number) => ({ nativeEvent: { locationX, pageX, touches: [], changedTouches: [] }, touchHistory: { touchBank: [] } });
+  // 布局前的触摸不算拖动，也不通知页面。
+  await fireEvent(slider, 'responderGrant', touch(10, 10));
+  await fireEvent(slider, 'responderRelease', touch(10, 10));
+  expect(onDragChange).not.toHaveBeenCalled();
+
+  await fireEvent(slider, 'layout', { nativeEvent: { layout: { width: 200, height: 36, x: 0, y: 0 } } });
+  await fireEvent(slider, 'responderGrant', touch(100, 100));
+  expect(onDragChange).toHaveBeenLastCalledWith(true);
+  await fireEvent(slider, 'responderMove', touch(100, 150));
+  await fireEvent(slider, 'responderRelease', touch(100, 150));
+  expect(onDragChange).toHaveBeenLastCalledWith(false);
+  expect(seek).toHaveBeenCalledTimes(1);
+  expect(seek).toHaveBeenLastCalledWith(75);
+
+  // 被系统手势取消时同样恢复页面，但不定位。
+  await fireEvent(slider, 'responderGrant', touch(20, 20));
+  await fireEvent(slider, 'responderTerminate', touch(20, 20));
+  expect(onDragChange).toHaveBeenCalledTimes(4);
+  expect(onDragChange).toHaveBeenLastCalledWith(false);
+  expect(seek).toHaveBeenCalledTimes(1);
+});
+it('does not claim touches while disabled', async () => {
+  const view = await render(<ShadowingProgress time={0} duration={100} enabled={false} seek={jest.fn()} />);
+  const slider = view.getByLabelText('原音播放进度');
+  expect(slider.props.onStartShouldSetResponderCapture()).toBe(false);
+  expect(slider.props.onStartShouldSetResponder()).toBe(false);
+});

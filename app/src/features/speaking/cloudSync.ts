@@ -178,8 +178,7 @@ export function saveSpeakingMaterialState(material: SpeakingMaterial, scope: str
     if (patch.notes) store.notes[material.id] = patch.notes;
     if (patch.position !== undefined) store.positions[material.id] = patch.position;
   }, scope);
-  return serialize(async () => {
-    const current = await loadSpeakingStore(scope);
+  const write = async (current: SpeakingStore) => {
     const patch = typeof input === 'function' ? input(current) : input;
     // The first cloud edit includes legacy notes/favorites so they are not silently discarded.
     const body: UpdateSpeakingStateRequest = {
@@ -191,6 +190,17 @@ export function saveSpeakingMaterialState(material: SpeakingMaterial, scope: str
       const state = await getSpeakingState(material.id);
       return updateSpeakingStore(store => applyState(store, state), scope);
     });
+  };
+  return serialize(async () => {
+    try { return await write(await loadSpeakingStore(scope)); }
+    catch (error) {
+      // Only patches derived from the store (favorite/note toggles) can be safely recomputed on newer state.
+      if (typeof input !== 'function' || !(error instanceof ApiError && error.code === 'STATE_CONFLICT')) throw error;
+      // A stale local revision (another device, or a lost read after a session save) would otherwise
+      // fail every later favorite/note: reload the server state once and recompute the patch on top.
+      const state = await getSpeakingState(material.id);
+      return write(await updateSpeakingStore(store => applyState(store, state), scope));
+    }
   });
 }
 export const syncSpeakingSession = (material: SpeakingMaterial, scope: string, id: string, body: SaveSpeakingSessionRequest) =>

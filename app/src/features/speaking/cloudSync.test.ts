@@ -121,6 +121,21 @@ it('releases a rejected revision so the same edit succeeds after reading the lat
   expect(saved.notes.curiosity).toEqual(refreshed.notes);
   expect(saved.cloudStateRevisions.curiosity).toBe(4);
 });
+it('recomputes a favorite toggle on the latest server state after a stale-revision conflict', async () => {
+  // 另一台设备（或丢失的状态回读）让服务端已经前进到 revision 2，本地仍是 0。
+  let latest: SpeakingStateDto = { ...state, revision: 2, savedCueIds: ['cue-2'], notes: { 'cue-2': '网页端笔记' } };
+  jest.mocked(updateSpeakingState).mockImplementation(async (_id, body) => {
+    if (body.revision !== latest.revision) throw new ApiError('STATE_CONFLICT', '内容已更新，请重新读取后保存', true);
+    latest = { ...latest, ...body, revision: body.revision + 1 };
+    return latest;
+  });
+  jest.mocked(getSpeakingState).mockImplementation(async () => latest);
+  const saved = await saveSpeakingMaterialState(material, scope, store => ({ savedCueIds: [...(store.saved.curiosity ?? []), 'cue-1'] }));
+  expect(updateSpeakingState).toHaveBeenCalledTimes(2);
+  expect(updateSpeakingState).toHaveBeenLastCalledWith(material.id, expect.objectContaining({ revision: 2, savedCueIds: ['cue-2', 'cue-1'], notes: { 'cue-2': '网页端笔记' } }), 'operation-1');
+  expect(saved.saved.curiosity).toEqual(['cue-2', 'cue-1']);
+  expect(saved.cloudStateRevisions.curiosity).toBe(3);
+});
 it('serializes concurrent favorites and refuses to write after the account changes', async () => {
   await Promise.all(['cue-1', 'cue-2'].map(id => saveSpeakingMaterialState(material, scope, store => ({ savedCueIds: [...(store.saved.curiosity ?? []), id] }))));
   expect((await loadSpeakingStore(scope)).saved.curiosity).toEqual(['cue-1', 'cue-2']);

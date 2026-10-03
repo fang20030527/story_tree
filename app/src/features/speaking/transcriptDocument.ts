@@ -6,6 +6,19 @@ export type TranscriptNotes = Readonly<Record<string, string>>;
 
 export class TranscriptExportError extends Error {}
 
+/** Wraps a native/browser failure in a user-facing message, keeping the safe error code and logging the original. */
+export function transcriptExportFailure(message: string, error: unknown): TranscriptExportError {
+  if (error instanceof TranscriptExportError) return error;
+  const detail = error instanceof Error ? error.message : String(error);
+  console.warn(`[台词本导出] ${message}`, error);
+  if (/Cannot find native module|native module .* not (found|available)/i.test(detail)) {
+    return new TranscriptExportError('当前 App 版本缺少导出组件，请更新到最新版本后重试');
+  }
+  // Expo native errors carry codes such as ERR_FILE_PERMISSION; they help diagnosis without exposing file paths.
+  const code = (error as { code?: unknown } | null)?.code;
+  return new TranscriptExportError(typeof code === 'string' && /^[A-Z][A-Z0-9_]{2,63}$/.test(code) ? `${message}（${code}）` : message);
+}
+
 export function assertTranscriptAvailable(material: SpeakingMaterial) {
   if (material.summary) throw new TranscriptExportError('字幕尚未加载完成，请重试后再导出');
   if (!material.cues.length) throw new TranscriptExportError('还没有台词，请先添加字幕后再导出');

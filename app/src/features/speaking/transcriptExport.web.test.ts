@@ -51,6 +51,9 @@ it('reports popup blocking and printing failures without leaking underlying erro
   await expect(exportSpeakingTranscript(material, {}, 'pdf')).rejects.toThrow('请允许弹出窗口后重试');
   const preview = { document: { open: jest.fn(), write: jest.fn(), close: jest.fn() }, focus: jest.fn(), print: jest.fn(() => { throw new Error('internal error'); }), close: jest.fn() };
   open.mockReturnValue(preview as unknown as Window);
-  await expect(exportSpeakingTranscript(material, {}, 'pdf')).rejects.toThrow('PDF 导出失败');
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+  await expect(exportSpeakingTranscript(material, {}, 'pdf')).rejects.toThrow(/^PDF 导出失败，请重试，或换一个支持打印的浏览器$/);
   expect(preview.close).toHaveBeenCalledTimes(1);
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('PDF 导出失败'), expect.objectContaining({ message: 'internal error' }));
+  warn.mockRestore();
 });
