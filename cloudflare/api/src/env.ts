@@ -98,6 +98,10 @@ export interface ApiEnv {
   PASSWORD_RESET_FROM_EMAIL: string;
   API_CORS_ORIGINS?: string;
   API_STAGE_OPEN?: string;
+  /** Worker secret shared only with the HK relay; unset disables relay client IPs. */
+  RELAY_SHARED_SECRET?: string;
+  /** Comma-separated relay egress IPs allowed to supply X-Relay-Client-IP. */
+  RELAY_IPS?: string;
 }
 
 export interface EvolinkAudioSettings {

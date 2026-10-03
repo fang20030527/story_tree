@@ -1,5 +1,6 @@
 import { AppError } from '../../../../server/src/core/errors';
 import type { ApiEnv } from '../env';
+import { getClientIp } from './client-ip';
 
 export class RateLimitError extends AppError {
   constructor(readonly retryAfterSeconds: number) {
@@ -45,7 +46,7 @@ export async function enforceRateLimit(
 export async function enforceRequestLimits(request: Request, env: ApiEnv): Promise<void> {
   const pathname = new URL(request.url).pathname;
   if (pathname === '/health/live' || pathname === '/health/ready') return;
-  const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+  const ip = await getClientIp(request, env);
   await enforceRateLimit(env, 'global-ip', ip, 600);
 
   if (pathname === '/v1/auth/password-reset/request' ||

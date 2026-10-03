@@ -10,6 +10,7 @@ import {
 } from '../../../../server/src/modules/computer-upload/page';
 import { parseBearerToken } from '../auth/token';
 import { readJsonBody } from '../core/http';
+import { getClientIp } from '../core/client-ip';
 import type { ApiEnv } from '../env';
 import { detectImportFile } from '../imports/convert';
 import { hashUploadCode, normalizeUploadCode } from './code';
@@ -238,7 +239,7 @@ async function recordFailedAttempt(env: ApiEnv, keys: readonly string[]): Promis
 }
 
 async function claimFromBrowser(request: Request, env: ApiEnv): Promise<Response> {
-  const ipKey = `ip:${request.headers.get('cf-connecting-ip') ?? 'unknown'}`;
+  const ipKey = `ip:${await getClientIp(request, env)}`;
   let code: string;
   try {
     code = normalizeUploadCode(await claimCodeFromForm(request));

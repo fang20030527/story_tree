@@ -98,6 +98,25 @@ Name.com 的域名服务器需要仅保留 `eric.ns.cloudflare.com` 和 `shubhi.
 
 现有 API 发布 `EDITORIAL_AUDIO_PUBLIC_ORIGIN=https://waikan-audio.<你的子域>.workers.dev` 后，会把新版清单中的 2026 音频请求临时重定向到 Cloudflare。旧版客户端仍可能直连独立媒体 Worker；新构建经 Web Worker 的公开同源路径获取媒体。`EXPO_PUBLIC_` 变量会进入客户端产物，只能填写公开地址，绝不能放数据库、R2 或 AI 密钥。
 
+### 香港中转 cn.blackholeenglish.com 与客户端 IP
+
+`cn.blackholeenglish.com` 解析到香港腾讯云轻量服务器（43.161.240.244），由 Caddy 反向代理到 `https://blackholeenglish.com`，Host 改写为正式域名。经中转的请求在 Cloudflare 看来都来自中转出口 IP，因此 API 的限流和电脑上传尝试锁定统一由 `cloudflare/api/src/core/client-ip.ts` 的 `getClientIp` 取得客户端 IP：
+
+- 只有同时满足以下条件时，才采用 `X-Relay-Client-IP`：已配置 Worker secret `RELAY_SHARED_SECRET`；`CF-Connecting-IP` 属于 `RELAY_IPS`（`wrangler.jsonc` 的 `vars`，英文逗号分隔）；`X-Relay-Secret` 与 secret 一致（摘要后定长比较）；`X-Relay-Client-IP` 是单个合法 IPv4／IPv6 地址。
+- 任何一项不满足时仍使用 `CF-Connecting-IP`，与原行为相同。未配置 secret 时完全忽略 `X-Relay-*` 请求头。
+- Caddy 先用 `request_header -X-Relay-*` 删除客户端自带的同名请求头，再设置 `X-Relay-Client-IP {remote_host}`，并从仅 root 与 caddy 可读的 `/etc/caddy/relay-secret.caddy` 导入 `header_up X-Relay-Secret "<secret>"`。服务器默认 `caddy.service` 以 `caddy run --environ` 启动，会把环境变量打印到日志，所以不要把 secret 放进 Caddy 的环境变量。
+
+secret 只放在 Worker secret 与中转服务器的文件中，不能写入 `vars`、仓库或客户端变量：
+
+```bash
+openssl rand -hex 32   # 生成后仅在本机临时保存
+npx wrangler secret put RELAY_SHARED_SECRET --config cloudflare/api/wrangler.jsonc
+```
+
+先在中转服务器写入 secret 文件并 `caddy validate`，再发布 API（`npm run cloudflare:deploy:api`），最后 `systemctl reload caddy`。中转出口 IP 变化时须同步更新 `RELAY_IPS` 并重新发布 API；更换 secret 时先更新 Worker secret，再更新中转文件并 reload。两步之间经中转的用户会暂时共用中转 IP 的限流额度。
+
+原生 App 不发送 `Origin`，可直接把 `EXPO_PUBLIC_API_BASE_URL` 指向中转域名。浏览器从 `https://cn.blackholeenglish.com` 页面发起的 API 请求会带 `Origin: https://cn.blackholeenglish.com`，被 `waikan-web` 的同源检查拒绝；Web 版继续使用 `https://blackholeenglish.com`。
+
 ## API 与 D1 迁移
 
 `cloudflare/api/wrangler.jsonc` 定义 API 的 D1、R2、AI、Images、Durable Object、Queue 与 Cron 绑定。业务入口当前为 `API_STAGE_OPEN=true`。生产快照放在被 Git 忽略的 `.migration/` 中，可能包含用户数据，不得提交或复制到客户端。

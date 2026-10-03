@@ -57,8 +57,13 @@
   "vars": {
     "PASSWORD_RESET_FROM_EMAIL": "no-reply@blackholeenglish.com",
     "API_CORS_ORIGINS": "https://waikan-web.zhenyufang162.workers.dev,https://blackholeenglish.com",
-    "API_STAGE_OPEN": "true"
+    "API_STAGE_OPEN": "true",
+    // HK 中转（cn.blackholeenglish.com）出口 IP；仅当请求同时带正确的 X-Relay-Secret 时，
+    // 才采用其 X-Relay-Client-IP 作为限流用的客户端 IP。多个地址用英文逗号分隔。
+    "RELAY_IPS": "43.161.240.244"
   }
+  // RELAY_SHARED_SECRET 与中转服务器 Caddy 的同名环境变量相同，只用 `wrangler secret put` 配置；
+  // 未配置时完全忽略 X-Relay-* 请求头，行为与以前一致。
   // EVOLINK_API_KEY、RESEND_API_KEY 均通过加密 Worker secret 配置；音频点评复用 EvoLink 密钥。
   // R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME
   // are also configured as Worker secrets for private media signatures.
