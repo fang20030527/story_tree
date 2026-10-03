@@ -5,9 +5,74 @@ export { abbreviatePartOfSpeech } from './part-of-speech';
 export const UuidSchema = z.uuid();
 
 export const MESSAGE_BOTTLE_CONTENT_LIMIT = 1_000;
-export const MessageBottleUsernameSchema = z.string().trim()
+
+// 用户名规则同时用于注册、个人资料修改和留言瓶署名。客户端与两套后端共用 checkUsername，
+// 保证校验结果和中文提示一致；唯一性由 users.username_key 的唯一索引在数据库层保证。
+export const USERNAME_MIN_LENGTH = 2;
+export const USERNAME_MAX_LENGTH = 24;
+const USERNAME_PATTERN = /^[\p{L}\p{N}_·.-]+$/u;
+
+/** 唯一性比较键：NFKC 规范化后忽略大小写，与 users.username_key 存放的值一致。 */
+export const usernameKey = (username: string): string => username.normalize('NFKC').toLowerCase();
+
+// 容易被当成运营方或系统的名字。比较前去掉 _ . - · 分隔符并忽略大小写，
+// 所以 Admin、a.d.m.i.n 都会被拦截；这只是尽力而为的名单，不是完整的冒充防护。
+export const RESERVED_USERNAMES: readonly string[] = [
+  'admin', 'administrator', 'root', 'system', 'support', 'official', 'moderator', 'staff', 'service',
+  'blackholeenglish',
+  '管理员', '客服', '官方', '系统', '运营', '黑洞英语', '黑洞英语官方', '官方客服',
+];
+const RESERVED_USERNAME_SET = new Set(RESERVED_USERNAMES);
+export const isReservedUsername = (username: string): boolean =>
+  RESERVED_USERNAME_SET.has(usernameKey(username).replace(/[_.\-·]/gu, ''));
+
+export type UsernameCheck = { ok: true; username: string } | { ok: false; message: string };
+
+/** 校验新输入的用户名（注册或修改），返回规范化后的值，或第一条不满足的规则的中文提示。 */
+export function checkUsername(raw: string): UsernameCheck {
+  const username = raw.trim().normalize('NFKC');
+  const fail = (message: string): UsernameCheck => ({ ok: false, message });
+  if (!username) return fail('请输入用户名');
+  if (username.length < USERNAME_MIN_LENGTH || username.length > USERNAME_MAX_LENGTH) {
+    return fail(`用户名需为 ${USERNAME_MIN_LENGTH}–${USERNAME_MAX_LENGTH} 个字符`);
+  }
+  if (!USERNAME_PATTERN.test(username)) {
+    return fail('用户名只能包含文字、数字、下划线、点、连字符和间隔号');
+  }
+  if (!/[\p{L}\p{N}]/u.test(username)) return fail('用户名需至少包含一个文字或数字');
+  if (isReservedUsername(username)) return fail('这个用户名不可使用，请换一个');
+  return { ok: true, username };
+}
+
+/**
+ * 读取已保存用户名时使用的宽松格式：只检查长度和字符集。账号里已有的名字（包括留言瓶
+ * 上线时用户自行设置的）不会因为后来新增的保留字规则而无法读取或继续留言。
+ */
+export const UsernameSchema = z.string().trim()
   .transform(value => value.normalize('NFKC'))
-  .pipe(z.string().min(2).max(24).regex(/^[\p{L}\p{N}_·.-]+$/u));
+  .pipe(z.string().min(USERNAME_MIN_LENGTH).max(USERNAME_MAX_LENGTH).regex(USERNAME_PATTERN));
+export const MessageBottleUsernameSchema = UsernameSchema;
+
+/** 注册或修改时用户新输入的用户名，使用 checkUsername 的完整规则。 */
+export const UsernameInputSchema = z.string().transform((value, ctx) => {
+  const result = checkUsername(value);
+  if (!result.ok) {
+    ctx.addIssue({ code: 'custom', message: result.message });
+    return z.NEVER;
+  }
+  return result.username;
+});
+
+export const AccountProfileSchema = z.object({
+  kind: z.enum(['guest', 'registered']),
+  username: UsernameSchema.nullable(),
+}).strict();
+export const UpdateUsernameRequestSchema = z.object({
+  username: UsernameInputSchema,
+}).strict();
+export type AccountProfile = z.infer<typeof AccountProfileSchema>;
+export type UpdateUsernameRequest = z.infer<typeof UpdateUsernameRequestSchema>;
+
 export const CreateMessageBottleSchema = z.object({
   username: MessageBottleUsernameSchema,
   content: z.string().trim().min(1).max(MESSAGE_BOTTLE_CONTENT_LIMIT),
@@ -160,6 +225,8 @@ export const EmailAuthRequestSchema = z
   .object({
     email: EmailAddressSchema,
     password: z.string().min(8).max(128),
+    // 只在这次请求创建新账号时使用；缺省时由服务端自动生成。旧版客户端不会发送此字段。
+    username: UsernameInputSchema.optional(),
   })
   .strict();
 

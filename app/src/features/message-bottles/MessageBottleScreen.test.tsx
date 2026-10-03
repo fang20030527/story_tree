@@ -40,6 +40,14 @@ it('游客查看所有实名留言，并通过入口登录后投递', async () =
   expect(router.push).toHaveBeenCalledWith('/login');
   expect(createMessageBottle).not.toHaveBeenCalled();
 });
+it('已有署名时显示公开署名，并可进入修改用户名页', async () => {
+  const screen = await render(<MessageBottleScreen />);
+  await waitFor(() => expect(screen.getByText('公开署名')).toBeTruthy());
+  expect(screen.getAllByText('小林').length).toBeGreaterThan(0);
+  expect(screen.queryByLabelText('用户名')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: '修改用户名' }));
+  expect(router.push).toHaveBeenCalledWith('/username');
+});
 it('首次设置用户名，提交成功后公开署名并清空内容', async () => {
   jest.mocked(getMessageBottleProfile).mockResolvedValue({ username: null, canPost: true });
   const screen = await render(<MessageBottleScreen />);

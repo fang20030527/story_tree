@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { checkUsername } from '@context-reader/contracts';
+
 import { ApiError } from '@/api/client';
 import { confirmPasswordReset, loginWithEmail, requestPasswordReset } from '@/api/email';
 import { registerAnonymous } from '@/api/practices';
@@ -36,6 +38,7 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmedPassword, setConfirmedPassword] = useState('');
@@ -99,6 +102,16 @@ export default function LoginScreen() {
       showError('密码至少需要 8 个字符');
       return;
     }
+    // 用户名只在创建新账号时使用；留空由服务端自动生成，已有账号登录会忽略它。
+    let newUsername: string | undefined;
+    if (username.trim()) {
+      const checked = checkUsername(username);
+      if (!checked.ok) {
+        showError(checked.message);
+        return;
+      }
+      newUsername = checked.username;
+    }
 
     setLoading(true);
     setMessage(null);
@@ -110,7 +123,7 @@ export default function LoginScreen() {
         await clearAuthUser();
         await registerAnonymous(true);
       }
-      await loginWithEmail(normalizedEmail, password);
+      await loginWithEmail(normalizedEmail, password, newUsername);
       try {
         await saveAuthUserEmail(normalizedEmail);
       } catch {
@@ -257,6 +270,23 @@ export default function LoginScreen() {
             onSubmitEditing={() => void login()}
             style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt }]}
           /> : null}
+          {mode === 'login' ? <>
+            <TextInput
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              accessibilityLabel="用户名"
+              placeholder="用户名（新用户选填）"
+              placeholderTextColor={theme.textMuted}
+              returnKeyType="go"
+              onSubmitEditing={() => void login()}
+              style={[styles.input, { color: theme.text, backgroundColor: theme.surfaceAlt }]}
+            />
+            <Text style={[styles.hint, { color: theme.textMuted }]}>
+              仅创建新账号时使用，会公开显示在留言瓶。2–24 个字符；留空将自动生成，之后可在「我的」中修改。
+            </Text>
+          </> : null}
           {mode === 'reset' ? <>
             <TextInput
               value={code}
@@ -370,6 +400,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emailButtonText: { fontSize: 16, fontWeight: weight('semibold') },
+  hint: { fontSize: 12, lineHeight: 18, paddingHorizontal: 6, marginTop: -2, marginBottom: 12 },
   secondaryButton: { alignSelf: 'flex-start', paddingVertical: 12, marginTop: 4 },
   secondaryButtonText: { fontSize: 14, fontWeight: weight('medium') },
   message: { marginTop: 14, fontSize: 13, lineHeight: 20 },

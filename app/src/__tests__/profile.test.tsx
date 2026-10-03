@@ -4,6 +4,7 @@ import React from 'react';
 
 import { router } from 'expo-router';
 
+import { getAccountProfile } from '@/api/account';
 import { clearAuthUser, loadAuthUser } from '@/features/auth/authStorage';
 import { loadRecentViews } from '@/features/library/libraryStorage';
 
@@ -55,6 +56,9 @@ jest.mock('@/context/ThemeContext', () => ({
   }),
 }));
 jest.mock('@/api/practices', () => ({ getVocabularyWords: jest.fn().mockResolvedValue({ summary: { totalCount: 9, masteredCount: 2 } }) }));
+jest.mock('@/api/account', () => ({
+  getAccountProfile: jest.fn().mockResolvedValue({ kind: 'registered', username: 'zhangsan' }),
+}));
 jest.mock('@/features/auth/authStorage', () => ({
   clearAuthUser: jest.fn(),
   loadAuthUser: jest.fn(),
@@ -121,4 +125,39 @@ it('rejects zero without changing the saved setting', async () => {
   await fireEvent.changeText(view.getByLabelText('每次练习单词数量'), '0');
   await fireEvent.press(view.getByText('保存'));
   expect(await view.findByText('请输入 1–32 的整数')).toBeTruthy();
+});
+
+describe('用户名', () => {
+  const registered = { userId: '11111111-1111-4111-8111-111111111111', kind: 'registered' as const, remainingFreePractices: 3 };
+  beforeEach(() => {
+    jest.mocked(router.push).mockClear();
+    jest.mocked(loadRecentViews).mockResolvedValue([]);
+    jest.mocked(getAccountProfile).mockReset().mockResolvedValue({ kind: 'registered', username: 'zhangsan' });
+  });
+
+  it('已登录时显示账号的用户名，并可进入修改页', async () => {
+    jest.mocked(loadAuthUser).mockResolvedValue(registered);
+    const view = await render(<ProfileScreen />);
+    expect(await view.findByText('zhangsan')).toBeTruthy();
+    expect(view.queryByText('阅读者')).toBeNull();
+    await fireEvent.press(view.getByLabelText('修改用户名'));
+    expect(router.push).toHaveBeenCalledWith('/username');
+  });
+
+  it('未登录时不读取账号资料，也没有修改入口', async () => {
+    jest.mocked(loadAuthUser).mockResolvedValue(null);
+    const view = await render(<ProfileScreen />);
+    await waitFor(() => expect(view.getByText('未登录')).toBeTruthy());
+    expect(getAccountProfile).not.toHaveBeenCalled();
+    expect(view.queryByLabelText('修改用户名')).toBeNull();
+  });
+
+  it('用户名读取失败时保留原来的称呼，不显示修改入口', async () => {
+    jest.mocked(loadAuthUser).mockResolvedValue(registered);
+    jest.mocked(getAccountProfile).mockRejectedValue(new Error('offline'));
+    const view = await render(<ProfileScreen />);
+    await waitFor(() => expect(getAccountProfile).toHaveBeenCalled());
+    expect(await view.findByText('阅读者')).toBeTruthy();
+    expect(view.queryByLabelText('修改用户名')).toBeNull();
+  });
 });

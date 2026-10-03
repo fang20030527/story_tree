@@ -35,6 +35,7 @@ import { handleVocabularyWordRoute } from './vocabulary/words';
 import { sweepSpeakingAssets } from './speaking/assets';
 import { handleSpeakingOnCpuBoundary } from './speaking/cpu';
 import { handleMessageBottleRoute } from './message-bottles/routes';
+import { handleAccountRoute } from './account/routes';
 
 export { CpuBoundary } from './cpu/object';
 
@@ -113,6 +114,8 @@ async function dispatch(request: Request, env: ApiEnv, requestId: string): Promi
   const { userId } = await requireAuth(request, env);
   const messageBottleResponse = await handleMessageBottleRoute(request, env, userId);
   if (messageBottleResponse) return messageBottleResponse;
+  const accountResponse = await handleAccountRoute(request, env, userId);
+  if (accountResponse) return accountResponse;
   if (pathname.startsWith('/v1/speaking/')) {
     return handleSpeakingOnCpuBoundary(request, env, userId);
   }

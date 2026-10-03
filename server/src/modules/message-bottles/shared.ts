@@ -1,9 +1,9 @@
-import { MessageBottleCursorSchema } from '@context-reader/contracts';
+import { MessageBottleCursorSchema, usernameKey } from '@context-reader/contracts';
 import { AppError } from '../../core/errors';
 
 export const MESSAGE_BOTTLE_WINDOW_MS = 10 * 60 * 1_000;
 export const MESSAGE_BOTTLE_POST_LIMIT = 5;
-export const messageBottleUsernameKey = (username: string) => username.normalize('NFKC').toLowerCase();
+export const messageBottleUsernameKey = usernameKey;
 export const encodeMessageBottleCursor = (createdAt: string, id: string) => `${createdAt}_${id}`;
 export function decodeMessageBottleCursor(value: string) {
   if (!MessageBottleCursorSchema.safeParse(value).success) {

@@ -10,13 +10,18 @@ import {
 import { apiRequest, publicApiRequest } from './client';
 import { saveAuthUser } from '@/features/auth/authStorage';
 
+/**
+ * 邮箱登录；邮箱未注册时自动创建账号。`username` 只在创建新账号时使用，
+ * 已有账号登录会忽略它；不传则由服务端自动生成。
+ */
 export async function loginWithEmail(
   email: string,
   password: string,
+  username?: string,
 ): Promise<EmailAuthResponse> {
   const response = await apiRequest('/v1/auth/email', EmailAuthResponseSchema, {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(username ? { email, password, username } : { email, password }),
   });
   try {
     await saveAuthUser(response);

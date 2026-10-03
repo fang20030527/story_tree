@@ -2,12 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { CreateMessageBottleSchema, MESSAGE_BOTTLE_CONTENT_LIMIT, type MessageBottleDto } from '@context-reader/contracts';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, FlatList, KeyboardAvoidingView, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BlackHoleLoader, Bottle, EnterOnce } from '@/components/cosmos';
+import { motionAllowedNow } from '@/components/motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createIdempotencyKey } from '@/api/installation';
 import { BrandHeader, PageHeading } from '@/components/brand';
 import { pageContent } from '@/components/ResponsiveFrame';
-import { radius, weight } from '@/constants/theme';
+import { motion, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { messageBottleError, useMessageBottles } from './useMessageBottles';
 
@@ -28,6 +30,16 @@ export function MessageBottleScreen() {
     active.current = true; ++scope.current; sendingRef.current = false; setSending(false);
     return () => { active.current = false; ++scope.current; };
   }, []));
+  // 投递成功：标题旁的漂流瓶沿虚线轨道漂出画面（820ms 加速），再淡入回到原处。
+  const [drift] = useState(() => new Animated.Value(0));
+  const sendOff = () => {
+    if (!motionAllowedNow()) return;
+    drift.setValue(0);
+    Animated.sequence([
+      Animated.timing(drift, { toValue: 1, duration: 820, easing: motion.easeIn, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(drift, { toValue: 2, duration: 240, easing: motion.easeOut, useNativeDriver: Platform.OS !== 'web' }),
+    ]).start(() => drift.setValue(0));
+  };
   const author = feed.profile?.username ?? username;
   const parsed = CreateMessageBottleSchema.safeParse({ username: author, content });
   const disabled = sending || !feed.profile?.canPost || !parsed.success;
@@ -45,7 +57,7 @@ export function MessageBottleScreen() {
       }
       await feed.post(parsed.data, pending.current!.key);
       if (!active.current || scope.current !== currentScope) return;
-      pending.current = null; setContent(''); setNotice('留言已投递，谢谢你的反馈。');
+      pending.current = null; setContent(''); setNotice('留言已投递，谢谢你的反馈。'); sendOff();
     } catch (cause) {
       if (active.current && scope.current === currentScope) setSendError(messageBottleError(cause, '留言投递失败，请稍后重试'));
     } finally {
@@ -55,32 +67,35 @@ export function MessageBottleScreen() {
 
   const action = (label: string, onPress: () => void, isDisabled = false) => <Pressable accessibilityRole="button" accessibilityLabel={label}
     accessibilityState={{ disabled: isDisabled }} disabled={isDisabled} onPress={onPress}
-    style={({ pressed }) => [styles.smallButton, { borderColor: theme.border, opacity: isDisabled ? 0.5 : pressed ? 0.65 : 1 }]}>
+    style={({ pressed }) => [styles.smallButton, { backgroundColor: theme.accentSoft, opacity: isDisabled ? 0.5 : pressed ? 0.86 : 1 }]}>
     <Text style={{ color: theme.accent, fontSize: 13 }}>{label}</Text>
   </Pressable>;
 
   const header = <>
     <View style={styles.headingRow}>
       <View style={styles.headingCopy}><PageHeading title="留言瓶" description="把想法装进瓶子，让黑洞英语变得更好。" /></View>
-      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.bottleArt}>
-        <View style={[styles.bottleNeck, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]} />
-        <View style={[styles.bottleBody, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}>
-          <View style={[styles.note, { backgroundColor: theme.surface }]}><View style={[styles.noteLine, { backgroundColor: theme.pink }]} /><View style={[styles.noteLine, { backgroundColor: theme.pink, width: 12 }]} /></View>
-        </View>
-      </View>
+      <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.bottleArt, {
+        opacity: drift.interpolate({ inputRange: [0, 0.8, 1, 1.01, 2], outputRange: [1, 1, 0, 0, 1] }),
+        transform: [
+          { translateX: drift.interpolate({ inputRange: [0, 1, 1.01, 2], outputRange: [0, 110, 0, 0] }) },
+          { translateY: drift.interpolate({ inputRange: [0, 1, 1.01, 2], outputRange: [0, 40, 0, 0] }) },
+          { scale: drift.interpolate({ inputRange: [0, 1, 1.01, 2], outputRange: [1, 0.55, 0.9, 1] }) },
+        ] }]}>
+        <Bottle size={112} />
+      </Animated.View>
     </View>
-    {feed.profile?.canPost ? <View style={[styles.composer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    {feed.profile?.canPost ? <View style={[styles.composer, { backgroundColor: theme.surfaceAlt }]}>
       <Text style={[styles.sectionTitle, { color: theme.text }]}>投递你的想法</Text>
-      {feed.profile.username ? <View style={styles.authorRow}><Text style={[styles.hint, { color: theme.textMuted }]}>公开署名</Text><Text style={[styles.author, { color: theme.text }]}>{feed.profile.username}</Text></View> : <>
+      {feed.profile.username ? <View style={styles.authorRow}><Text style={[styles.hint, { color: theme.textMuted }]}>公开署名</Text><Text style={[styles.author, { color: theme.text }]}>{feed.profile.username}</Text>{action('修改用户名', () => router.push('/username'), sending)}</View> : <>
         <Text style={[styles.label, { color: theme.textSecondary }]}>用户名</Text>
         <TextInput accessibilityLabel="用户名" value={username} editable={!sending} onChangeText={value => { setUsername(value); setSendError(null); }}
           maxLength={24} autoCapitalize="none" autoCorrect={false} placeholder="你的公开用户名" placeholderTextColor={theme.textMuted}
-          style={[styles.usernameInput, { color: theme.text, backgroundColor: theme.bg, borderColor: theme.border }]} />
-        <Text style={[styles.hint, { color: theme.textMuted }]}>2–24 字，可用中英文、数字和下划线。设置后用于所有留言。</Text>
+          style={[styles.usernameInput, { color: theme.text, backgroundColor: theme.bg }]} />
+        <Text style={[styles.hint, { color: theme.textMuted }]}>2–24 个字符，可用文字、数字、下划线、点和连字符。之后可在「我的」中修改。</Text>
       </>}
       <TextInput accessibilityLabel="留言内容" multiline value={content} editable={!sending} onChangeText={value => { setContent(value); setSendError(null); setNotice(null); }}
         maxLength={MESSAGE_BOTTLE_CONTENT_LIMIT} placeholder="哪里还不够顺手？你希望增加什么功能？" placeholderTextColor={theme.textMuted}
-        textAlignVertical="top" style={[styles.contentInput, { color: theme.text, backgroundColor: theme.bg, borderColor: theme.border }]} />
+        textAlignVertical="top" style={[styles.contentInput, { color: theme.text, backgroundColor: theme.bg }]} />
       <View style={styles.countRow}><Text style={[styles.hint, { color: theme.textMuted }]}>留言与用户名会公开给所有人。</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{content.length}/{MESSAGE_BOTTLE_CONTENT_LIMIT}</Text></View>
       {sendError ? <Text accessibilityRole="alert" style={[styles.feedback, { color: theme.danger }]}>{sendError}</Text> : null}
       {notice ? <Text accessibilityLiveRegion="polite" style={[styles.feedback, { color: theme.success }]}>{notice}</Text> : null}
@@ -95,15 +110,15 @@ export function MessageBottleScreen() {
       {action('登录后投递留言', () => router.push('/login'))}
     </View> : feed.profileError ? <View style={styles.state}>
       <Text style={[styles.hint, { color: theme.danger }]}>{feed.profileError}</Text>{action('重试读取账号', () => void feed.refresh(), feed.refreshing)}
-    </View> : <ActivityIndicator color={theme.accent} style={styles.loading} />}
-    <View style={[styles.listHeading, { borderBottomColor: theme.text }]}>
+    </View> : <View style={styles.loading}><BlackHoleLoader size={110} label="正在读取留言" /></View>}
+    <View style={styles.listHeading}>
       <Text accessibilityRole="header" style={[styles.sectionTitle, { color: theme.text }]}>所有留言</Text>
       {action('刷新留言', () => void feed.refresh(), feed.refreshing || sending)}
     </View>
     {feed.error ? <View style={styles.state}><Text style={[styles.hint, { color: theme.danger }]}>{feed.error}</Text>{action('重试读取留言', () => void feed.refresh(), feed.refreshing)}</View> : null}
   </>;
 
-  const renderMessage = ({ item }: { item: MessageBottleDto }) => <View style={[styles.message, { borderBottomColor: theme.border }]}>
+  const renderMessage = ({ item }: { item: MessageBottleDto }) => <View style={[styles.message, { backgroundColor: theme.surfaceAlt }]}>
     <View style={styles.messageMeta}><View style={styles.messageAuthor}><Text style={[styles.author, { color: theme.text }]}>{item.username}</Text>
       {item.isMine ? <Text style={[styles.mine, { color: theme.accent, backgroundColor: theme.accentSoft }]}>我</Text> : null}</View>
       <Text style={[styles.time, { color: theme.textMuted }]}>{new Date(item.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</Text>
@@ -117,7 +132,7 @@ export function MessageBottleScreen() {
       contentContainerStyle={[styles.content, { paddingBottom: Math.max(28, insets.bottom + 16) }]} showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
       refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={() => void feed.refresh()} tintColor={theme.accent} colors={[theme.accent]} />}
-      ListEmptyComponent={feed.refreshing ? <ActivityIndicator color={theme.accent} style={styles.loading} /> : !feed.error ? <Text style={[styles.empty, { color: theme.textMuted }]}>还没有留言，来投递第一只留言瓶吧。</Text> : null}
+      ListEmptyComponent={feed.refreshing ? <View style={styles.loading}><BlackHoleLoader size={110} label="正在读取留言" /></View> : !feed.error ? <View style={styles.emptyBox}><EnterOnce><Bottle size={180} /></EnterOnce><Text style={[styles.empty, { color: theme.textSecondary }]}>还没有留言，来投递第一只留言瓶吧。</Text></View> : null}
       ListFooterComponent={<View style={styles.footer}>
         {feed.moreError ? <Text style={[styles.hint, { color: theme.danger }]}>{feed.moreError}</Text> : null}
         {feed.loadingMore ? <ActivityIndicator color={theme.accent} /> : feed.nextCursor ? action(feed.moreError ? '重试加载' : '加载更多留言', () => void feed.loadMore(), feed.refreshing)
@@ -128,21 +143,18 @@ export function MessageBottleScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 }, content: { ...pageContent, paddingTop: 12 }, headingRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  headingCopy: { flex: 1 }, bottleArt: { width: 50, height: 76, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '12deg' }] },
-  bottleNeck: { width: 17, height: 16, borderWidth: 1.5, borderTopLeftRadius: 3, borderTopRightRadius: 3, marginBottom: -2 },
-  bottleBody: { width: 40, height: 48, borderWidth: 1.5, borderTopLeftRadius: 12, borderTopRightRadius: 12, borderBottomLeftRadius: 9, borderBottomRightRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  note: { width: 24, height: 22, padding: 5, gap: 4, transform: [{ rotate: '-18deg' }] }, noteLine: { width: 16, height: 2 },
-  composer: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.content, padding: 18 }, sectionTitle: { fontSize: 18, fontWeight: weight('semibold'), lineHeight: 26 },
-  label: { fontSize: 13, marginTop: 16 }, usernameInput: { borderWidth: 1, borderRadius: radius.content, minHeight: 46, paddingHorizontal: 12, fontSize: 15, marginTop: 8, marginBottom: 8 },
+  headingCopy: { flex: 1 }, bottleArt: { width: 112, height: 84, alignItems: 'center', justifyContent: 'center', marginRight: -10 },
+  composer: { borderRadius: radius.card, padding: 18 }, sectionTitle: { fontSize: 19, fontWeight: weight('semibold'), lineHeight: 26 },
+  label: { fontSize: 13, marginTop: 16 }, usernameInput: { borderRadius: 14, minHeight: 46, paddingHorizontal: 14, fontSize: 15, marginTop: 8, marginBottom: 8 },
   hint: { fontSize: 12, lineHeight: 19 }, authorRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
-  author: { fontSize: 14, fontWeight: weight('semibold'), flexShrink: 1 }, contentInput: { borderWidth: 1, borderRadius: radius.content, minHeight: 128, padding: 12, fontSize: 15, lineHeight: 24, marginTop: 16 },
+  author: { fontSize: 14, fontWeight: weight('semibold'), flexShrink: 1 }, contentInput: { borderRadius: 14, minHeight: 128, padding: 14, fontSize: 15, lineHeight: 24, marginTop: 16 },
   countRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, marginTop: 9 },
   submit: { alignSelf: 'flex-start', borderRadius: radius.pill, minHeight: 46, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16 }, submitText: { fontSize: 14, fontWeight: weight('semibold') },
   feedback: { fontSize: 13, lineHeight: 20, marginTop: 10 }, loginCard: { padding: 18, gap: 12, borderRadius: radius.content }, loginHint: { fontSize: 13, lineHeight: 21 },
-  smallButton: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingHorizontal: 16, borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.pill },
-  listHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, paddingBottom: 8, marginTop: 32 },
-  message: { paddingVertical: 20, borderBottomWidth: StyleSheet.hairlineWidth }, messageMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  messageAuthor: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, gap: 8 }, mine: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.pill, fontSize: 11 }, time: { fontSize: 11 },
-  messageContent: { fontSize: 15, lineHeight: 25, marginTop: 10 }, loading: { marginVertical: 22 }, empty: { fontSize: 14, lineHeight: 22, textAlign: 'center', paddingVertical: 38 },
+  smallButton: { minHeight: 38, justifyContent: 'center', alignSelf: 'flex-start', paddingHorizontal: 16, borderRadius: radius.pill },
+  listHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30, marginBottom: 10 },
+  message: { padding: 16, borderRadius: 16, marginBottom: 8 }, messageMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  messageAuthor: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, gap: 8 }, mine: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.tag, overflow: 'hidden', fontSize: 11, fontWeight: weight('semibold') }, time: { fontSize: 12, fontVariant: ['tabular-nums'] },
+  messageContent: { fontSize: 15, lineHeight: 24, marginTop: 8 }, loading: { marginVertical: 22, alignItems: 'center' }, emptyBox: { alignItems: 'center', paddingVertical: 20, gap: 6 }, empty: { fontSize: 14, lineHeight: 22, textAlign: 'center' },
   state: { gap: 12, paddingVertical: 20 }, footer: { paddingVertical: 24, alignItems: 'center', gap: 12 },
 });

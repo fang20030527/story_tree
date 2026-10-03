@@ -7,6 +7,7 @@ import {
 } from '../cpu/client';
 import type { AuthContext, AuthUser } from './database';
 import { bindInstallationToUser } from './database';
+import { assertUsernameAvailable, runRegistrationBatch } from './username';
 
 interface EmailAccountRow {
   id: string;
@@ -30,43 +31,56 @@ function emailAuthFailed(): AppError {
   return new AppError('EMAIL_AUTH_FAILED', '邮箱或密码错误', 401);
 }
 
+/**
+ * 邮箱登录；邮箱尚未注册时创建账号。username 只在创建新账号时使用，已有账号登录会忽略它，
+ * 未提供时（旧版客户端）由服务端自动生成。
+ */
 export async function loginWithEmail(
   env: ApiEnv,
   current: AuthContext,
   email: string,
   password: string,
+  username?: string,
 ): Promise<AuthUser> {
   const normalizedEmail = email.trim().toLowerCase();
   let account = await findEmailAccount(env, normalizedEmail);
 
   if (!account) {
+    // 用户名已被占用时在密码哈希之前直接失败；并发抢占由唯一索引兜底。
+    if (username) await assertUsernameAvailable(env, username, current.userId);
     const passwordHash = await hashEmailPasswordOnCpuBoundary(env, password);
     const accountId = crypto.randomUUID();
     const now = new Date().toISOString();
-    await env.DB.batch([
-      env.DB.prepare(`
-        INSERT OR IGNORE INTO email_accounts
-          (id, user_id, email, password_hash, created_at, last_login_at)
-        SELECT ?, ?, ?, ?, ?, ?
-        WHERE EXISTS (
-          SELECT 1 FROM installations
-          WHERE id = ? AND user_id = ? AND revoked_at IS NULL
-        )
-          AND EXISTS (
-            SELECT 1 FROM users WHERE id = ? AND deleted_at IS NULL
+    await runRegistrationBatch(env, {
+      userId: current.userId,
+      email: normalizedEmail,
+      requested: username,
+      owner: { table: 'email_accounts', id: accountId },
+      statements: [
+        env.DB.prepare(`
+          INSERT OR IGNORE INTO email_accounts
+            (id, user_id, email, password_hash, created_at, last_login_at)
+          SELECT ?, ?, ?, ?, ?, ?
+          WHERE EXISTS (
+            SELECT 1 FROM installations
+            WHERE id = ? AND user_id = ? AND revoked_at IS NULL
           )
-      `).bind(
-        accountId, current.userId, normalizedEmail, passwordHash, now, now,
-        current.installationId, current.userId, current.userId,
-      ),
-      env.DB.prepare(`
-        UPDATE users SET kind = 'registered'
-        WHERE id = ? AND EXISTS (
-          SELECT 1 FROM email_accounts
-          WHERE id = ? AND user_id = ?
-        )
-      `).bind(current.userId, accountId, current.userId),
-    ]);
+            AND EXISTS (
+              SELECT 1 FROM users WHERE id = ? AND deleted_at IS NULL
+            )
+        `).bind(
+          accountId, current.userId, normalizedEmail, passwordHash, now, now,
+          current.installationId, current.userId, current.userId,
+        ),
+        env.DB.prepare(`
+          UPDATE users SET kind = 'registered'
+          WHERE id = ? AND EXISTS (
+            SELECT 1 FROM email_accounts
+            WHERE id = ? AND user_id = ?
+          )
+        `).bind(current.userId, accountId, current.userId),
+      ],
+    });
     account = await findEmailAccount(env, normalizedEmail);
     if (!account) throw new AppError('TOKEN_REVOKED', '身份凭据已失效', 401);
     if (account.id === accountId) {
@@ -147,33 +161,40 @@ export async function loginWithWechat(
   if (!identity) {
     const identityId = crypto.randomUUID();
     const now = new Date().toISOString();
-    await env.DB.batch([
-      env.DB.prepare(`
-        INSERT OR IGNORE INTO auth_identities
-          (id, user_id, provider, subject, openid, unionid, created_at, last_login_at)
-        SELECT ?, ?, 'wechat', ?, ?, ?, ?, ?
-        WHERE EXISTS (
-          SELECT 1 FROM installations
-          WHERE id = ? AND user_id = ? AND revoked_at IS NULL
-        )
-          AND EXISTS (SELECT 1 FROM users WHERE id = ? AND deleted_at IS NULL)
-          AND NOT EXISTS (
-            SELECT 1 FROM auth_identities
-            WHERE provider = 'wechat' AND openid = ?
+    // 微信没有可公开的登录标识（openid 和 unionid 不能外露），用户名自动生成为 用户_ 加随机串。
+    await runRegistrationBatch(env, {
+      userId: current.userId,
+      email: null,
+      requested: undefined,
+      owner: { table: 'auth_identities', id: identityId },
+      statements: [
+        env.DB.prepare(`
+          INSERT OR IGNORE INTO auth_identities
+            (id, user_id, provider, subject, openid, unionid, created_at, last_login_at)
+          SELECT ?, ?, 'wechat', ?, ?, ?, ?, ?
+          WHERE EXISTS (
+            SELECT 1 FROM installations
+            WHERE id = ? AND user_id = ? AND revoked_at IS NULL
           )
-      `).bind(
-        identityId, current.userId, subject, providerIdentity.openid,
-        providerIdentity.unionid ?? null, now, now,
-        current.installationId, current.userId, current.userId,
-        providerIdentity.openid,
-      ),
-      env.DB.prepare(`
-        UPDATE users SET kind = 'registered'
-        WHERE id = ? AND EXISTS (
-          SELECT 1 FROM auth_identities WHERE id = ? AND user_id = ?
-        )
-      `).bind(current.userId, identityId, current.userId),
-    ]);
+            AND EXISTS (SELECT 1 FROM users WHERE id = ? AND deleted_at IS NULL)
+            AND NOT EXISTS (
+              SELECT 1 FROM auth_identities
+              WHERE provider = 'wechat' AND openid = ?
+            )
+        `).bind(
+          identityId, current.userId, subject, providerIdentity.openid,
+          providerIdentity.unionid ?? null, now, now,
+          current.installationId, current.userId, current.userId,
+          providerIdentity.openid,
+        ),
+        env.DB.prepare(`
+          UPDATE users SET kind = 'registered'
+          WHERE id = ? AND EXISTS (
+            SELECT 1 FROM auth_identities WHERE id = ? AND user_id = ?
+          )
+        `).bind(current.userId, identityId, current.userId),
+      ],
+    });
     identity = await findWechatIdentity(env, subject, providerIdentity.openid);
     if (!identity) throw new AppError('TOKEN_REVOKED', '身份凭据已失效', 401);
     if (identity.id === identityId) {

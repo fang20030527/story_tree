@@ -58,6 +58,29 @@ describe('Email API client', () => {
     );
   });
 
+  it('sends the chosen username when registering and omits it otherwise', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: jest.fn().mockResolvedValue({
+        userId: '22222222-2222-4222-8222-222222222222',
+        kind: 'registered',
+        remainingFreePractices: 3,
+      }),
+    });
+
+    await loginWithEmail('reader@example.com', 'correct-horse-battery-staple', 'Alice');
+    await loginWithEmail('reader@example.com', 'correct-horse-battery-staple');
+    await loginWithEmail('reader@example.com', 'correct-horse-battery-staple', '');
+
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+    expect(bodies).toEqual([
+      { email: 'reader@example.com', password: 'correct-horse-battery-staple', username: 'Alice' },
+      { email: 'reader@example.com', password: 'correct-horse-battery-staple' },
+      { email: 'reader@example.com', password: 'correct-horse-battery-staple' },
+    ]);
+  });
+
   it('requests and confirms password reset without an installation credential', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,

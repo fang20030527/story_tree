@@ -40,6 +40,12 @@ node --env-file=cloudflare/.env.local scripts/set-practice-access.mjs --email us
 
 兼容旧客户端的 `remainingFreePractices` 字段在无限模式返回 `Number.MAX_SAFE_INTEGER` 标记，实际次数豁免由数据库开关执行。服务端发布后已安装的客户端可以直接使用，不需要为这个账号重新打包。此权限范围为练习生成次数，身份验证、请求频率和单次输入规范继续执行。
 
+## 用户名
+
+D1 迁移 `0009_usernames.sql` 只为已注册账号回填 `users.username`（列和唯一索引由 `0008` 创建，不改表结构）。新增 `GET /v1/account` 和 `PUT /v1/account/username`，`POST /v1/auth/email` 增加可选的 `username`，响应结构不变。回填规则、兼容性和上线检查见 [用户名](../docs/2026-10-04-username.md)。
+
+部署顺序：先 `npm run cloudflare:d1:migrate:api`，再 `npm run cloudflare:deploy:api`，最后发布 Web 和原生客户端。新版客户端提交 `username` 时旧版 API 会拒绝，所以不能先发布客户端。
+
 ## 准备与上传
 
 根目录执行 `npm ci`。把 `cloudflare/.env.example` 复制为被 Git 忽略的 `cloudflare/.env.local`，填写只对 `waikan-2026-audio` 桶有 Object Read & Write 权限的限时 R2 S3 凭证。**不要提交或打印凭证**。

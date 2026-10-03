@@ -17,6 +17,7 @@ import { AppError } from '../../../../server/src/core/errors';
 import { getRemainingQuota, registerAnonymous, requireAuth } from './database';
 import { confirmPasswordReset, issuePasswordResetCode } from './password-reset';
 import { loginWithEmail, loginWithWechat } from './providers';
+import { usernameIssueMessage } from './username';
 
 export { requireAuth } from './database';
 export type { AuthContext } from './database';
@@ -66,11 +67,13 @@ export async function handleAuthRoute(
   if (path === '/v1/auth/email') {
     const parsed = EmailAuthRequestSchema.safeParse(input);
     if (!parsed.success) {
-      throw new AppError('VALIDATION_ERROR', '邮箱或密码格式无效', 400);
+      throw new AppError(
+        'VALIDATION_ERROR', usernameIssueMessage(parsed.error) ?? '邮箱或密码格式无效', 400,
+      );
     }
     const current = await requireAuth(request, env);
     const authUser = await loginWithEmail(
-      env, current, parsed.data.email, parsed.data.password,
+      env, current, parsed.data.email, parsed.data.password, parsed.data.username,
     );
     const remainingFreePractices = await getRemainingQuota(env.DB, authUser.userId);
     return jsonResponse(EmailAuthResponseSchema.parse({
