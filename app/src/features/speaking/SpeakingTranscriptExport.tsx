@@ -30,7 +30,7 @@ export function SpeakingTranscriptExport({ material, notes = {}, disabled = fals
       const label = `导出 ${transcriptFormatLabels[format]} 台词本`;
       const blocked = Boolean(unavailable || exporting);
       return <Pressable key={format} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: blocked, busy: exporting === format }}
-        disabled={blocked} onPress={() => void run(format)} style={[styles.button, { borderColor: theme.accent, opacity: blocked ? .5 : 1 }]}>
+        disabled={blocked} onPress={() => void run(format)} style={[styles.button, { backgroundColor: theme.accentSoft, opacity: blocked ? .5 : 1 }]}>
         {exporting === format ? <ActivityIndicator size="small" color={theme.accent} /> : null}
         <Text style={{ color: theme.accent, fontSize: 14, fontWeight: weight('semibold') }}>{exporting === format ? '正在导出…' : `${transcriptFormatLabels[format]} 台词本`}</Text>
       </Pressable>;
@@ -43,5 +43,5 @@ export function SpeakingTranscriptExport({ material, notes = {}, disabled = fals
 const styles = StyleSheet.create({
   container: { gap: 8, paddingVertical: 18 }, hint: { fontSize: 12, lineHeight: 20 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  button: { minHeight: 44, borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  button: { minHeight: 44, borderRadius: radius.pill, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

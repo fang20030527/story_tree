@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { radius } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { speakingId, type SpeakingCue, type SpeakingMaterial } from './model';
@@ -184,7 +184,7 @@ export function SpeakingImportScreen() {
     } catch (failure) { setError(failure instanceof Error ? failure.message : '文件保存失败，请重试'); }
     finally { setBusy(false); setUploading(false); uploadController.current = null; setPhase(''); }
   };
-  const pickerStyle = { borderWidth: 1, borderStyle: 'dashed' as const, borderColor: theme.textMuted, paddingVertical: 18, paddingHorizontal: 18, minHeight: 76, marginBottom: 12, borderRadius: radius.content };
+  const pickerStyle = { backgroundColor: theme.surfaceAlt, paddingVertical: 18, paddingHorizontal: 18, minHeight: 76, marginBottom: 12, borderRadius: radius.card };
   return <View style={[speakingStyles.page, { backgroundColor: theme.bg }]}><SpeakingHeader title="导入跟读文件" /><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={speakingStyles.content}>
     <Text style={[speakingStyles.heading, { color: theme.text }]}>喜欢的声音，{ '\n' }带进自己的练习。</Text><Text style={[speakingStyles.hint, { color: theme.textMuted, marginBottom: 28 }]}>{library.cloud ? '音视频和字幕保存到你的账号，可在其他设备继续跟读。' : '当前使用本地文件。登录后可将带字幕的音视频保存到云端。'}</Text>
     {!library.cloud ? <Pressable accessibilityRole="button" disabled={working} onPress={() => router.push('/login')} style={{ minHeight: 44, marginBottom: 12 }}><Text style={{ color: theme.accent }}>登录并使用云端文件 →</Text></Pressable> : null}
@@ -200,7 +200,7 @@ export function SpeakingImportScreen() {
     <Text style={[speakingStyles.section, { color: theme.text }]}>字幕来源</Text>
     <Pressable disabled={working} accessibilityRole="button" onPress={() => void pick(true)} style={pickerStyle}><Text style={{ color: theme.accent, fontSize: 16, fontWeight: '600' }}>{subtitleName || '导入已有字幕'}</Text><Text style={[speakingStyles.hint, { color: theme.textMuted }]}>{cues.length ? `已读取 ${cues.length} 句，保存后可以校正` : '支持 SRT／VTT，也可以手动添加'}</Text></Pressable>
     <SpeakingManualSubtitles cues={cues} disabled={working} onChange={next => { setCues(next); setSubtitleName(`已添加 ${next.length} 句字幕`); }} />
-    <View style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border, paddingVertical: 14, marginBottom: 12 }}><Text style={{ color: theme.textMuted, fontSize: 16 }}>先从已有字幕开始</Text><Text style={[speakingStyles.hint, { color: theme.textMuted }]}>{library.cloud ? '导入 SRT／VTT，或手动添加至少一句字幕后即可保存到账号。无字幕文件的自动识别尚未开放。' : '可以导入字幕，或保存到设备后手动添加。无字幕文件的自动识别尚未开放。'}</Text></View>
+    <View style={{ paddingVertical: 14, marginBottom: 12 }}><Text style={{ color: theme.textMuted, fontSize: 16 }}>先从已有字幕开始</Text><Text style={[speakingStyles.hint, { color: theme.textMuted }]}>{library.cloud ? '导入 SRT／VTT，或手动添加至少一句字幕后即可保存到账号。无字幕文件的自动识别尚未开放。' : '可以导入字幕，或保存到设备后手动添加。无字幕文件的自动识别尚未开放。'}</Text></View>
     </> : null}
     {error || library.error ? <Text accessibilityRole="alert" style={[speakingStyles.error, { color: theme.danger }]}>{error || library.error}</Text> : null}
     {library.error ? <Pressable accessibilityRole="button" onPress={library.refresh} style={{ minHeight: 44 }}><Text style={{ color: theme.accent }}>重试读取文件库</Text></Pressable> : null}

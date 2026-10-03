@@ -29,8 +29,8 @@ export default function SpeakingGuide() {
 const styles = StyleSheet.create({
   title: { fontSize: 28, lineHeight: 36, fontWeight: weight('bold') },
   lede: { fontSize: 15, lineHeight: 24, marginTop: 8 },
-  list: { borderTopWidth: 1.5, marginTop: 24 },
-  step: { flexDirection: 'row', gap: 16, paddingVertical: 18, borderBottomWidth: StyleSheet.hairlineWidth },
+  list: { marginTop: 18 },
+  step: { flexDirection: 'row', gap: 16, paddingVertical: 14 },
   number: { fontFamily: fonts.display, fontSize: 22, lineHeight: 26, width: 30 },
   copy: { flex: 1, gap: 6 },
   stepTitle: { fontSize: 17, fontWeight: weight('semibold') },

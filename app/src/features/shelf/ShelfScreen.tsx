@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandHeader, PageHeading, TouchCard } from '@/components/brand';
+import { AbsorbIllustration, BlackHoleLoader, EnterOnce } from '@/components/cosmos';
 
 import { loadRecentViews, type RecentView } from '@/features/library/libraryStorage';
 import { getEditorialArticle } from '@/features/editorial/catalog';
@@ -279,10 +280,10 @@ export function ShelfScreen({
             {recent ? <TouchCard accessibilityLabel="继续上次阅读" onPress={() => {
               if (recent.kind === 'editorial') router.push({ pathname: '/editorial/[id]/read', params: { id: recent.articleId } });
               else router.push({ pathname: '/article-read', params: { id: recent.articleId } });
-            }} style={[styles.resume, { borderTopColor: theme.text, borderBottomColor: theme.border }]}>
+            }} style={[styles.resume, { backgroundColor: theme.surfaceAlt }]}>
               <Text style={[styles.resumeLabel, { color: theme.textMuted }]}>上次读到这里</Text>
               <Text style={[styles.resumeTitle, { color: theme.text }]}>{recent.kind === 'editorial' ? getEditorialArticle(recent.articleId)?.titleEn ?? '继续阅读' : recent.title}</Text>
-              <View style={styles.resumeAction}><Text style={{ color: theme.accent, fontSize: 14, fontWeight: weight('semibold') }}>继续阅读</Text><Ionicons name="arrow-forward" size={16} color={theme.accent} /></View>
+              <View style={[styles.resumeAction, { backgroundColor: theme.accent }]}><Text style={{ color: theme.accentText, fontSize: 13.5, fontWeight: weight('semibold') }}>继续阅读</Text><Ionicons name="arrow-forward" size={14} color={theme.accentText} /></View>
             </TouchCard> : null}
             <View style={styles.bookshelfHeading}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>
@@ -292,12 +293,12 @@ export function ShelfScreen({
                 accessibilityRole="button"
                 accessibilityLabel={managing ? '完成管理' : '管理书架'}
                 onPress={() => setManaging((current) => !current)}>
-                <Text style={[styles.manageHeader, { color: theme.accent }]}>
+                <Text style={[styles.manageHeader, { color: theme.textSecondary }]}>
                   {managing ? '完成' : '管理'}
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.filters}>
+            <View style={[styles.filters, { backgroundColor: theme.surfaceAlt }]}>
               {FILTERS.map(({ key, label }) => (
                 <TouchableOpacity
                   key={key}
@@ -306,11 +307,11 @@ export function ShelfScreen({
                   onPress={() => setFilter(key)}
                   style={[
                     styles.filter,
-                    { backgroundColor: filter === key ? theme.text : theme.surfaceAlt },
+                    filter === key ? [styles.filterOn, { backgroundColor: theme.surface }] : null,
                   ]}>
                   <Text style={{
-                    color: filter === key ? theme.bg : theme.textSecondary,
-                    fontSize: 12,
+                    color: filter === key ? theme.text : theme.textSecondary,
+                    fontSize: 13,
                     fontWeight: weight(filter === key ? 'semibold' : 'regular'),
                   }}>
                     {label}
@@ -342,16 +343,19 @@ export function ShelfScreen({
           </View>
         )}
         ListEmptyComponent={waitingForFirstData ? (
-          <ActivityIndicator color={theme.accent} style={styles.emptySpinner} />
+          <View style={styles.emptySpinner}><BlackHoleLoader size={120} label="正在整理书架" /></View>
         ) : allItems.length === 0 ? (
           <View style={styles.empty}>
+            <EnterOnce><AbsorbIllustration size={200} /></EnterOnce>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
               书架还是空的
             </Text>
+            <Text style={[styles.emptyHint, { color: theme.textSecondary }]}>在外刊里点收藏，文章就会被收进这里。</Text>
             <TouchableOpacity
               accessibilityRole="button"
-              onPress={() => router.push('/')}>
-              <Text style={{ color: theme.accent }}>去外刊看看</Text>
+              onPress={() => router.push('/')}
+              style={[styles.emptyAction, { backgroundColor: theme.accent }]}>
+              <Text style={{ color: theme.accentText, fontSize: 14, fontWeight: weight('semibold') }}>去外刊看看</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -389,22 +393,23 @@ const styles = StyleSheet.create({
   },
   headerSide: { width: 36 },
   headerTitle: { fontSize: 18, fontWeight: weight('semibold') },
-  content: { paddingHorizontal: 24, paddingTop: 12, width: '100%', maxWidth: 1160, alignSelf: 'center' },
-  resume: { borderTopWidth: 2, borderBottomWidth: StyleSheet.hairlineWidth, paddingTop: 14, paddingBottom: 18, marginBottom: 28 },
-  resumeLabel: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.3 },
-  resumeTitle: { fontFamily: fonts.readingMedium, fontSize: 22, lineHeight: 29, marginTop: 10, marginBottom: 14 },
-  resumeAction: { flexDirection: 'row', gap: 4, alignItems: 'center' },
+  content: { paddingHorizontal: 20, paddingTop: 12, width: '100%', maxWidth: 1160, alignSelf: 'center' },
+  resume: { borderRadius: radius.card, padding: 16, marginBottom: 8 },
+  resumeLabel: { fontSize: 12.5 },
+  resumeTitle: { fontFamily: fonts.readingMedium, fontSize: 21, lineHeight: 28, marginTop: 6, marginBottom: 12 },
+  resumeAction: { flexDirection: 'row', gap: 4, alignItems: 'center', alignSelf: 'flex-start', minHeight: 34, paddingLeft: 14, paddingRight: 12, borderRadius: radius.pill },
   bookshelfHeading: {
     alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between',
     marginTop: 24,
   },
-  sectionTitle: { fontSize: 19, fontWeight: weight('bold') },
+  sectionTitle: { fontSize: 19, lineHeight: 26, fontWeight: weight('semibold') },
   manageHeader: { fontSize: 14, fontWeight: weight('medium') },
-  filters: { borderRadius: radius.pill, overflow: 'hidden', flexDirection: 'row', gap: 3, marginVertical: 12 },
+  filters: { borderRadius: radius.pill, padding: 3, flexDirection: 'row', marginVertical: 12 },
   filter: {
-    alignItems: 'center', flex: 1,
-    justifyContent: 'center', paddingVertical: 10,
+    alignItems: 'center', flex: 1, borderRadius: radius.pill,
+    justifyContent: 'center', minHeight: 32,
   },
+  filterOn: { shadowColor: '#22171A', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   inlineStatus: {
     alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 10,
   },
@@ -415,9 +420,11 @@ const styles = StyleSheet.create({
   errorText: { flex: 1, fontSize: 12 },
   actionError: { fontSize: 12, marginBottom: 10 },
   separator: { height: 10 },
-  emptySpinner: { marginTop: 48 },
-  empty: { alignItems: 'center', gap: 10, paddingVertical: 48 },
-  emptyTitle: { fontSize: 16, fontWeight: weight('semibold') },
+  emptySpinner: { marginTop: 36, alignItems: 'center' },
+  empty: { alignItems: 'center', gap: 6, paddingVertical: 28 },
+  emptyTitle: { fontSize: 17, fontWeight: weight('semibold'), marginTop: 4 },
+  emptyHint: { fontSize: 13.5, lineHeight: 21, textAlign: 'center' },
+  emptyAction: { minHeight: 38, paddingHorizontal: 18, borderRadius: radius.pill, justifyContent: 'center', marginTop: 10 },
   filteredEmpty: { paddingVertical: 48, textAlign: 'center' },
   footerSpinner: { marginVertical: 18 },
 });

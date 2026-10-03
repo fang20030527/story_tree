@@ -3,7 +3,6 @@ import type { DashboardDto, VocabularyWordPage } from '@context-reader/contracts
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Platform,
   ScrollView,
   StyleSheet,
@@ -20,7 +19,8 @@ import { getDashboard, getVocabularyWords } from '@/api/practices';
 import { BrandHeader, PageHeading, StatRow, TouchCard } from '@/components/brand';
 
 import { Card } from '@/components/ui';
-import { fonts, radius, weight } from '@/constants/theme';
+import { BlackHoleLoader, Constellation, EnterOnce, LostPlanet, Moon } from '@/components/cosmos';
+import { fonts, radius, spaceGraphic, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 
 // react-native-web 的 Text 默认 overflow-wrap: break-word，窄封面会把单词拆成两行；只在整词之间换行。
@@ -70,6 +70,7 @@ export default function WordsScreen() {
   }, [loadDashboard]));
 
   const number = (value: number | undefined) => (loading ? '—' : (value ?? '—'));
+  const dueCount = number(dashboard?.dueLearningCount);
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
@@ -77,7 +78,7 @@ export default function WordsScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]} showsVerticalScrollIndicator={false}>
         <PageHeading title="词库" description="每个词，都有下次见面。" />
         <View style={styles.review}>
-          <Text testID="due-learning-count" style={[styles.largeCount, { color: dashboard ? theme.text : theme.textMuted }]}>{number(dashboard?.dueLearningCount)}</Text>
+          <Text testID="due-learning-count" style={[styles.largeCount, { color: dashboard ? theme.text : theme.textMuted }]}>{dueCount === '—' ? '…' : dueCount}</Text>
           <Text style={[styles.reviewLabel, { color: theme.textMuted }]}>今天待复习</Text>
           <Text style={[styles.reviewIntro, { color: theme.textSecondary }]}>在一篇新文章里，和这些词再见一面。</Text>
           <TouchCard onPress={() => router.push('/practice/from-vocabulary')} accessibilityLabel="打开 AI 阅读练习"
@@ -88,25 +89,28 @@ export default function WordsScreen() {
         </View>
         <StatRow items={[
           { label: '全部单词', value: number(dashboard?.vocabularyCount), testID: 'total-word-count' },
-          { label: '正在学习', value: number(summary?.learningCount) },
-          { label: '已经掌握', value: number(summary?.masteredCount) },
+          { label: '正在学习', value: number(summary?.learningCount), glyph: <Moon phase={0.5} size={12} /> },
+          { label: '已经掌握', value: number(summary?.masteredCount), glyph: <Moon phase={1} size={12} /> },
         ]} />
         {error ? <Card theme={theme} style={styles.stateCard}>
+          <EnterOnce><LostPlanet size={150} /></EnterOnce>
           <Text style={[styles.stateText, { color: theme.textSecondary }]}>{error}</Text>
-          <TouchableOpacity accessibilityRole="button" onPress={() => void loadDashboard()} style={[styles.retryButton, { borderColor: theme.border }]}><Text style={{ color: theme.text }}>重试</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" onPress={() => void loadDashboard()} style={[styles.retryButton, { backgroundColor: theme.accent }]}><Text style={{ color: theme.accentText, fontWeight: weight('semibold') }}>重试</Text></TouchableOpacity>
         </Card> : null}
-        <View style={styles.bookHeading}><Text style={[styles.bookTitle, { color: theme.text }]}>我的生词本</Text><TouchableOpacity onPress={() => router.push('/vocabulary/book')} style={styles.link}><Text style={{ color: theme.accent }}>查看全部</Text></TouchableOpacity></View>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="打开生词本" onPress={() => router.push('/vocabulary/book')} style={[styles.bookRow, { borderTopColor: theme.text }]}>
-          <View style={[styles.bookCover, { backgroundColor: theme.pink }]}><Text testID="vocabulary-book-cover-title" numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.75}
-            style={[styles.coverText, webWholeWords, { color: theme.onPink }]}>{'Words\nin\ncontext.'}</Text></View>
+        <View style={styles.bookHeading}><Text style={[styles.bookTitle, { color: theme.text }]}>我的生词本</Text><TouchableOpacity onPress={() => router.push('/vocabulary/book')} style={styles.link}><Text style={{ color: theme.textMuted, fontSize: 13 }}>查看全部</Text></TouchableOpacity></View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="打开生词本" activeOpacity={0.86} onPress={() => router.push('/vocabulary/book')} style={[styles.bookRow, { backgroundColor: theme.surfaceAlt }]}>
+          <View style={[styles.bookCover, { backgroundColor: theme.space }]}>
+            <View style={styles.coverStars}><Constellation lit={Math.min(10, Math.max(1, Math.ceil((dashboard?.vocabularyCount ?? 0) / 20)))} size={86} palette={spaceGraphic} seam={theme.space} color={theme.pink} /></View>
+            <Text testID="vocabulary-book-cover-title" numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.75}
+            style={[styles.coverText, webWholeWords, { color: theme.onSpace }]}>{'Words\nin\ncontext.'}</Text></View>
           <View style={styles.entryCopy}>
             <Text style={[styles.entryTitle, { color: theme.text }]}>生词本</Text>
             <Text style={[styles.entryMeta, { color: theme.textSecondary }]}>阅读中遇见的词</Text>
             <Text style={[styles.entryMeta, { color: theme.textMuted }]}>今日新增 <Text testID="today-added-count">{number(dashboard?.todayAddedCount)}</Text> 个</Text>
-            <Text style={[styles.entryHint, { color: theme.accent }]}>打开生词本  →</Text>
+            <Text style={[styles.entryHint, { color: theme.accent }]}>打开生词本 →</Text>
           </View>
         </TouchableOpacity>
-        {loading && !dashboard && !error ? <ActivityIndicator color={theme.accent} style={{ marginTop: 16 }} /> : null}
+        {loading && !dashboard && !error ? <View style={{ marginTop: 16, alignItems: 'center' }}><BlackHoleLoader size={110} label="正在读取词库" /></View> : null}
       </ScrollView>
     </View>
   );
@@ -116,16 +120,17 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { paddingHorizontal: 24, paddingTop: 12, width: '100%', maxWidth: 760, alignSelf: 'center' },
   review: { paddingBottom: 8 },
-  largeCount: { fontFamily: fonts.display, fontSize: 72, lineHeight: 80 },
+  largeCount: { fontFamily: fonts.display, fontSize: 64, lineHeight: 74, fontVariant: ['tabular-nums'] },
   reviewLabel: { fontSize: 13, marginTop: 2 },
   reviewIntro: { fontSize: 14, lineHeight: 22, marginTop: 18 },
   reviewAction: { alignSelf: 'flex-start', borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, minHeight: 46, paddingHorizontal: 18 },
   reviewButton: { fontSize: 15, fontWeight: weight('semibold') },
-  bookHeading: { paddingTop: 20, marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  bookTitle: { fontSize: 19, fontWeight: weight('bold') },
+  bookHeading: { paddingTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  bookTitle: { fontSize: 19, lineHeight: 26, fontWeight: weight('semibold') },
   link: { minHeight: 44, justifyContent: 'center' },
-  bookRow: { flexDirection: 'row', gap: 20, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 8 },
-  bookCover: { width: 94, minHeight: 136, padding: 12, borderTopLeftRadius: 14, borderTopRightRadius: 14, borderBottomLeftRadius: radius.content, borderBottomRightRadius: radius.content },
+  bookRow: { flexDirection: 'row', gap: 18, padding: 12, borderRadius: radius.card, marginTop: 4 },
+  bookCover: { width: 94, minHeight: 136, padding: 12, borderRadius: 14, overflow: 'hidden', justifyContent: 'flex-end' },
+  coverStars: { position: 'absolute', left: 4, top: 6, opacity: 0.9 },
   // 封面内宽只有 70px：17px 时最长的 context. 约 66px，整词不拆行。
   coverText: { fontFamily: fonts.display, fontSize: 17, lineHeight: 22 },
   entryCopy: { flex: 1, justifyContent: 'center' },
@@ -133,6 +138,6 @@ const styles = StyleSheet.create({
   entryMeta: { fontSize: 12, lineHeight: 20, marginTop: 8 },
   entryHint: { fontSize: 13, marginTop: 18 },
   stateCard: { alignItems: 'center', marginBottom: 10, padding: 20 },
-  stateText: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
-  retryButton: { borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center', marginTop: 14, minHeight: 44, paddingHorizontal: 22 },
+  stateText: { fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  retryButton: { borderRadius: radius.pill, justifyContent: 'center', marginTop: 12, minHeight: 40, paddingHorizontal: 22 },
 });

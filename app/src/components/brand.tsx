@@ -1,151 +1,89 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import React, { useRef } from 'react';
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { fonts, orbitTilt, radius, weight } from '@/constants/theme';
-import { useReducedMotion } from '@/components/motion';
+import { BlackHoleLoader } from '@/components/cosmos';
+import { PressFeedback } from '@/components/motion';
+import { fonts, typeScale, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { ModeCapsule } from '@/features/mode/ModeSwitch';
 
 export function BrandLogo({ width = 38 }: { width?: number }) {
   return <Image source={require('../../assets/images/black-hole-english-logo.svg')} accessibilityLabel="黑洞英语 Logo"
     contentFit="contain" style={{ width, height: width / 1.805 }} />;
 }
 
-export function BrandHeader({ action, label, onPress }: { action?: keyof typeof Ionicons.glyphMap; label?: string; onPress?: () => void }) {
+/** 主页面顶栏：logo 与名称；首页在右侧放模式胶囊；可选一个图标或文字操作。 */
+export function BrandHeader({ action, label, onPress, modeSwitch = false }: {
+  action?: keyof typeof Ionicons.glyphMap; label?: string; onPress?: () => void; modeSwitch?: boolean;
+}) {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  return <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-    <View style={styles.brand}><BrandLogo /><Text style={[styles.brandName, { color: theme.text }]}>黑洞英语</Text></View>
-    {onPress ? <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={styles.headerAction}>
-      {action ? <Ionicons name={action} color={theme.text} size={24} /> : <Text style={{ color: theme.text, fontSize: 15 }}>{label}</Text>}
-    </Pressable> : null}
-  </View>;
-}
-
-export function PageHeading({ title, description }: { title: string; description?: string }) {
-  const { theme } = useAppTheme();
-  return <View style={styles.heading}><Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{title}</Text>
-    {description ? <Text style={[styles.description, { color: theme.textMuted }]}>{description}</Text> : null}</View>;
-}
-
-export function StatRow({ items }: { items: { label: string; value: string | number; testID?: string }[] }) {
-  const { theme } = useAppTheme();
-  return <View style={styles.stats}>{items.map(item => <View key={item.label} style={[styles.stat, { backgroundColor: theme.surfaceAlt }]}>
-    <Text testID={item.testID} style={[styles.statValue, { color: item.value === '—' ? theme.textMuted : theme.text }]}>{item.value}</Text>
-    <Text style={[styles.statLabel, { color: theme.textMuted }]}>{item.label}</Text>
-  </View>)}</View>;
-}
-
-export function TouchCard({ children, onPress, style, accessibilityLabel, animateOnPress = false }: { children: React.ReactNode; onPress: () => void; style?: StyleProp<ViewStyle>; accessibilityLabel: string; animateOnPress?: boolean }) {
-  const [reduceMotion, setReduceMotion] = useState(true);
-  const [tapProgress] = useState(() => new Animated.Value(1));
-  const animating = useRef(false);
-  useEffect(() => {
-    let active = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) setReduceMotion(value); }).catch(() => undefined);
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => { active = false; subscription.remove(); };
-  }, []);
-  useEffect(() => () => tapProgress.stopAnimation(), [tapProgress]);
-  const handlePress = () => {
-    if (animating.current) return;
-    if (reduceMotion) {
-      onPress();
-      return;
-    }
-    animating.current = true;
-    Animated.sequence([
-      Animated.timing(tapProgress, { toValue: 0, duration: 80, useNativeDriver: true }),
-      Animated.timing(tapProgress, { toValue: 1, duration: 80, useNativeDriver: true }),
-    ]).start(({ finished }) => {
-      animating.current = false;
-      if (finished) onPress();
-    });
-  };
-  if (animateOnPress) {
-    return <Animated.View style={{
-      opacity: tapProgress.interpolate({ inputRange: [0, 1], outputRange: [.92, 1] }),
-      transform: [{ translateX: tapProgress.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
-    }}>
-      <Pressable onPress={handlePress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
-        style={style}>{children}</Pressable>
-    </Animated.View>;
-  }
-  return <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
-    style={({ pressed }) => [style, { opacity: pressed ? .9 : 1, transform: [{ scale: pressed && !reduceMotion ? .985 : 1 }] }]}>{children}</Pressable>;
-}
-
-/** logo 的书脊：顶部圆、底部方的豆沙粉竖条，中文按字竖排。 */
-export function Spine({ label, style }: { label: string; style?: StyleProp<ViewStyle> }) {
-  const { theme } = useAppTheme();
-  return <View style={[styles.spine, { backgroundColor: theme.pink }, style]}>
-    <Text style={[styles.spineText, { color: theme.onPink }]}>{label}</Text>
-  </View>;
-}
-
-function useLayoutSize() {
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  const onLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setSize(current => current.width === width && current.height === height ? current : { width, height });
-  };
-  return [size, onLayout] as const;
-}
-
-const TAN_TILT = Math.tan(Math.PI / 9);
-
-/** logo 构图：朱橙椭圆在后，豆沙粉楔形以 20° 斜边压在前面。纯装饰，铺满父容器。 */
-export function LogoPlanes({ split = 0.62, level = 0.4 }: { split?: number; level?: number }) {
-  const { theme } = useAppTheme();
-  const [{ width: w, height: h }, onLayout] = useLayoutSize();
-  return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-    onLayout={onLayout} style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
-    {w > 0 ? <>
-      <View style={{ position: 'absolute', left: w * 0.46, top: -h * 0.05, width: w * 0.66, height: h * 1.1, borderRadius: '50%', backgroundColor: theme.vermilion, transform: [{ rotate: orbitTilt }] }} />
-      <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: w * split, overflow: 'hidden' }}>
-        <View style={{ position: 'absolute', left: -w / 2, top: h * level + (w / 2) * TAN_TILT, width: w * 2, height: (w + h) * 2, backgroundColor: theme.pink, transformOrigin: 'left top', transform: [{ rotate: '-20deg' }] }} />
-      </View>
-    </> : null}
-  </View>;
-}
-
-/** logo 轨道加载：倾斜 20° 的椭圆，中心黑洞，朱橙小点沿轨道绕行；减少动态效果时静止。 */
-export function OrbitLoader({ size = 120, label = '正在生成' }: { size?: number; label?: string }) {
-  const { theme } = useAppTheme();
-  const reduced = useReducedMotion();
-  const [spin] = useState(() => new Animated.Value(0));
-  useEffect(() => {
-    if (reduced) { spin.setValue(0.15); return; }
-    const loop = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 2600, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' }));
-    loop.start();
-    return () => loop.stop();
-  }, [reduced, spin]);
-  const hole = theme.mode === 'dark' ? theme.bg : theme.text;
-  return <View accessibilityRole="progressbar" accessibilityLabel={label} style={{ width: size, height: size * 0.62, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: orbitTilt }, { scaleY: 0.42 }] }}>
-      <View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: theme.textMuted, opacity: 0.4 }} />
-      <Animated.View style={{ position: 'absolute', width: size, height: size, transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}>
-        <View style={{ position: 'absolute', top: -7, left: size / 2 - 7, width: 14, height: 14, borderRadius: 7, backgroundColor: theme.vermilion }} />
-      </Animated.View>
-      <View style={{ width: size * 0.3, height: size * 0.3, borderRadius: size * 0.15, backgroundColor: hole }} />
+  return <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+    <View style={styles.brand}><BrandLogo width={34} /><Text style={[styles.brandName, { color: theme.text }]}>黑洞英语</Text></View>
+    <View style={styles.headerSide}>
+      {modeSwitch ? <ModeCapsule /> : null}
+      {onPress ? <PressFeedback onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={styles.headerAction} hitSlop={4}>
+        {action ? <Ionicons name={action} color={theme.text} size={22} /> : <Text style={{ color: theme.text, fontSize: 15, fontWeight: weight('medium') }}>{label}</Text>}
+      </PressFeedback> : null}
     </View>
   </View>;
 }
 
+/** 页面标题：中粗 27pt，说明在下方一行。 */
+export function PageHeading({ title, description }: { title: string; description?: string }) {
+  const { theme } = useAppTheme();
+  return <View style={styles.heading}>
+    <Text accessibilityRole="header" style={[styles.title, { color: theme.text }]}>{title}</Text>
+    {description ? <Text style={[styles.description, { color: theme.textSecondary }]}>{description}</Text> : null}
+  </View>;
+}
+
+type StatItem = { label: string; value: string | number; testID?: string; glyph?: React.ReactNode };
+
+/** 统计：数字用 Literata 等宽数字；还没读到时显示省略号，不再用灰色短横。 */
+export function StatRow({ items, style }: { items: StatItem[]; style?: StyleProp<ViewStyle> }) {
+  const { theme } = useAppTheme();
+  return <View style={[styles.stats, style]}>{items.map(item => {
+    const pending = item.value === '—';
+    return <View key={item.label} style={[styles.stat, { backgroundColor: theme.surfaceAlt }]}>
+      <Text testID={item.testID} style={[styles.statValue, { color: pending ? theme.textMuted : theme.text }]}>{pending ? '…' : item.value}</Text>
+      <View style={styles.statLabelRow}>{item.glyph}<Text style={[styles.statLabel, { color: theme.textMuted }]}>{item.label}</Text></View>
+    </View>;
+  })}</View>;
+}
+
+/** 可点的内容卡片：按压时缩到 0.97、透明度 0.86；600ms 内连点只触发一次，避免重复打开同一页。 */
+export function TouchCard({ children, onPress, style, accessibilityLabel }: { children: React.ReactNode; onPress: () => void; style?: StyleProp<ViewStyle>; accessibilityLabel: string }) {
+  const lastPress = useRef(0);
+  const press = () => {
+    const now = Date.now();
+    if (now - lastPress.current < 600) return;
+    lastPress.current = now;
+    onPress();
+  };
+  return <PressFeedback onPress={press} accessibilityRole="button" accessibilityLabel={accessibilityLabel} style={style}>{children}</PressFeedback>;
+}
+
+/** 生成与加载：黑洞吸积盘流动、粒子绕盘运行；减少动态效果时静止。 */
+export function OrbitLoader({ size = 150, label = '正在生成' }: { size?: number; label?: string }) {
+  return <BlackHoleLoader size={size} label={label} />;
+}
+
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingBottom: 16, minHeight: 64 },
-  brand: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  brandName: { fontSize: 17, fontWeight: weight('semibold') },
-  headerAction: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
-  heading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 12, marginBottom: 20 },
-  title: { fontSize: 32, lineHeight: 40, fontWeight: weight('bold') },
-  description: { fontSize: 13, lineHeight: 20 },
-  stats: { flexDirection: 'row', gap: 3, marginVertical: 22 },
-  stat: { flex: 1, minWidth: 0, borderRadius: radius.content, paddingHorizontal: 12, paddingVertical: 12 },
-  statValue: { fontFamily: fonts.display, fontSize: 30, lineHeight: 36 },
-  statLabel: { fontSize: 12, marginTop: 2 },
-  spine: { alignItems: 'center', paddingTop: 12, paddingBottom: 9, paddingHorizontal: 5, borderTopLeftRadius: 14, borderTopRightRadius: 14, borderBottomLeftRadius: radius.content, borderBottomRightRadius: radius.content },
-  spineText: { width: 14, fontSize: 12, lineHeight: 15, fontWeight: weight('semibold'), textAlign: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 6, minHeight: 58 },
+  brand: { flexDirection: 'row', gap: 9, alignItems: 'center' },
+  brandName: { fontSize: 16, fontWeight: weight('semibold'), letterSpacing: 0.3 },
+  headerSide: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerAction: { minHeight: 40, minWidth: 40, alignItems: 'center', justifyContent: 'center' },
+  heading: { marginBottom: 18, gap: 2 },
+  title: { ...typeScale.pageTitle, letterSpacing: 0.4 },
+  description: { fontSize: 14, lineHeight: 21 },
+  stats: { flexDirection: 'row', gap: 8, marginVertical: 18 },
+  stat: { flex: 1, minWidth: 0, borderRadius: 16, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 10, gap: 2 },
+  statValue: { fontFamily: fonts.display, fontSize: 27, lineHeight: 33, fontVariant: ['tabular-nums'] },
+  statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statLabel: { fontSize: 12 },
 });

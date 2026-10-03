@@ -1,3 +1,4 @@
+import { markTabBadge } from '@/components/tabIcons';
 import { fonts, radius } from '@/constants/theme';
 import type {
   AssistanceResponse,
@@ -765,6 +766,7 @@ export function InteractiveWordParagraph({
     try {
       const idempotencyKey = await keyForItem(item);
       await onAddToVocabulary(item, idempotencyKey);
+      markTabBadge('words');
       if (!mountedRef.current) return;
       setLocallyAddedWords((current) => {
         const next = new Set(current);
@@ -905,8 +907,8 @@ export function InteractiveWordParagraph({
                 style={[
                   styles.addWordButton,
                   isWordAdded(visibleHint.term)
-                    ? { backgroundColor: addedWordColor, borderColor: addedWordColor }
-                    : { borderColor: targetColor },
+                    ? { backgroundColor: addedWordColor }
+                    : { backgroundColor: targetColor.length === 7 ? `${targetColor}1F` : 'rgba(197, 65, 36, 0.12)' },
                   { opacity: visibleHint.adding ? 0.65 : 1 },
                 ]}>
                 {visibleHint.adding ? (
@@ -949,8 +951,7 @@ const styles = StyleSheet.create({
   sectionHeading: { fontFamily: fonts.readingSemibold, fontSize: 23, lineHeight: 32, marginTop: 16, marginBottom: 20 },
   paragraph: { fontFamily: fonts.reading, fontSize: 17, lineHeight: 30, marginBottom: 18 },
   hint: {
-    borderRadius: radius.option,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 18,
     marginBottom: 18,
     marginTop: -10,
     padding: 12,
@@ -966,14 +967,13 @@ const styles = StyleSheet.create({
   hintPartOfSpeech: { color: '#000000', fontFamily: fonts.label, fontSize: 12, marginTop: 8 },
   hintMeaning: { color: '#000000', fontSize: 15, lineHeight: 23, marginTop: 4 },
   hintError: { fontSize: 13, marginTop: 6 },
-  savedContext: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#dedede', marginTop: 12, paddingTop: 10 },
+  savedContext: { marginTop: 12, paddingTop: 4 },
   contextLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
   contextSentence: { fontSize: 14, lineHeight: 22 },
   addWordButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
     borderRadius: radius.pill,
-    borderWidth: 1.5,
     flexDirection: 'row',
     gap: 4,
     marginTop: 14,

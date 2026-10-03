@@ -165,7 +165,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
         </Text>
         <TouchableOpacity
           onPress={reloadPractice}
-          style={[styles.retryButton, { borderColor: theme.border }]}>
+          style={[styles.retryButton, { backgroundColor: theme.surfaceAlt }]}>
           <Text style={[styles.retryText, { color: theme.text }]}>重试</Text>
         </TouchableOpacity>
       </View>
@@ -232,13 +232,13 @@ function QuizContent({ practiceId }: { practiceId: string }) {
                     setQuestionIndex(0);
                     setMode('retry');
                   }}
-                  style={[styles.retryButton, { borderColor: theme.accent }]}>
+                  style={[styles.retryButton, { backgroundColor: theme.accentSoft }]}>
                   <Text style={[styles.retryText, { color: theme.accent }]}>再练一次</Text>
                 </TouchableOpacity>}
                 {mode === 'review' && questionIndex > 0 && <TouchableOpacity
                   accessibilityRole="button"
                   onPress={() => setQuestionIndex((index) => index - 1)}
-                  style={[styles.retryButton, { borderColor: theme.border }]}>
+                  style={[styles.retryButton, { backgroundColor: theme.surfaceAlt }]}>
                   <Text style={{ color: theme.text }}>上一题</Text>
                 </TouchableOpacity>}
               </View>
@@ -305,7 +305,6 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 26 },
   splitContent: { flex: 1, minHeight: 0 },
   questionPane: {
-    borderTopWidth: StyleSheet.hairlineWidth,
     flex: 1,
     minHeight: 0,
   },
@@ -314,7 +313,6 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 14, lineHeight: 22, textAlign: 'center' },
   retryButton: {
     borderRadius: radius.pill,
-    borderWidth: 1,
     justifyContent: 'center',
     marginTop: 16,
     minHeight: 44,

@@ -5,7 +5,8 @@ import { ActivityIndicator, StyleSheet, Text, View, type StyleProp, type TextSty
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressFeedback } from '@/components/motion';
-import { fonts, orbitTilt, radius, weight } from '@/constants/theme';
+import { fonts, radius, typeScale, weight } from '@/constants/theme';
+import { useModeAccent } from '@/context/modeAccent';
 import { useAppTheme } from '@/context/ThemeContext';
 
 const goBack = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)'));
@@ -25,10 +26,10 @@ export function SubpageHeader({ title, right, onBack = goBack, backLabel = '返�
   </View>;
 }
 
-/** 小节标题：粗体中文 + 右侧文字操作，下方一条墨色细线。 */
+/** 小节标题：中粗中文 + 右侧文字操作；靠留白和内容分开，不画线。 */
 export function SectionHeading({ title, action, style }: { title: string; action?: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   const { theme } = useAppTheme();
-  return <View style={[styles.section, { borderBottomColor: theme.text }, style]}>
+  return <View style={[styles.section, style]}>
     <Text accessibilityRole="header" style={[styles.sectionTitle, { color: theme.text }]}>{title}</Text>
     {action}
   </View>;
@@ -41,7 +42,7 @@ export function Meta({ children, style, tone = 'muted' }: { children: React.Reac
   return <Text style={[styles.meta, { color }, style]}>{children}</Text>;
 }
 
-/** 细线列表行：主文字、说明、右侧值或箭头。 */
+/** 列表行：主文字、说明、右侧值或箭头。行之间不画分隔线，需要分组时放进 ListGroup。 */
 export function ListRow({ label, hint, value, onPress, accessibilityLabel, tone = 'ink', chevron = true }: {
   label: string; hint?: string; value?: string; onPress?: () => void; accessibilityLabel?: string; tone?: 'ink' | 'danger'; chevron?: boolean;
 }) {
@@ -54,8 +55,14 @@ export function ListRow({ label, hint, value, onPress, accessibilityLabel, tone 
     {value ? <Text style={[styles.rowValue, { color: theme.textMuted }]}>{value}</Text> : null}
     {onPress && chevron ? <Ionicons name="chevron-forward" size={16} color={theme.textMuted} /> : null}
   </>;
-  if (!onPress) return <View style={[styles.row, { borderBottomColor: theme.border }]}>{content}</View>;
-  return <PressFeedback accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} onPress={onPress} style={[styles.row, { borderBottomColor: theme.border }]}>{content}</PressFeedback>;
+  if (!onPress) return <View style={styles.row}>{content}</View>;
+  return <PressFeedback accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} onPress={onPress} style={styles.row}>{content}</PressFeedback>;
+}
+
+/** 列表分组：浅色底、20 圆角，行与行之间靠高度和留白区分。 */
+export function ListGroup({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  const { theme } = useAppTheme();
+  return <View style={[styles.group, { backgroundColor: theme.surfaceAlt }, style]}>{children}</View>;
 }
 
 type ActionProps = { label: string; onPress: () => void; disabled?: boolean; busy?: boolean; accessibilityLabel?: string; style?: StyleProp<ViewStyle>; arrow?: boolean };
@@ -72,12 +79,12 @@ export function PrimaryAction({ label, onPress, disabled = false, busy = false, 
   </PressFeedback>;
 }
 
-/** 次要操作：朱橙描边胶囊。 */
+/** 次要操作：朱橙浅底胶囊，不用描边。 */
 export function SecondaryAction({ label, onPress, disabled = false, accessibilityLabel, style }: ActionProps) {
   const { theme } = useAppTheme();
   return <PressFeedback accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
-    style={[styles.secondary, { borderColor: disabled ? theme.border : theme.accent, opacity: disabled ? 0.5 : 1 }, style]}>
-    <Text style={[styles.secondaryText, { color: theme.accent }]}>{label}</Text>
+    style={[styles.secondary, { backgroundColor: disabled ? theme.surfaceAlt : theme.accentSoft }, style]}>
+    <Text style={[styles.secondaryText, { color: disabled ? theme.textMuted : theme.accent }]}>{label}</Text>
   </PressFeedback>;
 }
 
@@ -92,14 +99,16 @@ export function TextAction({ label, onPress, disabled = false, accessibilityLabe
   </PressFeedback>;
 }
 
-/** 文字开关：选中时墨色加粗，下方一枚 20° 倾斜的朱橙椭圆，与底部导航一致。 */
+/** 开关胶囊：选中时用模式色浅底、模式色文字并带勾；未选中是分组底色。 */
 export function ToggleText({ label, active = false, onPress, accessibilityLabel, disabled = false }: {
   label: string; active?: boolean; onPress: () => void; accessibilityLabel?: string; disabled?: boolean;
 }) {
   const { theme } = useAppTheme();
-  return <PressFeedback accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ selected: active, disabled }} aria-pressed={active} disabled={disabled} onPress={onPress} style={[styles.toggle, { opacity: disabled ? 0.45 : 1 }]}>
-    <Text style={[styles.toggleLabel, { color: active ? theme.text : theme.textSecondary, fontWeight: weight(active ? 'semibold' : 'regular') }]}>{label}</Text>
-    <View style={[styles.toggleMark, { backgroundColor: active ? theme.vermilion : 'transparent' }]} />
+  const accent = useModeAccent();
+  return <PressFeedback accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ selected: active, disabled }} aria-pressed={active} disabled={disabled} onPress={onPress}
+    style={[styles.toggle, { backgroundColor: active ? accent.soft : theme.surfaceAlt, opacity: disabled ? 0.45 : 1 }]}>
+    {active ? <Ionicons name="checkmark" size={13} color={accent.ink} /> : null}
+    <Text style={[styles.toggleLabel, { color: active ? accent.ink : theme.textSecondary, fontWeight: weight(active ? 'semibold' : 'regular') }]}>{label}</Text>
   </PressFeedback>;
 }
 
@@ -116,10 +125,10 @@ export function SheetFrame({ title, children, style }: { title: string; children
 
 export const subpageStyles = StyleSheet.create({
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 24 },
-  title: { fontSize: 28, lineHeight: 36, fontWeight: weight('bold') },
+  title: { fontSize: 27, lineHeight: 36, fontWeight: weight('semibold') },
   lede: { fontSize: 15, lineHeight: 24 },
   hint: { fontSize: 12, lineHeight: 19 },
-  number: { fontFamily: fonts.display, fontSize: 32, lineHeight: 38 },
+  number: { fontFamily: fonts.display, fontSize: 32, lineHeight: 38, fontVariant: ['tabular-nums'] },
 });
 
 const styles = StyleSheet.create({
@@ -127,24 +136,24 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: weight('semibold') },
   headerSide: { minWidth: 44, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 8 },
   touch: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  section: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderBottomWidth: 1.5, paddingBottom: 8, marginTop: 32, marginBottom: 4, gap: 12 },
-  sectionTitle: { fontSize: 17, fontWeight: weight('bold') },
+  section: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 30, marginBottom: 10, gap: 12 },
+  sectionTitle: { ...typeScale.section },
   meta: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 12, paddingHorizontal: 2 },
+  group: { borderRadius: radius.card, paddingHorizontal: 14, paddingVertical: 4 },
   rowCopy: { flex: 1, minWidth: 0, gap: 3 },
   rowLabel: { fontSize: 16, fontWeight: weight('medium') },
   rowHint: { fontSize: 12, lineHeight: 18 },
   rowValue: { fontSize: 13 },
   primary: { minHeight: 50, borderRadius: radius.pill, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   primaryText: { fontSize: 16, fontWeight: weight('semibold') },
-  secondary: { minHeight: 44, borderRadius: radius.pill, borderWidth: 1.5, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
+  secondary: { minHeight: 44, borderRadius: radius.pill, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { fontSize: 14, fontWeight: weight('semibold') },
   textAction: { minHeight: 44, justifyContent: 'center' },
   textActionLabel: { fontSize: 14, fontWeight: weight('semibold') },
-  toggle: { minHeight: 44, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', gap: 5 },
+  toggle: { minHeight: 32, paddingHorizontal: 12, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginVertical: 6 },
   toggleLabel: { fontSize: 13 },
-  toggleMark: { width: 12, height: 4, borderRadius: '50%', transform: [{ rotate: orbitTilt }] },
   sheet: { width: '100%', maxWidth: 560, alignSelf: 'center', borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingHorizontal: 24, paddingTop: 10, maxHeight: '88%' },
   grip: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 14 },
-  sheetTitle: { fontSize: 20, fontWeight: weight('bold'), marginBottom: 12 },
+  sheetTitle: { fontSize: 19, fontWeight: weight('semibold'), marginBottom: 12 },
 });

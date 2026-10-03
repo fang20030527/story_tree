@@ -4,11 +4,16 @@ import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { useFonts } from 'expo-font';
 import { ResponsiveFrame } from '@/components/ResponsiveFrame';
+import { preloadReducedMotion } from '@/components/motion';
+import { AbsorbLayer } from '@/components/absorb';
 
 import { AppThemeProvider } from '@/context/ThemeContext';
 import { LearningModeProvider, useLearningMode } from '@/context/LearningModeContext';
 import { EditorialAudioProvider, useEditorialAudio } from '@/features/editorial/EditorialAudioProvider';
 import { FloatingEditorialAudioPlayer } from '@/features/editorial/FloatingEditorialAudioPlayer';
+
+// 启动时就读出“减少动态效果”，之后挂载的页面能同步决定是否播放入场动效。
+preloadReducedMotion();
 
 function ModeAudioOverlay() {
   const { mode } = useLearningMode();
@@ -20,8 +25,6 @@ function ModeAudioOverlay() {
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     ...(Platform.OS === 'web' ? Ionicons.font : {}),
-    HeidongBrand: require('../../assets/fonts/HeidongBrand-Bold.ttf'),
-    HeidongBrandSemiBold: require('../../assets/fonts/HeidongBrand-SemiBold.ttf'),
     HeidongReading: require('../../assets/fonts/HeidongReading-Regular.ttf'),
     HeidongReadingMedium: require('../../assets/fonts/HeidongReading-Medium.ttf'),
     HeidongReadingSemiBold: require('../../assets/fonts/HeidongReading-SemiBold.ttf'),
@@ -56,6 +59,7 @@ export default function RootLayout() {
             <Stack.Screen name="pro" />
           </Stack>
           <ModeAudioOverlay />
+          <AbsorbLayer />
         </ResponsiveFrame>
       </EditorialAudioProvider>
       </LearningModeProvider>

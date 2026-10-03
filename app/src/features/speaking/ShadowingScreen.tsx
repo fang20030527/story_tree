@@ -6,8 +6,9 @@ import { FlatList, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, Tex
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, weight } from '@/constants/theme';
 import { FadeOnChange, animateNextLayout, useReducedMotion } from '@/components/motion';
-import { ListRow, Meta, SheetFrame, TextAction, ToggleText } from '@/components/subpage';
+import { ListGroup, ListRow, Meta, SheetFrame, TextAction, ToggleText } from '@/components/subpage';
 import { useAppTheme } from '@/context/ThemeContext';
+import { useModeAccent } from '@/context/modeAccent';
 import { useEditorialAudio } from '@/features/editorial/EditorialAudioProvider';
 import { curiosityNotes, speakingVocabulary } from './annotations';
 import { speakingSourceLabel } from './catalog';
@@ -44,6 +45,7 @@ export function ShadowingScreen() {
 }
 function ShadowingPractice({ material, library, scope }: { material: SpeakingMaterial; library: ReturnType<typeof useSpeakingLibrary>; scope: string }) {
   const { theme } = useAppTheme();
+  const accent = useModeAccent();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const { width, height } = useWindowDimensions();
@@ -280,8 +282,8 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
     const translatedTextZh = lines.map(line => line.zh).filter(value => value.trim()).join(' ');
     const status = (value: 'loading' | 'error') => missing.some(line => translations.states[line.id]?.sourceText === line.en && translations.states[line.id]?.status === value);
     const translationStatus = material.origin !== 'file' ? undefined : status('error') ? 'error' : status('loading') ? 'loading' : missing.length ? 'waiting' : undefined;
-    return <ShadowingCue key={item.id} item={item} selected={index >= item.index && index <= item.endIndex} hidden={masked && !revealed.has(item.id)} disabled={!loaded || recordActive} saved={isSaved(item.id)} subtitles={subtitles} fontSize={fontSize} translatedTextZh={translatedTextZh} translationStatus={translationStatus} onRetryTranslation={translations.retry} onPlay={playCue} onSave={setCueSaved} onLookup={lookup} />;
-  }, [index, masked, revealed, loaded, recordActive, isSaved, subtitles, fontSize, playCue, setCueSaved, lookup, cues, translations.states, translations.retry, material.origin]);
+    return <ShadowingCue key={item.id} item={item} selected={index >= item.index && index <= item.endIndex} live={playing && index >= item.index && index <= item.endIndex} hidden={masked && !revealed.has(item.id)} disabled={!loaded || recordActive} saved={isSaved(item.id)} subtitles={subtitles} fontSize={fontSize} translatedTextZh={translatedTextZh} translationStatus={translationStatus} onRetryTranslation={translations.retry} onPlay={playCue} onSave={setCueSaved} onLookup={lookup} />;
+  }, [index, playing, masked, revealed, loaded, recordActive, isSaved, subtitles, fontSize, playCue, setCueSaved, lookup, cues, translations.states, translations.retry, material.origin]);
   const webRows = useMemo(() => Platform.OS === 'web' ? blocks.map(item => renderCue({ item })) : null, [blocks, renderCue]);
   const onTranscriptLayout = useCallback(() => { if (autoScroll && loaded) { clearTimeout(scrollRetry.current); scrollRetry.current = setTimeout(scrollToCurrent, 150); } }, [autoScroll, loaded, scrollToCurrent]);
   const emptyTranscript = <Text style={{ color: theme.textMuted, padding: 24 }}>{material.cues.length ? '没有匹配的台词' : '还没有台词，请展开工具后点「编辑」添加或校正。'}</Text>;
@@ -298,11 +300,11 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
     <ScrollView accessibilityLabel="播放器与练习工具" scrollEnabled={!seeking} onLayout={measureMediaBody} style={styles.mediaBody} stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
     <View onLayout={measureMedia} style={{ backgroundColor: theme.bg, paddingBottom: 12 }}>{source !== null ? engine : null}</View>
     {mediaError || playback.error ? <View><Text accessibilityRole="alert" style={[speakingStyles.error, { color: theme.danger }]}>{mediaError || playback.error}</Text><Pressable accessibilityRole="button" onPress={() => { resumeAt.current = livePlayback.current.time; resumed.current = false; autoRefreshBudget.current = 1; setMediaError(''); setRevision(value => value + 1); }} style={styles.touch}><Text style={{ color: theme.accent }}>重试音视频</Text></Pressable></View> : null}
-    {toolsExpanded ? <ScrollView horizontal scrollEnabled={!seeking} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tools}>{tool('自动滚动', () => setAutoScroll(!autoScroll), autoScroll)}{tool('自动分段', () => setSegmented(!segmented), segmented)}{tool('已收藏句', () => setSavedOnly(!savedOnly), savedOnly)}{tool('查找', () => { setSearching(!searching); setQuery(''); }, searching)}<View style={[styles.toolDivider, { backgroundColor: theme.border }]} />{tool('讲解', () => setSheet('explain'))}{tool('词汇', () => { setWord(''); setSheet('words'); })}{tool('编辑', () => openPage('/speaking/edit'))}{tool('更多', () => setSheet('more'))}</ScrollView> : null}
+    {toolsExpanded ? <ScrollView horizontal scrollEnabled={!seeking} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tools}>{tool('自动滚动', () => setAutoScroll(!autoScroll), autoScroll)}{tool('自动分段', () => setSegmented(!segmented), segmented)}{tool('已收藏句', () => setSavedOnly(!savedOnly), savedOnly)}{tool('查找', () => { setSearching(!searching); setQuery(''); }, searching)}<View style={styles.toolGap} />{tool('讲解', () => setSheet('explain'))}{tool('词汇', () => { setWord(''); setSheet('words'); })}{tool('编辑', () => openPage('/speaking/edit'))}{tool('更多', () => setSheet('more'))}</ScrollView> : null}
     </ScrollView>
     </View>
-    <View style={[styles.transcriptPane, { borderLeftWidth: splitLayout ? .5 : 0, borderTopWidth: splitLayout ? 0 : .5, borderColor: theme.border, paddingLeft: splitLayout ? 24 : 0 }]}>
-    <View style={[styles.transcriptHeading, { borderBottomColor: theme.text }]}>
+    <View style={styles.transcriptPane}>
+    <View style={styles.transcriptHeading}>
       <View style={styles.paneHeading}><Text accessibilityRole="header" style={[styles.transcriptTitle, { color: theme.text }]}>台词</Text><TextAction label="当前句" accessibilityLabel="定位当前台词" disabled={selectedBlock < 0} onPress={() => { clearTimeout(scrollRetry.current); scrollAttempts.current = 0; if (Platform.OS !== 'web') setSubtitleRevision(value => value + 1); scrollToCurrent(); scrollRetry.current = setTimeout(scrollToCurrent, 150); }} /></View>
       <Meta>{speakingAccentLabel(material)} · {material.cues.length} 句 · {formatSpeakingTime(playback.duration || material.duration)} · {speakingSourceLabel(material)}{cue ? ` · 第 ${playback.index + 1} 句` : ''}</Meta>
     </View>
@@ -319,16 +321,22 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
     }} renderItem={renderCue} contentContainerStyle={{ paddingBottom: 24, width: '100%' }} />}
     </View>
     </View>
-    <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: Math.max(8, insets.bottom) }]}><View style={styles.footerInner}>
+    <View style={[styles.footer, { backgroundColor: theme.surface, paddingBottom: Math.max(8, insets.bottom) }]}><View style={styles.footerInner}>
     <ShadowingProgress time={playback.currentTime} duration={playback.duration} enabled={playback.loaded && !recordActive} seek={time => void playback.seek(time)} onDragChange={setSeeking} />
     <View style={styles.transport}>
-      <TextAction label={recordActive ? '录音中' : '录音'} accessibilityLabel={recordActive ? '录音／回放中' : '录音'} tone={recordPanel ? 'accent' : 'muted'} onPress={() => { if (!recordActive) { animateNextLayout(reducedMotion); setRecordPanel(!recordPanel); } }} style={styles.transportSide} />
+      <Pressable accessibilityRole="button" accessibilityLabel={recordActive ? '录音／回放中' : '录音'} accessibilityState={{ expanded: recordPanel }} onPress={() => { if (!recordActive) { animateNextLayout(reducedMotion); setRecordPanel(!recordPanel); } }} style={({ pressed }) => [styles.transportSide, { opacity: pressed ? .86 : 1 }]}>
+        <View style={[styles.sideButton, { backgroundColor: recordPanel || recordActive ? accent.ink : accent.soft }]}><Ionicons name="mic" size={19} color={recordPanel || recordActive ? theme.surface : accent.ink} /></View>
+        <Text style={[styles.sideLabel, { color: recordPanel || recordActive ? accent.ink : theme.textSecondary }]}>{recordActive ? '录音中' : '录音'}</Text>
+      </Pressable>
       <View style={styles.transportCenter}>
         <Pressable accessibilityRole="button" accessibilityLabel="上一句" onPress={() => { if (!recordActive) void playback.seek(material.cues[Math.max(0, playback.index - 1)]?.start ?? 0, true); }} style={styles.touch}><Ionicons name="play-skip-back" size={22} color={theme.text} /></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={playback.playing || playback.waiting ? '暂停原音' : '播放原音'} disabled={!playback.loaded || recordActive} accessibilityState={{ disabled: !playback.loaded || recordActive }} onPress={() => void playback.toggle()} style={({ pressed }) => [styles.play, { backgroundColor: theme.accent, opacity: playback.loaded && !recordActive ? pressed ? .82 : 1 : .4, transform: [{ scale: pressed && !reducedMotion ? .96 : 1 }] }]}><Ionicons name={playback.playing || playback.waiting ? 'pause' : 'play'} size={26} color={theme.accentText} style={playback.playing || playback.waiting ? undefined : { marginLeft: 3 }} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={playback.playing || playback.waiting ? '暂停原音' : '播放原音'} disabled={!playback.loaded || recordActive} accessibilityState={{ disabled: !playback.loaded || recordActive }} onPress={() => void playback.toggle()} style={({ pressed }) => [styles.play, { backgroundColor: theme.text, opacity: playback.loaded && !recordActive ? pressed ? .86 : 1 : .4, transform: [{ scale: pressed && !reducedMotion ? .97 : 1 }] }]}><Ionicons name={playback.playing || playback.waiting ? 'pause' : 'play'} size={26} color={theme.surface} style={playback.playing || playback.waiting ? undefined : { marginLeft: 3 }} /></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="下一句" onPress={() => { if (!recordActive) void playback.seek(material.cues[Math.min(material.cues.length - 1, playback.index + 1)]?.start ?? 0, true); }} style={styles.touch}><Ionicons name="play-skip-forward" size={22} color={theme.text} /></Pressable>
       </View>
-      <TextAction label="设置" tone="muted" onPress={() => setSettings(true)} style={[styles.transportSide, { alignItems: 'flex-end' }]} />
+      <Pressable accessibilityRole="button" accessibilityLabel="设置" onPress={() => setSettings(true)} style={({ pressed }) => [styles.transportSide, { opacity: pressed ? .86 : 1 }]}>
+        <View style={[styles.sideButton, { backgroundColor: theme.surfaceAlt }]}><Text style={[styles.rate, { color: theme.text }]}>{playback.rate}×</Text></View>
+        <Text style={[styles.sideLabel, { color: theme.textSecondary }]}>设置</Text>
+      </Pressable>
     </View>
     <ScrollView horizontal scrollEnabled={!seeking} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modes}>{tool('逐句复读', () => { if (cue && !recordActive && playback.loaded) playback.startLoop(playback.loop?.kind === 'sentence' ? null : { kind: 'sentence', start: cue.start, end: cue.end }); }, playback.loop?.kind === 'sentence')}{tool(abStart !== null ? '设置 B 点' : 'AB 复读', () => {
       if (!playback.loaded || recordActive) return;
@@ -347,7 +355,7 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
       {sheet === 'explain' ? <><Text style={{ color: theme.text, fontFamily: fonts.reading, fontSize: 20, lineHeight: 30 }}>{cue?.en}</Text><Text style={[speakingStyles.hint, { color: theme.textMuted, marginVertical: 15 }]}>{cue?.zh}</Text>{material.id === 'curiosity' && curiosityNotes[playback.index] ? <><Text style={{ color: theme.text, fontSize: 17, fontWeight: weight('semibold') }}>{curiosityNotes[playback.index].phrase}</Text><Text style={[speakingStyles.hint, { color: theme.textSecondary, marginVertical: 12 }]}>{curiosityNotes[playback.index].text}</Text><Text style={{ color: theme.text, fontSize: 15, lineHeight: 25 }}>{curiosityNotes[playback.index].rhythm}</Text><Text style={[speakingStyles.hint, { color: theme.textMuted, marginTop: 20 }]}>素材配套讲解，非 AI 生成。AI 台词讲解服务尚未开放。</Text></> : <Text style={[speakingStyles.hint, { color: theme.textMuted }]}>这段素材暂未提供配套讲解，AI 台词讲解服务尚未开放。</Text>}</> : null}
       {sheet === 'words' ? <><TextInput accessibilityLabel="词典查询" placeholder="输入英文单词" placeholderTextColor={theme.textMuted} value={word} onChangeText={setWord} onSubmitEditing={() => lookup(word)} autoCapitalize="none" style={[speakingStyles.input, { color: theme.text, borderColor: theme.border }]} /><TextAction label="查词" disabled={!word.trim()} onPress={() => lookup(word)} />{material.origin === 'platform' ? speakingVocabulary.filter(item => material.cues.some(line => new RegExp(`\\b${item.word}\\b`, 'i').test(line.en))).map(item => <Pressable accessibilityRole="button" accessibilityLabel={`查词 ${item.word}`} onPress={() => lookup(item.word)} key={item.word} style={({ pressed }) => ({ paddingVertical: 14, borderBottomColor: theme.border, borderBottomWidth: StyleSheet.hairlineWidth, opacity: pressed ? .6 : 1 })}><Text style={{ color: theme.text, fontFamily: fonts.readingSemibold, fontSize: 18 }}>{item.word}</Text><Text style={[speakingStyles.hint, { color: theme.textSecondary }]}>{item.meaning}</Text></Pressable>) : null}<Text style={[speakingStyles.hint, { color: theme.textMuted, marginTop: 20 }]}>点按英文台词中的单词，也可以直接查询离线词典。</Text></> : null}
       {sheet === 'dictionary' ? <ShadowingDictionary key={word} term={word} /> : null}
-      {sheet === 'more' ? <><SpeakingTranscriptExport material={{ ...material, cues }} notes={library.store.notes[material.id]} disabled={saving} /><View style={[styles.moreList, { borderTopColor: theme.border }]}>{([['台词笔记', '为当前句写下自己的提示', () => { setNote(library.store.notes[material.id]?.[cue?.id ?? ''] ?? ''); setSheet('notes'); }], ['练习设置', '速度、复读次数、停顿和字号', () => { setSheet(null); setSettings(true); }], ['跟读指南', '一句一句练的方法', () => openPage('/speaking/guide')], ['跟读记录', '历次练习的时长与位置', () => openPage('/speaking/history')]] as const).map(([label, hint, action]) => <ListRow key={label} label={label} hint={hint} onPress={saving ? undefined :action} />)}</View>
+      {sheet === 'more' ? <><SpeakingTranscriptExport material={{ ...material, cues }} notes={library.store.notes[material.id]} disabled={saving} /><ListGroup style={styles.moreList}>{([['台词笔记', '为当前句写下自己的提示', () => { setNote(library.store.notes[material.id]?.[cue?.id ?? ''] ?? ''); setSheet('notes'); }], ['练习设置', '速度、复读次数、停顿和字号', () => { setSheet(null); setSettings(true); }], ['跟读指南', '一句一句练的方法', () => openPage('/speaking/guide')], ['跟读记录', '历次练习的时长与位置', () => openPage('/speaking/history')]] as const).map(([label, hint, action]) => <ListRow key={label} label={label} hint={hint} onPress={saving ? undefined :action} />)}</ListGroup>
         <TextAction label={saving ? '正在保存…' : '完成本次跟读'} disabled={saving} onPress={() => void finish()} style={{ marginTop: 8 }} /></> : null}
       {actionError ? <Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 12 }}>{actionError}</Text> : null}<TextAction label="关闭" tone="muted" onPress={() => setSheet(null)} />
     </ScrollView></SheetFrame></Pressable></Pressable></Modal>
@@ -356,15 +364,16 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
 const styles = StyleSheet.create({
   workspace: { flex: 1, minHeight: 0, width: '100%', maxWidth: 1440, alignSelf: 'center' }, mediaPane: { minWidth: 0, minHeight: 0, gap: 8 }, mediaBody: { flex: 1, minHeight: 0 },
   paneHeading: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 }, materialTitle: { fontWeight: weight('semibold'), lineHeight: 21 },
-  transcriptPane: { flex: 1, minWidth: 0, minHeight: 0 }, transcriptHeading: { paddingBottom: 10, borderBottomWidth: 1.5 }, transcriptTitle: { flex: 1, fontSize: 17, fontWeight: weight('bold') }, transcriptList: { flex: 1, minHeight: 0 },
+  transcriptPane: { flex: 1, minWidth: 0, minHeight: 0 }, transcriptHeading: { paddingBottom: 6 }, transcriptTitle: { flex: 1, fontSize: 19, lineHeight: 26, fontWeight: weight('semibold') }, transcriptList: { flex: 1, minHeight: 0 },
   search: { borderWidth: 0, marginTop: 10 },
   page: { flex: 1 }, touch: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
-  tools: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingRight: 8 }, toolDivider: { width: StyleSheet.hairlineWidth, height: 18, marginHorizontal: 6 },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingTop: 4 }, footerInner: { maxWidth: 920, width: '100%', alignSelf: 'center' },
-  transport: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, transportSide: { width: 64 }, transportCenter: { flexDirection: 'row', alignItems: 'center', gap: 18 },
-  play: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
-  modes: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexGrow: 1, gap: 2 },
+  tools: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 8 }, toolGap: { width: 6 },
+  footer: { paddingHorizontal: 16, paddingTop: 10, borderTopLeftRadius: 26, borderTopRightRadius: 26, shadowColor: '#22171A', shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: -6 }, elevation: 8 }, footerInner: { maxWidth: 920, width: '100%', alignSelf: 'center' },
+  transport: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }, transportSide: { width: 64, alignItems: 'center', gap: 3 }, transportCenter: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  sideButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' }, sideLabel: { fontSize: 11 }, rate: { fontFamily: fonts.readingSemibold, fontSize: 13, fontVariant: ['tabular-nums'] },
+  play: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' },
+  modes: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexGrow: 1, gap: 6, paddingVertical: 4 },
   waiting: { fontSize: 12, textAlign: 'center', marginBottom: 4 },
   backdrop: { flex: 1, backgroundColor: 'rgba(21, 14, 16, 0.42)', justifyContent: 'flex-end' }, sheetWrap: { width: '100%' },
-  moreList: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 4 },
+  moreList: { marginTop: 10 },
 });

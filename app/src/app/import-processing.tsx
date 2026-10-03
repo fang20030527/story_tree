@@ -171,7 +171,7 @@ export default function ImportProcessingScreen() {
           </View>
           <Text style={[styles.title, { color: theme.text }]}>没有待处理的导入</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>这个导入任务可能已完成、已过期，或暂时无法恢复。</Text>
-          <TouchableOpacity onPress={() => router.replace('/import')} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => router.replace('/import')} style={[styles.secondaryButton, { backgroundColor: theme.accentSoft }]} activeOpacity={0.8}>
             <Ionicons name="add" size={17} color={theme.accent} />
             <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>开始新的导入</Text>
           </TouchableOpacity>
@@ -218,7 +218,7 @@ export default function ImportProcessingScreen() {
           </TouchableOpacity>
         ) : null}
         {pollingError && !terminal && !retryable ? (
-          <TouchableOpacity onPress={retryPolling} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
+          <TouchableOpacity onPress={retryPolling} style={[styles.secondaryButton, { backgroundColor: theme.accentSoft }]} activeOpacity={0.8}>
             <Ionicons name="refresh-outline" size={17} color={theme.accent} />
             <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>重新获取状态</Text>
           </TouchableOpacity>
@@ -228,13 +228,13 @@ export default function ImportProcessingScreen() {
             <TouchableOpacity onPress={() => router.replace({ pathname: '/import', params: { source: 'paste' } })} style={[styles.primaryButton, { backgroundColor: theme.accent }]} activeOpacity={0.85}>
               <Text style={[styles.primaryButtonText, { color: theme.accentText }]}>改用粘贴正文</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.replace({ pathname: '/import', params: { source: 'album' } })} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
+            <TouchableOpacity onPress={() => router.replace({ pathname: '/import', params: { source: 'album' } })} style={[styles.secondaryButton, { backgroundColor: theme.accentSoft }]} activeOpacity={0.8}>
               <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>导入正文截图</Text>
             </TouchableOpacity>
           </>
         ) : null}
         {terminal ? (
-          <TouchableOpacity onPress={() => router.replace('/import')} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => router.replace('/import')} style={[styles.secondaryButton, { backgroundColor: theme.accentSoft }]} activeOpacity={0.8}>
             <Ionicons name="arrow-back" size={17} color={theme.accent} />
             <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>返回选择导入方式</Text>
           </TouchableOpacity>
@@ -258,6 +258,6 @@ const styles = StyleSheet.create({
   message: { fontSize: 13, lineHeight: 20, marginTop: 14, textAlign: 'center' },
   primaryButton: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 24, minHeight: 50, minWidth: 160, paddingHorizontal: 18 },
   primaryButtonText: { fontSize: 15, fontWeight: weight('bold') },
-  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 16, minHeight: 46, paddingHorizontal: 16 },
+  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 16, minHeight: 46, paddingHorizontal: 16 },
   secondaryButtonText: { fontSize: 14, fontWeight: weight('semibold') },
 });

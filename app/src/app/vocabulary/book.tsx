@@ -188,7 +188,7 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
             <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.accent} />
           </TouchableOpacity>
           {expanded ? (
-            <View style={[styles.contextPanel, { borderColor: theme.border }]}>
+            <View style={[styles.contextPanel, { backgroundColor: theme.surfaceAlt }]}>
               <Text style={[styles.metrics, { color: theme.textMuted }]}>
                 不同含义共享一个复习计划，每次练习其中一个语境。
               </Text>
@@ -223,7 +223,7 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
           accessibilityLabel={mastered ? `恢复学习 ${item.term}` : `标记 ${item.term} 已掌握`}
           disabled={masteryPending}
           onPress={() => void toggleMastery()}
-          style={[styles.masteryButton, { borderColor: theme.border, opacity: masteryPending ? 0.65 : 1 }]}>
+          style={[styles.masteryButton, { backgroundColor: theme.surfaceAlt, opacity: masteryPending ? 0.65 : 1 }]}>
           {masteryPending ? (
             <ActivityIndicator color={theme.accent} size="small" />
           ) : (
@@ -377,7 +377,7 @@ export default function VocabularyBookScreen() {
           accessibilityLabel="录入新单词"
           hitSlop={8}
           onPress={() => router.push('/practice/new')}
-          style={[styles.headerButton, { borderColor: theme.border }]}>
+          style={[styles.headerButton, { backgroundColor: theme.surfaceAlt }]}>
           <Ionicons name="add" size={20} color={theme.text} />
         </TouchableOpacity>
       </View>
@@ -411,7 +411,7 @@ export default function VocabularyBookScreen() {
         {listError ? (
           <Card theme={theme} style={styles.stateCard}>
             <Text style={[styles.stateText, { color: theme.textSecondary }]}>{listError.message}</Text>
-            <TouchableOpacity onPress={retry} style={[styles.retryButton, { borderColor: theme.border }]}>
+            <TouchableOpacity onPress={retry} style={[styles.retryButton, { backgroundColor: theme.surfaceAlt }]}>
               <Text style={[styles.retryText, { color: theme.text }]}>重试</Text>
             </TouchableOpacity>
           </Card>
@@ -441,7 +441,7 @@ export default function VocabularyBookScreen() {
           </View>
         ) : null}
         {nextCursor && !loadingMore ? (
-          <TouchableOpacity disabled={initialLoading} onPress={() => void loadMore()} style={[styles.loadMoreButton, { borderColor: theme.border }]}>
+          <TouchableOpacity disabled={initialLoading} onPress={() => void loadMore()} style={[styles.loadMoreButton, { backgroundColor: theme.surfaceAlt }]}>
             <Text style={[styles.loadMoreText, { color: theme.text }]}>加载更多</Text>
           </TouchableOpacity>
         ) : null}
@@ -463,7 +463,6 @@ const styles = StyleSheet.create({
   headerButton: {
     alignItems: 'center',
     borderRadius: radius.pill,
-    borderWidth: 1,
     height: 36,
     justifyContent: 'center',
     width: 36,
@@ -488,19 +487,18 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: weight('semibold'), marginTop: 12 },
   retryButton: {
     borderRadius: radius.pill,
-    borderWidth: 1,
     justifyContent: 'center',
     marginTop: 14,
     minHeight: 40,
     paddingHorizontal: 22,
   },
   retryText: { fontSize: 14, fontWeight: weight('semibold') },
-  wordCard: { borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 18 },
+  wordCard: { paddingVertical: 14 },
   wordHeading: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   masteredBadge: { borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 2 },
   reviewReason: { alignSelf: 'flex-start', borderRadius: radius.pill, overflow: 'hidden', fontSize: 11, lineHeight: 16, marginTop: 8, paddingHorizontal: 8, paddingVertical: 2 },
   contextToggle: { alignItems: 'center', flexDirection: 'row', gap: 4, minHeight: 36, marginTop: 5 },
-  contextPanel: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10 },
+  contextPanel: { paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12, borderRadius: 16, marginTop: 4 },
   savedContext: { marginTop: 12 },
   word: { fontFamily: fonts.readingSemibold, fontSize: 18, lineHeight: 24 },
   meaning: { fontSize: 14, fontWeight: weight('medium'), marginTop: 4 },
@@ -515,7 +513,6 @@ const styles = StyleSheet.create({
   masteryButton: {
     alignItems: 'center',
     borderRadius: radius.pill,
-    borderWidth: 1,
     justifyContent: 'center',
     marginLeft: 12,
     minHeight: 34,
@@ -530,7 +527,6 @@ const styles = StyleSheet.create({
   loadMoreButton: {
     alignItems: 'center',
     borderRadius: radius.pill,
-    borderWidth: 1,
     justifyContent: 'center',
     marginTop: 4,
     minHeight: 44,

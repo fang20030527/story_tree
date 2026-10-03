@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   noticeText: { flex: 1, fontSize: 13, lineHeight: 20 },
   retryFailedButton: { alignSelf: 'flex-start' },
   listTop: { height: 1.5, marginTop: 8, marginBottom: -14 },
-  card: { borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 18, gap: 8 },
+  card: { paddingVertical: 14, gap: 8 },
   cardHeading: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
   topic: { flex: 1, fontSize: 15, fontWeight: weight('semibold') },
   number: { fontFamily: fonts.display, fontSize: 15 },

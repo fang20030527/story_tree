@@ -52,8 +52,8 @@ export function SpeakingSeriesScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seasons}>
             {series.seasons.map(season => {
               const selected = selectedSeason?.number === season.number;
-              return <Pressable key={season.number} accessibilityRole="button" accessibilityLabel={`选择第${season.number}季`} accessibilityState={{ selected }} onPress={() => setSelection({ seriesId, season: season.number })} style={[speakingStyles.chip, { borderColor: selected ? theme.accent : theme.border, backgroundColor: selected ? theme.accent : theme.bg }]}>
-                <Text style={{ fontSize: 13, color: selected ? theme.accentText : theme.text }}>第{season.number}季</Text>
+              return <Pressable key={season.number} accessibilityRole="button" accessibilityLabel={`选择第${season.number}季`} accessibilityState={{ selected }} onPress={() => setSelection({ seriesId, season: season.number })} style={[speakingStyles.chip, { backgroundColor: selected ? theme.text : theme.surfaceAlt }]}>
+                <Text style={{ fontSize: 13.5, color: selected ? theme.bg : theme.textSecondary, fontWeight: selected ? '600' : '400' }}>第{season.number}季</Text>
               </Pressable>;
             })}
           </ScrollView>
@@ -62,7 +62,7 @@ export function SpeakingSeriesScreen() {
       </>}
       renderItem={({ item }) => {
         const position = library.store.positions[item.material.id] ?? 0;
-        return <Pressable accessibilityRole="button" accessibilityLabel={`打开${series?.title ?? '电视剧'}第${item.season}季第${item.number}集`} onPress={() => router.push({ pathname: '/speaking/material', params: { id: item.material.id } })} style={({ pressed }) => [styles.episode, { width: cellWidth, borderColor: theme.border, backgroundColor: theme.surfaceAlt, opacity: pressed ? 0.7 : 1 }]}>
+        return <Pressable accessibilityRole="button" accessibilityLabel={`打开${series?.title ?? '电视剧'}第${item.season}季第${item.number}集`} onPress={() => router.push({ pathname: '/speaking/material', params: { id: item.material.id } })} style={({ pressed }) => [styles.episode, { width: cellWidth, backgroundColor: theme.surfaceAlt, opacity: pressed ? 0.86 : 1 }]}>
           <Text style={[styles.episodeTitle, { color: theme.text }]}>第{item.number}集</Text>
           <Text numberOfLines={1} style={[styles.episodeMeta, { color: position > 0 ? theme.accent : theme.textMuted }]}>{position > 0 ? `继续 ${formatSpeakingTime(position)}` : formatSpeakingTime(item.material.duration)}</Text>
         </Pressable>;
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, lineHeight: 28, fontWeight: weight('bold') },
   seasons: { gap: 8, paddingVertical: 18 },
   episodeRow: { gap: 8, marginBottom: 8 },
-  episode: { minHeight: 68, borderWidth: 1, borderRadius: 4, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 12, gap: 5 },
+  episode: { minHeight: 68, borderRadius: 14, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 12, gap: 5 },
   episodeTitle: { fontSize: 14, fontWeight: weight('semibold') },
   episodeMeta: { fontSize: 10, lineHeight: 16 },
 });

@@ -3,34 +3,41 @@ import type { BottomTabBarButtonProps } from 'expo-router/js-tabs';
 import { PlatformPressable } from 'expo-router/react-navigation';
 import { useLayoutWidth } from '@/components/useLayoutWidth';
 import React from 'react';
-import { ColorValue, StatusBar, Text, View } from 'react-native';
+import { ColorValue, Platform, StatusBar, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { orbitTilt, radius, weight } from '@/constants/theme';
+import { TabIcon, type TabIconName } from '@/components/tabIcons';
+import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { useLearningMode } from '@/context/LearningModeContext';
+import { modeAccent } from '@/context/modeAccent';
 
 function SidebarTabButton({ style, ...props }: BottomTabBarButtonProps) {
-  return <PlatformPressable {...props} style={[style, { borderRadius: radius.pill }]} />;
+  return <PlatformPressable {...props} style={[style, { borderRadius: 16 }]} />;
 }
 
-function TabOrbit({ focused }: { focused: boolean }) {
-  const { theme } = useAppTheme();
-  return <View style={{ width: 14, height: 5, borderRadius: '50%', backgroundColor: focused ? theme.vermilion : 'transparent', transform: [{ rotate: orbitTilt }] }} />;
-}
-const tabOrbit = ({ focused }: { focused: boolean }) => <TabOrbit focused={focused} />;
-
-function TabLabel({ focused, color, children, beside }: { focused: boolean; color: ColorValue; children: string; beside: boolean }) {
-  return <Text style={{ color, fontSize: 12, fontWeight: weight(focused ? 'semibold' : 'regular'), ...(beside ? { marginStart: 8 } : { marginTop: 4 }) }}>{children}</Text>;
+function TabLabel({ focused, color, children }: { focused: boolean; color: ColorValue; children: string }) {
+  return <Text style={{ color, fontSize: 11, marginTop: 3, fontWeight: weight(focused ? 'semibold' : 'regular') }}>{children}</Text>;
 }
 
+/** 底部导航（宽屏为侧栏）：自绘图标，选中时图标填满模式色；侧栏图标在上、文字横排在下。 */
 export default function TabLayout() {
   const { theme } = useAppTheme();
   const { mode } = useLearningMode();
   const speaking = mode === 'speak';
+  const accent = modeAccent(theme, mode);
   const width = useLayoutWidth();
   const insets = useSafeAreaInsets();
   const wide = width >= 768;
+  const icon = (name: TabIconName) => function TabBarIcon({ focused, color }: { focused: boolean; color: ColorValue }) {
+    return <TabIcon name={name} focused={focused} color={String(color)} paper={wide && focused ? accent.soft : theme.tabBar} />;
+  };
+  // 导航栏与页面用不同的底色区分，再加一层很淡的阴影，不画分隔线。
+  const lift = Platform.select({
+    web: { boxShadow: wide ? '1px 0 24px -18px rgba(34, 23, 26, 0.45)' : '0 -8px 24px -18px rgba(34, 23, 26, 0.45)' },
+    ios: { shadowColor: '#22171A', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: wide ? 2 : 0, height: wide ? 0 : -4 } },
+    default: {},
+  });
 
   return (
     <>
@@ -41,31 +48,29 @@ export default function TabLayout() {
           tabBarPosition: wide ? 'left' : 'bottom',
           tabBarVariant: wide ? 'material' : 'uikit',
           tabBarButton: wide ? SidebarTabButton : undefined,
-          tabBarLabelPosition: wide && width >= 1100 ? 'beside-icon' : 'below-icon',
-          tabBarActiveTintColor: theme.text,
+          tabBarLabelPosition: 'below-icon',
+          tabBarActiveTintColor: accent.ink,
           tabBarInactiveTintColor: theme.textMuted,
-          tabBarActiveBackgroundColor: wide ? theme.surfaceAlt : 'transparent',
-          tabBarIcon: tabOrbit,
-          tabBarIconStyle: { height: 8, minHeight: 8 },
-          tabBarLabel: ({ focused, color, children }) => <TabLabel focused={focused} color={color} beside={wide && width >= 1100}>{children}</TabLabel>,
+          tabBarActiveBackgroundColor: wide ? accent.soft : 'transparent',
+          tabBarLabel: ({ focused, color, children }) => <TabLabel focused={focused} color={color}>{children}</TabLabel>,
           tabBarStyle: {
             backgroundColor: theme.tabBar,
-            borderTopColor: theme.border,
-            borderTopWidth: 0.5,
+            borderTopWidth: 0,
+            elevation: 0,
+            ...lift,
             ...(wide ? {
-              width: width >= 1100 ? 100 : 92,
-              minWidth: width >= 1100 ? 100 : 92,
-              ...(width >= 1100 ? { paddingStart: 4, paddingEnd: 4 } : {}),
-              borderTopWidth: 0,
-              borderRightWidth: 0.5,
-              borderRightColor: theme.border,
+              width: 96,
+              minWidth: 96,
+              paddingStart: 8,
+              paddingEnd: 8,
+              borderRightWidth: 0,
               paddingTop: insets.top + 32,
               paddingBottom: insets.bottom + 24,
-            } : { height: 56 + insets.bottom, paddingTop: 10, paddingBottom: Math.max(10, insets.bottom) }),
+            } : { height: 58 + insets.bottom, paddingTop: 8, paddingBottom: Math.max(10, insets.bottom) }),
           },
           tabBarItemStyle: [
-            { minHeight: wide ? 56 : 44 },
-            wide && { marginVertical: 4, borderRadius: radius.pill },
+            { minHeight: wide ? 64 : 44 },
+            wide && { marginVertical: 4, borderRadius: 16, paddingVertical: 8 },
             // 两处自动留白让主导航在「我的」上方居中，个人入口贴近底部安全区。
             wide && (route.name === 'index' || route.name === 'profile') && { marginTop: 'auto' },
           ],
@@ -73,25 +78,26 @@ export default function TabLayout() {
         })}>
         <Tabs.Screen
           name="index"
-          options={{ title: speaking ? '素材' : '外刊' }}
+          options={{ title: speaking ? '素材' : '外刊', tabBarIcon: icon(speaking ? 'material' : 'kan') }}
         />
         <Tabs.Screen
           name="shelf"
-          options={{ title: speaking ? '文件' : '书架' }}
+          options={{ title: speaking ? '文件' : '书架', tabBarIcon: icon(speaking ? 'files' : 'shelf') }}
         />
         <Tabs.Screen
           name="words"
-          options={{ title: '词库', ...(speaking ? { href: null } : {}) }}
+          options={{ title: '词库', tabBarIcon: icon('words'), ...(speaking ? { href: null } : {}) }}
         />
         <Tabs.Screen
           name="message-bottles"
-          options={{ title: '留言瓶' }}
+          options={{ title: '留言瓶', tabBarIcon: icon('bottle') }}
         />
         <Tabs.Screen
           name="profile"
-          options={{ title: '我的' }}
+          options={{ title: '我的', tabBarIcon: icon('me') }}
         />
       </Tabs>
     </>
   );
 }
+

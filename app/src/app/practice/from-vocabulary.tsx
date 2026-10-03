@@ -169,7 +169,7 @@ export default function VocabularyPracticeSetupScreen() {
   );
 }
 const styles = StyleSheet.create({
-  modeRow: { flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: 22 },
+  modeRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingBottom: 18 },
   screen: { flex: 1 },
   header: { alignItems: 'center', flexDirection: 'row', minHeight: 52, paddingHorizontal: 16 },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: weight('semibold'), textAlign: 'center' },

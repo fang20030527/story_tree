@@ -230,7 +230,7 @@ function EditorialReadContent({ article }: { article: EditorialArticle }) {
           </View>
         ) : null}
         <View
-          style={[styles.translationBox, { borderColor: theme.border }]}>
+          style={[styles.translationBox, { backgroundColor: theme.surfaceAlt }]}>
           <View style={styles.translationHeader}>
             <View style={styles.translationHeading}>
               <Text style={[styles.translationTitle, { color: theme.text }]}>全文翻译</Text>
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   titleEn: { fontFamily: fonts.readingMedium, fontSize: 30, fontWeight: weight('regular'), lineHeight: 38, marginTop: 12 },
   titleZh: { fontSize: 17, lineHeight: 26, marginTop: 12 },
   meta: { fontFamily: fonts.label, fontSize: 11, lineHeight: 18, marginTop: 16 },
-  translationBox: { borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, marginTop: 22, paddingVertical: 4 },
+  translationBox: { borderRadius: 18, marginTop: 22, paddingVertical: 6, paddingHorizontal: 14 },
   translationHeader: {
     alignItems: 'center',
     flexDirection: 'row',

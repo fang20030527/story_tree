@@ -446,7 +446,7 @@ export default function ImportScreen() {
                 onChangeText={setUrl}
                 placeholder="粘贴文章链接或 App 分享内容"
                 placeholderTextColor={theme.textMuted}
-                style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
+                style={[styles.input, { backgroundColor: theme.surfaceAlt, color: theme.text }]}
                 value={url}
               />
               <Text style={[styles.helper, { color: theme.textMuted }]}>可直接粘贴含标题的分享内容。需要登录或购买的文章，请在原 App 中复制英文正文或截图导入。</Text>
@@ -469,7 +469,7 @@ export default function ImportScreen() {
                 placeholder="把文章正文粘贴到这里…"
                 placeholderTextColor={theme.textMuted}
                 scrollEnabled={false}
-                style={[styles.textArea, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
+                style={[styles.textArea, { backgroundColor: theme.surfaceAlt, color: theme.text }]}
                 textAlignVertical="top"
                 value={text}
               />
@@ -523,7 +523,7 @@ function SourceChooser({
     <ScrollView contentContainerStyle={styles.chooserContent} showsVerticalScrollIndicator={false}>
       <Text style={[styles.chooserTitle, { color: theme.text }]}>选择导入方式</Text>
       <Text style={[styles.chooserSubtitle, { color: theme.textSecondary }]}>支持网页、正文、图片、文件和电脑传输，导入完成后会自动加入书架并打开阅读。</Text>
-      <View style={[styles.sourceGrid, { borderTopColor: theme.text }]}>
+      <View style={styles.sourceGrid}>
         {importSources.map((item) => (
           <ListRow key={item.id} label={item.label} onPress={() => onSelect(item.id)} />
         ))}
@@ -531,7 +531,7 @@ function SourceChooser({
       {activeImportId ? (
         <TouchableOpacity
           onPress={onResume}
-          style={[styles.resumeCard, { borderTopColor: theme.text, borderBottomColor: theme.border }]}
+          style={[styles.resumeCard, { backgroundColor: theme.surfaceAlt }]}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="继续上次导入">
@@ -591,12 +591,12 @@ function AlbumPicker({
           ))}
         </View>
       ) : (
-        <View style={[styles.emptyPicker, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.emptyPicker, { backgroundColor: theme.surfaceAlt }]}>
           <Ionicons name="images-outline" size={30} color={theme.textMuted} />
           <Text style={[styles.emptyPickerText, { color: theme.textSecondary }]}>按页面顺序选择文章截图</Text>
         </View>
       )}
-      <TouchableOpacity onPress={onPick} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
+      <TouchableOpacity onPress={onPick} style={[styles.secondaryButton, { backgroundColor: theme.accentSoft }]} activeOpacity={0.8}>
         <Ionicons name="add" size={18} color={theme.accent} />
         <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>{assets.length ? '重新选择照片' : '选择照片'}</Text>
       </TouchableOpacity>
@@ -634,18 +634,18 @@ function LocalPicker({
       <Text style={[styles.label, { color: theme.text }]}>选择文件</Text>
       <Text style={[styles.helper, { color: theme.textMuted }]}>支持 PDF、DOCX、TXT、HTML 和常见图片格式，单个文件 ≤ 10 MB。</Text>
       {asset ? (
-        <View style={[styles.fileCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.fileCard, { backgroundColor: theme.surfaceAlt }]}>
           <View style={[styles.fileIcon, { backgroundColor: theme.accentSoft }]}><Ionicons name="document-text-outline" size={24} color={theme.accent} /></View>
           <View style={styles.fileCopy}><Text style={[styles.fileName, { color: theme.text }]} numberOfLines={1}>{displayName(asset.name)}</Text><Text style={[styles.fileMeta, { color: theme.textMuted }]}>{asset.mediaType} · {displayBytes(asset.byteSize)}</Text></View>
           <TouchableOpacity onPress={onClear} hitSlop={8}><Ionicons name="close-circle" size={21} color={theme.textMuted} /></TouchableOpacity>
         </View>
       ) : (
-        <View style={[styles.emptyPicker, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.emptyPicker, { backgroundColor: theme.surfaceAlt }]}>
           <Ionicons name="folder-open-outline" size={30} color={theme.textMuted} />
           <Text style={[styles.emptyPickerText, { color: theme.textSecondary }]}>从设备文件中选择文章</Text>
         </View>
       )}
-      <TouchableOpacity onPress={onPick} style={[styles.secondaryButton, { borderColor: theme.border }]} activeOpacity={0.8}>
+      <TouchableOpacity onPress={onPick} style={[styles.secondaryButton, { backgroundColor: theme.accentSoft }]} activeOpacity={0.8}>
         <Ionicons name="folder-open-outline" size={17} color={theme.accent} />
         <Text style={[styles.secondaryButtonText, { color: theme.accent }]}>{asset ? '更换文件' : '打开文件选择器'}</Text>
       </TouchableOpacity>
@@ -662,13 +662,13 @@ const styles = StyleSheet.create({
   chooserContent: { paddingBottom: 36, paddingHorizontal: 24, paddingTop: 16 },
   chooserTitle: { fontSize: 28, lineHeight: 36, fontWeight: weight('bold') },
   chooserSubtitle: { fontSize: 15, lineHeight: 24, marginTop: 8 },
-  sourceGrid: { borderTopWidth: 1.5, marginTop: 24 },
-  sourceCard: { alignItems: 'center', borderRadius: radius.option, borderWidth: StyleSheet.hairlineWidth, flexBasis: '31%', flexGrow: 1, minHeight: 122, paddingHorizontal: 8, paddingVertical: 16 },
+  sourceGrid: { marginTop: 24 },
+  sourceCard: { alignItems: 'center', borderRadius: 18, flexBasis: '31%', flexGrow: 1, minHeight: 122, paddingHorizontal: 8, paddingVertical: 16 },
   sourceIcon: { alignItems: 'center', borderRadius: 16, height: 50, justifyContent: 'center', width: 50 },
   sourceLabel: { fontSize: 13, fontWeight: weight('medium'), marginTop: 9 },
   limitNote: { alignItems: 'center', borderRadius: radius.content, flexDirection: 'row', gap: 8, marginTop: 22, paddingHorizontal: 12, paddingVertical: 12 },
   limitText: { fontSize: 12, lineHeight: 18, marginTop: 18 },
-  resumeCard: { alignItems: 'flex-end', borderTopWidth: 2, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 12, marginTop: 24, paddingTop: 12, paddingBottom: 16 },
+  resumeCard: { alignItems: 'flex-end', borderRadius: radius.card, flexDirection: 'row', gap: 12, marginTop: 24, padding: 16 },
   resumeEyebrow: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.4 },
   resumeGo: { fontSize: 14, fontWeight: weight('semibold'), paddingBottom: 2 },
   resumeIcon: { alignItems: 'center', borderRadius: 11, height: 40, justifyContent: 'center', width: 40 },
@@ -684,16 +684,16 @@ const styles = StyleSheet.create({
   labelRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   label: { fontSize: 15, fontWeight: weight('semibold') },
   helper: { fontSize: 12, lineHeight: 18, marginTop: 6 },
-  input: { borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, fontSize: 15, marginTop: 10, minHeight: 50, paddingHorizontal: 14 },
-  textArea: { borderRadius: radius.option, borderWidth: StyleSheet.hairlineWidth, fontSize: 15, lineHeight: 22, marginTop: 10, minHeight: 230, padding: 14 },
+  input: { borderRadius: radius.pill, fontSize: 15, marginTop: 10, minHeight: 50, paddingHorizontal: 14 },
+  textArea: { borderRadius: 18, fontSize: 15, lineHeight: 22, marginTop: 10, minHeight: 230, padding: 14 },
   clipboardButton: { alignItems: 'center', flexDirection: 'row', gap: 5 },
   clipboardText: { fontSize: 12, fontWeight: weight('medium') },
   message: { fontSize: 13, lineHeight: 20, marginBottom: 4, marginTop: 8, textAlign: 'center' },
   primaryButton: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 52, paddingHorizontal: 18 },
   primaryButtonText: { fontSize: 16, fontWeight: weight('bold') },
-  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 12, minHeight: 46 },
+  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: 7, justifyContent: 'center', marginTop: 12, minHeight: 46 },
   secondaryButtonText: { fontSize: 14, fontWeight: weight('semibold') },
-  emptyPicker: { alignItems: 'center', borderRadius: radius.content, borderStyle: 'dashed', borderWidth: 1, justifyContent: 'center', minHeight: 130, marginTop: 12, padding: 18 },
+  emptyPicker: { alignItems: 'center', borderRadius: radius.card, justifyContent: 'center', minHeight: 130, marginTop: 12, padding: 18 },
   emptyPickerText: { fontSize: 13, marginTop: 8 },
   thumbnailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   thumbnailWrap: { borderRadius: radius.content, height: 104, overflow: 'hidden', position: 'relative', width: 104 },
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
   reorderButton: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: radius.pill, height: 18, justifyContent: 'center', width: 18 },
   uploadOverlay: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)', bottom: 0, justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: 0 },
   totalSize: { fontSize: 12, marginTop: 4 },
-  fileCard: { alignItems: 'center', borderRadius: radius.content, borderWidth: StyleSheet.hairlineWidth, flexDirection: 'row', marginTop: 12, padding: 12 },
+  fileCard: { alignItems: 'center', borderRadius: radius.card, flexDirection: 'row', marginTop: 12, padding: 12 },
   fileIcon: { alignItems: 'center', borderRadius: 10, height: 42, justifyContent: 'center', width: 42 },
   fileCopy: { flex: 1, marginHorizontal: 10 },
   fileName: { fontSize: 14, fontWeight: weight('semibold') },

@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { PressFeedback } from '@/components/motion';
 
 import { getDashboard, getPractice } from '@/api/practices';
-import { fonts, weight } from '@/constants/theme';
+import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { destinationForPractice, type PracticeDestination } from './resumePractice';
 import { loadActivePracticeId } from './practiceStorage';
@@ -49,7 +49,7 @@ export function ContinuePracticeCard() {
       accessibilityRole="button"
       accessibilityLabel={destination === 'topics' ? '继续主题短文' : '继续练习'}
       onPress={() => destination === 'new' ? router.push('/practice/new') : router.push({ pathname: `/practice/[id]/${destination}`, params: { id: practiceId } })}
-      style={[styles.card, { borderTopColor: theme.text, borderBottomColor: theme.border }]}>
+      style={[styles.card, { backgroundColor: theme.surfaceAlt }]}>
       <View style={styles.copy}>
         <Text style={[styles.label, { color: theme.textMuted }]}>未完成的练习</Text>
         <Text style={[styles.title, { color: theme.text }]}>{destination === 'topics' ? '继续主题短文' : '继续练习'}</Text>
@@ -60,9 +60,9 @@ export function ContinuePracticeCard() {
   );
 }
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, borderTopWidth: 2, borderBottomWidth: StyleSheet.hairlineWidth, paddingTop: 12, paddingBottom: 16, marginBottom: 20 },
+  card: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, borderRadius: 20, padding: 16, marginBottom: 20 },
   copy: { flex: 1, gap: 4 },
-  label: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.4 },
+  label: { fontSize: 12.5 },
   title: { fontSize: 17, fontWeight: weight('semibold') },
   subtitle: { fontSize: 12, lineHeight: 18 },
   go: { fontSize: 14, fontWeight: weight('semibold'), paddingBottom: 2 },

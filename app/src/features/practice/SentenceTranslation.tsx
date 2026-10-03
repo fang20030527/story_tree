@@ -4,7 +4,7 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { ApiError } from '@/api/client';
 import { requestSentenceTranslation } from '@/api/sentences';
 
-export function SentenceTranslation({ sentence, cache, inFlight, color, surfaceColor, borderColor, dangerColor, onClose }: {
+export function SentenceTranslation({ sentence, cache, inFlight, color, surfaceColor, borderColor: _borderColor, dangerColor, onClose }: {
   sentence: string;
   cache: Map<string, string>;
   inFlight: Map<string, Promise<string>>;
@@ -46,7 +46,7 @@ export function SentenceTranslation({ sentence, cache, inFlight, color, surfaceC
   }, [sentence, cache, inFlight, attempt]);
 
   return (
-    <View style={{ padding: 14, borderRadius: 14, borderWidth: 1, borderColor, backgroundColor: surfaceColor }}>
+    <View style={{ padding: 14, borderRadius: 16, backgroundColor: surfaceColor }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={{ color, fontWeight: '600' }}>单句翻译</Text>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="关闭单句翻译" hitSlop={8} onPress={onClose}>

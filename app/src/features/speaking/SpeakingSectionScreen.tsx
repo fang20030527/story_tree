@@ -28,7 +28,7 @@ export function SpeakingSectionScreen() {
   const podcastCount = speakingPodcastGroups(library.materials).length;
   const listHeader = <>
     <PageHeading title={sectionName || '素材栏目'} description={isSeries ? `共 ${seriesCount} 部电视剧` : isPodcast ? `共 ${podcastCount} 档播客` : section ? `共 ${section.materials.length} 个跟读素材` : '栏目内的全部跟读素材。'} />
-    <View style={[styles.search, { borderTopColor: theme.text }]}>
+    <View style={styles.search}>
       <TextInput accessibilityLabel={isSeries ? '搜索电视剧' : isPodcast ? '搜索播客' : '搜索栏目素材'} value={query} onChangeText={setQuery} placeholder={isSeries ? '搜索剧名或季集编号' : isPodcast ? '搜索节目、嘉宾或期号' : '搜索这个栏目的素材'} placeholderTextColor={theme.textMuted} style={[speakingStyles.input, { color: theme.text, borderColor: theme.border }]} />
     </View>
     <SpeakingStatus loading={library.loading} error={error} retry={library.refresh} />
@@ -70,6 +70,6 @@ export function SpeakingSectionScreen() {
 }
 
 const styles = StyleSheet.create({
-  search: { borderTopWidth: 2, paddingTop: 20, paddingBottom: 4 },
+  search: { paddingTop: 8, paddingBottom: 4 },
   empty: { paddingVertical: 24 },
 });

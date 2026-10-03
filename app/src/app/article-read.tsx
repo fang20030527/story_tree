@@ -151,7 +151,7 @@ function ArticleReadScreenContent() {
           <Text style={[styles.title, { color: theme.text }]}>{article.title}</Text>
           <Text style={[styles.meta, { color: theme.textMuted }]}>{article.wordCount} 词 · {new Date(article.importedAt).toLocaleDateString('zh-CN')}</Text>
 
-          <View style={[styles.fullTranslationBox, { borderColor: theme.border }]}>
+          <View style={[styles.fullTranslationBox, { backgroundColor: theme.surfaceAlt }]}>
             <ArticleTranslationControl
               articleId={article.id}
               actionLabel="查看译文"
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   sourcePillText: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.6 },
   title: { fontFamily: fonts.readingMedium, fontSize: 30, lineHeight: 37, marginTop: 10 },
   meta: { fontFamily: fonts.label, fontSize: 12, letterSpacing: 0.3, marginTop: 10 },
-  fullTranslationBox: { borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, marginTop: 22, paddingVertical: 4 },
+  fullTranslationBox: { borderRadius: 18, marginTop: 22, paddingVertical: 6, paddingHorizontal: 14 },
   translationHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 40 },
   translationHeading: { alignItems: 'center', flexDirection: 'row', gap: 7 },
   translationTitle: { fontSize: 15, fontWeight: weight('semibold') },

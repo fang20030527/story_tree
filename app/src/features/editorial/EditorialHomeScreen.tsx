@@ -19,9 +19,14 @@ import { ContinuePracticeCard } from '@/features/practice/ContinuePracticeCard';
 import { getApiBaseUrl } from '@/api/client';
 
 import { SectionHeader } from '@/components/ui';
-import { fonts, radius, weight } from '@/constants/theme';
-import { BrandHeader, PageHeading, Spine, TouchCard } from '@/components/brand';
+import { flyToTab } from '@/components/absorb';
+import { Comet, EnterOnce, ObservationWindow } from '@/components/cosmos';
+import { PressFeedback } from '@/components/motion';
+import { radius, typeScale, weight } from '@/constants/theme';
+import { BrandHeader, PageHeading, TouchCard } from '@/components/brand';
 import { useAppTheme } from '@/context/ThemeContext';
+import { useModeAccent } from '@/context/modeAccent';
+import { isEditorialArticleShelved, setEditorialArticleShelved } from '@/features/shelf/editorialShelfStorage';
 
 import {
   editorialHasOriginalAudio,
@@ -49,6 +54,7 @@ export function EditorialHomeScreen() {
   const [source, setSource] = useState('全部刊物');
   const [year, setYear] = useState('全部年份');
   const [topic, setTopic] = useState('全部');
+  const [moreFilters, setMoreFilters] = useState(false);
   const width = useLayoutWidth();
   const wide = width >= 1100;
   const [page, setPage] = useState(0);
@@ -149,27 +155,38 @@ export function EditorialHomeScreen() {
       scrollRef.current?.scrollTo({ y: columns + discovery + section, animated: false });
     });
   };
+  const extraFilterCount = (source !== '全部刊物' ? 1 : 0) + (year !== '全部年份' ? 1 : 0);
+  const filterRow = (filter: { label: string; values: string[]; selected: string; change: (value: string) => void }) => (
+    <ScrollView key={filter.label} horizontal showsHorizontalScrollIndicator={false} style={styles.filterOptions} contentContainerStyle={styles.filterContent}>
+      {filter.values.map((value) => (
+        <TouchableOpacity key={value} accessibilityRole="button" accessibilityLabel={`筛选${value}`}
+          accessibilityState={{ selected: filter.selected === value }}
+          onPress={() => { filter.change(value); setPage(0); }}
+          style={[styles.filter, { backgroundColor: filter.selected === value ? theme.text : 'transparent' }]}>
+          <Text style={{ color: filter.selected === value ? theme.bg : theme.textSecondary, fontSize: 14, fontWeight: weight(filter.selected === value ? 'semibold' : 'regular') }}>{value}</Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
   const filters = (
     <View style={styles.filters}>
-      {[{ label: '主题', values: topics, selected: topic, change: setTopic },
-        { label: '外刊', values: sources, selected: source, change: setSource },
-        { label: '年份', values: years, selected: year, change: setYear }].map((filter) => (
-        <View key={filter.label} style={styles.filterRow}>
-          <Text style={[styles.filterLabel, { color: theme.text, borderRightColor: theme.border }]}>{filter.label}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterOptions}>
-          {filter.values.map((value) => (
-            <TouchableOpacity key={value} accessibilityRole="button" accessibilityLabel={`筛选${value}`}
-              accessibilityState={{ selected: filter.selected === value }}
-              onPress={() => { filter.change(value); setPage(0); }}
-              style={[styles.filter, { backgroundColor: filter.selected === value ? theme.text : 'transparent' }]}>
-              <Text style={{ color: filter.selected === value ? theme.bg : theme.textSecondary, fontSize: 13 }}>{value}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        </View>
-      ))}
+      {filterRow({ label: '主题', values: topics, selected: topic, change: setTopic })}
+      {moreFilters ? <View style={[styles.morePanel, { backgroundColor: theme.surfaceAlt }]}>
+        <Text style={[styles.moreLabel, { color: theme.textMuted }]}>刊物</Text>
+        {filterRow({ label: '外刊', values: sources, selected: source, change: setSource })}
+        <Text style={[styles.moreLabel, { color: theme.textMuted }]}>年份</Text>
+        {filterRow({ label: '年份', values: years, selected: year, change: setYear })}
+      </View> : null}
       <Text style={[styles.count, { color: theme.textMuted }]}>共 {resultCount} 篇</Text>
     </View>
+  );
+  const filterToggle = (
+    <PressFeedback accessibilityRole="button" accessibilityLabel={moreFilters ? '收起刊物与年份筛选' : '展开刊物与年份筛选'} accessibilityState={{ expanded: moreFilters }}
+      onPress={() => setMoreFilters((open) => !open)} style={[styles.filterToggle, { backgroundColor: moreFilters || extraFilterCount ? theme.surfaceAlt : 'transparent' }]} hitSlop={6}>
+      <Ionicons name="options-outline" size={15} color={theme.textSecondary} />
+      <Text style={{ color: theme.textSecondary, fontSize: 13 }}>刊物与年份</Text>
+      {extraFilterCount ? <View style={[styles.filterCount, { backgroundColor: theme.text }]}><Text style={{ color: theme.bg, fontSize: 11, fontWeight: weight('semibold') }}>{extraFilterCount}</Text></View> : null}
+    </PressFeedback>
   );
   const pagination = resultCount > PAGE_SIZE ? (
     <View style={styles.pagination}>
@@ -187,7 +204,7 @@ export function EditorialHomeScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
-      <BrandHeader action={searchOpen ? 'close' : 'search-outline'} label="搜索平台外刊" onPress={openSearch} />
+      <BrandHeader modeSwitch action={searchOpen ? 'close' : 'search-outline'} label="搜索平台外刊" onPress={openSearch} />
 
       {searchOpen ? (
         <View style={[styles.searchWrap, { backgroundColor: theme.surfaceAlt }]}>
@@ -234,7 +251,7 @@ export function EditorialHomeScreen() {
           onLayout={(event) => { featuredLayout.current.discovery = event.nativeEvent.layout.y; }}>
         {showSearchResults ? (
           <>
-            <SectionHeader title="搜索结果" theme={theme} />
+            <View style={styles.sectionRow}><SectionHeader title="搜索结果" theme={theme} />{filterToggle}</View>
             {filters}
             {searchResults.length > 0 ? (
               <View style={styles.resultsList}>
@@ -249,8 +266,9 @@ export function EditorialHomeScreen() {
               </View>
             ) : (
               <View style={styles.noResults}>
-                <Ionicons name="search-outline" size={30} color={theme.textMuted} />
-                <Text style={[styles.noResultsText, { color: theme.textMuted }]}>没有找到相关外刊</Text>
+                <EnterOnce><ObservationWindow size={170} /></EnterOnce>
+                <Text style={[styles.noResultsText, { color: theme.text }]}>没有找到相关外刊</Text>
+                <Text style={[styles.noResultsHint, { color: theme.textSecondary }]}>换个关键词，或者试试英文原词。</Text>
                 <TouchableOpacity
                   onPress={clearSearch}
                   accessibilityRole="button"
@@ -263,7 +281,7 @@ export function EditorialHomeScreen() {
           </>
         ) : (
           <>
-            <SectionHeader title="发现文章" theme={theme} />
+            <View style={styles.sectionRow}><SectionHeader title="发现文章" theme={theme} />{filterToggle}</View>
             {filters}
             <View style={styles.resultsList}>
               {searchResults.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(article => <ArticleCard key={article.id} article={article} theme={theme} onPress={() => openOverview(article)} />)}
@@ -301,28 +319,53 @@ function HeroCard({
   theme: ReturnType<typeof useAppTheme>['theme'];
   onPress: () => void;
 }) {
+  const accent = useModeAccent();
+  const [saved, setSaved] = useState(false);
+  const saveButton = useRef<View>(null);
+  useEffect(() => {
+    let current = true;
+    void isEditorialArticleShelved(article.id).then((value) => { if (current) setSaved(value); }).catch(() => undefined);
+    return () => { current = false; };
+  }, [article.id]);
+  // 收进书架：书签填满，小卡片沿弧线飞进「书架」，图标轻跳并出现角标。
+  const toggleSaved = () => {
+    const next = !saved;
+    setSaved(next);
+    void setEditorialArticleShelved(article.id, next).then(() => {
+      if (next) void flyToTab(saveButton.current, 'shelf', typeof article.image === 'string' && article.image ? { uri: article.image } : PUBLICATION_LOGOS[article.source]);
+    }).catch(() => setSaved(!next));
+  };
   return (
-    <TouchCard
-      onPress={onPress}
-      animateOnPress
-      accessibilityLabel={`${article.titleZh}，查看文章概述`}
-      style={[styles.heroCard, { borderBottomColor: theme.border }]}>
-      <View>
-        <EditorialImage uri={article.image} fallbackSource={PUBLICATION_LOGOS[article.source]} style={styles.heroImage} />
-        <Spine label="每日精选" style={styles.heroSpine} />
-      </View>
-      <View style={styles.heroMetaRow}>
-        <Text style={[styles.heroMeta, { color: theme.textMuted }]}>{article.source.toUpperCase()}</Text>
-        <Text style={[styles.heroMeta, { color: theme.textMuted }]}>{article.minutes} 分钟</Text>
-        <Text style={[styles.heroMeta, { color: theme.textMuted }]}>{article.wordCount.toLocaleString()} 词</Text>
-      </View>
-      <Text style={[styles.heroTitle, { color: theme.text }]}>{article.titleEn}</Text>
-      <Text style={[styles.heroTitleZh, { color: theme.textSecondary }]}>{article.titleZh}</Text>
-      <View style={styles.heroMetaRow}>
-        <Text style={[styles.heroMeta, { color: theme.textMuted }]}>{article.category}</Text>
-        <Text style={[styles.heroRead, { color: theme.accent }]}>阅读 →</Text>
-      </View>
-    </TouchCard>
+    <View style={styles.heroCard}>
+      <TouchCard
+        onPress={onPress}
+        accessibilityLabel={`${article.titleZh}，查看文章概述`}
+        style={styles.heroPress}>
+        <View>
+          <EditorialImage uri={article.image} fallbackSource={PUBLICATION_LOGOS[article.source]} style={styles.heroImage} />
+          <View style={[styles.flag, { backgroundColor: theme.bg }]}>
+            <EnterOnce dx={-12} dy={4.4} delay={120}><Comet size={30} /></EnterOnce>
+            <Text style={[styles.flagText, { color: theme.text }]}>每日精选</Text>
+          </View>
+        </View>
+        <View style={styles.heroMetaRow}>
+          <Text style={[styles.heroSource, { color: theme.textSecondary }]}>{article.source}</Text>
+          <View style={styles.metaItem}><Ionicons name="time-outline" size={13} color={theme.textMuted} /><Text style={[styles.heroMeta, { color: theme.textMuted }]}>{article.minutes} 分钟</Text></View>
+          <View style={styles.metaItem}><Ionicons name="reorder-three-outline" size={14} color={theme.textMuted} /><Text style={[styles.heroMeta, { color: theme.textMuted }]}>{article.wordCount.toLocaleString()} 词</Text></View>
+        </View>
+        <Text style={[styles.heroTitle, { color: theme.text }]}>{article.titleEn}</Text>
+        <Text style={[styles.heroTitleZh, { color: theme.textSecondary }]}>{article.titleZh}</Text>
+        <View style={styles.heroFoot}>
+          <View style={[styles.tag, { backgroundColor: theme.surfaceAlt }]}><Text style={[styles.tagText, { color: theme.textSecondary }]}>{article.category}</Text></View>
+          {article.level ? <View style={[styles.tag, { backgroundColor: theme.surfaceAlt }]}><Text style={[styles.tagText, { color: theme.textSecondary }]}>{article.level}</Text></View> : null}
+          <View style={[styles.readPill, { backgroundColor: theme.accent }]}><Text style={[styles.readPillText, { color: theme.accentText }]}>开始阅读</Text><Ionicons name="arrow-forward" size={14} color={theme.accentText} /></View>
+        </View>
+      </TouchCard>
+      <PressFeedback ref={saveButton} accessibilityRole="button" accessibilityLabel={saved ? '已收进书架，再点取消' : '收进书架'} accessibilityState={{ selected: saved }}
+        onPress={toggleSaved} containerStyle={styles.saveWrap} style={[styles.save, { backgroundColor: theme.bg }]} hitSlop={6}>
+        <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? accent.ink : theme.text} />
+      </PressFeedback>
+    </View>
   );
 }
 
@@ -335,32 +378,40 @@ function ArticleCard({
   theme: ReturnType<typeof useAppTheme>['theme'];
   onPress: () => void;
 }) {
+  const accent = useModeAccent();
   return (
-    <TouchableOpacity
+    <PressFeedback
       onPress={onPress}
-      activeOpacity={0.82}
       accessibilityRole="button"
       accessibilityLabel={`${article.titleZh}，查看文章概述`}
-      style={[styles.articleCard, { borderColor: theme.border }]}>
+      style={styles.articleCard}>
       <EditorialImage uri={article.image} fallbackSource={PUBLICATION_LOGOS[article.source]}
         style={styles.articleImage} priority="high" />
       <View style={styles.articleInfo}>
         <EditorialReadBadge articleId={article.id} />
         <Text style={[styles.articleTitle, { color: theme.text }]} numberOfLines={2}>{article.titleZh}</Text>
-        <Text style={[styles.articleSource, { color: theme.textMuted }]} numberOfLines={1}>{article.source.toUpperCase()} · {article.issueDate ?? article.publishedAt}</Text>
-        <Text style={[styles.articleCategory, { color: theme.textMuted }]} numberOfLines={1}>{article.category}</Text>
-        {editorialHasOriginalAudio(article) ? <Text style={[styles.articleSource, { color: theme.accent }]}>原刊录音</Text> : null}
-        <Text style={[styles.articleMeta, { color: theme.textSecondary }]}>{article.level} · {article.wordCount} 词 · {article.minutes} 分钟</Text>
+        <Text style={[styles.articleSource, { color: theme.textMuted }]} numberOfLines={1}>{article.source} · {article.issueDate ?? article.publishedAt}</Text>
+        <View style={styles.articleTags}>
+          <Text style={[styles.articleMeta, { color: theme.textMuted }]}>{article.category}</Text>
+          {article.level ? <Text style={[styles.articleMeta, { color: theme.textMuted }]}>{article.level}</Text> : null}
+          <View style={styles.metaItem}><Ionicons name="time-outline" size={12} color={theme.textMuted} /><Text style={[styles.articleMeta, { color: theme.textMuted }]}>{article.minutes} 分钟</Text></View>
+          {editorialHasOriginalAudio(article) ? <View style={styles.metaItem}><Ionicons name="headset-outline" size={12} color={accent.ink} /><Text style={[styles.articleMeta, { color: accent.ink, fontWeight: weight('semibold') }]}>原刊录音</Text></View> : null}
+        </View>
       </View>
-      <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-    </TouchableOpacity>
+    </PressFeedback>
   );
 }
 
 const styles = StyleSheet.create({
-  filters: { gap: 10, marginBottom: 16 },
-  filter: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill, marginRight: 4 },
-  count: { fontFamily: fonts.label, fontSize: 11 },
+  filters: { gap: 10, marginBottom: 12 },
+  filter: { paddingHorizontal: 13, minHeight: 32, justifyContent: 'center', borderRadius: radius.pill, marginRight: 2 },
+  filterContent: { paddingRight: 8 },
+  count: { fontSize: 12, fontVariant: ['tabular-nums'] },
+  sectionRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  filterToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 32, paddingHorizontal: 10, borderRadius: radius.pill },
+  filterCount: { minWidth: 17, height: 17, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  morePanel: { borderRadius: radius.card, paddingVertical: 10, paddingHorizontal: 10, gap: 6 },
+  moreLabel: { fontSize: 12, marginLeft: 4 },
   pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   pageButton: { padding: 12 },
   screen: { flex: 1 },
@@ -388,30 +439,39 @@ const styles = StyleSheet.create({
   wideColumns: { flexDirection: 'row', gap: 36, alignItems: 'flex-start' },
   heroColumn: { flex: 1, minWidth: 0 },
   discoveryColumn: { flex: 1.15, minWidth: 0 },
-  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  filterLabel: { width: 44, flexShrink: 0, borderRightWidth: StyleSheet.hairlineWidth, fontSize: 12 },
-  filterOptions: { flex: 1, minWidth: 0 },
-  heroCard: { paddingBottom: 22, marginBottom: 26, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
-  heroImage: { height: 216, width: '100%', borderRadius: radius.content },
-  heroSpine: { position: 'absolute', right: 12, top: 14 },
-  heroMetaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
-  heroTitleZh: { fontSize: 15, lineHeight: 23 },
+  filterOptions: { flexGrow: 0, minWidth: 0 },
+  heroCard: { marginBottom: 30 },
+  heroPress: { gap: 10 },
+  heroImage: { height: 216, width: '100%', borderRadius: 18 },
+  flag: { position: 'absolute', left: 10, top: 10, flexDirection: 'row', alignItems: 'center', gap: 3, height: 28, paddingLeft: 6, paddingRight: 11, borderRadius: radius.pill, opacity: 0.94 },
+  flagText: { fontSize: 12.5, fontWeight: weight('semibold') },
+  saveWrap: { position: 'absolute', right: 10, top: 10 },
+  save: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', opacity: 0.94 },
+  heroMetaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 4 },
+  heroSource: { fontSize: 12.5, fontWeight: weight('semibold') },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  heroFoot: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  tag: { minHeight: 26, paddingHorizontal: 10, borderRadius: radius.tag, justifyContent: 'center' },
+  tagText: { fontSize: 12.5 },
+  readPill: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 34, paddingLeft: 14, paddingRight: 12, borderRadius: radius.pill },
+  readPillText: { fontSize: 13.5, fontWeight: weight('semibold') },
+  heroTitleZh: { fontSize: 15, lineHeight: 22, marginTop: -2 },
   heroShade: { backgroundColor: 'rgba(0,0,0,0.32)', bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
   heroOverlay: { bottom: 16, left: 16, position: 'absolute', right: 16 },
-  heroTitle: { fontFamily: fonts.readingMedium, fontSize: 25, lineHeight: 31 },
-  heroMeta: { fontFamily: fonts.label, fontSize: 11, letterSpacing: 0.6 },
-  heroRead: { fontSize: 13, fontWeight: weight('semibold'), marginLeft: 'auto' },
-  resultsList: { gap: 10, marginBottom: 22 },
-  articleCard: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 14, paddingVertical: 14 },
-  articleImage: { borderRadius: radius.content, height: 92, width: 72 },
-  articleInfo: { flex: 1 },
-  articleTitle: { fontSize: 15, fontWeight: weight('semibold'), lineHeight: 21 },
-  articleSource: { fontFamily: fonts.label, fontSize: 10.5, letterSpacing: 0.3, marginTop: 6 },
-  articleCategory: { fontSize: 11, marginTop: 4 },
-  articleMeta: { fontFamily: fonts.label, fontSize: 10.5, marginTop: 4 },
+  heroTitle: { fontFamily: 'HeidongReadingMedium', fontSize: 23, lineHeight: 30 },
+  heroMeta: { fontSize: 12.5, fontVariant: ['tabular-nums'] },
+  resultsList: { gap: 4, marginBottom: 22, marginHorizontal: -8 },
+  articleCard: { alignItems: 'flex-start', flexDirection: 'row', gap: 14, padding: 8, borderRadius: 16 },
+  articleImage: { borderRadius: radius.content, height: 76, width: 76 },
+  articleInfo: { flex: 1, minWidth: 0 },
+  articleTitle: { ...typeScale.cardTitle },
+  articleSource: { fontSize: 12.5, marginTop: 3 },
+  articleTags: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 2, marginTop: 4 },
+  articleMeta: { fontSize: 12, fontVariant: ['tabular-nums'] },
   backToSections: { alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', gap: 3, marginBottom: 18 },
   backToSectionsText: { fontSize: 13, fontWeight: weight('medium') },
-  noResults: { alignItems: 'center', gap: 9, paddingTop: 90 },
-  noResultsText: { fontSize: 14 },
+  noResults: { alignItems: 'center', gap: 6, paddingTop: 40 },
+  noResultsText: { fontSize: 17, fontWeight: weight('semibold') },
+  noResultsHint: { fontSize: 13.5, marginBottom: 6 },
   clearSearchText: { fontSize: 13, fontWeight: weight('medium') },
 });

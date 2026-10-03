@@ -3,6 +3,7 @@ import { EditorialAudioPlayer } from './EditorialAudioPlayer';
 import { EditorialReadBadge } from '@/features/editorial/EditorialReadBadge';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { markTabBadge } from '@/components/tabIcons';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -106,7 +107,7 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
     try {
       await setEditorialArticleShelved(article.id, nextAdded);
       setShelfState({ status: 'ready', shelved: nextAdded });
-      if (nextAdded) setMessage('已加入书架');
+      if (nextAdded) { setMessage('已加入书架'); markTabBadge('shelf'); }
     } catch {
       setShelfState({ status: 'ready', shelved: previousAdded });
       setMessage('暂时无法更新书架，请重试');
@@ -167,7 +168,7 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
           <EditorialAudioPlayer articleId={article.id} title={article.titleZh} source={article.audioAsset ?? article.audioUrl!} />
         ) : null}
 
-        <View style={[styles.section, { borderColor: theme.border }]}>
+        <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>文章概述</Text>
           <Text style={[styles.summary, { color: theme.textSecondary }]}>
             {summaryState.value ?? (summaryState.loading ? '中文概述加载中…' : '中文概述暂时无法加载')}
@@ -186,7 +187,7 @@ function EditorialOverviewContent({ article }: { article: EditorialArticle }) {
         <View style={styles.pointsSection}>
           <Text style={[styles.sectionTitle, styles.pointsTitle, { color: theme.text }]}>你将读到</Text>
           {article.keyPointsZh.map((point) => (
-            <View key={point} style={[styles.pointRow, { borderTopColor: theme.border }]}>
+            <View key={point} style={styles.pointRow}>
               <Text style={[styles.pointDash, { color: theme.textMuted }]}>—</Text>
               <Text style={[styles.point, { color: theme.text }]}>{point}</Text>
             </View>
@@ -280,17 +281,16 @@ const styles = StyleSheet.create({
   titleZh: { fontSize: 26, fontWeight: weight('bold'), lineHeight: 34 },
   titleEn: { fontFamily: fonts.reading, fontSize: 17, lineHeight: 25, marginTop: 8 },
   meta: { fontFamily: fonts.label, fontSize: 12, letterSpacing: 0.3, marginTop: 12 },
-  section: { borderBottomWidth: StyleSheet.hairlineWidth, marginTop: 24, paddingBottom: 20 },
+  section: { marginTop: 24, paddingBottom: 8 },
   sectionTitle: { fontSize: 17, fontWeight: weight('bold') },
   summary: { fontSize: 15, lineHeight: 25, marginTop: 10 },
   pointsSection: { marginTop: 22 },
   pointsTitle: { marginBottom: 8 },
-  pointRow: { flexDirection: 'row', gap: 10, borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: 11 },
+  pointRow: { flexDirection: 'row', gap: 10, paddingVertical: 7 },
   pointDash: { fontSize: 14, lineHeight: 22 },
   point: { flex: 1, fontSize: 15, lineHeight: 22 },
   message: { fontSize: 13, lineHeight: 20, marginTop: 18 },
   bottomAction: {
-    borderTopWidth: StyleSheet.hairlineWidth,
     bottom: 0,
     left: 0,
     paddingHorizontal: 18,

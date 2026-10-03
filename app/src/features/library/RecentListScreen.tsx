@@ -148,7 +148,7 @@ export function RecentListScreen({
           if (!description) return null;
           return (
             <View
-              style={[styles.row, { borderColor: theme.border }]}>
+              style={styles.row}>
               <TouchableOpacity
                 style={styles.rowBody}
                 activeOpacity={0.75}
@@ -201,7 +201,6 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 24, paddingTop: 8 },
   row: {
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 16,
     paddingVertical: 16,

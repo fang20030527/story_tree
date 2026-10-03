@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   host: { flex: 1 },
   // 平面卡片：细线边框 + 极浅投影，只用于与正文分层。
   bubble: {
-    position: 'absolute', borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
+    position: 'absolute', borderRadius: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },

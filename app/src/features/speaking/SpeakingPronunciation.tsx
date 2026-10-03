@@ -1,7 +1,7 @@
 import type { SpeakingPronunciationAssessmentDto, SpeakingPronunciationCapability, SpeakingPronunciationLocale, SpeakingPronunciationResult } from '@context-reader/contracts';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { fonts, radius } from '@/constants/theme';
 import { ApiError } from '@/api/client';
 import { getSpeakingCapabilities } from '@/api/speaking';
@@ -25,7 +25,7 @@ export function PronunciationResults({ result }: { result: SpeakingPronunciation
         <Text key={label} style={{ color: theme.textSecondary, fontSize: 12 }}>{label}：{scoreLabel(score)}</Text>)}
     </View>
     <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 20 }}>AI 听到的内容：{result.transcript}</Text>
-    {result.wordTips.map(tip => <View key={tip.word} style={{ paddingVertical: 10, gap: 4, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }}>
+    {result.wordTips.map(tip => <View key={tip.word} style={{ paddingVertical: 8, gap: 4 }}>
       <Text style={{ color: theme.text, fontSize: 13, fontWeight: '600' }}>{tip.word} · 练习建议</Text>
       <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 20 }}>{tip.advice}</Text>
     </View>)}
@@ -43,7 +43,7 @@ export function PronunciationResults({ result }: { result: SpeakingPronunciation
         <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 3 }}>{wordLabel(word.score)}</Text>
       </Pressable>)}
     </View>
-    {selected ? <View style={{ gap: 7, paddingTop: 12, borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth }}>
+    {selected ? <View style={{ gap: 7, paddingTop: 12 }}>
       <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>{selected.word} 的音素反馈</Text>
       {selected.phonemes.length ? selected.phonemes.map((phoneme, index) => <View key={`${index}:${phoneme.symbol}`} style={{ gap: 3 }}>
         <Text style={{ color: theme.text, fontSize: 13 }}>目标音素 /{phoneme.symbol}/ · {scoreLabel(phoneme.score)}</Text>
@@ -149,7 +149,7 @@ export function SpeakingPronunciation({ materialId, material, recording, scope, 
   const ready = !disabled && assessment?.status === 'ready' && assessment.result;
   const failed = !disabled && assessment?.status === 'failed' ? assessment.error : null;
   const processing = !disabled && assessment?.status === 'processing';
-  return <ScrollView accessibilityLabel="AI 口语点评面板" nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 300, flexGrow: 0 }} contentContainerStyle={{ gap: 10, borderTopColor: theme.border, borderTopWidth: .5, paddingTop: 12, paddingBottom: 6 }}>
+  return <ScrollView accessibilityLabel="AI 口语点评面板" nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 300, flexGrow: 0 }} contentContainerStyle={{ gap: 10, paddingTop: 12, paddingBottom: 6 }}>
     <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>AI 口语点评</Text>
     {guest ? <><Text style={{ color: theme.textMuted, fontSize: 12 }}>登录后可获取录音参考分和中文练习建议。</Text><Pressable accessibilityRole="button" onPress={() => router.push('/login')} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: theme.accent }}>登录使用AI 口语点评</Text></Pressable></> : <>
       <View style={{ flexDirection: 'row', gap: 8 }}>

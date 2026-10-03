@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { fonts } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { useModeAccent } from '@/context/modeAccent';
 import { formatSpeakingTime } from './model';
 import { webKeyboard } from '@/components/webKeyboard';
 
@@ -14,6 +15,7 @@ export function ShadowingProgress({ time, duration, enabled, seek, onDragChange 
   onDragChange?: (dragging: boolean) => void;
 }) {
   const { theme } = useAppTheme();
+  const accent = useModeAccent();
   const width = useRef(0);
   const drag = useRef<{ x: number; offset: number; time: number } | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
@@ -42,7 +44,7 @@ export function ShadowingProgress({ time, duration, enabled, seek, onDragChange 
       onResponderMove={event => { if (!drag.current) return; const next = timeAt(drag.current.offset + event.nativeEvent.pageX - drag.current.x); if (next !== null) { drag.current.time = next; setPreview(next); } }}
       onResponderRelease={() => { const active = drag.current; drag.current = null; setPreview(null); if (active) { change(active.time); onDragChange?.(false); } }}
       onResponderTerminate={() => { const active = drag.current; drag.current = null; setPreview(null); if (active) onDragChange?.(false); }} style={styles.slider}>
-      <View pointerEvents="none" style={[styles.track, { backgroundColor: theme.border }]}><View style={[styles.track, { backgroundColor: theme.text, width: `${ratio * 100}%` }]} /><View style={[styles.knob, preview !== null && styles.knobActive, { backgroundColor: enabled ? theme.vermilion : theme.textMuted, left: `${ratio * 100}%` }]} /></View>
+      <View pointerEvents="none" style={[styles.track, { backgroundColor: theme.surfaceAlt }]}><View style={[styles.track, { backgroundColor: enabled ? accent.ink : theme.textMuted, width: `${ratio * 100}%` }]} /><View style={[styles.knob, preview !== null && styles.knobActive, { backgroundColor: enabled ? accent.ink : theme.textMuted, borderColor: theme.surface, left: `${ratio * 100}%` }]} /></View>
     </View><Text style={[styles.time, { color: theme.textMuted }]}>{formatSpeakingTime(duration)}</Text></View>;
 }
-const styles = StyleSheet.create({ row: { flexDirection: 'row', gap: 10, alignItems: 'center' }, slider: { flex: 1, minHeight: 36, justifyContent: 'center' }, track: { height: 2, borderRadius: 1 }, knob: { position: 'absolute', top: -4, width: 10, height: 10, marginLeft: -5, borderRadius: 5 }, knobActive: { top: -6, width: 14, height: 14, marginLeft: -7, borderRadius: 7 }, time: { fontFamily: fonts.label, fontSize: 11, minWidth: 38 } });
+const styles = StyleSheet.create({ row: { flexDirection: 'row', gap: 10, alignItems: 'center' }, slider: { flex: 1, minHeight: 36, justifyContent: 'center' }, track: { height: 4, borderRadius: 2 }, knob: { position: 'absolute', top: -7, width: 18, height: 18, marginLeft: -9, borderRadius: 9, borderWidth: 3 }, knobActive: { top: -9, width: 22, height: 22, marginLeft: -11, borderRadius: 11 }, time: { fontFamily: fonts.label, fontSize: 12, minWidth: 40, fontVariant: ['tabular-nums'] } });

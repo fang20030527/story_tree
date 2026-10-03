@@ -186,11 +186,11 @@ export default function ComputerImportScreen() {
         {!session || sessionExpired ? (
           <TouchableOpacity disabled={creating} onPress={() => void createSession()} style={[styles.primaryButton, { backgroundColor: theme.accent, opacity: creating ? 0.65 : 1 }]} activeOpacity={0.85}>{creating ? <ActivityIndicator color={theme.accentText} /> : <Text style={[styles.primaryButtonText, { color: theme.accentText }]}>{session ? '重新生成上传码' : '生成上传码'}</Text>}</TouchableOpacity>
         ) : (
-          <View style={[styles.codeCard, { borderTopColor: theme.text, borderBottomColor: theme.border }]}>
+          <View style={[styles.codeCard, { backgroundColor: theme.surfaceAlt }]}>
             <Text style={[styles.codeLabel, { color: theme.textMuted }]}>电脑端输入此上传码</Text>
             <Text style={[styles.code, { color: theme.text }]}>{session.uploadCode}</Text>
             <Text style={[styles.expiry, { color: remaining === '0:00' ? theme.danger : theme.textSecondary }]}>有效期还剩 {remaining ?? remainingLabel(session.expiresAt)}</Text>
-            <View style={styles.codeActions}><TouchableOpacity onPress={() => void copyCode()} style={[styles.secondaryButton, { borderColor: theme.accent }]} activeOpacity={0.8}><Text style={[styles.secondaryButtonText, { color: theme.accent }]}>复制上传码</Text></TouchableOpacity><TouchableOpacity onPress={() => void openBrowser()} style={[styles.secondaryButton, { borderColor: theme.accent }]} activeOpacity={0.8}><Text style={[styles.secondaryButtonText, { color: theme.accent }]}>打开上传页</Text></TouchableOpacity></View>
+            <View style={styles.codeActions}><TouchableOpacity onPress={() => void copyCode()} style={[styles.secondaryButton, { backgroundColor: theme.accentSoft }]} activeOpacity={0.8}><Text style={[styles.secondaryButtonText, { color: theme.accent }]}>复制上传码</Text></TouchableOpacity><TouchableOpacity onPress={() => void openBrowser()} style={[styles.secondaryButton, { backgroundColor: theme.accentSoft }]} activeOpacity={0.8}><Text style={[styles.secondaryButtonText, { color: theme.accent }]}>打开上传页</Text></TouchableOpacity></View>
             <View style={[styles.urlBox, { backgroundColor: theme.surfaceAlt }]}><Text numberOfLines={2} style={[styles.urlText, { color: theme.textMuted }]}>{session.uploadUrl}</Text></View>
             <Text style={[styles.waiting, { color: theme.textSecondary }]}>等待电脑上传文件… 上传完成后会自动进入解析</Text>
           </View>
@@ -210,12 +210,12 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: 560, alignSelf: 'center', flex: 1, paddingHorizontal: 24, paddingTop: 24 },
   title: { fontSize: 28, lineHeight: 36, fontWeight: weight('bold') },
   subtitle: { fontSize: 15, lineHeight: 24, marginTop: 8 },
-  codeCard: { borderTopWidth: 2, borderBottomWidth: StyleSheet.hairlineWidth, marginTop: 28, paddingTop: 14, paddingBottom: 18, width: '100%' },
+  codeCard: { borderRadius: radius.card, marginTop: 28, padding: 16, width: '100%' },
   codeLabel: { fontSize: 12 },
   code: { fontFamily: fonts.display, fontSize: 44, lineHeight: 52, letterSpacing: 6, marginTop: 8 },
   expiry: { fontSize: 12, marginTop: 7 },
   codeActions: { flexDirection: 'row', gap: 8, marginTop: 16, width: '100%' },
-  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1.5, flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', minHeight: 42, paddingHorizontal: 8 },
+  secondaryButton: { alignItems: 'center', borderRadius: radius.pill, flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', minHeight: 42, paddingHorizontal: 8 },
   secondaryButtonText: { fontSize: 13, fontWeight: weight('semibold') },
   urlBox: { marginTop: 12, width: '100%' },
   urlText: { fontSize: 10, lineHeight: 15 },

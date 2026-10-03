@@ -26,8 +26,8 @@ export function SectionHeader({ title, theme, moreLabel, onMore }: SectionHeader
       </View>
       {moreLabel ? (
         <TouchableOpacity onPress={onMore} hitSlop={8} style={styles.moreRow}>
-          <Text style={{ color: theme.accent, fontSize: 14 }}>{moreLabel}</Text>
-          <Ionicons name="chevron-forward" size={14} color={theme.accent} />
+          <Text style={{ color: theme.textMuted, fontSize: 13 }}>{moreLabel}</Text>
+          <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
         </TouchableOpacity>
       ) : null}
     </View>
@@ -45,10 +45,8 @@ export function Card({ theme, children, style }: CardProps) {
     <View
       style={[
         {
-          backgroundColor: theme.surface,
-          borderRadius: radius.content,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: theme.border,
+          backgroundColor: theme.surfaceAlt,
+          borderRadius: radius.card,
         },
         style,
       ]}>
@@ -80,7 +78,7 @@ interface RemoteImageProps {
 export function RemoteImage({ uri, style, children }: RemoteImageProps) {
   const source: ImageSourcePropType = { uri };
   return (
-    <ImageBackground source={source} style={style} imageStyle={{ borderRadius: 4 }}>
+    <ImageBackground source={source} style={style} imageStyle={{ borderRadius: radius.content }}>
       {children}
     </ImageBackground>
   );
@@ -94,12 +92,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center' },
-  sectionTitle: { fontSize: 19, fontWeight: weight('bold') },
+  sectionTitle: { fontSize: 19, lineHeight: 26, fontWeight: weight('semibold') },
   moreRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   chip: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: radius.tag,
     alignSelf: 'flex-start',
   },
 });

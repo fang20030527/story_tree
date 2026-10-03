@@ -32,7 +32,7 @@ export function PracticePreferencesCard() {
     finally { setSaving(false); }
   };
   return (
-    <View style={[styles.card, { borderTopColor: theme.text }]}>
+    <View style={[styles.card, { backgroundColor: theme.surfaceAlt }]}>
       <Text style={[styles.title, { color: theme.text }]}>练习设置</Text>
       <Text style={[styles.label, { color: theme.textSecondary }]}>每次练习单词数量</Text>
       <View style={styles.row}>
@@ -44,7 +44,7 @@ export function PracticePreferencesCard() {
           keyboardType="number-pad"
           inputMode="numeric"
           selectTextOnFocus
-          style={[styles.input, { borderColor: theme.border, color: theme.text, backgroundColor: theme.bg }]}
+          style={[styles.input, { color: theme.text, backgroundColor: theme.bg }]}
         />
         <Text style={[styles.unit, { color: theme.textSecondary }]}>个词</Text>
         <TouchableOpacity accessibilityRole="button" disabled={saving} onPress={() => void save()}
@@ -60,12 +60,12 @@ export function PracticePreferencesCard() {
   );
 }
 const styles = StyleSheet.create({
-  card: { borderTopWidth: 1.5, paddingTop: 12, marginTop: 20 },
-  title: { fontSize: 16, fontWeight: weight('bold') },
-  label: { fontSize: 14, marginTop: 14 },
+  card: { borderRadius: radius.card, padding: 16, marginTop: 16 },
+  title: { fontSize: 16, fontWeight: weight('semibold') },
+  label: { fontSize: 14, marginTop: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },
   // Web 输入框有浏览器默认宽度，会把单位挤成竖排；固定宽度让两端一致。
-  input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.pill, paddingHorizontal: 14, minHeight: 46, width: 96, fontSize: 20, textAlign: 'center' },
+  input: { borderRadius: radius.pill, paddingHorizontal: 14, minHeight: 46, width: 96, fontSize: 20, textAlign: 'center', fontFamily: 'HeidongReadingSemiBold', fontVariant: ['tabular-nums'] },
   unit: { flexShrink: 0 },
   save: { marginLeft: 'auto', paddingHorizontal: 20, minHeight: 44, borderRadius: radius.pill, justifyContent: 'center' },
   hint: { marginTop: 10, fontSize: 12, lineHeight: 19 },

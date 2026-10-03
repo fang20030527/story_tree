@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 24 },
   title: { fontSize: 28, lineHeight: 36, fontWeight: weight('bold'), marginTop: 12 },
   lede: { fontSize: 15, lineHeight: 24, marginTop: 8, marginBottom: 4 },
-  itemRow: { borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 14, gap: 4 },
+  itemRow: { paddingVertical: 12, gap: 4 },
   itemTitle: { fontSize: 16, fontWeight: weight('semibold') },
   itemDesc: { fontSize: 13, lineHeight: 20 },
 });

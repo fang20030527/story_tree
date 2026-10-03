@@ -79,7 +79,7 @@ function TranslationControl({
       </TouchableOpacity>
 
       {translation.visible && translation.translatedTextZh ? (
-        <FadeOnChange trigger={translation.translatedTextZh} style={[styles.translationCard, { borderTopColor: theme.border }]}>
+        <FadeOnChange trigger={translation.translatedTextZh} style={[styles.translationCard, { backgroundColor: theme.surfaceAlt }]}>
           <Text style={[styles.translationText, { color: theme.textSecondary }]}>
             {translation.translatedTextZh}
           </Text>
@@ -259,7 +259,7 @@ function ReaderContent({ practiceId }: { practiceId: string }) {
             setLoadError(null);
             setLoadAttempt((attempt) => attempt + 1);
           }}
-          style={[styles.retryButton, { borderColor: theme.border }]}>
+          style={[styles.retryButton, { backgroundColor: theme.surfaceAlt }]}>
           <Text style={[styles.retryText, { color: theme.text }]}>重试</Text>
         </TouchableOpacity>
       </View>
@@ -378,14 +378,12 @@ const styles = StyleSheet.create({
   articleTitle: { fontFamily: fonts.readingMedium, fontSize: 28, lineHeight: 35 },
   wordCount: { fontFamily: fonts.label, fontSize: 12, letterSpacing: 0.4, marginTop: 10 },
   paragraphBlock: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: 'transparent',
     marginBottom: 22,
   },
   translationArea: { alignItems: 'flex-start' },
   translationButton: { alignItems: 'center', flexDirection: 'row', gap: 6, minHeight: 36 },
   translationButtonText: { fontSize: 12, fontWeight: weight('semibold') },
-  translationCard: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 4, paddingTop: 10, width: '100%' },
+  translationCard: { marginTop: 6, padding: 12, borderRadius: 16, width: '100%' },
   translationText: { fontSize: 15, lineHeight: 25 },
   translationError: { fontSize: 12, lineHeight: 18, marginTop: 8 },
   quizButton: {
@@ -402,7 +400,6 @@ const styles = StyleSheet.create({
   loadError: { fontSize: 14, lineHeight: 22, textAlign: 'center' },
   retryButton: {
     borderRadius: radius.pill,
-    borderWidth: 1,
     marginTop: 16,
     minHeight: 44,
     paddingHorizontal: 24,

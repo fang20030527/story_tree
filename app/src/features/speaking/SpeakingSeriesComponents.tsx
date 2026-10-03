@@ -9,7 +9,7 @@ import { speakingSeriesCountLabel, type SpeakingSeries } from './series';
 export function SpeakingSeriesCard({ series, onPress }: { series: SpeakingSeries; onPress: () => void }) {
   const { theme } = useAppTheme();
   const cover = speakingCover(series.seasons[0]?.episodes[0]?.material.id ?? series.id);
-  return <Pressable accessibilityRole="button" accessibilityLabel={`打开${series.title}选集`} onPress={onPress} style={({ pressed }) => [styles.card, { opacity: pressed ? 0.7 : 1 }]}>
+  return <Pressable accessibilityRole="button" accessibilityLabel={`打开${series.title}选集`} onPress={onPress} style={({ pressed }) => [styles.card, { opacity: pressed ? 0.86 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
     <View style={[styles.cardCover, { backgroundColor: theme.surfaceAlt }]}>
       {cover ? <Image source={cover} accessibilityLabel={`${series.title}封面`} resizeMode="cover" style={styles.image} /> : <Ionicons name="tv-outline" size={28} color={theme.textSecondary} />}
     </View>
@@ -22,7 +22,7 @@ export function SpeakingSeriesCard({ series, onPress }: { series: SpeakingSeries
 export function SpeakingSeriesRow({ series, onPress }: { series: SpeakingSeries; onPress: () => void }) {
   const { theme } = useAppTheme();
   const cover = speakingCover(series.seasons[0]?.episodes[0]?.material.id ?? series.id);
-  return <Pressable accessibilityRole="button" accessibilityLabel={`打开${series.title}选集`} onPress={onPress} style={({ pressed }) => [styles.row, { borderBottomColor: theme.border, opacity: pressed ? 0.7 : 1 }]}>
+  return <Pressable accessibilityRole="button" accessibilityLabel={`打开${series.title}选集`} onPress={onPress} style={({ pressed }) => [styles.row, { opacity: pressed ? 0.86 : 1 }]}>
     <View style={[styles.rowCover, { backgroundColor: theme.surfaceAlt }]}>
       {cover ? <Image source={cover} accessibilityLabel={`${series.title}封面`} resizeMode="cover" style={styles.image} /> : <Ionicons name="tv-outline" size={28} color={theme.textSecondary} />}
     </View>
@@ -37,12 +37,12 @@ export function SpeakingSeriesRow({ series, onPress }: { series: SpeakingSeries;
 
 const styles = StyleSheet.create({
   card: { width: 176 },
-  cardCover: { width: '100%', aspectRatio: 16 / 9, borderRadius: 4, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  cardCover: { width: '100%', aspectRatio: 16 / 9, borderRadius: 12, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   image: { width: '100%', height: '100%' },
-  cardTitle: { fontSize: 15, lineHeight: 21, fontWeight: weight('bold'), marginTop: 8, marginBottom: 4 },
-  cardMeta: { fontSize: 11, lineHeight: 17 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 20, borderBottomWidth: StyleSheet.hairlineWidth },
-  rowCover: { width: 112, height: 72, borderRadius: 4, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  rowTitle: { fontSize: 20, lineHeight: 26, fontWeight: weight('bold') },
-  rowMeta: { fontSize: 11, lineHeight: 18, marginTop: 4 },
+  cardTitle: { fontSize: 14.5, lineHeight: 20, fontWeight: weight('medium'), marginTop: 8, marginBottom: 3 },
+  cardMeta: { fontSize: 12, lineHeight: 17 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12 },
+  rowCover: { width: 112, height: 72, borderRadius: 12, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  rowTitle: { fontSize: 17, lineHeight: 24, fontWeight: weight('semibold') },
+  rowMeta: { fontSize: 12, lineHeight: 18, marginTop: 2 },
 });

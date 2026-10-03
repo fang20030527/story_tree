@@ -32,7 +32,7 @@ export function FloatingEditorialAudioPlayer() {
       styles.container,
       collapsed && styles.collapsedContainer,
       {
-        backgroundColor: theme.surface, borderColor: theme.border,
+        backgroundColor: theme.surface,
         right: collapsed ? insets.right : Math.max(16, insets.right),
         // 手机上避开底部标签栏和概述页的“开始阅读”按钮。
         bottom: insets.bottom + (width >= 768 ? 24 : 88),
@@ -110,9 +110,9 @@ export function FloatingEditorialAudioPlayer() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute', zIndex: 100, elevation: 12, width: 336, maxWidth: '92%',
-    borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 8,
+    borderRadius: 18, padding: 8,
     flexDirection: 'row', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8,
+    shadowColor: '#22171A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.16, shadowRadius: 20,
   },
   collapsedContainer: { width: 48, padding: 0, borderTopRightRadius: 0, borderBottomRightRadius: 0 },
   expandButton: { width: 48, height: 60, alignItems: 'center', justifyContent: 'center', gap: 3 },

@@ -2,7 +2,10 @@ import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAu
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { RecordRing } from '@/components/cosmos';
 import { useAppTheme } from '@/context/ThemeContext';
+import { useModeAccent } from '@/context/modeAccent';
 import { persistSpeakingMedia } from './mediaStorage';
 import { formatSpeakingTime, type SpeakingMaterial, type SpeakingRecording, type SpeakingStore } from './model';
 import { updateSpeakingStore } from './speakingStorage';
@@ -15,9 +18,14 @@ type PendingRecording = { recording: SpeakingRecording; context: RecordingContex
 // 离开练习页时 useAudioPlayer 已先释放回放播放器，随后的失焦清理再调用 pause 会抛出
 // “Unable to find the native shared object”，在正式包里属于未捕获错误，会直接闪退。
 function pauseReplay(player: ReturnType<typeof useAudioPlayer>) { try { player.pause(); } catch { /* 播放器已被释放。 */ } }
+// 打开音量计量：只用于录音键外圈的电平显示，不影响录音文件。
+const RECORDING_OPTIONS = { ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true };
+/** 分贝（-160–0）换算成 0–1 的电平；-60dB 以下视为安静。 */
+const meterLevel = (db?: number) => (typeof db === 'number' && Number.isFinite(db) ? Math.max(0, Math.min(1, (db + 60) / 60)) : 0.45);
 export function ShadowingRecording({ materialId, material, cueId, scope, saved, pauseOriginal, onActive, onSaved }: Props) {
   const { theme } = useAppTheme();
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const accent = useModeAccent();
+  const recorder = useAudioRecorder(RECORDING_OPTIONS);
   const recording = useAudioRecorderState(recorder, 100);
   const replay = useAudioPlayer(null);
   const replayStatus = useAudioPlayerStatus(replay);
@@ -119,11 +127,29 @@ export function ShadowingRecording({ materialId, material, cueId, scope, saved, 
     } catch { if (canDisplay(context)) setError('录音仍未保存，请检查网络和剩余空间后重试'); }
     finally { operationBusy.current = false; if (active.current) setBusy(false); }
   };
-  return <View style={{ gap: 8, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }}>
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}><Pressable accessibilityRole="button" accessibilityLabel={recording.isRecording ? '停止录音' : saved ? '重新录音' : '开始录音'} disabled={busy} onPress={() => void (recording.isRecording ? stop() : start())} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: recording.isRecording ? theme.danger : theme.accent, fontSize: 15, fontWeight: '600' }}>{busy ? '正在保存…' : recording.isRecording ? `停止录音 ${formatSpeakingTime(recording.durationMillis / 1000)}` : saved ? '重新录音' : '录下自己的声音'}</Text></Pressable><Pressable disabled={!ready || recording.isRecording || busy} accessibilityRole="button" accessibilityLabel={replayStatus.playing ? '暂停录音回放' : '回放录音'} accessibilityState={{ disabled: !ready || recording.isRecording || busy }} onPress={() => { pauseOriginal(); if (replayStatus.playing) replay.pause(); else { void replay.seekTo(0).then(() => replay.play()).catch(() => setError('录音回放失败，请重试')); } }} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: ready ? theme.accent : theme.textMuted }}>{replayStatus.playing ? '暂停回放' : '回放录音'}</Text></Pressable></View>
+  return <View style={{ gap: 8, paddingVertical: 12 }}>
+    <View style={styles.recRow}>
+      <Pressable accessibilityRole="button" accessibilityLabel={recording.isRecording ? '停止录音' : saved ? '重新录音' : '开始录音'} disabled={busy} onPress={() => void (recording.isRecording ? stop() : start())} style={({ pressed }) => [styles.recPress, { opacity: busy ? 0.5 : pressed ? 0.86 : 1 }]}>
+        <View style={styles.ring}><RecordRing level={meterLevel(recording.metering)} active={recording.isRecording} color={accent.ink} /></View>
+        <View style={[styles.recButton, { backgroundColor: recording.isRecording ? accent.ink : accent.soft }]}>
+          <Ionicons name={recording.isRecording ? 'stop' : 'mic'} size={20} color={recording.isRecording ? theme.bg : accent.ink} />
+        </View>
+      </Pressable>
+      <Text style={[styles.recLabel, { color: recording.isRecording ? accent.ink : theme.text }]}>{busy ? '正在保存…' : recording.isRecording ? `停止录音 ${formatSpeakingTime(recording.durationMillis / 1000)}` : saved ? '重新录音' : '录下自己的声音'}</Text>
+      <Pressable disabled={!ready || recording.isRecording || busy} accessibilityRole="button" accessibilityLabel={replayStatus.playing ? '暂停录音回放' : '回放录音'} accessibilityState={{ disabled: !ready || recording.isRecording || busy }} onPress={() => { pauseOriginal(); if (replayStatus.playing) replay.pause(); else { void replay.seekTo(0).then(() => replay.play()).catch(() => setError('录音回放失败，请重试')); } }} style={({ pressed }) => [styles.replay, { backgroundColor: theme.surfaceAlt, opacity: !ready ? 0.5 : pressed ? 0.86 : 1 }]}><Ionicons name={replayStatus.playing ? 'pause' : 'play'} size={13} color={ready ? theme.text : theme.textMuted} /><Text style={{ color: ready ? theme.text : theme.textMuted, fontSize: 13 }}>{replayStatus.playing ? '暂停回放' : '回放录音'}</Text></Pressable>
+    </View>
     <Text style={{ color: theme.textMuted, fontSize: 11, lineHeight: 18 }}>{material?.storage === 'cloud' ? '录音同步到账号，方便在其他设备回放。' : '录音保存在当前设备。'}用自己的耳朵比较节奏与发音。</Text>
     {error ? <Text accessibilityRole="alert" style={{ color: theme.danger, fontSize: 12 }}>{error}</Text> : null}{pending ? <Pressable accessibilityRole="button" onPress={() => void retry()} style={{ minHeight: 44 }}><Text style={{ color: theme.accent }}>重试保存录音</Text></Pressable> : null}
     {saved && !pending && error ? <Pressable accessibilityRole="button" onPress={() => { setError(''); setMediaRevision(value => value + 1); }} style={{ minHeight: 44 }}><Text style={{ color: theme.accent }}>重新读取录音</Text></Pressable> : null}
     <SpeakingPronunciation materialId={materialId} material={material} scope={scope} recording={pending?.recording ?? saved} disabled={busy || recording.isRecording} />
   </View>;
 }
+
+const styles = StyleSheet.create({
+  recRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  recPress: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', marginVertical: -12, marginLeft: -12 },
+  ring: { position: 'absolute', left: 0, top: 0 },
+  recButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  recLabel: { flex: 1, fontSize: 15, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  replay: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 36, paddingHorizontal: 12, borderRadius: 999 },
+});

@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 import { AccessibilityInfo, Animated, ScrollView } from 'react-native';
 
@@ -30,6 +30,7 @@ it('keeps the daily feature unchanged when combining topic and publication filte
   const view = await render(<EditorialHomeScreen />);
   const label = '拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母，查看文章概述';
   await fireEvent.press(view.getByLabelText('筛选科技'));
+  await fireEvent.press(view.getByLabelText('展开刊物与年份筛选'));
   await fireEvent.press(view.getByLabelText('筛选The Economist'));
   expect(view.getByText('每日精选')).toBeTruthy();
   await fireEvent.press(view.getByLabelText(label));
@@ -166,20 +167,12 @@ it('keeps the daily card still when a touch becomes a scroll', async () => {
   expect(router.push).not.toHaveBeenCalled();
 });
 
-it('opens the daily article once after its tap animation finishes', async () => {
-  jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
-  let complete: ((result: { finished: boolean }) => void) | undefined;
-  const sequence = jest.spyOn(Animated, 'sequence').mockReturnValue({
-    start: (callback) => { complete = callback; }, stop: jest.fn(), reset: jest.fn(),
-  });
+it('opens the daily article only once when it is tapped twice quickly', async () => {
   const view = await render(<EditorialHomeScreen />);
   const card = view.getByLabelText('拯救绯红金刚鹦鹉：为被忽视的雏鸟寻找养父母，查看文章概述');
 
   await fireEvent.press(card);
   await fireEvent.press(card);
-  expect(sequence).toHaveBeenCalledTimes(1);
-  expect(router.push).not.toHaveBeenCalled();
-  await act(() => { complete?.({ finished: true }); });
   expect(router.push).toHaveBeenCalledTimes(1);
   expect(router.push).toHaveBeenCalledWith({ pathname: '/editorial/[id]', params: { id: 'hero' } });
 });

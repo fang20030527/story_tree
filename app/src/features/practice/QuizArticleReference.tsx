@@ -138,7 +138,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, minHeight: 0 },
   header: {
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 12,
     minHeight: 52,

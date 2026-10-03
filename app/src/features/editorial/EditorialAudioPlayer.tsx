@@ -48,7 +48,7 @@ export function EditorialAudioPlayer({ articleId, title, source, onPositionChang
   const label = failed ? '重试音频' : loading ? '音频加载中' : playing ? '暂停音频' : '播放音频';
 
   return (
-    <View style={[styles.container, { borderColor: theme.border }]}>
+    <View style={[styles.container, { backgroundColor: theme.surfaceAlt }]}>
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -127,7 +127,7 @@ export function EditorialAudioPlayer({ articleId, title, source, onPositionChang
 }
 
 const styles = StyleSheet.create({
-  container: { paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, gap: 6, marginVertical: 12 },
+  container: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 18, gap: 6, marginVertical: 12 },
   playCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   label: { fontSize: 14, fontWeight: weight('semibold') },
   button: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },

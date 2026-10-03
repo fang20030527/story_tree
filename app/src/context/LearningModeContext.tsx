@@ -24,6 +24,13 @@ export function LearningModeProvider({ children }: { children: React.ReactNode }
   return <LearningModeContext.Provider value={{ mode, setMode }}>{children}</LearningModeContext.Provider>;
 }
 
+const fallbackMode = { mode: 'read' as LearningMode, setMode: (_mode: LearningMode) => undefined };
+
+/** 没有 Provider 时（单独渲染的组件、测试）按阅读模式处理，不抛错。 */
+export function useOptionalLearningMode() {
+  return useContext(LearningModeContext) ?? fallbackMode;
+}
+
 export function useLearningMode() {
   const context = useContext(LearningModeContext);
   if (!context) throw new Error('LearningModeProvider is required');

@@ -27,18 +27,16 @@ export function ImportSourceGrid() {
         {importSources.map((source) => (
           <TouchableOpacity
             key={source.id}
-            style={styles.item}
-            activeOpacity={0.75}
+            style={[styles.item, { backgroundColor: theme.surfaceAlt }]}
+            activeOpacity={0.86}
             accessibilityRole="button"
             accessibilityLabel={source.label}
             onPress={() => openSource(source)}>
-            <View style={[styles.icon, { backgroundColor: theme.accentSoft }]}>
-              <Ionicons
-                name={source.icon as keyof typeof Ionicons.glyphMap}
-                size={22}
-                color={theme.accent}
-              />
-            </View>
+            <Ionicons
+              name={source.icon as keyof typeof Ionicons.glyphMap}
+              size={22}
+              color={theme.textSecondary}
+            />
             <Text style={[styles.label, { color: theme.textSecondary }]}>
               {source.label}
             </Text>
@@ -50,12 +48,8 @@ export function ImportSourceGrid() {
 }
 
 const styles = StyleSheet.create({
-  heading: { fontSize: 19, fontWeight: weight('bold'), marginBottom: 12 },
-  row: { flexDirection: 'row', justifyContent: 'space-around' },
-  item: { alignItems: 'center', width: 58 },
-  icon: {
-    alignItems: 'center', borderRadius: 23, height: 46,
-    justifyContent: 'center', width: 46,
-  },
-  label: { fontSize: 12, fontWeight: weight('medium'), marginTop: 8 },
+  heading: { fontSize: 19, lineHeight: 26, fontWeight: weight('semibold'), marginBottom: 12 },
+  row: { flexDirection: 'row', gap: 8 },
+  item: { alignItems: 'center', flex: 1, borderRadius: 16, paddingTop: 14, paddingBottom: 10 },
+  label: { fontSize: 12, fontWeight: weight('medium'), marginTop: 6 },
 });

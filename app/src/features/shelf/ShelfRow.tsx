@@ -33,10 +33,7 @@ export function ShelfRow({ item, managing, deleting, onOpen, onManage }: Props) 
     : item.article.title;
 
   return (
-    <View style={[
-      styles.row,
-      { backgroundColor: theme.surface, borderColor: theme.border },
-    ]}>
+    <View style={styles.row}>
       <TouchableOpacity
         style={styles.body}
         activeOpacity={0.75}
@@ -133,16 +130,16 @@ function ImportedCover({ imageUrl }: { imageUrl?: string | null }) {
 
 const styles = StyleSheet.create({
   row: {
-    borderRadius: 0, flex: 1,
-    gap: 8, paddingVertical: 12,
+    flex: 1,
+    gap: 6, paddingVertical: 10,
   },
-  body: { flex: 1, gap: 11 },
-  cover: { borderRadius: 1, aspectRatio: .78, width: '100%' },
+  body: { flex: 1, gap: 10 },
+  cover: { borderRadius: 12, aspectRatio: .78, width: '100%' },
   placeholder: { alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1 },
-  source: { fontSize: 11 },
-  title: { fontSize: 14, fontWeight: weight('semibold'), lineHeight: 19, marginTop: 3 },
-  meta: { fontSize: 11, marginTop: 5 },
+  source: { fontSize: 12 },
+  title: { fontSize: 14.5, fontWeight: weight('medium'), lineHeight: 20, marginTop: 2 },
+  meta: { fontSize: 12, marginTop: 4, fontVariant: ['tabular-nums'] },
   manage: { alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: 6 },
   manageText: { fontSize: 12, fontWeight: weight('medium') },
 });
