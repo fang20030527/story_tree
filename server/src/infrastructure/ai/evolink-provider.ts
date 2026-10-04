@@ -5,27 +5,21 @@ import {
 import { z } from 'zod';
 
 import { AppError } from '../../core/errors';
+import { coerceGeneratedPractice } from './coerce';
 import { EvolinkClient } from './evolink-client';
-import {
-  GeneratedPracticeSchema,
-  VerificationSchema,
-  type GeneratedPractice,
-  type Verification,
-} from './generated-schemas';
+import { GeneratedPracticeSchema, type GeneratedPractice } from './generated-schemas';
 import { extractJsonObject } from './json';
 import {
   generationMessages,
   ocrMessages,
   translationMessages,
   wordHintMessages,
-  verificationMessages,
 } from './prompts';
 import type {
   AiProvider,
   GeneratePracticeInput,
   OcrArticleText,
   OcrImage,
-  VerifyPracticeInput,
 } from './types';
 
 const OcrArticleTextSchema = z
@@ -38,7 +32,13 @@ const OcrArticleTextSchema = z
 export class EvolinkAiProvider implements AiProvider {
   constructor(
     private readonly client: EvolinkClient,
-    private readonly vision: { visionModel: string; visionTimeoutMs: number; translationTimeoutMs?: number },
+    private readonly vision: {
+      visionModel: string;
+      visionTimeoutMs: number;
+      translationTimeoutMs?: number;
+      /** A full article with questions is a long reply; give it more time than short calls. */
+      generationTimeoutMs?: number;
+    },
   ) {}
 
   async generatePractice(
@@ -50,6 +50,7 @@ export class EvolinkAiProvider implements AiProvider {
       maxCompletionTokens: Math.max(12_000, input.targets.length * 250),
       reasoningEffort: 'low' as const,
       responseFormat: 'json_object' as const,
+      ...(this.vision.generationTimeoutMs === undefined ? {} : { timeoutMs: this.vision.generationTimeoutMs }),
     };
     const response = await this.client.generateText(
       {
@@ -79,24 +80,6 @@ export class EvolinkAiProvider implements AiProvider {
       }, signal);
       return parseGeneratedPractice(corrected.text);
     }
-  }
-
-  async verifyPractice(
-    input: VerifyPracticeInput,
-    signal: AbortSignal,
-  ): Promise<Verification> {
-    const response = await this.client.generateText(
-      {
-        messages: verificationMessages(input),
-        maxCompletionTokens: 2_000,
-        reasoningEffort: 'low',
-        responseFormat: 'json_object',
-      },
-      signal,
-    );
-    const parsed = VerificationSchema.safeParse(extractJsonObject(response.text));
-    if (!parsed.success) throw invalidOutput();
-    return parsed.data;
   }
 
   async translate(text: string, signal: AbortSignal): Promise<string> {
@@ -167,7 +150,7 @@ export class EvolinkAiProvider implements AiProvider {
 }
 
 function parseGeneratedPractice(text: string): GeneratedPractice {
-  const parsed = GeneratedPracticeSchema.safeParse(extractJsonObject(text));
+  const parsed = GeneratedPracticeSchema.safeParse(coerceGeneratedPractice(extractJsonObject(text)));
   if (!parsed.success) throw invalidOutput();
   return parsed.data;
 }
@@ -179,7 +162,7 @@ function invalidOutput(): AppError {
 
 function generationFormatIssues(text: string): string {
   try {
-    const parsed = GeneratedPracticeSchema.safeParse(extractJsonObject(text));
+    const parsed = GeneratedPracticeSchema.safeParse(coerceGeneratedPractice(extractJsonObject(text)));
     if (parsed.success) return 'Invalid JSON structure';
     // Only schema paths and codes, never model content or unknown key values.
     const fields = new Set(['title', 'paragraphs', 'key', 'text', 'usages', 'targetAlias',

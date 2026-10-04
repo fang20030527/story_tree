@@ -42,14 +42,10 @@ describe('Fake AI provider', () => {
     }
   });
 
-  it('returns deterministic verification and translation results', async () => {
+  it('returns deterministic translation and extraction results', async () => {
     const provider = new FakeAiProvider();
     const signal = new AbortController().signal;
-    const generated = await provider.generatePractice(input, signal);
 
-    await expect(
-      provider.verifyPractice({ ...input, generated }, signal),
-    ).resolves.toEqual({ approved: true, issues: [] });
     await expect(provider.translate('Source text.', signal)).resolves.toBe(
       '译文：这是供测试使用的中文内容。',
     );

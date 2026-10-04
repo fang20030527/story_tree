@@ -5,6 +5,7 @@ import type { GeneratedPractice } from '../../../../server/src/infrastructure/ai
 import type {
   GenerationTarget,
   ValidatedGeneratedPractice,
+  ValidationOptions,
 } from '../../../../server/src/modules/practice/generation-validator';
 
 export interface CpuNormalizeInput {
@@ -29,7 +30,11 @@ export interface CpuFailure {
   message: string;
   statusCode: number;
   retryable: boolean;
+  /** First problem of a rejected practice; kept for callers that read a single issue. */
   repairIssue?: string;
+  /** Every problem of a rejected practice, so one rewrite can fix them all. */
+  repairIssues?: string[];
+  issueCodes?: string[];
 }
 
 export type CpuResult<T> =
@@ -49,6 +54,7 @@ export interface CpuBoundaryStub {
     generated: GeneratedPractice,
     targets: GenerationTarget[],
     length: 'long' | 'short',
+    options?: ValidationOptions,
   ): Promise<CpuResult<ValidatedGeneratedPractice>>;
   submitAnswer(input: AnswerSubmission): Promise<CpuResult<AnswerResult>>;
 }

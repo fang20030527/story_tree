@@ -1,15 +1,10 @@
-import {
-  GeneratedPracticeSchema,
-  type GeneratedPractice,
-  type Verification,
-} from './generated-schemas';
+import { GeneratedPracticeSchema, type GeneratedPractice } from './generated-schemas';
 import type { WordTranslationResult } from '@context-reader/contracts';
 import type {
   AiProvider,
   GeneratePracticeInput,
   OcrArticleText,
   OcrImage,
-  VerifyPracticeInput,
 } from './types';
 
 const fillerCandidates = [
@@ -93,14 +88,6 @@ export class FakeAiProvider implements AiProvider {
         };
       }),
     });
-  }
-
-  async verifyPractice(
-    _input: VerifyPracticeInput,
-    signal: AbortSignal,
-  ): Promise<Verification> {
-    signal.throwIfAborted();
-    return { approved: true, issues: [] };
   }
 
   async translate(_text: string, signal: AbortSignal): Promise<string> {

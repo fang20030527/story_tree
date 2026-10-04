@@ -3,7 +3,7 @@ import type {
   PracticeTopic,
 } from '@context-reader/contracts';
 
-import type { GeneratedPractice, Verification } from './generated-schemas';
+import type { GeneratedPractice } from './generated-schemas';
 
 export interface GeneratePracticeInput {
   examPath: 'ielts';
@@ -15,10 +15,6 @@ export interface GeneratePracticeInput {
     meaningZh: string;
     sourceSentence?: string;
   }>;
-}
-
-export interface VerifyPracticeInput extends GeneratePracticeInput {
-  generated: GeneratedPractice;
 }
 
 export interface OcrImage {
@@ -37,10 +33,6 @@ export interface AiProvider {
     input: GeneratePracticeInput,
     signal: AbortSignal,
   ): Promise<GeneratedPractice>;
-  verifyPractice(
-    input: VerifyPracticeInput,
-    signal: AbortSignal,
-  ): Promise<Verification>;
   translate(text: string, signal: AbortSignal): Promise<string>;
   /** Return a concise contextual part of speech and Chinese meaning. */
   lookupWord(

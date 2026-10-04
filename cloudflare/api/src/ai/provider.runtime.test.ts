@@ -45,8 +45,7 @@ beforeAll(async () => {
               };
               const signal = new AbortController().signal;
               const generated = await provider.generatePractice(input, signal);
-              const verification = await provider.verifyPractice({ ...input, generated }, signal);
-              return Response.json({ generated, verification });
+              return Response.json({ generated });
             } catch (error) {
               return Response.json({ code: error.code, message: error.message, retryable: error.retryable },
                 { status: error.statusCode ?? 500 });
@@ -69,7 +68,7 @@ afterEach(async () => {
 });
 
 describe('Cloudflare 原生 fetch 的 AI 请求', () => {
-  it('通过真实 provider 发出生成和审核请求，不替换运行时的 fetch', async () => {
+  it('通过真实 provider 发出生成请求，不替换运行时的 fetch', async () => {
     const requests: Array<{ url: string; method: string; authorization: string | null; body: Record<string, unknown> }> = [];
     const instance = new Miniflare(convertV4MiniflareOptions({
       modules: true, script,
@@ -81,24 +80,22 @@ describe('Cloudflare 原生 fetch 的 AI 请求', () => {
           authorization: request.headers.get('authorization'),
           body: await request.json() as Record<string, unknown>,
         });
-        const content = requests.length === 1 ? draft : { approved: true, issues: [] };
         return Response.json({
-          model: 'test-text-model', choices: [{ message: { content: JSON.stringify(content) } }],
+          model: 'test-text-model', choices: [{ message: { content: JSON.stringify(draft) } }],
         });
       },
     }));
     instances.push(instance);
     const response = await instance.dispatchFetch('https://worker.invalid');
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ generated: draft, verification: { approved: true, issues: [] } });
-    expect(requests).toHaveLength(2);
-    for (const request of requests) {
-      expect(request).toMatchObject({
-        url: 'https://upstream.invalid/v1/chat/completions', method: 'POST',
-        authorization: `Bearer ${apiKey}`,
-        body: { model: 'test-text-model', stream: false, response_format: { type: 'json_object' } },
-      });
-    }
+    expect(await response.json()).toEqual({ generated: draft });
+    // One native network request: there is no separate review call any more.
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      url: 'https://upstream.invalid/v1/chat/completions', method: 'POST',
+      authorization: `Bearer ${apiKey}`,
+      body: { model: 'test-text-model', stream: false, response_format: { type: 'json_object' } },
+    });
   }, 30_000);
 
   it('上游限流仍返回可重试的错误，响应不泄漏密钥或上游消息', async () => {

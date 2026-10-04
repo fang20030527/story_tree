@@ -34,21 +34,16 @@ describe('practice generation', () => {
       const progress = async () => (await db.select({ value: practiceSessions.generationProgress })
         .from(practiceSessions).where(eq(practiceSessions.id, job.resourceId)))[0]?.value;
       const generate = provider.generatePractice.bind(provider);
-      const verify = provider.verifyPractice.bind(provider);
       vi.spyOn(provider, 'generatePractice').mockImplementation(async (input, signal) => {
         expect(await progress()).toBe(10);
         return generate(input, signal);
-      });
-      vi.spyOn(provider, 'verifyPractice').mockImplementation(async (input, signal) => {
-        expect(await progress()).toBe(60);
-        return verify(input, signal);
       });
       await handlePracticeGeneration({ db, provider, modelName: 'fake' }, job, { signal: new AbortController().signal });
       expect(await progress()).toBe(100);
     });
   }, 120_000);
 
-  it('repairs short article structure and review issues in one request without publishing failed drafts', async () => {
+  it('rewrites an unusable draft once, with the problem named, and publishes nothing from the failed draft', async () => {
     await withTestDatabase(async ({ db }) => {
       const user = await registerAnonymous(db, '80'.repeat(32), true);
       const created = await createPractice(db, {
@@ -62,30 +57,19 @@ describe('practice generation', () => {
       const generate = vi.spyOn(provider, 'generatePractice')
         .mockImplementationOnce(async (input, signal) => {
           const draft = await originalGenerate(input, signal);
-          draft.paragraphs[0]!.text += ` ${'study '.repeat(100)}`;
-          return draft;
-        })
-        .mockImplementationOnce(async (input, signal) => {
-          expect(input.revision?.issues[0]).toContain('200-300');
-          const draft = await originalGenerate(input, signal);
-          draft.questions[0]!.prompt = 'Missing blank.';
+          draft.paragraphs = [{ key: 'p1', text: ' ' }];
           return draft;
         })
         .mockImplementation(async (input, signal) => {
+          expect(input.revision?.issues[0]).toContain('empty or far too short');
           expect(await practiceState(db, job.resourceId)).not.toBe('failed');
           expect(await db.select().from(practiceParagraphs)).toHaveLength(0);
           return originalGenerate(input, signal);
         });
-      const verify = vi.spyOn(provider, 'verifyPractice')
-        .mockResolvedValueOnce({ approved: false, issues: ['Make the distractors unambiguous.'] })
-        .mockResolvedValueOnce({ approved: true, issues: [] });
 
       await handlePracticeGeneration({ db, provider, modelName: 'fake' }, job, { signal: new AbortController().signal });
 
-      expect(generate).toHaveBeenCalledTimes(4);
-      expect(generate.mock.calls[2]![0].revision?.issues[0]).toContain('____');
-      expect(generate.mock.calls[3]![0].revision?.issues).toEqual(['Make the distractors unambiguous.']);
-      expect(verify).toHaveBeenCalledTimes(2);
+      expect(generate).toHaveBeenCalledTimes(2);
       expect(await practiceState(db, job.resourceId)).toBe('ready');
       expect(await db.select().from(practiceParagraphs)).toHaveLength(3);
       const ledger = await db.select().from(usageLedger).where(eq(usageLedger.practiceSessionId, created.practiceId));
@@ -93,7 +77,7 @@ describe('practice generation', () => {
     });
   }, 120_000);
 
-  it('revises rejected content using review feedback before publishing', async () => {
+  it('stores a draft with a poorly formed question as it is, repaired, without a rewrite', async () => {
     await withTestDatabase(async ({ db }) => {
       const user = await registerAnonymous(db, '79'.repeat(32), true);
       const created = await createPractice(db, {
@@ -103,15 +87,22 @@ describe('practice generation', () => {
       });
       const job = await claimNextJob(db, 'revision-worker', 120_000, ['practice_generation']);
       const provider = new FakeAiProvider();
-      const generate = vi.spyOn(provider, 'generatePractice');
-      const verify = vi.spyOn(provider, 'verifyPractice')
-        .mockResolvedValueOnce({ approved: false, issues: ['Make the distractors unambiguous.'] })
-        .mockResolvedValueOnce({ approved: true, issues: [] });
+      const originalGenerate = provider.generatePractice.bind(provider);
+      const generate = vi.spyOn(provider, 'generatePractice').mockImplementation(async (input, signal) => {
+        const draft = await originalGenerate(input, signal);
+        draft.questions[0]!.prompt = 'Missing blank.';
+        draft.questions[0]!.optionsEn = ['resilient', 'fragile'];
+        draft.questions[0]!.correctOptionIndex = 9;
+        draft.questions[0]!.optionExplanationsZh = [];
+        return draft;
+      });
       await handlePracticeGeneration({ db, provider, modelName: 'fake' }, job!, { signal: new AbortController().signal });
-      expect(generate).toHaveBeenCalledTimes(2);
-      expect(generate.mock.calls[1]![0].revision?.issues).toEqual(['Make the distractors unambiguous.']);
-      expect(verify).toHaveBeenCalledTimes(2);
+      expect(generate).toHaveBeenCalledTimes(1);
       expect(await practiceState(db, created.practiceId)).toBe('ready');
+      const [question] = await db.select().from(practiceQuestions);
+      expect(question!.optionsJson).toHaveLength(4);
+      expect(question!.optionsJson.find((option) => option.id === question!.correctOptionId)?.label).toBe('resilient');
+      expect(Object.keys(question!.optionExplanationsJson)).toHaveLength(4);
     });
   }, 120_000);
 
@@ -139,7 +130,6 @@ describe('practice generation', () => {
 
       const provider = new FakeAiProvider();
       const generate = vi.spyOn(provider, 'generatePractice');
-      const verify = vi.spyOn(provider, 'verifyPractice');
       const context = { signal: new AbortController().signal };
       const options = { db, provider, modelName: 'fake-ielts-v1' };
 
@@ -147,7 +137,6 @@ describe('practice generation', () => {
       await handlePracticeGeneration(options, job!, context);
 
       expect(generate).toHaveBeenCalledTimes(1);
-      expect(verify).toHaveBeenCalledTimes(1);
 
       const [practice] = await db
         .select()
@@ -208,7 +197,7 @@ describe('practice generation', () => {
     });
   }, 120_000);
 
-  it('classifies provider, verification, deadline, and lease failures without partial writes', async () => {
+  it('classifies provider, unusable-output, deadline, and lease failures without partial writes', async () => {
     await withTestDatabase(async ({ db }) => {
       let sequence = 0;
       const createClaim = async (label: string) => {
@@ -242,7 +231,8 @@ describe('practice generation', () => {
         .mockRejectedValue(new AppError('AI_UNAVAILABLE', 'supplier-only detail', 503, true));
       const providerError = await captureAppError(
         handlePracticeGeneration(
-          { db, provider: failingProvider, modelName: 'fake' },
+          // This scenario classifies the final failure; transient retries have their own tests.
+          { db, provider: failingProvider, modelName: 'fake', retryDelaysMs: [] },
           providerFailure.job,
           { signal: new AbortController().signal },
         ),
@@ -278,32 +268,27 @@ describe('practice generation', () => {
           .where(eq(usageLedger.practiceSessionId, providerFailure.practiceId)),
       ).toEqual(expect.arrayContaining([{ kind: 'reserve' }, { kind: 'release' }]));
 
-      const rejectedVerification = await createClaim('verify-reject');
-      const rejectedProvider = new FakeAiProvider();
-      vi.spyOn(rejectedProvider, 'verifyPractice').mockResolvedValue({
-        approved: false,
-        issues: ['supplier-only detail'],
+      const unusable = await createClaim('unusable-output');
+      const unusableProvider = new FakeAiProvider();
+      const unusableGenerate = unusableProvider.generatePractice.bind(unusableProvider);
+      vi.spyOn(unusableProvider, 'generatePractice').mockImplementation(async (input, signal) => {
+        const draft = await unusableGenerate(input, signal);
+        draft.paragraphs = [{ key: 'p1', text: '' }];
+        return draft;
       });
       await expect(
         handlePracticeGeneration(
-          { db, provider: rejectedProvider, modelName: 'fake' },
-          rejectedVerification.job,
+          { db, provider: unusableProvider, modelName: 'fake' },
+          unusable.job,
           { signal: new AbortController().signal },
         ),
       ).rejects.toMatchObject({ code: 'AI_INVALID_OUTPUT', retryable: true });
-      expect(
-        await practiceState(db, rejectedVerification.practiceId),
-      ).toBe('validating');
+      expect(await practiceState(db, unusable.practiceId)).toBe('generating');
       expect(
         await db
           .select()
           .from(practiceParagraphs)
-          .where(
-            eq(
-              practiceParagraphs.practiceSessionId,
-              rejectedVerification.practiceId,
-            ),
-          ),
+          .where(eq(practiceParagraphs.practiceSessionId, unusable.practiceId)),
       ).toHaveLength(0);
 
       const expired = await createClaim('expired-before-ai');
@@ -323,14 +308,14 @@ describe('practice generation', () => {
 
       const leaseLoss = await createClaim('lease-loss');
       const leaseLossProvider = new FakeAiProvider();
-      const verify = leaseLossProvider.verifyPractice.bind(leaseLossProvider);
-      vi.spyOn(leaseLossProvider, 'verifyPractice')
+      const generateDraft = leaseLossProvider.generatePractice.bind(leaseLossProvider);
+      vi.spyOn(leaseLossProvider, 'generatePractice')
         .mockImplementationOnce(async (input, signal) => {
           await db
             .update(jobs)
             .set({ lockedBy: 'replacement-worker' })
             .where(eq(jobs.id, leaseLoss.job.id));
-          return verify(input, signal);
+          return generateDraft(input, signal);
         });
       await expect(
         handlePracticeGeneration(
@@ -339,7 +324,7 @@ describe('practice generation', () => {
           { signal: new AbortController().signal },
         ),
       ).rejects.toMatchObject({ name: 'AbortError' });
-      expect(await practiceState(db, leaseLoss.practiceId)).toBe('validating');
+      expect(await practiceState(db, leaseLoss.practiceId)).toBe('generating');
       expect(
         await db
           .select()

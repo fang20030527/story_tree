@@ -3,7 +3,10 @@ import { PracticeTopicSchema, type PracticeStatus } from '@context-reader/contra
 import { AppError, type ErrorCode } from '../../../../server/src/core/errors';
 import type { GeneratePracticeInput } from '../../../../server/src/infrastructure/ai/types';
 import {
-  PracticeValidationError,
+  runPracticeGeneration,
+  type GenerationLogEvent,
+} from '../../../../server/src/modules/practice/generation-loop';
+import {
   type GenerationTarget,
   type ValidatedGeneratedPractice,
 } from '../../../../server/src/modules/practice/generation-validator';
@@ -12,10 +15,10 @@ import { validatePracticeOnCpuBoundary } from '../cpu/client';
 import type { ApiEnv, D1DatabaseBinding, D1StatementBinding } from '../env';
 import type { ClaimedJob } from './repository';
 
-const MAX_DRAFTS = 4;
 const DB_NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 const TERMINAL_SUCCESS = new Set<PracticeStatus>(['ready', 'in_progress', 'completed']);
 const DEFAULT_PROMPT_VERSION = 'ielts-generation-bilingual-feedback-v4';
+const SHORT_PROMPT_VERSION = 'ielts-topic-short-english-cloze-v4';
 
 interface PracticeRow {
   status: PracticeStatus;
@@ -95,6 +98,7 @@ async function loadInput(db: D1DatabaseBinding, practiceId: string): Promise<Loa
       id: target.id,
       alias: 't' + (index + 1),
       meaningZh: target.meaningZh,
+      term: target.term,
     })),
   };
 }
@@ -251,13 +255,12 @@ async function persistReady(
   job: ClaimedJob,
   rootId: string,
   validated: ValidatedGeneratedPractice,
+  promptVersion: string,
   signal: AbortSignal,
 ): Promise<void> {
   signal.throwIfAborted();
   const guardId = crypto.randomUUID();
   const output = outputRows(validated);
-  const promptVersion = validated.wordCount <= 300
-    ? 'ielts-topic-short-english-cloze-v3' : DEFAULT_PROMPT_VERSION;
   const modelName = env.EVOLINK_TEXT_MODEL ?? 'gpt-6-luna';
   const db = env.DB;
   const statements: D1StatementBinding[] = [
@@ -300,6 +303,20 @@ async function persistReady(
   await db.batch(statements);
 }
 
+/**
+ * Diagnostics for `wrangler tail` and Workers Logs. Only job and practice ids, stages,
+ * outcomes, counts and issue codes are logged: never article text or vocabulary.
+ */
+function logGeneration(job: ClaimedJob, event: GenerationLogEvent): void {
+  console.log(JSON.stringify({
+    event: 'practice_generation',
+    job: job.id,
+    practice: job.resourceId,
+    attempt: job.attemptCount,
+    ...event,
+  }));
+}
+
 export async function handlePracticeGeneration(
   env: ApiEnv,
   job: ClaimedJob,
@@ -313,51 +330,41 @@ export async function handlePracticeGeneration(
   if (loaded.status === 'failed') throw stateConflict();
   assertDeadline(job, context.signal);
   if (!(await moveState(env.DB, job, 'generating', context.signal))) return;
-  const provider = evolinkProvider(env);
-  let input = loaded.providerInput;
-  for (let revision = 0; revision < MAX_DRAFTS; revision += 1) {
-    assertDeadline(job, context.signal);
-    const generated = await provider.generatePractice(input, context.signal);
-    await recordProgress(env.DB, job, 40, context.signal);
-    let validated: ValidatedGeneratedPractice;
-    try {
-      validated = await validatePracticeOnCpuBoundary(
-        env, generated, loaded.validationTargets,
-        loaded.providerInput.topic ? 'short' : 'long',
-      );
-    } catch (error) {
-      if (!(error instanceof PracticeValidationError) || revision === MAX_DRAFTS - 1) throw error;
-      input = {
-        ...loaded.providerInput,
-        revision: { generated, issues: [...new Set([
-          error.repairIssue, ...(input.revision?.issues ?? []),
-        ])] },
-      };
-      continue;
-    }
-    if (!(await moveState(env.DB, job, 'validating', context.signal))) return;
-    assertDeadline(job, context.signal);
-    const verification = await provider.verifyPractice(
-      { ...loaded.providerInput, generated }, context.signal,
-    );
-    if (!verification.approved) {
-      if (revision === MAX_DRAFTS - 1) {
-        throw new AppError('AI_INVALID_OUTPUT', '生成内容未通过质量检查', 502, true);
-      }
-      input = {
-        ...loaded.providerInput,
-        revision: { generated, issues: [...new Set([
-          ...verification.issues, ...(input.revision?.issues ?? []),
-        ])] },
-      };
-      if (!(await moveState(env.DB, job, 'generating', context.signal))) return;
-      continue;
-    }
-    await recordProgress(env.DB, job, 90, context.signal);
-    assertDeadline(job, context.signal);
-    await persistReady(env, job, loaded.rootId, validated, context.signal);
-    return;
+  const startedAt = Date.now();
+  logGeneration(job, {
+    stage: 'start', targets: loaded.providerInput.targets.length,
+    topic: loaded.providerInput.topic !== undefined, remainingMs: job.deadlineAt.getTime() - startedAt,
+  });
+  const length = loaded.providerInput.topic ? 'short' : 'long';
+  let validated: ValidatedGeneratedPractice | null;
+  try {
+    validated = await runPracticeGeneration({
+      provider: evolinkProvider(env),
+      input: loaded.providerInput,
+      validate: (generated, options) =>
+        validatePracticeOnCpuBoundary(env, generated, loaded.validationTargets, length, options),
+      signal: context.signal,
+      deadlineAt: job.deadlineAt,
+      hooks: {
+        onDraft: () => recordProgress(env.DB, job, 40, context.signal),
+        onValidated: () => moveState(env.DB, job, 'validating', context.signal),
+      },
+      log: (event) => logGeneration(job, event),
+    });
+  } catch (error) {
+    logGeneration(job, {
+      stage: 'failed', outcome: error instanceof AppError ? error.code : 'error',
+      elapsedMs: Date.now() - startedAt,
+    });
+    throw error;
   }
+  if (!validated) return;
+  assertDeadline(job, context.signal);
+  await persistReady(
+    env, job, loaded.rootId, validated,
+    length === 'short' ? SHORT_PROMPT_VERSION : DEFAULT_PROMPT_VERSION, context.signal,
+  );
+  logGeneration(job, { stage: 'persisted', elapsedMs: Date.now() - startedAt });
 }
 
 function publicFailure(error: AppError): { code: ErrorCode; message: string } {
@@ -367,7 +374,7 @@ function publicFailure(error: AppError): { code: ErrorCode; message: string } {
     case 'GENERATION_DEADLINE_EXCEEDED':
       return { code: error.code, message: '练习生成超时，请重试' };
     case 'AI_INVALID_OUTPUT':
-      return { code: error.code, message: '生成内容未通过质量检查，请重试' };
+      return { code: error.code, message: '生成的内容无法使用，请重试' };
     case 'AI_UNAVAILABLE':
       return { code: error.code, message: 'AI 服务暂时不可用，请稍后重试' };
     default:

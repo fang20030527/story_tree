@@ -52,6 +52,7 @@ const aiProvider = new EvolinkAiProvider(
     // the job or HTTP request deadline cancels the whole operation.
     translationTimeoutMs: Math.max(1, config.generationDeadlineMs
       - Math.min(15_000, Math.floor(config.generationDeadlineMs / 5))),
+    generationTimeoutMs: Math.max(config.EVOLINK_TIMEOUT_MS, 90_000),
   },
 );
 const generationDependencies = {

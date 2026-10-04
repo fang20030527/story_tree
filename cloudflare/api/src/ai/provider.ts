@@ -30,16 +30,19 @@ export function evolinkProvider(env: ApiEnv): EvolinkAiProvider {
   if (url.protocol !== 'https:' || url.username || url.password) {
     throw new AppError('INTERNAL_ERROR', 'AI 服务配置无效', 500, true);
   }
+  const timeoutMs = positiveMilliseconds(env.EVOLINK_TIMEOUT_MS, 60_000);
   const client = new EvolinkClient({
     apiKey: env.EVOLINK_API_KEY,
     baseUrl: url.toString(),
     textModel: env.EVOLINK_TEXT_MODEL ?? 'gpt-6-luna',
-    timeoutMs: positiveMilliseconds(env.EVOLINK_TIMEOUT_MS, 60_000),
+    timeoutMs,
   });
   const deadline = generationDeadlineMs(env);
   return new EvolinkAiProvider(client, {
     visionModel: env.EVOLINK_VISION_MODEL ?? 'deepseek-v4-flash-vision-exp',
     visionTimeoutMs: positiveMilliseconds(env.EVOLINK_VISION_TIMEOUT_MS, 120_000),
     translationTimeoutMs: Math.max(1, deadline - Math.min(15_000, Math.floor(deadline / 5))),
+    // An article with ten bilingual questions is a long reply; do not cut it off at the short-call limit.
+    generationTimeoutMs: Math.max(timeoutMs, 90_000),
   });
 }

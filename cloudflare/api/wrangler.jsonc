@@ -48,6 +48,11 @@
   "triggers": {
     "crons": ["* * * * *"]
   },
+  // 保留 console.log 输出（含练习生成的 practice_generation 诊断事件：只有任务编号、阶段、
+  // 结果、次数和问题代码，不含文章或词汇），方便事后用 Workers Logs 或 `wrangler tail` 排查。
+  "observability": {
+    "enabled": true
+  },
   "ai": {
     "binding": "AI"
   },

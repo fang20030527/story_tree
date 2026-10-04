@@ -21,8 +21,8 @@ import type {
 } from '../../infrastructure/ai/types';
 import type { ClaimedJob } from '../jobs/types';
 import { commitQuota, releaseQuota } from '../quota/service';
+import { runPracticeGeneration } from './generation-loop';
 import {
-  PracticeValidationError,
   validateGeneratedPractice,
   type GenerationTarget,
   type ValidatedGeneratedPractice,
@@ -30,7 +30,7 @@ import {
 import { assertPracticeTransition } from './state';
 
 const DEFAULT_PROMPT_VERSION = 'ielts-generation-bilingual-feedback-v4';
-const MAX_GENERATION_DRAFTS = 4;
+const SHORT_PROMPT_VERSION = 'ielts-topic-short-english-cloze-v4';
 const successfulTerminalStatuses = new Set<PracticeStatus>([
   'ready',
   'in_progress',
@@ -42,6 +42,8 @@ export interface PracticeGenerationDependencies {
   provider: AiProvider;
   modelName: string;
   promptVersion?: string;
+  /** Waits between retries of a transient provider failure; empty disables retrying. */
+  retryDelaysMs?: readonly number[];
 }
 
 interface LoadedGenerationInput {
@@ -62,60 +64,27 @@ export async function handlePracticeGeneration(
   assertProviderCallAllowed(job, context.signal);
   if (!(await moveToGenerating(dependencies.db, job, context.signal))) return;
 
-  let generationInput = loaded.providerInput;
-  for (let revision = 0; revision < MAX_GENERATION_DRAFTS; revision += 1) {
-    assertProviderCallAllowed(job, context.signal);
-    const generated = await dependencies.provider.generatePractice(
-      generationInput,
-      context.signal,
-    );
-    await recordGenerationProgress(dependencies.db, job, 40, context.signal);
-    let validated: ValidatedGeneratedPractice;
-    try {
-      validated = validateGeneratedPractice(
-        generated,
-        loaded.validationTargets,
-        loaded.providerInput.topic ? 'short' : 'long',
-      );
-    } catch (error) {
-      if (!(error instanceof PracticeValidationError)
-        || revision === MAX_GENERATION_DRAFTS - 1) throw error;
-      // Repair the rejected draft within the same job. Never publish it or
-      // discard the concrete feedback in favor of a blind queue retry.
-      generationInput = {
-        ...loaded.providerInput,
-        revision: { generated, issues: [error.repairIssue] },
-      };
-      continue;
-    }
+  const length = loaded.providerInput.topic ? 'short' : 'long';
+  const validated: ValidatedGeneratedPractice | null = await runPracticeGeneration({
+    provider: dependencies.provider,
+    input: loaded.providerInput,
+    validate: async (generated, options) =>
+      validateGeneratedPractice(generated, loaded.validationTargets, length, options),
+    signal: context.signal,
+    deadlineAt: job.deadlineAt,
+    ...(dependencies.retryDelaysMs ? { retryDelaysMs: dependencies.retryDelaysMs } : {}),
+    hooks: {
+      onDraft: () => recordGenerationProgress(dependencies.db, job, 40, context.signal),
+      onValidated: () => moveToValidating(dependencies.db, job, context.signal),
+    },
+  });
+  if (!validated) return;
 
-    if (!(await moveToValidating(dependencies.db, job, context.signal))) return;
-
-    assertProviderCallAllowed(job, context.signal);
-    const verification = await dependencies.provider.verifyPractice(
-      { ...loaded.providerInput, generated },
-      context.signal,
-    );
-    if (!verification.approved) {
-      if (revision === MAX_GENERATION_DRAFTS - 1) throw invalidGeneratedContent();
-      generationInput = {
-        ...loaded.providerInput,
-        revision: { generated, issues: verification.issues },
-      };
-      if (!(await moveToGenerating(dependencies.db, job, context.signal))) return;
-      continue;
-    }
-    await recordGenerationProgress(dependencies.db, job, 90, context.signal);
-
-    assertWithinDeadline(job, context.signal);
-    await persistGeneratedPractice(
-      dependencies,
-      job,
-      validated,
-      context.signal,
-    );
-    return;
-  }
+  assertWithinDeadline(job, context.signal);
+  await persistGeneratedPractice(
+    dependencies, job, validated,
+    length === 'short' ? SHORT_PROMPT_VERSION : DEFAULT_PROMPT_VERSION, context.signal,
+  );
 }
 
 export async function failPracticeGeneration(
@@ -202,6 +171,7 @@ async function loadGenerationInput(
       id: target.id,
       alias: `t${index + 1}`,
       meaningZh: target.meaningZh,
+      term: target.term,
     })),
   };
 }
@@ -244,6 +214,7 @@ async function persistGeneratedPractice(
   dependencies: PracticeGenerationDependencies,
   job: ClaimedJob,
   generated: ValidatedGeneratedPractice,
+  promptVersion: string,
   signal: AbortSignal,
 ): Promise<void> {
   signal.throwIfAborted();
@@ -323,7 +294,7 @@ async function persistGeneratedPractice(
         articleTitle: generated.title,
         articleWordCount: generated.wordCount,
         modelName: dependencies.modelName,
-        promptVersion: dependencies.promptVersion ?? (generated.wordCount <= 300 ? 'ielts-topic-short-english-cloze-v3' : DEFAULT_PROMPT_VERSION),
+        promptVersion: dependencies.promptVersion ?? promptVersion,
         failureCode: null,
         failureMessagePublic: null,
         readyAt: new Date(),
@@ -434,7 +405,7 @@ function publicGenerationFailure(error: AppError): {
     case 'GENERATION_DEADLINE_EXCEEDED':
       return { code: error.code, message: '练习生成超时，请重试' };
     case 'AI_INVALID_OUTPUT':
-      return { code: error.code, message: '生成内容未通过质量检查，请重试' };
+      return { code: error.code, message: '生成的内容无法使用，请重试' };
     case 'AI_UNAVAILABLE':
       return { code: error.code, message: 'AI 服务暂时不可用，请稍后重试' };
     default:
@@ -443,7 +414,7 @@ function publicGenerationFailure(error: AppError): {
 }
 
 function invalidGeneratedContent(): AppError {
-  return new AppError('AI_INVALID_OUTPUT', '生成内容未通过质量检查', 502, true);
+  return new AppError('AI_INVALID_OUTPUT', '生成的内容无法使用', 502, true);
 }
 
 function stateConflict(): AppError {

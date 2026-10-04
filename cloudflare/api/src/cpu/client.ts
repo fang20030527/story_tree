@@ -7,6 +7,7 @@ import {
   PracticeValidationError,
   type GenerationTarget,
   type ValidatedGeneratedPractice,
+  type ValidationOptions,
 } from '../../../../server/src/modules/practice/generation-validator';
 import type { ApiEnv } from '../env';
 import type {
@@ -52,10 +53,19 @@ async function invoke<T>(
       typeof result.error.retryable !== 'boolean') {
     throw unavailable();
   }
-  if (result.error.code === 'AI_INVALID_OUTPUT' &&
-      typeof result.error.repairIssue === 'string' &&
-      result.error.repairIssue.length <= 500) {
-    throw new PracticeValidationError(result.error.repairIssue);
+  if (result.error.code === 'AI_INVALID_OUTPUT') {
+    const issues = Array.isArray(result.error.repairIssues)
+      ? result.error.repairIssues.filter((issue): issue is string =>
+        typeof issue === 'string' && issue.length > 0 && issue.length <= 500).slice(0, 12)
+      : [];
+    const codes = Array.isArray(result.error.issueCodes)
+      ? result.error.issueCodes.filter((code): code is string =>
+        typeof code === 'string' && code.length <= 40).slice(0, 12)
+      : [];
+    if (issues.length > 0) throw new PracticeValidationError(issues, codes);
+    if (typeof result.error.repairIssue === 'string' && result.error.repairIssue.length <= 500) {
+      throw new PracticeValidationError(result.error.repairIssue);
+    }
   }
   throw new AppError(
     result.error.code,
@@ -138,8 +148,9 @@ export function validatePracticeOnCpuBoundary(
   generated: GeneratedPractice,
   targets: GenerationTarget[],
   length: 'long' | 'short',
+  options: ValidationOptions = {},
 ): Promise<ValidatedGeneratedPractice> {
-  return invoke(env, (stub) => stub.validatePractice(generated, targets, length));
+  return invoke(env, (stub) => stub.validatePractice(generated, targets, length, options));
 }
 
 export function submitAnswerOnCpuBoundary(

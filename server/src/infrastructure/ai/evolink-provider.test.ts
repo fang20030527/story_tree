@@ -56,14 +56,15 @@ describe('EvoLink AI provider', () => {
   });
 
   it('repairs malformed generation with field feedback and still validates the result', async () => {
-    const malformed = { ...generatedPractice(), questions: [{ ...generatedPractice().questions[0], optionsEn: ['one'] }] };
+    // Only a reply without any article is malformed; other slips are repaired by the validator.
+    const malformed = { ...generatedPractice(), paragraphs: [] };
     const fetchImpl = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: JSON.stringify(malformed) } }] }))
       .mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: JSON.stringify(generatedPractice()) } }] }));
     await expect(createProvider(fetchImpl).generatePractice({ examPath: 'ielts', targets: [] }, new AbortController().signal)).resolves.toEqual(generatedPractice());
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     const correction = JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body));
-    expect(correction.messages[3].content).toContain('optionsEn');
+    expect(correction.messages[3].content).toContain('paragraphs');
     expect(correction.messages[3].content).toContain('too_small');
   });
 

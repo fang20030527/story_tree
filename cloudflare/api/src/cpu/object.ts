@@ -8,6 +8,7 @@ import {
   validateGeneratedPractice,
   type GenerationTarget,
   type ValidatedGeneratedPractice,
+  type ValidationOptions,
 } from '../../../../server/src/modules/practice/generation-validator';
 import {
   hashEmailPassword,
@@ -64,7 +65,11 @@ async function safely<T>(work: () => T | Promise<T>): Promise<CpuResult<T>> {
           statusCode: error.statusCode,
           retryable: error.retryable,
           ...(error instanceof PracticeValidationError
-            ? { repairIssue: error.repairIssue } : {}),
+            ? {
+              repairIssue: error.repairIssue,
+              repairIssues: error.repairIssues,
+              issueCodes: error.issueCodes,
+            } : {}),
         },
       };
     }
@@ -181,7 +186,8 @@ export class CpuBoundary extends DurableObject<ApiEnv> {
     generated: GeneratedPractice,
     targets: GenerationTarget[],
     length: 'long' | 'short',
+    options: ValidationOptions = {},
   ): Promise<CpuResult<ValidatedGeneratedPractice>> {
-    return safely(() => validateGeneratedPractice(generated, targets, length));
+    return safely(() => validateGeneratedPractice(generated, targets, length, options));
   }
 }
