@@ -72,6 +72,8 @@ node scripts/upload-economist-2026-r2.mjs $audioRoot --upload
 
 使用 Cloudflare 的最小权限部署凭证设置 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`，或用 Wrangler 官方 OAuth 登录。部署凭证只放在本地环境变量中。先发布音频、插图和 API，再把 Web Worker 地址写入 `app/.env`：
 
+使用 OAuth 时，先运行 `npx wrangler login` 并在 Cloudflare 完成授权；D1 操作需要 `d1:write`。`cloudflare/.env.local` 中若仍有过期的 `CLOUDFLARE_API_TOKEN`，它会覆盖有效的 OAuth 登录，需移除失效项。D1 迁移脚本优先使用 `CLOUDFLARE_D1_API_TOKEN`，未配置时使用 OAuth，并忽略 Worker 发布用的通用 token；失效的 D1 专用 token 也需移除。保留 `CLOUDFLARE_ACCOUNT_ID`，确保操作目标账户正确。
+
 ```powershell
 npm run cloudflare:deploy:audio
 npm run cloudflare:deploy:images

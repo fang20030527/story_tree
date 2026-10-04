@@ -4,18 +4,21 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const wrangler = fileURLToPath(new URL('../node_modules/wrangler/bin/wrangler.js', import.meta.url));
 const token = process.env.CLOUDFLARE_D1_API_TOKEN;
-if (!token) throw new Error('CLOUDFLARE_D1_API_TOKEN is required');
 if (!process.env.CLOUDFLARE_ACCOUNT_ID) throw new Error('CLOUDFLARE_ACCOUNT_ID is required');
 
-// Use the short-lived D1-only token for schema changes. The token is passed
-// through the child environment, never through command arguments or logs.
+// 优先使用 D1 专用 token；未配置时使用 Wrangler 官方 OAuth 登录。
+// 不回退到用于 Worker 发布的通用 token，以免缺少 D1 权限或过期的凭据覆盖 OAuth。
+// 凭据只通过子进程环境传递，不进入命令参数或日志。
+const env = { ...process.env };
+if (token) env.CLOUDFLARE_API_TOKEN = token;
+else delete env.CLOUDFLARE_API_TOKEN;
 const child = spawn(process.execPath, [
   wrangler,
   'd1', 'migrations', 'apply', 'waikan-core', '--remote',
   '--config', 'cloudflare/api/wrangler.jsonc',
 ], {
   cwd: root,
-  env: { ...process.env, CLOUDFLARE_API_TOKEN: token },
+  env,
   stdio: 'inherit',
   windowsHide: true,
 });
