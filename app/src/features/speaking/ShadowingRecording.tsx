@@ -18,6 +18,17 @@ type PendingRecording = { recording: SpeakingRecording; context: RecordingContex
 // 离开练习页时 useAudioPlayer 已先释放回放播放器，随后的失焦清理再调用 pause 会抛出
 // “Unable to find the native shared object”，在正式包里属于未捕获错误，会直接闪退。
 function pauseReplay(player: ReturnType<typeof useAudioPlayer>) { try { player.pause(); } catch { /* 播放器已被释放。 */ } }
+// iOS 的 Info.plist 缺少 NSMicrophoneUsageDescription 时，系统会在请求麦克风权限的瞬间终止进程（JS 无法捕获，表现为点录音就闪退）。
+// 缺少该键时 expo-audio 报告“已拒绝、不可再询问”，所以先读取状态，只有系统允许再次询问时才发起请求。
+// Web 的状态查询本身会弹出授权框，直接请求即可。
+async function microphoneGranted() {
+  if (Platform.OS !== 'web') {
+    const current = await AudioModule.getRecordingPermissionsAsync();
+    if (current.granted) return true;
+    if (!current.canAskAgain) return false;
+  }
+  return (await AudioModule.requestRecordingPermissionsAsync()).granted;
+}
 // 打开音量计量：只用于录音键外圈的电平显示，不影响录音文件。
 const RECORDING_OPTIONS = { ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true };
 /** 分贝（-160–0）换算成 0–1 的电平；-60dB 以下视为安静。 */
@@ -101,8 +112,7 @@ export function ShadowingRecording({ materialId, material, cueId, scope, saved, 
     };
     pauseOriginal(); replay.pause(); setError(''); setBusy(true); operationBusy.current = true;
     try {
-      const permission = await AudioModule.requestRecordingPermissionsAsync();
-      if (!permission.granted) { if (canDisplay(context)) setError('未获得麦克风权限，请在系统设置中允许录音'); return; }
+      if (!await microphoneGranted()) { if (canDisplay(context)) setError('未获得麦克风权限，请在系统设置中允许录音'); return; }
       if (!canDisplay(context)) return;
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldPlayInBackground: false });
       await recorder.prepareToRecordAsync();

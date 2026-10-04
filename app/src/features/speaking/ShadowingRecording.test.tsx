@@ -1,13 +1,14 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { AudioModule, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import React from 'react';
+import { Platform } from 'react-native';
 import { ShadowingRecording } from './ShadowingRecording';
 import { persistSpeakingMedia, resolveSpeakingMedia } from './mediaStorage';
 import { emptySpeakingStore, type SpeakingMaterial } from './model';
 import { updateSpeakingStore } from './speakingStorage';
 
 jest.mock('expo-audio', () => ({
-  AudioModule: { requestRecordingPermissionsAsync: jest.fn() }, RecordingPresets: { HIGH_QUALITY: {} },
+  AudioModule: { getRecordingPermissionsAsync: jest.fn(), requestRecordingPermissionsAsync: jest.fn() }, RecordingPresets: { HIGH_QUALITY: {} },
   setAudioModeAsync: jest.fn(), useAudioPlayer: jest.fn(), useAudioPlayerStatus: jest.fn(), useAudioRecorder: jest.fn(), useAudioRecorderState: jest.fn(),
 }));
 jest.mock('expo-router', () => ({ useFocusEffect: (callback: () => void | (() => void)) => jest.requireActual<typeof import('react')>('react').useEffect(callback, [callback]) }));
@@ -20,8 +21,11 @@ const recorder = { prepareToRecordAsync: jest.fn(), record: jest.fn(), stop: jes
 const replay = { pause: jest.fn(), replace: jest.fn(), seekTo: jest.fn(), play: jest.fn() };
 const props = { materialId: 'curiosity', cueId: 'cue-one', scope: 'user-a', pauseOriginal: jest.fn(), onActive: jest.fn(), onSaved: jest.fn() };
 const state = (isRecording: boolean) => ({ isRecording, durationMillis: 1000 } as ReturnType<typeof useAudioRecorderState>);
+const permissionState = (granted: boolean, canAskAgain: boolean) => ({ granted, canAskAgain, status: granted ? 'granted' : canAskAgain ? 'undetermined' : 'denied' } as Awaited<ReturnType<typeof AudioModule.getRecordingPermissionsAsync>>);
 beforeEach(() => {
   jest.clearAllMocks();
+  // 默认：尚未询问过，需要向系统请求。
+  jest.mocked(AudioModule.getRecordingPermissionsAsync).mockResolvedValue(permissionState(false, true));
   recorder.prepareToRecordAsync.mockResolvedValue(undefined); recorder.stop.mockResolvedValue(undefined);
   jest.mocked(useAudioRecorder).mockReturnValue(recorder as unknown as ReturnType<typeof useAudioRecorder>);
   jest.mocked(useAudioRecorderState).mockReturnValue(state(false));
@@ -39,6 +43,33 @@ it('requests permission only on user action and handles denial without recording
   await waitFor(() => expect(view.getByText(/未获得麦克风权限/)).toBeTruthy());
   expect(recorder.prepareToRecordAsync).not.toHaveBeenCalled();
   expect(persistSpeakingMedia).not.toHaveBeenCalled();
+});
+it('never asks the system when access is denied or the iOS usage description is missing', async () => {
+  // 缺少 NSMicrophoneUsageDescription 时，原生请求会让系统直接终止进程；这种状态被报告为“已拒绝、不可再询问”。
+  jest.mocked(AudioModule.getRecordingPermissionsAsync).mockResolvedValueOnce(permissionState(false, false));
+  const view = await render(<ShadowingRecording {...props} />);
+  await fireEvent.press(view.getByLabelText('开始录音'));
+  await waitFor(() => expect(view.getByText(/未获得麦克风权限/)).toBeTruthy());
+  expect(AudioModule.requestRecordingPermissionsAsync).not.toHaveBeenCalled();
+  expect(recorder.prepareToRecordAsync).not.toHaveBeenCalled();
+  expect(setAudioModeAsync).not.toHaveBeenCalledWith(expect.objectContaining({ allowsRecording: true }));
+});
+it('records without asking again when microphone access was already granted', async () => {
+  jest.mocked(AudioModule.getRecordingPermissionsAsync).mockResolvedValueOnce(permissionState(true, true));
+  const view = await render(<ShadowingRecording {...props} />);
+  await fireEvent.press(view.getByLabelText('开始录音'));
+  await waitFor(() => expect(recorder.record).toHaveBeenCalled());
+  expect(AudioModule.requestRecordingPermissionsAsync).not.toHaveBeenCalled();
+});
+it('goes straight to the browser prompt on web, where reading the status already prompts', async () => {
+  const platform = jest.replaceProperty(Platform, 'OS', 'web');
+  try {
+    const view = await render(<ShadowingRecording {...props} />);
+    await fireEvent.press(view.getByLabelText('开始录音'));
+    await waitFor(() => expect(recorder.record).toHaveBeenCalled());
+    expect(AudioModule.getRecordingPermissionsAsync).not.toHaveBeenCalled();
+    expect(AudioModule.requestRecordingPermissionsAsync).toHaveBeenCalledTimes(1);
+  } finally { platform.restore(); }
 });
 it('restores playback audio mode after a failed recorder preparation', async () => {
   recorder.prepareToRecordAsync.mockRejectedValueOnce(new Error('microphone unavailable'));
