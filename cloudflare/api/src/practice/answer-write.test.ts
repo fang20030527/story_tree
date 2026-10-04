@@ -16,6 +16,10 @@ const ids = {
   question: '66666666-6666-4666-8666-666666666666',
   correct: '77777777-7777-4777-8777-777777777777',
   wrong: '88888888-8888-4888-8888-888888888888',
+  // The second question of the same target (round 1), when a test asks for one.
+  second: '66666666-6666-4666-8666-666666666667',
+  secondCorrect: '77777777-7777-4777-8777-777777777778',
+  secondWrong: '88888888-8888-4888-8888-888888888889',
 };
 const instances: Miniflare[] = [];
 
@@ -23,7 +27,7 @@ afterEach(async () => {
   await Promise.all(instances.splice(0).map((instance) => instance.dispose()));
 });
 
-async function setup(withHint = false) {
+async function setup(withHint = false, withSecondQuestion = false) {
   const mf = new Miniflare(convertV4MiniflareOptions({
     modules: true,
     script: 'export default { fetch() { return new Response("ok"); } }',
@@ -31,7 +35,7 @@ async function setup(withHint = false) {
   }));
   instances.push(mf);
   const db = await mf.getD1Database('DB');
-  for (const name of ['0001_initial.sql', '0002_transaction_guards.sql', '0003_import_media.sql']) {
+  for (const name of ['0001_initial.sql', '0002_transaction_guards.sql', '0003_import_media.sql', '0010_question_rounds.sql']) {
     const sql = readFileSync(resolve('cloudflare/api/migrations', name), 'utf8')
       .split(/\r?\n/u).filter((line) => !/^\s*--/u.test(line)).join('\n');
     for (const statement of sql.split(';').map((part) => part.trim()).filter(Boolean)) {
@@ -71,6 +75,20 @@ async function setup(withHint = false) {
   ]), ids.correct, JSON.stringify({
     [ids.correct]: '正确', [ids.wrong]: '错误',
   })).run();
+  if (withSecondQuestion) {
+    await db.prepare(`
+      INSERT INTO practice_questions
+        (id, practice_target_id, round, prompt, options_json, correct_option_id,
+         meaning_en, explanation_zh, option_explanations_json)
+      VALUES (?, ?, 1, 'The probe stayed in ____ for a year.', ?, ?, 'path around a planet',
+        '轨道解释', ?)
+    `).bind(ids.second, ids.target, JSON.stringify([
+      { id: ids.secondCorrect, text: 'orbit' },
+      { id: ids.secondWrong, text: 'stone' },
+    ]), ids.secondCorrect, JSON.stringify({
+      [ids.secondCorrect]: '正确', [ids.secondWrong]: '错误',
+    })).run();
+  }
   if (withHint) {
     await db.prepare(`
       INSERT INTO assistance_events
@@ -82,13 +100,15 @@ async function setup(withHint = false) {
   return db;
 }
 
-function submission(key = '0123456789abcdef'): AnswerSubmission {
+function submission(
+  key = '0123456789abcdef', questionId = ids.question, selectedOptionId = ids.correct,
+): AnswerSubmission {
   return {
     userId: ids.user, practiceId: ids.practice, idempotencyKey: key,
     requestHash: 'a'.repeat(64),
     request: {
-      answerKind: 'option', questionId: ids.question,
-      selectedOptionId: ids.correct, elapsedMs: 1000,
+      answerKind: 'option', questionId,
+      selectedOptionId, elapsedMs: 1000,
     },
   };
 }
@@ -137,4 +157,88 @@ describe('D1 first answer and FSRS projection', () => {
     expect(answers?.count).toBe(1);
     expect(JSON.parse(word!.state).answerCount).toBe(1);
   }, 15_000);
+});
+
+describe('a target with a second question', () => {
+  async function readState(db: Awaited<ReturnType<typeof setup>>) {
+    const practice = await db.prepare('SELECT status FROM practice_sessions WHERE id = ?')
+      .bind(ids.practice).first<{ status: string }>();
+    const word = await db.prepare('SELECT review_state AS state FROM vocabulary_words WHERE id = ?')
+      .bind(ids.word).first<{ state: string }>();
+    const events = await db.prepare('SELECT outcome FROM word_review_events WHERE word_id = ?')
+      .bind(ids.word).all<{ outcome: string }>();
+    const progress = await db.prepare(`
+      SELECT practice_count AS practiced, first_try_correct_count AS correct
+      FROM learning_progress WHERE vocabulary_item_id = ?
+    `).bind(ids.item).first<{ practiced: number; correct: number }>();
+    return { status: practice!.status, word: JSON.parse(word!.state), events: events.results, progress };
+  }
+
+  it('completes the practice only after both questions, and counts one review and one practice', async () => {
+    const db = await setup(false, true);
+
+    const first = await submitAnswerOnD1(db, submission('first-question-key'));
+    expect((await readState(db)).status).toBe('in_progress');
+    // Missing the second question after the first answer's feedback does not fail the word.
+    const second = await submitAnswerOnD1(db, submission('second-question-key', ids.second, ids.secondWrong));
+    const replay = await submitAnswerOnD1(db, submission('second-question-key', ids.second, ids.secondWrong));
+
+    expect(first).toMatchObject({ isCorrect: true, correctOptionId: ids.correct });
+    expect(second).toMatchObject({ isCorrect: false, correctOptionId: ids.secondCorrect });
+    expect(replay).toEqual(second);
+    const state = await readState(db);
+    expect(state.status).toBe('completed');
+    // Both answers are stored and counted, so the word's answer count still matches the answers table...
+    expect(state.word).toMatchObject({ answerCount: 2, practiceCount: 1, independentCorrectCount: 1, lastOutcome: 'independent' });
+    // ...but the review schedule has one review of the practice, decided by the first question.
+    expect(state.events).toEqual([{ outcome: 'independent' }]);
+    expect(state.progress).toEqual({ practiced: 1, correct: 1 });
+    expect((await db.prepare('SELECT count(*) AS count FROM answer_attempts').first<{ count: number }>())?.count).toBe(2);
+  }, 30_000);
+
+  it('fails the review when the first question was missed, whatever the second shows', async () => {
+    const db = await setup(false, true);
+
+    await submitAnswerOnD1(db, submission('first-question-key', ids.question, ids.wrong));
+    await submitAnswerOnD1(db, submission('second-question-key', ids.second, ids.secondCorrect));
+
+    const state = await readState(db);
+    expect(state.status).toBe('completed');
+    expect(state.word).toMatchObject({ answerCount: 2, practiceCount: 1, independentCorrectCount: 0, lastOutcome: 'failed' });
+    expect(state.events).toEqual([{ outcome: 'failed' }]);
+    expect(state.progress).toEqual({ practiced: 1, correct: 0 });
+  }, 30_000);
+
+  it('leaves the learning progress and the review events alone when a later question is answered', async () => {
+    const db = await setup(false, true);
+    const statements: string[] = [];
+    const recording = new Proxy(db, {
+      get(target, property) {
+        const value = Reflect.get(target, property);
+        if (property === 'prepare') return (sql: string) => { statements.push(sql); return target.prepare(sql); };
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const writes = (sql: string) => statements.filter((statement) => statement.includes(sql)).length;
+
+    await submitAnswerOnD1(recording, submission('first-question-key'));
+    expect([writes('INSERT INTO learning_progress'), writes('DELETE FROM word_review_events')]).toEqual([1, 1]);
+
+    statements.length = 0;
+    await submitAnswerOnD1(recording, submission('second-question-key', ids.second, ids.secondWrong));
+    expect([writes('INSERT INTO learning_progress'), writes('DELETE FROM word_review_events')]).toEqual([0, 0]);
+    // The word's review state is still written, so its answer count keeps matching the answers table.
+    expect(writes('UPDATE vocabulary_words SET review_state')).toBe(1);
+    expect((await readState(db)).word).toMatchObject({ answerCount: 2 });
+  }, 30_000);
+
+  it('does not let the second question be answered twice', async () => {
+    const db = await setup(false, true);
+
+    const first = await submitAnswerOnD1(db, submission('second-question-key-1', ids.second, ids.secondWrong));
+    const again = await submitAnswerOnD1(db, submission('second-question-key-2', ids.second, ids.secondCorrect));
+
+    expect(again).toEqual(first);
+    expect((await db.prepare('SELECT count(*) AS count FROM answer_attempts').first<{ count: number }>())?.count).toBe(1);
+  }, 30_000);
 });

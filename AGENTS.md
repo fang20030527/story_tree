@@ -11,6 +11,7 @@
 - 文章导入状态机：`awaiting_upload → queued → processing → preview_ready → confirmed` 为常规成功路径，另有 `retryable`、`failed`、`expired`、`cancelled`。
 - 免费额度通过 `usage_ledger`（reserve/commit/release）管理，默认 `FREE_PRACTICE_LIMIT=3`。
 - 客户端可传入 `format: "topic_set"` 一次创建四篇 200–300 词的不同主题短文练习（需要迁移 0006）。
+- 自测题数：自测题是英文语境填空，每个目标词至少一题；目标词少于 6 个的文章，同一目标词会在不同句子里再出题（`planQuestionCounts`，每词最多 3 题），保证每篇至少 6 题，题序按轮次交错。追加题（`practice_questions.round > 0`，该列只在 D1 里）只作练习强化，不参与 FSRS 排期，也不累加 `learning_progress`；FSRS 仍按每个练习合并为一次复习，由每个目标词的第一题决定。
 
 ## 工作区结构（npm workspaces）
 
@@ -115,6 +116,7 @@ npm run build        # 构建服务端产物（tsup → server/dist，Node 22 ES
 
 ## 部署
 
+- 线上 API 实际由 `cloudflare/api`（Cloudflare Worker + D1）提供，Render 上的 Fastify 只转发请求，详见 `cloudflare/README.md`。Worker 通过相对路径复用 `server/src` 里的提示词、校验器、复习调度等模块，所以改动出题、答题或复习逻辑时两边都要检查；D1 迁移放在 `cloudflare/api/migrations/`，其测试需在仓库根目录运行（例如 `npx vitest run cloudflare/api/src`），部署顺序为先 `npm run cloudflare:d1:migrate:api`，再 `npm run cloudflare:deploy:api`。
 - Render（`render.yaml`）：Node 运行时，build 命令 `npm ci && npm run build --workspace=@context-reader/server`，start 命令先 `db:migrate:production` 再 `npm run start`，健康检查 `/health/ready`；`DATABASE_URL`、`EVOLINK_API_KEY` 为手动配置的 sync:false 密钥。
 - 升级顺序：先迁移数据库，再启动服务端和客户端。英文语境自测等新题型需要服务端和客户端一起更新，只影响更新后生成的练习，历史数据保留原题。
 

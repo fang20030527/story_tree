@@ -12,6 +12,13 @@ export interface ReviewEvidence {
   isCorrect: boolean;
   wasAssisted: boolean;
   wordHint: boolean;
+  /**
+   * Which question of its target this answer belongs to: 0 for the first, and for every answer
+   * stored before a target could have several. Later questions only reinforce the word. They are
+   * answered after the learner has seen the first answer's feedback, so they are no fresh recall
+   * and do not move the review schedule.
+   */
+  round?: number;
 }
 
 export type ReviewOutcome = 'independent' | 'failed' | 'translated';
@@ -44,6 +51,7 @@ function outcome(evidence: ReviewEvidence): ReviewOutcome {
 export function consolidateReviews(evidence: readonly ReviewEvidence[]): ConsolidatedReview[] {
   const groups = new Map<string, ReviewEvidence[]>();
   for (const entry of evidence) {
+    if ((entry.round ?? 0) > 0) continue;
     const group = groups.get(entry.practiceId) ?? [];
     group.push(entry);
     groups.set(entry.practiceId, group);

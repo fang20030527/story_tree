@@ -18,6 +18,8 @@ const MAX_CONFLICT_RETRIES = 3;
 interface QuestionRow {
   questionId: string;
   targetId: string;
+  /** 0 for the first question of the target; later questions only reinforce the word. */
+  round: number;
   itemId: string;
   wordId: string | null;
   wordCreatedAt: string | null;
@@ -34,6 +36,7 @@ interface QuestionRow {
 interface EvidenceRow {
   answerId: string;
   practiceId: string;
+  round: number;
   vocabularyItemId: string;
   submittedAt: string;
   isCorrect: number;
@@ -99,7 +102,7 @@ async function loadQuestion(
 ): Promise<QuestionRow> {
   const row = await db.prepare(`
     SELECT question.id AS questionId, target.id AS targetId,
-      item.id AS itemId, item.word_id AS wordId,
+      question.round AS round, item.id AS itemId, item.word_id AS wordId,
       word.created_at AS wordCreatedAt, word.review_state AS reviewState,
       practice.status, question.options_json AS optionsJson,
       question.correct_option_id AS correctOptionId,
@@ -180,7 +183,7 @@ async function loadEvidence(
 ): Promise<ReviewEvidence[]> {
   const rows = await db.prepare(`
     SELECT answer.id AS answerId, answer.practice_session_id AS practiceId,
-      target.vocabulary_item_id AS vocabularyItemId,
+      question.round AS round, target.vocabulary_item_id AS vocabularyItemId,
       answer.submitted_at AS submittedAt, answer.is_correct AS isCorrect,
       answer.was_assisted AS wasAssisted,
       EXISTS (SELECT 1 FROM assistance_events AS hint
@@ -202,6 +205,7 @@ async function loadEvidence(
     return {
       answerId: row.answerId,
       practiceId: row.practiceId,
+      round: row.round,
       vocabularyItemId: row.vocabularyItemId,
       submittedAt,
       isCorrect: row.isCorrect === 1,
@@ -333,7 +337,7 @@ async function submitNewAnswer(
   const evidence = await loadEvidence(db, input.userId, question.wordId);
   const answerId = crypto.randomUUID();
   const newEvidence: ReviewEvidence = {
-    answerId, practiceId: input.practiceId, vocabularyItemId: question.itemId,
+    answerId, practiceId: input.practiceId, round: question.round, vocabularyItemId: question.itemId,
     submittedAt: new Date(submittedAt), isCorrect: selection.isCorrect,
     wasAssisted: assisted.wasAssisted === 1, wordHint: assisted.wordHint === 1,
   };
@@ -361,7 +365,9 @@ async function submitNewAnswer(
       input.request.answerKind, selection.selectedOptionId,
       selection.isCorrect ? 1 : 0, assisted.wasAssisted,
       input.request.elapsedMs, input.idempotencyKey, submittedAt),
-    db.prepare(`
+    // The practice count is per practice, so only a target's first question adds to it; the
+    // later questions of the same target would count one practice two or three times.
+    ...(question.round > 0 ? [] : [db.prepare(`
       INSERT INTO learning_progress
         (vocabulary_item_id, practice_count, first_try_correct_count,
          assisted_count, last_practiced_at, updated_at)
@@ -373,7 +379,7 @@ async function submitNewAnswer(
         last_practiced_at = excluded.last_practiced_at,
         updated_at = excluded.updated_at
     `).bind(question.itemId, selection.isCorrect ? 1 : 0,
-      assisted.wasAssisted, submittedAt, submittedAt),
+      assisted.wasAssisted, submittedAt, submittedAt)]),
     db.prepare(`
       UPDATE vocabulary_items SET status = 'reviewing', updated_at = ?
       WHERE id = ? AND user_id = ?
@@ -382,7 +388,8 @@ async function submitNewAnswer(
       UPDATE vocabulary_words SET review_state = ?, updated_at = ?
       WHERE id = ? AND user_id = ?
     `).bind(JSON.stringify(state), submittedAt, question.wordId, input.userId),
-    ...eventStatements(db, question.wordId, events),
+    // The review events come from first questions only, so a later question leaves them as they are.
+    ...(question.round > 0 ? [] : eventStatements(db, question.wordId, events)),
     db.prepare(`
       UPDATE practice_sessions
       SET status = CASE WHEN ${completed} THEN 'completed' ELSE 'in_progress' END,

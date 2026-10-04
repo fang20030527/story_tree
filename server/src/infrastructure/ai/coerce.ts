@@ -79,18 +79,20 @@ export function coerceGeneratedPractice(raw: Json): Json {
         surfaceForm: text(pick(item, 'surfaceForm', 'surface', 'form', 'text')) ?? '',
       }];
     }),
-    questions: entries(source.questions).flatMap(([entryKey, item]) => {
-      if (!isRecord(item)) return [];
-      return [{
-        targetAlias: text(pick(item, 'targetAlias', 'alias')) ?? entryKey ?? '',
-        prompt: text(pick(item, 'prompt', 'question')) ?? '',
-        optionsEn: strings(pick(item, 'optionsEn', 'options')),
-        correctOptionIndex: optionIndex(pick(item, 'correctOptionIndex', 'correctIndex')),
-        meaningEn: text(item.meaningEn) ?? '',
-        explanationZh: text(item.explanationZh) ?? '',
-        optionExplanationsZh: strings(item.optionExplanationsZh),
-        optionExplanationsEn: strings(item.optionExplanationsEn),
-      }];
-    }),
+    // A target may have several questions, so a reply keyed by alias can hold a list per alias.
+    questions: entries(source.questions).flatMap(([entryKey, group]) =>
+      (Array.isArray(group) ? group : [group]).flatMap((item) => {
+        if (!isRecord(item)) return [];
+        return [{
+          targetAlias: text(pick(item, 'targetAlias', 'alias')) ?? entryKey ?? '',
+          prompt: text(pick(item, 'prompt', 'question')) ?? '',
+          optionsEn: strings(pick(item, 'optionsEn', 'options')),
+          correctOptionIndex: optionIndex(pick(item, 'correctOptionIndex', 'correctIndex')),
+          meaningEn: text(item.meaningEn) ?? '',
+          explanationZh: text(item.explanationZh) ?? '',
+          optionExplanationsZh: strings(item.optionExplanationsZh),
+          optionExplanationsEn: strings(item.optionExplanationsEn),
+        }];
+      })),
   };
 }

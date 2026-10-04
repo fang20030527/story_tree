@@ -40,6 +40,31 @@ describe('word review scheduling', () => {
     expect(replayReviews([...reviews].reverse(), start)).toEqual(result);
   });
 
+  it('lets only the first question of a target decide the review; later questions only reinforce', () => {
+    const later = new Date('2026-09-01T10:03:00Z');
+    const first = evidence();
+    const missedAgain = evidence({ answerId: 'answer-2', submittedAt: later, isCorrect: false, round: 1 });
+    const result = replayReviews([first, missedAgain], start);
+    const alone = replayReviews([first], start);
+    // Missing a later question after the first answer's feedback changes nothing in the schedule...
+    expect(result.card).toEqual(alone.card);
+    expect(result.nextReviewAt).toBe(alone.nextReviewAt);
+    expect(result.practiceCount).toBe(1);
+    expect(result.independentCorrectCount).toBe(1);
+    expect(result.lastOutcome).toBe('independent');
+    // ...but every stored answer is still counted, which the consistency checks compare with the answers table.
+    expect(result.answerCount).toBe(2);
+    expect(alone.answerCount).toBe(1);
+    // A first question answered wrongly still fails the word, whatever the later ones show.
+    const failed = replayReviews([evidence({ isCorrect: false }), evidence({ answerId: 'answer-3', submittedAt: later, round: 1 })], start);
+    expect(failed.lastOutcome).toBe('failed');
+    expect(failed.card).toEqual(replayReviews([evidence({ isCorrect: false })], start).card);
+  });
+
+  it('treats an answer without a round as the first question', () => {
+    expect(replayReviews([evidence({ round: 0 })], start)).toEqual(replayReviews([evidence()], start));
+  });
+
   it('replays distinct sessions and ranks new, forgotten and future words', () => {
     const fresh = replayReviews([], start);
     const practiced = replayReviews([evidence()], start);

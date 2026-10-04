@@ -1,6 +1,7 @@
 import { PracticeTopicSchema, type PracticeStatus } from '@context-reader/contracts';
 
 import { AppError, type ErrorCode } from '../../../../server/src/core/errors';
+import { planQuestionCounts } from '../../../../server/src/infrastructure/ai/article-metrics';
 import type { GeneratePracticeInput } from '../../../../server/src/infrastructure/ai/types';
 import {
   runPracticeGeneration,
@@ -17,8 +18,8 @@ import type { ClaimedJob } from './repository';
 
 const DB_NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 const TERMINAL_SUCCESS = new Set<PracticeStatus>(['ready', 'in_progress', 'completed']);
-const DEFAULT_PROMPT_VERSION = 'ielts-generation-bilingual-feedback-v4';
-const SHORT_PROMPT_VERSION = 'ielts-topic-short-english-cloze-v4';
+const DEFAULT_PROMPT_VERSION = 'ielts-generation-bilingual-feedback-v5';
+const SHORT_PROMPT_VERSION = 'ielts-topic-short-english-cloze-v5';
 
 interface PracticeRow {
   status: PracticeStatus;
@@ -39,6 +40,11 @@ interface LoadedInput {
   rootId: string;
   providerInput: GeneratePracticeInput;
   validationTargets: GenerationTarget[];
+}
+
+/** Questions planned for one practice; a thin article asks some of its targets again. */
+function plannedQuestions(validationTargets: readonly GenerationTarget[]): number {
+  return validationTargets.reduce((sum, target) => sum + (target.questionCount ?? 1), 0);
 }
 
 function stateConflict(): AppError {
@@ -81,6 +87,7 @@ async function loadInput(db: D1DatabaseBinding, practiceId: string): Promise<Loa
   if (targets.results.length === 0) {
     throw new AppError('INTERNAL_ERROR', '练习目标不存在', 500, true);
   }
+  const questionCounts = planQuestionCounts(targets.results.length);
   return {
     status: practice.status,
     rootId,
@@ -92,6 +99,7 @@ async function loadInput(db: D1DatabaseBinding, practiceId: string): Promise<Loa
         term: target.term,
         meaningZh: target.meaningZh,
         ...(target.sourceSentence === null ? {} : { sourceSentence: target.sourceSentence }),
+        ...((questionCounts[index] ?? 1) > 1 ? { questionCount: questionCounts[index]! } : {}),
       })),
     },
     validationTargets: targets.results.map((target, index) => ({
@@ -99,6 +107,7 @@ async function loadInput(db: D1DatabaseBinding, practiceId: string): Promise<Loa
       alias: 't' + (index + 1),
       meaningZh: target.meaningZh,
       term: target.term,
+      questionCount: questionCounts[index] ?? 1,
     })),
   };
 }
@@ -235,6 +244,8 @@ function outputRows(validated: ValidatedGeneratedPractice): {
     return {
       id: crypto.randomUUID(),
       targetId: question.targetId,
+      // The validator always sets the round; the fallback keeps a result without one storable.
+      round: question.round ?? 0,
       prompt: question.prompt,
       optionsJson: JSON.stringify(options),
       correctOptionId,
@@ -283,9 +294,10 @@ async function persistReady(
     ].join(' ')).bind(output.usages, job.resourceId, output.usages),
     db.prepare([
       'INSERT INTO practice_questions',
-      '(id, practice_target_id, prompt, options_json, correct_option_id,',
+      '(id, practice_target_id, round, prompt, options_json, correct_option_id,',
       'meaning_en, explanation_zh, option_explanations_json)',
       "SELECT json_extract(value, '$.id'), json_extract(value, '$.targetId'),",
+      "json_extract(value, '$.round'),",
       "json_extract(value, '$.prompt'), json_extract(value, '$.optionsJson'),",
       "json_extract(value, '$.correctOptionId'), json_extract(value, '$.meaningEn'),",
       "json_extract(value, '$.explanationZh'),",
@@ -333,6 +345,7 @@ export async function handlePracticeGeneration(
   const startedAt = Date.now();
   logGeneration(job, {
     stage: 'start', targets: loaded.providerInput.targets.length,
+    questions: plannedQuestions(loaded.validationTargets),
     topic: loaded.providerInput.topic !== undefined, remainingMs: job.deadlineAt.getTime() - startedAt,
   });
   const length = loaded.providerInput.topic ? 'short' : 'long';
@@ -364,7 +377,7 @@ export async function handlePracticeGeneration(
     env, job, loaded.rootId, validated,
     length === 'short' ? SHORT_PROMPT_VERSION : DEFAULT_PROMPT_VERSION, context.signal,
   );
-  logGeneration(job, { stage: 'persisted', elapsedMs: Date.now() - startedAt });
+  logGeneration(job, { stage: 'persisted', questions: validated.questions.length, elapsedMs: Date.now() - startedAt });
 }
 
 function publicFailure(error: AppError): { code: ErrorCode; message: string } {

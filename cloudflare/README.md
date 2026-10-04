@@ -46,6 +46,12 @@ D1 迁移 `0009_usernames.sql` 只为已注册账号回填 `users.username`（�
 
 部署顺序：先 `npm run cloudflare:d1:migrate:api`，再 `npm run cloudflare:deploy:api`，最后发布 Web 和原生客户端。新版客户端提交 `username` 时旧版 API 会拒绝，所以不能先发布客户端。
 
+## 自测题数
+
+每篇短文的自测至少 6 题。目标词少于 6 个时，同一目标词会在新的句子里再出题，每词最多 3 题（规划见 `server/src/infrastructure/ai/article-metrics.ts` 的 `planQuestionCounts`）；目标词够多时仍是每词一题。D1 迁移 `0010_question_rounds.sql` 为 `practice_questions` 增加 `round`，并把唯一约束由 `(practice_target_id)` 改为 `(practice_target_id, round)`。SQLite 只能通过重建表来删除表级唯一约束，而 `answer_attempts` 以 `ON DELETE CASCADE` 引用该表，D1 又不能关闭外键，所以迁移先备份并清空答案、重建两张表、还原并核对行数，最后才删除备份。追加题（`round > 0`）只作练习强化，不参与复习排期，也不累加 `learning_progress`。详见 [自测题数](../docs/2026-10-04-self-test-questions.md)。
+
+部署顺序：先 `npm run cloudflare:d1:migrate:api`，再 `npm run cloudflare:deploy:api`。新版 API 不能在没有 `round` 列的库上运行；旧版 API 在迁移后仍可使用。客户端不需要重新发布。
+
 ## 准备与上传
 
 根目录执行 `npm ci`。把 `cloudflare/.env.example` 复制为被 Git 忽略的 `cloudflare/.env.local`，填写只对 `waikan-2026-audio` 桶有 Object Read & Write 权限的限时 R2 S3 凭证。**不要提交或打印凭证**。

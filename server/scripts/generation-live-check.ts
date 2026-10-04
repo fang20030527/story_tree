@@ -7,9 +7,14 @@
 //   npm run smoke:generation --workspace=@context-reader/server -- --fake      (no network)
 //   ... -- --words=10 --essays=4
 //
+// Each essay asks for the self-test questions the Worker plans for its word count, so
+// `--words=2` or `--words=3` shows how a thin essay with six questions behaves (the report
+// prints questions stored / planned and the time per essay).
+//
 // Reads EVOLINK_API_KEY (and optionally EVOLINK_BASE_URL, EVOLINK_TEXT_MODEL,
 // EVOLINK_TIMEOUT_MS) from the environment; the key is never printed.
 import { AppError } from '../src/core/errors';
+import { planQuestionCounts } from '../src/infrastructure/ai/article-metrics';
 import { EvolinkClient } from '../src/infrastructure/ai/evolink-client';
 import { EvolinkAiProvider } from '../src/infrastructure/ai/evolink-provider';
 import { FakeAiProvider } from '../src/infrastructure/ai/fake-provider';
@@ -60,6 +65,9 @@ interface Report {
   attempts: number;
   elapsedMs: number;
   words?: number;
+  /** Questions planned for the essay, and how many the stored essay has. */
+  plannedQuestions: number;
+  questions?: number;
   repairs: string[];
   failure?: string;
   notes: string[];
@@ -74,13 +82,26 @@ async function runEssay(
 ): Promise<Report> {
   const pool = WORD_POOL.slice(index * wordsPerEssay, (index + 1) * wordsPerEssay);
   const entries = (pool.length > 0 ? pool : WORD_POOL.slice(0, wordsPerEssay));
+  // The same question plan the Worker makes: a thin essay asks some words again.
+  const questionCounts = planQuestionCounts(entries.length);
   const input: GeneratePracticeInput = {
     examPath: 'ielts',
     topic,
-    targets: entries.map(([term, meaningZh], position) => ({ alias: `t${position + 1}`, term, meaningZh })),
+    targets: entries.map(([term, meaningZh], position) => ({
+      alias: `t${position + 1}`,
+      term,
+      meaningZh,
+      ...((questionCounts[position] ?? 1) > 1 ? { questionCount: questionCounts[position]! } : {}),
+    })),
   };
-  const targets = input.targets.map((target) => ({ id: target.alias, alias: target.alias, meaningZh: target.meaningZh, term: target.term }));
-  const report: Report = { topic, ok: false, attempts: 0, elapsedMs: 0, repairs: [], notes: [] };
+  const targets = input.targets.map((target, position) => ({
+    id: target.alias, alias: target.alias, meaningZh: target.meaningZh, term: target.term,
+    questionCount: questionCounts[position] ?? 1,
+  }));
+  const report: Report = {
+    topic, ok: false, attempts: 0, elapsedMs: 0, repairs: [], notes: [],
+    plannedQuestions: questionCounts.reduce((sum, count) => sum + count, 0),
+  };
   const startedAt = Date.now();
 
   for (let attempt = 1; attempt <= JOB_ATTEMPTS; attempt += 1) {
@@ -117,6 +138,7 @@ async function runEssay(
       report.ok = validated !== null;
       if (validated) {
         report.words = validated.wordCount;
+        report.questions = validated.questions.length;
         report.repairs = validated.notes ?? [];
       }
       break;
@@ -145,7 +167,7 @@ async function main(): Promise<void> {
 
   for (const report of reports) {
     const status = report.ok ? 'OK    ' : 'FAILED';
-    console.log(`\n${status} ${report.topic}  attempts=${report.attempts}  ${(report.elapsedMs / 1000).toFixed(1)}s${report.words === undefined ? '' : `  ${report.words} words`}`);
+    console.log(`\n${status} ${report.topic}  attempts=${report.attempts}  ${(report.elapsedMs / 1000).toFixed(1)}s${report.words === undefined ? '' : `  ${report.words} words`}${report.questions === undefined ? '' : `  ${report.questions}/${report.plannedQuestions} questions`}`);
     if (report.repairs.length > 0) console.log(`  repaired or let through: ${report.repairs.join(', ')}`);
     for (const note of report.notes) console.log(`  - ${note}`);
     if (!report.ok) console.log(`  final: ${report.failure ?? 'unknown'}`);

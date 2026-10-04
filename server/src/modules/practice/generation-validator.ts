@@ -17,6 +17,8 @@ export interface GenerationTarget {
   meaningZh: string;
   /** The vocabulary term. Lets the validator find a target the model mislabelled. */
   term?: string;
+  /** Self-test questions planned for this target; one when absent. */
+  questionCount?: number;
 }
 
 export interface ValidatedUsage {
@@ -32,6 +34,8 @@ export interface ValidatedUsage {
 export interface ValidatedQuestion {
   targetId: string;
   targetAlias: string;
+  /** 0 for the first question of the target; later rounds ask the same target in a new sentence. */
+  round: number;
   prompt: string;
   optionsEn: string[];
   correctOptionIndex: number;
@@ -96,6 +100,12 @@ const NEUTRAL_DISTRACTORS = ['approach', 'tendency', 'balance', 'measure', 'atti
  * can do it (blank format, answer index, option count, explanations, a slightly long article,
  * a mislabelled usage) and otherwise let through, so the stored practice always meets what
  * the read path and the client contract require. What was repaired is reported in `notes`.
+ *
+ * A target has one question, or the `questionCount` planned for it. The first is always
+ * stored (built from the article when the reply has none). The extra ones are only kept when
+ * the reply wrote them as new questions: an extra question that would be a copy or an empty
+ * shell is left out rather than invented. Questions come back round by round, so the
+ * questions of one target are spread through the self-test.
  */
 export function validateGeneratedPractice(
   generated: GeneratedPractice,
@@ -125,7 +135,7 @@ export function validateGeneratedPractice(
   }
 
   const usageByAlias = firstByAlias(draft.usages, targetsByAlias);
-  const questionByAlias = firstByAlias(draft.questions, targetsByAlias);
+  const questionsByAlias = groupQuestions(draft.questions, targetsByAlias);
 
   let paragraphs = draft.paragraphs;
   let wordCount = words;
@@ -186,7 +196,7 @@ export function validateGeneratedPractice(
       message: `These targets do not appear in the article: ${missing.map(describe).join(', ')}. Use every target in the article exactly as written in its surfaceForm, and keep a usage and a question for each.`,
     });
   }
-  if (questionByAlias.size === 0 && targets.length > 0 && !options.completeMissing) {
+  if (questionsByAlias.size === 0 && targets.length > 0 && !options.completeMissing) {
     problems.push({
       code: 'QUESTIONS_MISSING',
       message: 'The artifact has no questions. Return one fill-in-the-blank question for every target, in the questions array.',
@@ -228,14 +238,31 @@ export function validateGeneratedPractice(
       endOffset: located.end,
     };
   });
-  const questions = targets.map((target, position) => repairQuestion({
-    target,
-    position,
-    raw: questionByAlias.get(target.alias),
-    located: { ...placed.get(target.alias)!, paragraph: infos[placed.get(target.alias)!.paragraph.index]! },
-    surfaces,
-    notes,
-  }));
+  const questions: ValidatedQuestion[] = [];
+  const rounds = Math.max(1, ...[...questionsByAlias.values()].map((list) => list.length));
+  for (let round = 0; round < rounds; round += 1) {
+    targets.forEach((target, position) => {
+      const raw = questionsByAlias.get(target.alias)?.[round];
+      // Only the first question is ever built; a missing extra one is simply not asked.
+      if (round > 0 && raw === undefined) return;
+      questions.push({
+        ...repairQuestion({
+          target,
+          position,
+          tag: round === 0 ? target.alias : `${target.alias}#${round + 1}`,
+          raw,
+          located: { ...placed.get(target.alias)!, paragraph: infos[placed.get(target.alias)!.paragraph.index]! },
+          surfaces,
+          notes,
+        }),
+        round,
+      });
+    });
+  }
+  for (const target of targets) {
+    const asked = questionsByAlias.get(target.alias)?.length ?? 1;
+    if (asked < plannedQuestions(target)) notes.push(`QUESTIONS_SHORT:${target.alias}:${asked}/${plannedQuestions(target)}`);
+  }
 
   return {
     title: draft.title || deriveTitle(paragraphs),
@@ -414,6 +441,38 @@ function firstByAlias<T extends { targetAlias: string }>(
   const result = new Map<string, T>();
   for (const item of items) {
     if (targetsByAlias.has(item.targetAlias) && !result.has(item.targetAlias)) result.set(item.targetAlias, item);
+  }
+  return result;
+}
+
+const plannedQuestions = (target: GenerationTarget): number => Math.max(1, Math.floor(target.questionCount ?? 1));
+
+/** Two prompts are the same question when only case, spacing and the length of the blank differ. */
+const samePrompt = (left: string, right: string): boolean => {
+  const key = (prompt: string) => prompt.toLowerCase().replace(/[\s_]+/gu, ' ').trim();
+  return key(left) === key(right);
+};
+
+/**
+ * The questions the reply holds for each known alias, in the order written, up to the number
+ * planned for the target. Unknown aliases are ignored. After a target's first question, one
+ * that has no prompt or repeats an earlier prompt of the same target is dropped: an extra
+ * question is only worth asking when it is a new one.
+ */
+function groupQuestions(
+  items: readonly RawQuestion[],
+  targetsByAlias: ReadonlyMap<string, GenerationTarget>,
+): Map<string, RawQuestion[]> {
+  const result = new Map<string, RawQuestion[]>();
+  for (const item of items) {
+    const target = targetsByAlias.get(item.targetAlias);
+    if (!target) continue;
+    const list = result.get(item.targetAlias) ?? [];
+    if (list.length >= plannedQuestions(target)) continue;
+    // The first question is repaired even when empty; an empty or repeated extra one is worthless.
+    if (list.length > 0 && (item.prompt === '' || list.some((earlier) => samePrompt(earlier.prompt, item.prompt)))) continue;
+    list.push(item);
+    result.set(item.targetAlias, list);
   }
   return result;
 }
@@ -603,6 +662,8 @@ interface OptionEntry {
 interface QuestionRepair {
   target: GenerationTarget;
   position: number;
+  /** Names the question in `notes`: the alias, or the alias and round for an extra question. */
+  tag: string;
   raw: RawQuestion | undefined;
   located: Located;
   surfaces: ReadonlyMap<string, string>;
@@ -615,7 +676,7 @@ interface QuestionRepair {
  * explanation for every option. A target without a usable question gets a cloze question
  * built from its own sentence. Wording quality is not judged here.
  */
-function repairQuestion({ target, position, raw, located, surfaces, notes }: QuestionRepair): ValidatedQuestion {
+function repairQuestion({ target, position, tag, raw, located, surfaces, notes }: QuestionRepair): Omit<ValidatedQuestion, 'round'> {
   const surface = surfaces.get(target.alias)!;
   const answerForms = new Set([bareWord(surface), ...(target.term ? termForms(target.term) : [])]);
   const siblings = [...surfaces.entries()].filter(([alias]) => alias !== target.alias).map(([, text]) => text);
@@ -637,9 +698,9 @@ function repairQuestion({ target, position, raw, located, surfaces, notes }: Que
   if (answer === -1) {
     entries.push({ label: surface, zh: undefined, en: undefined, correct: true });
     answer = entries.length - 1;
-    if (raw) notes.push(`ANSWER_ADDED:${target.alias}`);
+    if (raw) notes.push(`ANSWER_ADDED:${tag}`);
   } else if (reportedLabel !== undefined && entries[answer]!.label !== reportedLabel) {
-    notes.push(`ANSWER_FROM_TARGET:${target.alias}`);
+    notes.push(`ANSWER_FROM_TARGET:${tag}`);
   }
   entries[answer]!.correct = true;
 
@@ -647,7 +708,7 @@ function repairQuestion({ target, position, raw, located, surfaces, notes }: Que
     const keep = new Set([answer]);
     for (let index = 0; index < entries.length && keep.size < 4; index += 1) keep.add(index);
     entries = entries.filter((_, index) => keep.has(index));
-    notes.push(`OPTIONS_TRIMMED:${target.alias}`);
+    notes.push(`OPTIONS_TRIMMED:${tag}`);
   }
   const taken = new Set(entries.map((entry) => bareWord(entry.label)));
   const optionCount = entries.length;
@@ -657,7 +718,7 @@ function repairQuestion({ target, position, raw, located, surfaces, notes }: Que
     taken.add(bareWord(candidate));
     entries.push({ label: candidate, zh: undefined, en: undefined, correct: false });
   }
-  if (raw !== undefined && entries.length > optionCount) notes.push(`OPTIONS_PADDED:${target.alias}`);
+  if (raw !== undefined && entries.length > optionCount) notes.push(`OPTIONS_PADDED:${tag}`);
   if (raw === undefined || raw.optionsEn.every((label) => label === '')) {
     // A question built here: vary where the answer sits instead of always putting it first.
     const from = entries.findIndex((entry) => entry.correct);
@@ -665,7 +726,7 @@ function repairQuestion({ target, position, raw, located, surfaces, notes }: Que
     const [moved] = entries.splice(from, 1);
     entries.splice(to, 0, moved!);
   }
-  if (raw === undefined) notes.push(`QUESTION_BUILT:${target.alias}`);
+  if (raw === undefined) notes.push(`QUESTION_BUILT:${tag}`);
 
   const correct = entries.findIndex((entry) => entry.correct);
   const fallbackZh = (entry: OptionEntry) => entry.correct
@@ -677,7 +738,7 @@ function repairQuestion({ target, position, raw, located, surfaces, notes }: Que
   return {
     targetId: target.id,
     targetAlias: target.alias,
-    prompt: questionPrompt(raw?.prompt ?? '', entries[correct]!.label, located, notes, target.alias),
+    prompt: questionPrompt(raw?.prompt ?? '', entries[correct]!.label, located, notes, tag),
     optionsEn: entries.map((entry) => entry.label),
     correctOptionIndex: correct,
     meaningEn: raw?.meaningEn || `The word "${target.term ?? surface}" as used in the article.`,

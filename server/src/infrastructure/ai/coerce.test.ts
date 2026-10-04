@@ -39,6 +39,20 @@ describe('generated practice shape repair', () => {
       .toEqual(strict.paragraphs);
   });
 
+  it('keeps every question of a target, also when the reply groups them in a list per alias', () => {
+    const second = { ...question, prompt: 'Another ____ plan.' };
+    const grouped = GeneratedPracticeSchema.parse(coerceGeneratedPractice({
+      ...structuredClone(strict),
+      questions: { t1: [question, second], t2: [{ ...question, targetAlias: undefined, prompt: 'A ____ view.' }] },
+    }));
+    expect(grouped.questions.map((item) => [item.targetAlias, item.prompt])).toEqual([
+      ['t1', 'A ____ plan.'], ['t1', 'Another ____ plan.'], ['t2', 'A ____ view.'],
+    ]);
+    // A flat list simply repeats the alias.
+    expect(GeneratedPracticeSchema.parse(coerceGeneratedPractice({ ...structuredClone(strict), questions: [question, second] })).questions)
+      .toHaveLength(2);
+  });
+
   it('renames synonym keys, drops extra keys and reads the answer index from text', () => {
     const repaired = GeneratedPracticeSchema.parse(coerceGeneratedPractice({
       ...strict,

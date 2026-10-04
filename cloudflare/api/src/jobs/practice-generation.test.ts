@@ -53,7 +53,7 @@ async function setup(topic?: { terms: ReadonlyArray<{ term: string; meaningZh: s
   }));
   instances.push(mf);
   const db = await mf.getD1Database('DB');
-  for (const name of ['0001_initial.sql', '0002_transaction_guards.sql', '0003_import_media.sql', '0004_user_practice_access.sql']) {
+  for (const name of ['0001_initial.sql', '0002_transaction_guards.sql', '0003_import_media.sql', '0004_user_practice_access.sql', '0010_question_rounds.sql']) {
     const sql = readFileSync(resolve('cloudflare/api/migrations', name), 'utf8')
       .split(/\r?\n/u).filter((line) => !/^\s*--/u.test(line)).join('\n');
     for (const statement of sql.split(';').map((part) => part.trim()).filter(Boolean)) {
@@ -113,7 +113,7 @@ const orbitPractice = {
     surfaceForm: 'orbit', startOffset: 25, endOffset: 30,
   }],
   questions: [{
-    targetId, targetAlias: 't1', prompt: 'The satellite entered ____.',
+    targetId, targetAlias: 't1', round: 0, prompt: 'The satellite entered ____.',
     optionsEn: ['orbit', 'water', 'light', 'time'], correctOptionIndex: 0,
     meaningEn: 'a path around a celestial body', explanationZh: '轨道',
     optionExplanationsZh: ['正确', '错误', '错误', '错误'],
@@ -219,7 +219,7 @@ describe('topic essays through the real validator on D1', () => {
 
     expect(generated).toHaveBeenCalledTimes(1);
     expect(await readyRows(db)).toMatchObject({
-      status: 'ready', progress: 100, words: 218, version: 'ielts-topic-short-english-cloze-v4',
+      status: 'ready', progress: 100, words: 218, version: 'ielts-topic-short-english-cloze-v5',
       paragraphs: 3, questions: 6, wellFormed: 6, located: 6,
     });
     const practice = await readThroughApi(env);
@@ -300,7 +300,7 @@ describe('topic essays through the real validator on D1', () => {
 
     expect(generated).toHaveBeenCalledTimes(1);
     const row = await readyRows(db);
-    expect(row).toMatchObject({ status: 'ready', version: 'ielts-topic-short-english-cloze-v4', wellFormed: 6, located: 6 });
+    expect(row).toMatchObject({ status: 'ready', version: 'ielts-topic-short-english-cloze-v5', wellFormed: 6, located: 6 });
     expect(row!.words as number).toBeGreaterThan(300);
     expect(events().find((event) => event.stage === 'validate')).toMatchObject({ notes: [expect.stringMatching(/^WORD_COUNT_HIGH:3\d\d$/)] });
   }, 30_000);
@@ -327,6 +327,76 @@ describe('topic essays through the real validator on D1', () => {
     expect((await db.prepare("SELECT kind FROM usage_ledger WHERE kind IN ('commit', 'release')").all<{ kind: string }>()).results)
       .toEqual([{ kind: 'release' }]);
   }, 30_000);
+
+  describe('an article with only a few targets', () => {
+    const thin = { topic: '环境', terms: fixtureSpecs.slice(0, 2).map(({ term, meaningZh }) => ({ term, meaningZh })) };
+
+    /** The fixture article answered with `perTarget` questions for each of its first two targets. */
+    function draftAskingTwice(perTarget: number) {
+      const draft = fixtureArticle();
+      draft.questions = fixtureSpecs.slice(0, 2).flatMap(({ alias }) => {
+        const base = fixtureArticle().questions.find((question) => question.targetAlias === alias)!;
+        return [base, ...[...Array(perTarget - 1).keys()].map((index) => ({
+          ...base, prompt: `Question ${index + 2} about ____ for ${alias}.`,
+        }))];
+      });
+      return draft;
+    }
+
+    it('asks for six questions in all, stores every round and reads them back round by round', async () => {
+      useRealValidator();
+      const { db, env, job } = await setup(thin);
+      generated.mockResolvedValue(draftAskingTwice(3));
+
+      await handlePracticeGeneration(env, job, { signal: new AbortController().signal });
+
+      // The model is told how many questions each target gets, and so is the validator.
+      expect(generated.mock.calls[0]![0].targets.map((target: { questionCount?: number }) => target.questionCount)).toEqual([3, 3]);
+      expect(validated.mock.calls[0]![2].map((target: { questionCount?: number }) => target.questionCount)).toEqual([3, 3]);
+      expect(await readyRows(db)).toMatchObject({ status: 'ready', questions: 6, wellFormed: 6 });
+      expect((await db.prepare('SELECT round, count(*) AS count FROM practice_questions GROUP BY round ORDER BY round').all()).results)
+        .toEqual([{ round: 0, count: 2 }, { round: 1, count: 2 }, { round: 2, count: 2 }]);
+      // The same target is never asked twice in a row, and the client contract accepts all six.
+      const practice = await readThroughApi(env);
+      expect(practice.questions.map((question) => question.prompt)).toEqual([
+        fixtureSpecs[0]!.prompt, fixtureSpecs[1]!.prompt,
+        'Question 2 about ____ for t1.', 'Question 2 about ____ for t2.',
+        'Question 3 about ____ for t1.', 'Question 3 about ____ for t2.',
+      ]);
+      expect(practice.questions.map((question) => question.term)).toEqual(['mitigate', 'sustainable', 'mitigate', 'sustainable', 'mitigate', 'sustainable']);
+      expect(new Set(practice.questions.map((question) => question.id)).size).toBe(6);
+      expect(events()[0]).toMatchObject({ stage: 'start', targets: 2, questions: 6 });
+      expect(events().at(-1)).toMatchObject({ stage: 'persisted', questions: 6 });
+    }, 30_000);
+
+    it('stores what the model wrote when it ignores the plan, instead of failing the practice', async () => {
+      useRealValidator();
+      const { db, env, job } = await setup(thin);
+      generated.mockResolvedValue(draftAskingTwice(1));
+
+      await handlePracticeGeneration(env, job, { signal: new AbortController().signal });
+
+      expect(generated).toHaveBeenCalledTimes(1);
+      expect(await readyRows(db)).toMatchObject({ status: 'ready', questions: 2, wellFormed: 2 });
+      expect(events().find((event) => event.stage === 'validate')).toMatchObject({
+        outcome: 'ok', notes: ['QUESTIONS_SHORT:t1:1/3', 'QUESTIONS_SHORT:t2:1/3'],
+      });
+      expect((await readThroughApi(env)).questions).toHaveLength(2);
+    }, 30_000);
+
+    it('does not plan extra questions when the article has enough targets', async () => {
+      useRealValidator();
+      const { db, env, job } = await setup(topic);
+      generated.mockResolvedValue(fixtureArticle());
+
+      await handlePracticeGeneration(env, job, { signal: new AbortController().signal });
+
+      expect(generated.mock.calls[0]![0].targets.every((target: object) => !('questionCount' in target))).toBe(true);
+      expect(validated.mock.calls[0]![2].map((target: { questionCount?: number }) => target.questionCount)).toEqual([1, 1, 1, 1, 1, 1]);
+      expect(await readyRows(db)).toMatchObject({ questions: 6 });
+      expect(events()[0]).toMatchObject({ stage: 'start', targets: 6, questions: 6 });
+    }, 30_000);
+  });
 
   it('rides out a rate-limited provider without restarting the job', async () => {
     useRealValidator();

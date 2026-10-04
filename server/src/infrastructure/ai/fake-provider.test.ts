@@ -82,3 +82,27 @@ describe('Fake AI provider', () => {
     expect(generated.questions).toHaveLength(100);
   });
 });
+
+describe('Fake AI provider question plan', () => {
+  it('writes the planned number of different questions for a target and one for the rest', async () => {
+    const planned: GeneratePracticeInput = {
+      examPath: 'ielts',
+      targets: [
+        { alias: 't1', term: 'resilient', meaningZh: '有韧性的', questionCount: 3 },
+        { alias: 't2', term: 'ambiguous', meaningZh: '模棱两可的' },
+      ],
+    };
+
+    const artifact = await new FakeAiProvider().generatePractice(planned, new AbortController().signal);
+
+    const first = artifact.questions.filter((question) => question.targetAlias === 't1');
+    expect(first).toHaveLength(3);
+    expect(new Set(first.map((question) => question.prompt)).size).toBe(3);
+    for (const question of first) {
+      expect(question.optionsEn[question.correctOptionIndex]).toBe('resilient');
+    }
+    expect(artifact.questions.filter((question) => question.targetAlias === 't2')).toHaveLength(1);
+    // A planned target still appears in the article once.
+    expect(artifact.usages.filter((usage) => usage.targetAlias === 't1')).toHaveLength(1);
+  });
+});

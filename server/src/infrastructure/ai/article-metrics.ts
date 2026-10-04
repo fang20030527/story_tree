@@ -58,3 +58,25 @@ export function targetGapGuidance(targetCount: number, length: ArticleLength): n
 
 /** A "complex sentence" is requested at 30-45 words; trimming never cuts one of 24 or more. */
 export const MIN_COMPLEX_SENTENCE_WORDS = 24;
+
+/** An article with only two or three targets would otherwise end in a two-question self-test. */
+export const MIN_SELF_TEST_QUESTIONS = 6;
+/** The most questions a single target gets in one practice. */
+export const MAX_QUESTIONS_PER_TARGET = 3;
+
+/**
+ * How many self-test questions each target gets, in target order. Every target has one; while
+ * the total is below MIN_SELF_TEST_QUESTIONS the targets are asked again, in new sentences, one
+ * more round at a time, so a thin article still ends in a worthwhile self-test.
+ */
+export function planQuestionCounts(targetCount: number): number[] {
+  const counts = Array.from({ length: targetCount }, () => 1);
+  let total = targetCount;
+  for (let round = 1; round < MAX_QUESTIONS_PER_TARGET && total < MIN_SELF_TEST_QUESTIONS; round += 1) {
+    for (let index = 0; index < counts.length && total < MIN_SELF_TEST_QUESTIONS; index += 1) {
+      counts[index] = (counts[index] ?? 1) + 1;
+      total += 1;
+    }
+  }
+  return counts;
+}

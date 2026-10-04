@@ -14,6 +14,8 @@ export interface GeneratePracticeInput {
     term: string;
     meaningZh: string;
     sourceSentence?: string;
+    /** Self-test questions to write for this target; one when absent. */
+    questionCount?: number;
   }>;
 }
 

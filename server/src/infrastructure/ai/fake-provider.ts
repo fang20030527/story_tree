@@ -70,23 +70,27 @@ export class FakeAiProvider implements AiProvider {
         paragraphKey: `p${(index % 3) + 1}`,
         surfaceForm: surfaces[index],
       })),
-      questions: input.targets.map((target, index) => {
-        const optionsEn = createOptions(target.term, index);
-        return {
-          targetAlias: target.alias,
-          prompt: 'For this synthetic vocabulary exercise, choose ____ to complete the example.',
-          optionsEn,
-          correctOptionIndex: optionsEn.indexOf(target.term),
-          meaningEn: `${target.term} in its intended context`,
-          explanationZh: '该词表达了目标含义，符合句子语境。',
-          optionExplanationsZh: optionsEn.map((option) =>
-            option === target.term ? '符合句子所需的含义。' : '不符合句子所需的含义。',
-          ),
-          optionExplanationsEn: optionsEn.map((option) =>
-            option === target.term ? 'Fits the intended context.' : 'Does not fit the intended context.',
-          ),
-        };
-      }),
+      questions: input.targets.flatMap((target, index) =>
+        Array.from({ length: Math.max(1, target.questionCount ?? 1) }, (_, round) => {
+          const optionsEn = createOptions(target.term, index + round);
+          return {
+            targetAlias: target.alias,
+            // Questions of one target must differ, so later rounds name their round.
+            prompt: round === 0
+              ? 'For this synthetic vocabulary exercise, choose ____ to complete the example.'
+              : `For this synthetic vocabulary exercise, choose ____ to complete example ${round + 1}.`,
+            optionsEn,
+            correctOptionIndex: optionsEn.indexOf(target.term),
+            meaningEn: `${target.term} in its intended context`,
+            explanationZh: '该词表达了目标含义，符合句子语境。',
+            optionExplanationsZh: optionsEn.map((option) =>
+              option === target.term ? '符合句子所需的含义。' : '不符合句子所需的含义。',
+            ),
+            optionExplanationsEn: optionsEn.map((option) =>
+              option === target.term ? 'Fits the intended context.' : 'Does not fit the intended context.',
+            ),
+          };
+        })),
     });
   }
 

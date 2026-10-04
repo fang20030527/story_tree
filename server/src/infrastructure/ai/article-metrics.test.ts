@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  MIN_SELF_TEST_QUESTIONS,
   countEnglishWords,
+  planQuestionCounts,
   sentenceContaining,
   splitSentences,
   targetGapGuidance,
@@ -44,5 +46,34 @@ describe('target gap guidance', () => {
   it('asks the writer for denser placement as targets increase, never below 35 words', () => {
     expect([1, 2, 6, 8, 10, 12].map((count) => targetGapGuidance(count, 'short'))).toEqual([173, 115, 50, 39, 35, 35]);
     expect(targetGapGuidance(6, 'long')).toBe(203);
+  });
+});
+
+describe('self-test question plan', () => {
+  it('asks thin articles again until the self-test has at least six questions', () => {
+    expect(MIN_SELF_TEST_QUESTIONS).toBe(6);
+    // The first targets are asked again first; no target gets more than three questions.
+    expect([1, 2, 3, 4, 5].map((count) => planQuestionCounts(count))).toEqual([
+      [3],
+      [3, 3],
+      [2, 2, 2],
+      [2, 2, 1, 1],
+      [2, 1, 1, 1, 1],
+    ]);
+  });
+
+  it('keeps one question per target once there are enough targets, and handles no targets', () => {
+    expect(planQuestionCounts(6)).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(planQuestionCounts(10)).toEqual(Array.from({ length: 10 }, () => 1));
+    expect(planQuestionCounts(0)).toEqual([]);
+  });
+
+  it('never plans fewer than the minimum unless the three-question cap stops it', () => {
+    for (let count = 2; count <= 12; count += 1) {
+      const counts = planQuestionCounts(count);
+      expect(counts.reduce((sum, value) => sum + value, 0)).toBeGreaterThanOrEqual(MIN_SELF_TEST_QUESTIONS);
+      expect(Math.max(...counts)).toBeLessThanOrEqual(3);
+      expect(Math.min(...counts)).toBeGreaterThanOrEqual(1);
+    }
   });
 });

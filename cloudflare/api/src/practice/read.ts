@@ -57,6 +57,8 @@ interface QuestionRow {
   id: string;
   targetId: string;
   targetPosition: number;
+  /** 0 for the first question of a target; later rounds ask the same target in a new sentence. */
+  round: number;
   term: string;
   prompt: string;
   optionsJson: string;
@@ -204,7 +206,9 @@ function serializePractice(
           ),
         })),
     },
-    questions: [...questions].sort((left, right) => left.targetPosition - right.targetPosition)
+    // Round by round, so the questions of one target are spread through the self-test.
+    questions: [...questions]
+      .sort((left, right) => left.round - right.round || left.targetPosition - right.targetPosition)
       .map((question) => ({
         id: question.id,
         targetId: question.targetId,
@@ -310,7 +314,7 @@ export async function handlePracticeReadRoute(
         ORDER BY position ASC
       `).bind(practiceId).all<TargetRow>(),
       env.DB.prepare(`
-        SELECT q.id, t.id AS targetId, t.position AS targetPosition,
+        SELECT q.id, t.id AS targetId, t.position AS targetPosition, q.round AS round,
           v.term, q.prompt, q.options_json AS optionsJson,
           q.correct_option_id AS correctOptionId, q.meaning_en AS meaningEn,
           q.explanation_zh AS explanationZh,
@@ -323,7 +327,7 @@ export async function handlePracticeReadRoute(
         LEFT JOIN answer_attempts AS a
           ON a.practice_question_id = q.id AND a.user_id = ?2
         WHERE t.practice_session_id = ?1
-        ORDER BY t.position ASC
+        ORDER BY q.round ASC, t.position ASC
       `).bind(practiceId, userId).all<QuestionRow>(),
     ]);
     paragraphs = paragraphResult.results;
