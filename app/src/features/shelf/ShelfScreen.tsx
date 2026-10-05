@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandHeader, PageHeading, TouchCard } from '@/components/brand';
+import { confirmAction } from '@/components/confirm';
 import { AbsorbIllustration, BlackHoleLoader, EnterOnce } from '@/components/cosmos';
 
 import { loadRecentViews, type RecentView } from '@/features/library/libraryStorage';
@@ -221,24 +223,29 @@ export function ShelfScreen({
       void removeEditorial(item.id);
       return;
     }
-    Alert.alert(
-      '永久删除文章？',
-      '正文和翻译将永久删除，无法恢复；已加入词库的词义和学习进度会保留。',
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '删除文章',
-          style: 'destructive',
-          onPress: () => { void permanentlyDelete(item.id); },
-        },
-      ],
-    );
+    confirmAction({
+      title: '永久删除文章？',
+      message: '正文和翻译将永久删除，无法恢复；已加入词库的词义和学习进度会保留。',
+      confirmLabel: '删除文章',
+      destructive: true,
+    }, () => { void permanentlyDelete(item.id); });
   };
 
   const showItemMenu = (item: ShelfItem) => {
     const title = item.kind === 'editorial'
       ? item.article.titleZh
       : item.article.title;
+    if (Platform.OS === 'web') {
+      // A browser has no action sheet: ask about the one action directly. An import's
+      // deletion asks its own confirmation.
+      if (item.kind === 'editorial') {
+        confirmAction({ title: '移出书架？', message: title, confirmLabel: '移出书架' },
+          () => performManagementAction(item));
+      } else {
+        performManagementAction(item);
+      }
+      return;
+    }
     Alert.alert(
       item.kind === 'editorial' ? '平台外刊' : '我的导入',
       title,

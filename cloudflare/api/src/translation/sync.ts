@@ -12,6 +12,7 @@ import { AppError } from '../../../../server/src/core/errors';
 import { extractJsonObject } from '../../../../server/src/infrastructure/ai/json';
 import { normalizeTerm } from '../../../../server/src/modules/vocabulary/normalize';
 import { validateTranslationText } from '../../../../server/src/modules/translation/validation';
+import { assertTranslationAllowed } from '../ai/budget';
 import { evolinkProvider, generationDeadlineMs } from '../ai/provider';
 import { readJsonBody } from '../core/http';
 import type { ApiEnv } from '../env';
@@ -62,6 +63,7 @@ export async function handleSynchronousTranslationRoute(
     if (!parsed.success) {
       throw new AppError('VALIDATION_ERROR', '句子不能为空且不能超过 10000 字符', 400);
     }
+    await assertTranslationAllowed(env, userId);
     const provider = evolinkProvider(env);
     const source = parsed.data.text;
     const translatedTextZh = validateTranslationText(
@@ -74,6 +76,7 @@ export async function handleSynchronousTranslationRoute(
   if (pathname !== '/v1/word-translations') return null;
   const parsed = WordTranslationRequestSchema.safeParse(await readJsonBody(request));
   if (!parsed.success) throw new AppError('VALIDATION_ERROR', '词语格式无效', 400);
+  await assertTranslationAllowed(env, userId);
   const provider = evolinkProvider(env);
   const raw = await provider.lookupWord(
     parsed.data.term, parsed.data.context, new AbortController().signal,

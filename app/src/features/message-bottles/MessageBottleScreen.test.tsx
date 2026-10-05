@@ -3,7 +3,9 @@ import { router } from 'expo-router';
 import React from 'react';
 import { ApiError } from '@/api/client';
 import { createIdempotencyKey } from '@/api/installation';
-import { createMessageBottle, getMessageBottleProfile, getMessageBottles } from '@/api/messageBottles';
+import {
+  blockMessageBottleAuthor, createMessageBottle, getMessageBottleProfile, getMessageBottles, reportMessageBottle,
+} from '@/api/messageBottles';
 import { MessageBottleScreen } from './MessageBottleScreen';
 
 jest.mock('expo-router', () => ({
@@ -12,7 +14,13 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/api/practices', () => ({ registerAnonymous: jest.fn().mockResolvedValue({}) }));
 jest.mock('@/api/installation', () => ({ createIdempotencyKey: jest.fn() }));
-jest.mock('@/api/messageBottles', () => ({ createMessageBottle: jest.fn(), getMessageBottleProfile: jest.fn(), getMessageBottles: jest.fn() }));
+jest.mock('@/api/messageBottles', () => ({
+  createMessageBottle: jest.fn(), getMessageBottleProfile: jest.fn(), getMessageBottles: jest.fn(),
+  reportMessageBottle: jest.fn(), blockMessageBottleAuthor: jest.fn(),
+}));
+jest.mock('@/components/confirm', () => ({
+  confirmAction: (_options: unknown, onConfirm: () => void) => onConfirm(), notify: jest.fn(),
+}));
 jest.mock('@/context/ThemeContext', () => ({ useAppTheme: () => ({ theme: jest.requireActual('@/constants/theme').themes.light }) }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/components/brand', () => {
@@ -21,7 +29,7 @@ jest.mock('@/components/brand', () => {
   return { BrandHeader: () => null, PageHeading: ({ title }: { title: string }) => React.createElement(Text, null, title) };
 });
 
-const message = { id: '11111111-1111-4111-8111-111111111111', username: '小张', content: '希望增加阅读统计。', createdAt: '2026-10-03T01:00:00.000Z', isMine: false };
+const message = { id: '11111111-1111-4111-8111-111111111111', username: '小张', content: '希望增加阅读统计。', createdAt: '2026-10-03T01:00:00.000Z', isMine: false, status: 'visible' as const };
 const own = { ...message, id: '22222222-2222-4222-8222-222222222222', username: '小林', content: '希望增加听力练习。', isMine: true };
 beforeEach(() => {
   jest.clearAllMocks();
@@ -120,4 +128,36 @@ it('重放较早的已发布留言时仍按最新时间排列', async () => {
   await fireEvent.press(screen.getByRole('button', { name: '投递留言' }));
   await waitFor(() => expect(screen.getByText('留言已投递，谢谢你的反馈。')).toBeTruthy());
   expect(screen.getAllByText(/希望增加/).map(node => node.props.children)).toEqual([message.content, own.content]);
+});
+it('先审后发：投递后提示等待审核，自己的留言标明审核中', async () => {
+  jest.mocked(createMessageBottle).mockResolvedValue({ ...own, status: 'pending' });
+  const screen = await render(<MessageBottleScreen />);
+  await waitFor(() => expect(screen.getByLabelText('留言内容')).toBeTruthy());
+  await fireEvent.changeText(screen.getByLabelText('留言内容'), own.content);
+  await fireEvent.press(screen.getByRole('button', { name: '投递留言' }));
+  await waitFor(() => expect(screen.getByText('留言已提交，审核通过后所有人都能看到。')).toBeTruthy());
+  expect(screen.getByText('审核中 · 仅自己可见')).toBeTruthy();
+});
+it('举报别人的留言后它立即从列表消失', async () => {
+  jest.mocked(reportMessageBottle).mockResolvedValue();
+  const screen = await render(<MessageBottleScreen />);
+  await waitFor(() => expect(screen.getByText(message.content)).toBeTruthy());
+  await fireEvent.press(screen.getByRole('button', { name: '举报或屏蔽 小张 的留言' }));
+  await fireEvent.press(screen.getByRole('button', { name: '举报这条留言' }));
+  await fireEvent.press(screen.getByRole('button', { name: '辱骂骚扰' }));
+  await waitFor(() => expect(screen.queryByText(message.content)).toBeNull());
+  expect(reportMessageBottle).toHaveBeenCalledWith(message.id, { reason: 'abuse' });
+});
+it('屏蔽作者后看不到对方的留言，自己的留言没有举报入口', async () => {
+  jest.mocked(getMessageBottles).mockResolvedValueOnce({ items: [message, own], nextCursor: null })
+    .mockResolvedValue({ items: [own], nextCursor: null });
+  jest.mocked(blockMessageBottleAuthor).mockResolvedValue();
+  const screen = await render(<MessageBottleScreen />);
+  await waitFor(() => expect(screen.getByText(message.content)).toBeTruthy());
+  expect(screen.queryByRole('button', { name: '举报或屏蔽 小林 的留言' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: '举报或屏蔽 小张 的留言' }));
+  await fireEvent.press(screen.getByRole('button', { name: '屏蔽「小张」' }));
+  await waitFor(() => expect(screen.queryByText(message.content)).toBeNull());
+  expect(blockMessageBottleAuthor).toHaveBeenCalledWith(message.id);
+  expect(screen.getByText(own.content)).toBeTruthy();
 });

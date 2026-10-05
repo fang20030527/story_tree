@@ -14,7 +14,8 @@ import {
 import type { ApiEnv } from '../env';
 import { readJsonBody } from '../core/http';
 import { AppError } from '../../../../server/src/core/errors';
-import { getRemainingQuota, registerAnonymous, requireAuth } from './database';
+import { freePracticeLimits, getRemainingQuota, quotaScope } from '../quota/service';
+import { registerAnonymous, requireAuth } from './database';
 import { confirmPasswordReset, issuePasswordResetCode } from './password-reset';
 import { loginWithEmail, loginWithWechat } from './providers';
 import { usernameIssueMessage } from './username';
@@ -30,6 +31,10 @@ function jsonResponse(body: unknown, status = 200): Response {
       'x-content-type-options': 'nosniff',
     },
   });
+}
+
+async function remainingFor(request: Request, env: ApiEnv, userId: string): Promise<number> {
+  return getRemainingQuota(env.DB, await quotaScope(request, env, userId), freePracticeLimits(env));
 }
 
 export async function handleAuthRoute(
@@ -56,7 +61,7 @@ export async function handleAuthRoute(
       throw new AppError('VALIDATION_ERROR', '请确认已满 14 周岁', 400);
     }
     const authUser = await registerAnonymous(request, env, parsed.data.ageConfirmed14Plus);
-    const remainingFreePractices = await getRemainingQuota(env.DB, authUser.userId);
+    const remainingFreePractices = await remainingFor(request, env, authUser.userId);
     return jsonResponse(AnonymousAuthResponseSchema.parse({
       userId: authUser.userId,
       kind: 'guest',
@@ -75,7 +80,7 @@ export async function handleAuthRoute(
     const authUser = await loginWithEmail(
       env, current, parsed.data.email, parsed.data.password, parsed.data.username,
     );
-    const remainingFreePractices = await getRemainingQuota(env.DB, authUser.userId);
+    const remainingFreePractices = await remainingFor(request, env, authUser.userId);
     return jsonResponse(EmailAuthResponseSchema.parse({
       userId: authUser.userId,
       kind: 'registered',
@@ -90,7 +95,7 @@ export async function handleAuthRoute(
     }
     const current = await requireAuth(request, env);
     const authUser = await loginWithWechat(env, current, parsed.data.code);
-    const remainingFreePractices = await getRemainingQuota(env.DB, authUser.userId);
+    const remainingFreePractices = await remainingFor(request, env, authUser.userId);
     return jsonResponse(WechatAuthResponseSchema.parse({
       userId: authUser.userId,
       kind: 'registered',

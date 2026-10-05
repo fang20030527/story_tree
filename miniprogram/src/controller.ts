@@ -22,7 +22,7 @@ const initial = {
   wordFilter: 'all', words: [] as (VocabularyWord & { selected?: boolean })[], selected: [] as VocabularyWord[],
   stats: ['—', '—', '—'], due: '—', added: '—', email: '', password: '', loggedIn: false,
   weeks: heatmap({}), studyDays: 0, selectedDate: dateKey(new Date()), selectedMinutes: 0,
-  targetCount: 6, mode: 'smart', quota: '—', activePractice: '',
+  targetCount: 6, mode: 'smart', quota: '', activePractice: '',
   practice: null as PracticeDto | null, question: null as PublicQuestion | null,
   questionIndex: 0, feedback: null as AnswerResult | null, selectedOption: '', correct: 0,
   questionsTotal: 0, score: 0, manualTerm: '', manualMeaning: '',
@@ -41,6 +41,12 @@ type Runtime = { alive: boolean; version: number; options: Record<string, string
 const runtimes = new WeakMap<Screen, Runtime>();
 const state = (page: Screen) => runtimes.get(page)!;
 function update(page: Screen, data: Partial<Data>) { if (state(page).alive) page.setData(data); }
+/** 免费练习按北京时间每天恢复；无限练习账号返回一个很大的兼容数字，不显示。 */
+function quotaText(remaining: number) {
+  if (remaining > 1_000_000) return '';
+  return remaining > 0 ? `今天还可免费练习 ${remaining} 次，北京时间每天 0 点恢复；创建成功后使用 1 次。`
+    : '今天的免费练习次数已用完，北京时间每天 0 点恢复。';
+}
 function media(path?: string) { return path?.startsWith('/') ? app().apiOrigin + path : path ?? ''; }
 function navigate(name: string, params: Record<string, string> = {}, replace = false) {
   const query = Object.entries(params).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
@@ -162,7 +168,7 @@ async function load(page: Screen) {
       update(page, { words: words.items, cursor: words.nextCursor ?? '', due: String(dashboard.dueLearningCount), added: String(dashboard.todayAddedCount), stats: [String(words.summary.totalCount), String(words.summary.learningCount), String(words.summary.masteredCount)] });
     } else if (kind === 'practice') {
       update(page, { targetCount: readLocal<number>('targetCount', 6) });
-      if (wx.getStorageSync('bhe:age') === true) { const dashboard = await api().dashboard(); update(page, { quota: String(dashboard.remainingFreePractices), activePractice: dashboard.incompletePracticeId ?? '' }); }
+      if (wx.getStorageSync('bhe:age') === true) { const dashboard = await api().dashboard(); update(page, { quota: quotaText(dashboard.remainingFreePractices), activePractice: dashboard.incompletePracticeId ?? '' }); }
     } else if (kind === 'article' || kind === 'reader') {
       if (page.data.source === 'practice') { await app().ensureSession(); usePractice(page, await api().practice(page.data.id)); }
       else { const article = page.data.source === 'imported' ? await api().importedArticle(page.data.id) : await api().article(page.data.id); if (version === state(page).version) useArticle(page, article, page.data.source); }

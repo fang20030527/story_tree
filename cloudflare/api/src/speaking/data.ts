@@ -181,9 +181,11 @@ export async function getSpeakingMaterial(env: ApiEnv, userId: string, materialI
   const catalog = await getPlatformCatalog(env);
   if (catalog.materials.some(item => item.id === materialId)) {
     const [platform, state] = await Promise.all([getPlatformMaterial(env, materialId), stateRow(env, userId, materialId)]);
+    // The released captions were validated when cached; only the account's own edit needs a parse.
+    if (!state?.custom_cues_json) return platform;
     return SpeakingMaterialDtoSchema.parse({ ...platform,
-      cues: state?.custom_cues_json ? SpeakingCuesSchema.parse(JSON.parse(state.custom_cues_json) as unknown) : platform.cues,
-      revision: state?.custom_cues_json ? state.subtitle_revision : platform.revision });
+      cues: SpeakingCuesSchema.parse(JSON.parse(state.custom_cues_json) as unknown),
+      revision: state.subtitle_revision });
   }
   if (!UuidSchema.safeParse(materialId).success) throw notFound();
   const row = await speakingFirst<MaterialRow>(env, 'SELECT * FROM speaking_materials WHERE user_id = ? AND id = ?', userId, materialId);

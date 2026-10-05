@@ -1,10 +1,17 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
+import type { SpeakingMaterialDto, SpeakingStateDto } from '@context-reader/contracts';
 import { speakingMaterials } from './catalog';
 import { emptySpeakingStore, type SpeakingStore } from './model';
 import { loadSpeakingStore, speakingStorageKey, updateSpeakingStore } from './speakingStorage';
 import { getSpeakingCatalog, getSpeakingCatalogMaterial, getSpeakingLibrary, getSpeakingMaterial, getSpeakingState } from '@/api/speaking';
 import { cacheSpeakingDetails, cacheSpeakingPublicDetails, mergeSpeakingCatalog, mergeSpeakingCloudLibrary } from './cloudSync';
+
+/** A material whose full captions are on the device can be shown before the network answers. */
+function cachedForPractice(store: SpeakingStore, materialId: string): boolean {
+  const material = speakingMaterials(store).find(item => item.id === materialId);
+  return Boolean(material && !material.summary && material.cues.length > 0);
+}
 
 export function useSpeakingLibrary(materialId?: string) {
   const [store, setStore] = useState(emptySpeakingStore);
@@ -24,6 +31,8 @@ export function useSpeakingLibrary(materialId?: string) {
     // revision 是用户重试时的新读取请求编号。
     const request = revision;
     let active = true;
+    // Set once the screen shows cached captions; a failed background refresh then keeps them.
+    let shownFromCache = false;
     alive.current = true;
     generation.current++;
     moreRequest.current = null;
@@ -33,6 +42,17 @@ export function useSpeakingLibrary(materialId?: string) {
       const result = await loadSpeakingStore(key);
       const registered = !key.endsWith(':guest');
       if (active) { setScope(key); setStore(result); setCloud(registered); }
+      if (materialId && active && cachedForPractice(result, materialId)) { shownFromCache = true; setLoading(false); }
+      // Files kept only on this device need nothing from the network. Anything else fetches its
+      // captions at the same time as the catalog rather than after it: opening a film used to
+      // wait for two round trips in a row, plus a third for the playback link.
+      const local = materialId ? result.files.some(item => item.id === materialId && item.storage !== 'cloud') : false;
+      const detailsRequest: Promise<[SpeakingMaterialDto, SpeakingStateDto | null]> | null = materialId && !local
+        ? registered ? Promise.all([getSpeakingMaterial(materialId), getSpeakingState(materialId)])
+          : getSpeakingCatalogMaterial(materialId).then(details => [details, null])
+        : null;
+      // Settled below; this only keeps an early return from reporting an unhandled rejection.
+      detailsRequest?.catch(() => undefined);
       const [catalog, account] = await Promise.allSettled([
         getSpeakingCatalog(), registered ? getSpeakingLibrary({ limit: 20 }) : Promise.resolve(null),
       ]);
@@ -46,20 +66,16 @@ export function useSpeakingLibrary(materialId?: string) {
         setCatalogError(catalog.status === 'rejected' ? '共享素材目录读取失败，请重试' : '');
       }
       if (account.status === 'rejected') throw account.reason;
-      const selectedLocal = materialId ? merged.files.find(item => item.id === materialId && item.storage !== 'cloud') : undefined;
-      if (materialId && !selectedLocal) {
-        if (registered) {
-          const [details, state] = await Promise.all([getSpeakingMaterial(materialId), getSpeakingState(materialId)]);
-          if (!active || await speakingStorageKey() !== key) return;
-          merged = await updateSpeakingStore(current => cacheSpeakingDetails(current, details, state), key);
-        } else {
-          const details = await getSpeakingCatalogMaterial(materialId);
-          if (!active || await speakingStorageKey() !== key) return;
-          merged = await updateSpeakingStore(current => cacheSpeakingPublicDetails(current, details), key);
-        }
+      if (detailsRequest) {
+        const [details, state] = await detailsRequest;
+        if (!active || await speakingStorageKey() !== key) return;
+        merged = await updateSpeakingStore(current => state
+          ? cacheSpeakingDetails(current, details, state) : cacheSpeakingPublicDetails(current, details), key);
       }
       if (active && request === revision) { setStore(merged); setNextCursor(account.value?.nextCursor ?? null); setMoreError(''); setError(''); }
-    }).catch((failure) => { if (active) setError(failure instanceof Error ? `口语资源读取失败：${failure.message}，请重试` : '口语记录读取失败，请重试'); })
+    }).catch((failure) => {
+      if (active && !shownFromCache) setError(failure instanceof Error ? `口语资源读取失败：${failure.message}，请重试` : '口语记录读取失败，请重试');
+    })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; alive.current = false; generation.current++; };
   }, [revision, materialId]));

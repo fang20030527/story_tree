@@ -1,17 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
-import { CreateMessageBottleSchema, MESSAGE_BOTTLE_CONTENT_LIMIT, type MessageBottleDto } from '@context-reader/contracts';
+import {
+  CreateMessageBottleSchema, MESSAGE_BOTTLE_CONTENT_LIMIT, type MessageBottleReportReason, type MessageBottleReviewedDto,
+} from '@context-reader/contracts';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, FlatList, KeyboardAvoidingView, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BlackHoleLoader, Bottle, EnterOnce } from '@/components/cosmos';
 import { motionAllowedNow } from '@/components/motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createIdempotencyKey } from '@/api/installation';
 import { BrandHeader, PageHeading } from '@/components/brand';
+import { confirmAction, notify } from '@/components/confirm';
+import { ListGroup, ListRow, SheetFrame } from '@/components/subpage';
 import { pageContent } from '@/components/ResponsiveFrame';
 import { motion, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { messageBottleError, useMessageBottles } from './useMessageBottles';
+
+const REPORT_REASONS: { reason: MessageBottleReportReason; label: string }[] = [
+  { reason: 'spam', label: '垃圾广告' }, { reason: 'abuse', label: '辱骂骚扰' }, { reason: 'sexual', label: '色情低俗' },
+  { reason: 'illegal', label: '违法违规' }, { reason: 'other', label: '其他问题' },
+];
 
 export function MessageBottleScreen() {
   const { theme } = useAppTheme();
@@ -23,6 +32,8 @@ export function MessageBottleScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const pending = useRef<{ signature: string; key: string } | null>(null);
+  const [menu, setMenu] = useState<{ item: MessageBottleReviewedDto; step: 'menu' | 'report' } | null>(null);
+  const [acting, setActing] = useState(false);
   const sendingRef = useRef(false);
   const scope = useRef(0);
   const active = useRef(false);
@@ -55,9 +66,10 @@ export function MessageBottleScreen() {
         if (!active.current || scope.current !== currentScope) return;
         pending.current = { signature, key };
       }
-      await feed.post(parsed.data, pending.current!.key);
+      const message = await feed.post(parsed.data, pending.current!.key);
       if (!active.current || scope.current !== currentScope) return;
-      pending.current = null; setContent(''); setNotice('留言已投递，谢谢你的反馈。'); sendOff();
+      pending.current = null; setContent('');
+      setNotice(message.status === 'pending' ? '留言已提交，审核通过后所有人都能看到。' : '留言已投递，谢谢你的反馈。'); sendOff();
     } catch (cause) {
       if (active.current && scope.current === currentScope) setSendError(messageBottleError(cause, '留言投递失败，请稍后重试'));
     } finally {
@@ -96,7 +108,7 @@ export function MessageBottleScreen() {
       <TextInput accessibilityLabel="留言内容" multiline value={content} editable={!sending} onChangeText={value => { setContent(value); setSendError(null); setNotice(null); }}
         maxLength={MESSAGE_BOTTLE_CONTENT_LIMIT} placeholder="哪里还不够顺手？你希望增加什么功能？" placeholderTextColor={theme.textMuted}
         textAlignVertical="top" style={[styles.contentInput, { color: theme.text, backgroundColor: theme.bg }]} />
-      <View style={styles.countRow}><Text style={[styles.hint, { color: theme.textMuted }]}>留言与用户名会公开给所有人。</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{content.length}/{MESSAGE_BOTTLE_CONTENT_LIMIT}</Text></View>
+      <View style={styles.countRow}><Text style={[styles.hint, { color: theme.textMuted }]}>留言与用户名会公开显示。请勿发布广告、辱骂、色情或违法内容，违规留言会被删除，作者会被禁言。</Text><Text style={[styles.hint, { color: theme.textMuted }]}>{content.length}/{MESSAGE_BOTTLE_CONTENT_LIMIT}</Text></View>
       {sendError ? <Text accessibilityRole="alert" style={[styles.feedback, { color: theme.danger }]}>{sendError}</Text> : null}
       {notice ? <Text accessibilityLiveRegion="polite" style={[styles.feedback, { color: theme.success }]}>{notice}</Text> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="投递留言" accessibilityState={{ disabled, busy: sending }} disabled={disabled}
@@ -118,10 +130,29 @@ export function MessageBottleScreen() {
     {feed.error ? <View style={styles.state}><Text style={[styles.hint, { color: theme.danger }]}>{feed.error}</Text>{action('重试读取留言', () => void feed.refresh(), feed.refreshing)}</View> : null}
   </>;
 
-  const renderMessage = ({ item }: { item: MessageBottleDto }) => <View style={[styles.message, { backgroundColor: theme.surfaceAlt }]}>
+  const finish = (run: () => Promise<void>, done: string) => {
+    setActing(true);
+    void run().then(() => { setMenu(null); notify(done); })
+      .catch(cause => notify('操作没有完成', messageBottleError(cause, '请稍后重试')))
+      .finally(() => setActing(false));
+  };
+  const report = (item: MessageBottleReviewedDto, reason: MessageBottleReportReason) =>
+    finish(() => feed.report(item, reason), '已收到举报，我们会尽快处理。这条留言已对你隐藏。');
+  const block = (item: MessageBottleReviewedDto) => confirmAction({
+    title: `屏蔽「${item.username}」？`, message: '屏蔽后你将看不到对方的任何留言，可以在「设置 → 已屏蔽的用户」里解除。',
+    confirmLabel: '屏蔽', destructive: true,
+  }, () => finish(() => feed.block(item), '已屏蔽，对方的留言不会再出现在你的列表里。'));
+
+  const renderMessage = ({ item }: { item: MessageBottleReviewedDto }) => <View style={[styles.message, { backgroundColor: theme.surfaceAlt }]}>
     <View style={styles.messageMeta}><View style={styles.messageAuthor}><Text style={[styles.author, { color: theme.text }]}>{item.username}</Text>
-      {item.isMine ? <Text style={[styles.mine, { color: theme.accent, backgroundColor: theme.accentSoft }]}>我</Text> : null}</View>
-      <Text style={[styles.time, { color: theme.textMuted }]}>{new Date(item.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</Text>
+      {item.isMine ? <Text style={[styles.mine, { color: theme.accent, backgroundColor: theme.accentSoft }]}>我</Text> : null}
+      {item.isMine && item.status !== 'visible' ? <Text style={[styles.mine, { color: theme.textSecondary, backgroundColor: theme.bg }]}>
+        {item.status === 'pending' ? '审核中 · 仅自己可见' : '未通过审核 · 仅自己可见'}</Text> : null}</View>
+      <View style={styles.messageAuthor}>
+        <Text style={[styles.time, { color: theme.textMuted }]}>{new Date(item.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</Text>
+        {!item.isMine ? <Pressable accessibilityRole="button" accessibilityLabel={`举报或屏蔽 ${item.username} 的留言`} hitSlop={10}
+          onPress={() => setMenu({ item, step: 'menu' })}><Ionicons name="ellipsis-horizontal" size={18} color={theme.textMuted} /></Pressable> : null}
+      </View>
     </View>
     <Text selectable style={[styles.messageContent, { color: theme.textSecondary }]}>{item.content}</Text>
   </View>;
@@ -138,6 +169,21 @@ export function MessageBottleScreen() {
         {feed.loadingMore ? <ActivityIndicator color={theme.accent} /> : feed.nextCursor ? action(feed.moreError ? '重试加载' : '加载更多留言', () => void feed.loadMore(), feed.refreshing)
           : feed.items.length > 0 && !feed.error ? <Text style={[styles.hint, { color: theme.textMuted }]}>已经看到所有留言</Text> : null}
       </View>} />
+    <Modal visible={menu !== null} transparent animationType="slide" onRequestClose={() => setMenu(null)}>
+      <Pressable accessibilityLabel="关闭" onPress={() => { if (!acting) setMenu(null); }} style={styles.backdrop}>
+        <Pressable onPress={event => event.stopPropagation()} style={{ width: '100%' }}>
+          <SheetFrame title={menu?.step === 'report' ? '举报原因' : '这条留言'}>
+            {menu?.step === 'report' ? <ListGroup>{REPORT_REASONS.map(option => <ListRow key={option.reason} label={option.label}
+              chevron={false} onPress={acting ? undefined : () => report(menu.item, option.reason)} />)}</ListGroup> : menu ? <ListGroup>
+              <ListRow label="举报这条留言" hint="举报后它会对你隐藏，并交给人工审核" onPress={acting ? undefined : () => setMenu({ ...menu, step: 'report' })} />
+              <ListRow label={`屏蔽「${menu.item.username}」`} hint="不再看到对方的任何留言" tone="danger" chevron={false}
+                onPress={acting ? undefined : () => block(menu.item)} />
+            </ListGroup> : null}
+            {acting ? <ActivityIndicator style={{ marginTop: 14 }} color={theme.accent} /> : null}
+          </SheetFrame>
+        </Pressable>
+      </Pressable>
+    </Modal>
   </KeyboardAvoidingView>;
 }
 
@@ -157,4 +203,5 @@ const styles = StyleSheet.create({
   messageAuthor: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, gap: 8 }, mine: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: radius.tag, overflow: 'hidden', fontSize: 11, fontWeight: weight('semibold') }, time: { fontSize: 12, fontVariant: ['tabular-nums'] },
   messageContent: { fontSize: 15, lineHeight: 24, marginTop: 8 }, loading: { marginVertical: 22, alignItems: 'center' }, emptyBox: { alignItems: 'center', paddingVertical: 20, gap: 6 }, empty: { fontSize: 14, lineHeight: 22, textAlign: 'center' },
   state: { gap: 12, paddingVertical: 20 }, footer: { paddingVertical: 24, alignItems: 'center', gap: 12 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(21, 14, 16, 0.42)', justifyContent: 'flex-end' },
 });

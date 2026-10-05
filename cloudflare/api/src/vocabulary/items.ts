@@ -1,6 +1,7 @@
 import {
   UuidSchema,
   VocabularyPageSchema,
+  VocabularyTermsSchema,
   VocabularyWordContextsSchema,
 } from '@context-reader/contracts';
 
@@ -137,6 +138,19 @@ async function wordContexts(env: ApiEnv, userId: string, wordId: string): Promis
   }));
 }
 
+/**
+ * Saved terms for highlighting while reading. Readers used to page through the whole ranked
+ * vocabulary 50 words at a time, and every page re-ranked every word on the server.
+ */
+async function vocabularyTerms(env: ApiEnv, userId: string): Promise<Response> {
+  const rows = await env.DB.prepare(`
+    SELECT DISTINCT term FROM vocabulary_items WHERE user_id = ? AND deleted_at IS NULL
+  `).bind(userId).all<{ term: string }>();
+  return Response.json(VocabularyTermsSchema.parse({ terms: rows.results.map((row) => row.term) }), {
+    headers: { 'cache-control': 'no-store' },
+  });
+}
+
 export async function handleVocabularyReadRoute(
   request: Request,
   env: ApiEnv,
@@ -145,6 +159,7 @@ export async function handleVocabularyReadRoute(
   if (request.method !== 'GET') return null;
   const pathname = new URL(request.url).pathname;
   if (pathname === '/v1/vocabulary-items') return vocabularyItems(request, env, userId);
+  if (pathname === '/v1/vocabulary-terms') return vocabularyTerms(env, userId);
   const match = /^\/v1\/vocabulary-words\/([^/]+)\/contexts$/u.exec(pathname);
   if (match) {
     let wordId: string;

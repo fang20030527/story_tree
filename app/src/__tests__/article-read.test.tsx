@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 
 import { getImportedArticle } from '@/api/articles';
-import { getVocabularyWords } from '@/api/practices';
+import { getVocabularyTerms } from '@/api/practices';
 import { ApiError } from '@/api/client';
 import {
   getArticleTranslation,
@@ -32,7 +32,7 @@ jest.mock('@/context/ThemeContext', () => ({
   useAppTheme: () => ({ theme: jest.requireActual('@/constants/theme').themes.light }),
 }));
 jest.mock('@/api/articles', () => ({ getImportedArticle: jest.fn() }));
-jest.mock('@/api/practices', () => ({ getVocabularyWords: jest.fn(), createVocabularyItem: jest.fn() }));
+jest.mock('@/api/practices', () => ({ getVocabularyTerms: jest.fn(), createVocabularyItem: jest.fn() }));
 jest.mock('@/api/imports', () => ({
   getArticleTranslation: jest.fn(),
   requestArticleTranslation: jest.fn(),
@@ -76,21 +76,13 @@ beforeEach(() => {
   mockedGetArticle.mockResolvedValue(article);
   mockedCreateKey.mockResolvedValue('translation-key-01');
   mockedRecordRecent.mockResolvedValue(undefined);
-  jest.mocked(getVocabularyWords).mockResolvedValue({
-    items: [], nextCursor: null, evaluatedAt: '2026-09-22T00:00:00Z', nextRefreshAt: null,
-    summary: { totalCount: 0, todayCount: 0, learningCount: 0, dueLearningCount: 0, unlearnedCount: 0, masteredCount: 0 },
-  });
+  jest.mocked(getVocabularyTerms).mockResolvedValue({ terms: [] });
 });
 
 afterEach(() => jest.useRealTimers());
 
 it('restores saved vocabulary highlighting in an imported article', async () => {
-  const empty = await getVocabularyWords();
-  jest.mocked(getVocabularyWords).mockResolvedValue({ ...empty, items: [{
-    wordId: article.id, term: 'Careful', meaningZh: '仔细的', sourceSentence: null, contextCount: 1,
-    reviewReason: 'new', nextReviewAt: '2026-09-22T00:00:00Z', practiceCount: 0,
-    independentCorrectCount: 0, assistedCount: 0, lastPracticedAt: null, masteredAt: null,
-  }] });
+  jest.mocked(getVocabularyTerms).mockResolvedValue({ terms: ['Careful'] });
   const view = await render(<ArticleReadScreen />);
   await waitFor(() => expect(view.getByText('Careful')).toHaveStyle({ backgroundColor: jest.requireActual('@/constants/theme').themes.light.marker }));
 });

@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Image, ScrollView, Text, View } from 'react-native';
 import { radius } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
@@ -12,12 +12,16 @@ import { useSpeakingLibrary } from './useSpeakingLibrary';
 import { speakingOverview } from './overviews';
 import { speakingCover } from './covers';
 import { SpeakingTranscriptExport } from './SpeakingTranscriptExport';
+import { prefetchCatalogPlayback } from './playbackPrefetch';
 
 export function SpeakingDetailScreen() {
   const { theme } = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const library = useSpeakingLibrary(id);
   const material = library.materials.find(item => item.id === id);
+  // Most visits continue to shadowing; sign the film's link now so the player can start at once.
+  const prefetchId = material?.origin === 'platform' && material.mediaType === 'video' ? material.id : null;
+  useEffect(() => { if (prefetchId) prefetchCatalogPlayback(prefetchId); }, [prefetchId]);
   const overview = material ? speakingOverview(material) : undefined;
   const cover = material?.origin === 'platform' ? speakingCover(material.id) : undefined;
   return <View style={[speakingStyles.page, { backgroundColor: theme.bg }]}><SpeakingHeader title="跟读素材" /><ScrollView contentContainerStyle={speakingStyles.content}>

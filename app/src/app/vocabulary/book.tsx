@@ -24,11 +24,13 @@ import {
   InstallationCredentialUnavailableError,
 } from '@/api/installation';
 import {
+  deleteVocabularyWord,
   getVocabularyWordContexts,
   getVocabularyWords,
   markVocabularyWordMastered,
   restoreVocabularyWord,
 } from '@/api/practices';
+import { confirmAction } from '@/components/confirm';
 import { Card } from '@/components/ui';
 import { animateNextLayout, useReducedMotion } from '@/components/motion';
 import { fonts, radius, weight } from '@/constants/theme';
@@ -95,7 +97,7 @@ function emptyCopy(filter: BookFilter, summary: PageSummary | null): { title: st
   }
 }
 
-function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryChanged: () => void }) {
+function WordCard({ item, onChanged }: { item: VocabularyWord; onChanged: () => void }) {
   const { theme } = useAppTheme();
   const [expanded, setExpanded] = useState(false);
   const reducedMotion = useReducedMotion();
@@ -140,7 +142,7 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
       const idempotencyKey = await createIdempotencyKey();
       if (mastered) await restoreVocabularyWord(item.wordId, idempotencyKey);
       else await markVocabularyWordMastered(item.wordId, idempotencyKey);
-      onMasteryChanged();
+      onChanged();
     } catch (cause) {
       if (mountedRef.current) setMasteryError(masteryErrorMessage(cause));
     } finally {
@@ -148,6 +150,17 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
       if (mountedRef.current) setMasteryPending(false);
     }
   };
+
+  const remove = () => confirmAction({
+    title: `删除「${item.term}」？`,
+    message: '这个单词和它的全部释义会从生词本删除，以前的练习文章和作答记录会保留。',
+    confirmLabel: '删除',
+    destructive: true,
+  }, () => {
+    setMasteryError(null);
+    void deleteVocabularyWord(item.wordId).then(onChanged)
+      .catch((cause: unknown) => { if (mountedRef.current) setMasteryError(masteryErrorMessage(cause)); });
+  });
 
   return (
     <View style={[styles.wordCard, { borderBottomColor: theme.border }]}>
@@ -243,6 +256,15 @@ function WordCard({ item, onMasteryChanged }: { item: VocabularyWord; onMasteryC
           最近练习 {localReviewTime(item.lastPracticedAt)}
         </Text>
       ) : null}
+      <View style={styles.manageRow}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`修改 ${item.term}`} hitSlop={6}
+          onPress={() => router.push({ pathname: '/vocabulary/edit', params: { wordId: item.wordId, term: item.term } })}>
+          <Text style={[styles.manageText, { color: theme.textSecondary }]}>修改</Text>
+        </TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`删除 ${item.term}`} hitSlop={6} onPress={remove}>
+          <Text style={[styles.manageText, { color: theme.danger }]}>删除</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -432,7 +454,7 @@ export default function VocabularyBookScreen() {
           <WordCard
             key={`${item.wordId}:${item.contextCount}:${item.masteredAt ?? ''}`}
             item={item}
-            onMasteryChanged={() => void loadFirstPage()}
+            onChanged={() => void loadFirstPage()}
           />
         ))}
         {loadingMore ? (
@@ -522,6 +544,8 @@ const styles = StyleSheet.create({
   masteryButtonText: { fontSize: 12, fontWeight: weight('semibold') },
   masteryError: { fontSize: 12, lineHeight: 18, marginTop: 8 },
   lastPracticed: { fontSize: 11, marginTop: 5 },
+  manageRow: { flexDirection: 'row', gap: 18, marginTop: 8 },
+  manageText: { fontSize: 12, fontWeight: weight('medium') },
   inlineError: { alignItems: 'center', paddingVertical: 12 },
   inlineRetry: { fontSize: 13, fontWeight: weight('semibold'), marginTop: 6 },
   loadMoreButton: {

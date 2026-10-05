@@ -1,17 +1,26 @@
+import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { confirmAction } from '@/components/confirm';
 import { PressFeedback } from '@/components/motion';
 import { ListRow, SectionHeading, SubpageHeader } from '@/components/subpage';
 import { fonts, radius, ThemeMode, themes, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
+import { PRIVACY_CONTACT_EMAIL } from '@/features/legal/privacyPolicy';
 import { clearRecentViews } from '@/features/library/libraryStorage';
 
 const APPEARANCE_OPTIONS: { key: ThemeMode; label: string; hint: string }[] = [
   { key: 'light', label: '浅色', hint: '纸色底，墨色字' },
   { key: 'dark', label: '深色', hint: '黑洞色底，适合夜读' },
 ];
+
+/** The configured app version (this row used to show a hard-coded 0.1.0). */
+function appVersion(): string {
+  return Constants.expoConfig?.version ?? '—';
+}
 
 export default function SettingsScreen() {
   const { theme, preference, setPreference } = useAppTheme();
@@ -22,16 +31,9 @@ export default function SettingsScreen() {
     message: string,
     action: () => Promise<void>,
   ) => {
-    Alert.alert(title, message, [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '清空',
-        style: 'destructive',
-        onPress: () => {
-          void action();
-        },
-      },
-    ]);
+    confirmAction({ title, message, confirmLabel: '清空', destructive: true }, () => {
+      void action();
+    });
   };
 
   return (
@@ -61,8 +63,14 @@ export default function SettingsScreen() {
         <ListRow label="清空最近观看" hint="只删除本机的阅读记录，不影响书架和词库"
           onPress={() => confirmClear('清空最近观看', '确定要清空全部最近观看记录吗？此操作不可恢复。', clearRecentViews)} />
 
+        <SectionHeading title="账号与隐私" />
+        <ListRow label="已屏蔽的用户" hint="在留言瓶里屏蔽的人" onPress={() => router.push('/blocked-users')} />
+        <ListRow label="隐私政策" onPress={() => router.push('/privacy')} />
+        <ListRow label="注销账号" hint="删除账号和全部云端数据" tone="danger" onPress={() => router.push('/account-delete')} />
+
         <SectionHeading title="关于" />
-        <ListRow label="版本" value="0.1.0" />
+        <ListRow label="联系我们" value={PRIVACY_CONTACT_EMAIL} />
+        <ListRow label="版本" value={appVersion()} />
       </ScrollView>
     </View>
   );

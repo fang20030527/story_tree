@@ -34,7 +34,10 @@ beforeAll(async () => {
         export default {
           async fetch() {
             try {
+              // The daily AI counter only needs its one atomic statement to report a count.
+              const counter = { first: async () => ({ calls: 1 }) };
               const provider = evolinkProvider({
+                DB: { prepare: () => ({ bind: () => counter }) },
                 EVOLINK_API_KEY: '${apiKey}',
                 EVOLINK_BASE_URL: 'https://upstream.invalid/v1',
                 EVOLINK_TEXT_MODEL: 'test-text-model',

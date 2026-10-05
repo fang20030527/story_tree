@@ -9,9 +9,13 @@
 - 同词不同释义共享一份复习计划；词库显示「全部／待复习／未到时间」，待复习数量来自整个词库。
 - 练习状态机：`queued → generating → validating → ready → in_progress → completed`，终态错误进入 `failed`；翻译状态机为 `queued → generating → ready`。
 - 文章导入状态机：`awaiting_upload → queued → processing → preview_ready → confirmed` 为常规成功路径，另有 `retryable`、`failed`、`expired`、`cancelled`。
-- 免费额度通过 `usage_ledger`（reserve/commit/release）管理，默认 `FREE_PRACTICE_LIMIT=3`。
+- 免费额度通过 `usage_ledger`（reserve/commit/release）管理，按北京时间每天重置，默认每天 `FREE_PRACTICE_LIMIT=3`。一次练习同时占用账号、设备（客户端 `X-Device-Id`，退出登录也不清除）和网络（IPv4 或 IPv6 /64，默认每天 `FREE_PRACTICE_IP_DAILY_LIMIT=10`）当天的次数，记录只存摘要且不关联账号（`quota_usage_events`），注销账号不会恢复次数。全站 EvoLink 调用另有每天总量上限 `AI_DAILY_CALL_LIMIT`（`ai_usage_daily`），所有 EvoLink 调用都要经过计数（文本走 `cloudflare/api/src/ai/provider.ts`，口语点评走 `consumeAiCall`）。
+- 账号可在应用内注销（`POST /v1/account/delete`）：删除 `users` 行，其余数据依赖 `ON DELETE CASCADE` 级联删除，私有文件进入 `speaking_storage_cleanup`。新增属于账号的表必须 `REFERENCES users(id) ON DELETE CASCADE`，引用 R2 对象的要在注销时排进清理队列。
+- 留言瓶默认先审后发（`MESSAGE_BOTTLE_REVIEW=pre`）；举报 3 次自动隐藏；审核后台 `/v1/admin/moderation` 由 Worker secret `ADMIN_TOKEN` 启用。隐私政策正文在 `app/src/features/legal/privacyPolicy.ts`，网页地址 `/privacy`，改动数据收集或第三方处理时要同步更新。
+- API 响应契约都是 `.strict()`，旧客户端会拒绝多出来的字段：给已有响应加字段要让新客户端显式请求（如留言列表的 `includeStatus=1`），或者新开接口。
 - 客户端可传入 `format: "topic_set"` 一次创建四篇 200–300 词的不同主题短文练习（需要迁移 0006）。
-- 自测题数：自测题是英文语境填空，每个目标词至少一题；目标词少于 6 个的文章，同一目标词会在不同句子里再出题（`planQuestionCounts`，每词最多 3 题），保证每篇至少 6 题，题序按轮次交错。追加题（`practice_questions.round > 0`，该列只在 D1 里）只作练习强化，不参与 FSRS 排期，也不累加 `learning_progress`；FSRS 仍按每个练习合并为一次复习，由每个目标词的第一题决定。
+- 自测题数：自测题是英文语境填空，每个目标词至少一题；目标词少于 6 个的文章，同一目标词会在不同句子里再出题（`planQuestionCounts`，每词最多 3 题），保证每篇至少 6 题，题序按轮次交错。追加题（`practice_questions.round > 0`，该列只在 D1 里）只作练习强化，不参与 FSRS 排期，也不累加 `learning_progress`；FSRS 仍按每个练习合并为一次复习，由每个目标词的第一题决定。客户端 `isEnglishSelfTest` 只把「题干含 `____` 且题干、选项都没有中文」的题当作英文填空，否则按旧版释义题显示目标词（即答案），所以校验器必须保证这两点。
+- Web 端：react-native-web 的 `Alert.alert` 是空函数，需要用户确认的操作用 `app/src/components/confirm.ts` 的 `confirmAction`／`notify`。
 
 ## 工作区结构（npm workspaces）
 

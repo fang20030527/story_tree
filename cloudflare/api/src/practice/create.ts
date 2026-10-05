@@ -25,13 +25,21 @@ import {
   planTopicTargets,
   type TopicTargetCandidate,
 } from '../../../../server/src/modules/practice/topic-targets';
+import { assertAiAvailable } from '../ai/budget';
 import { readJsonBody } from '../core/http';
 import type { ApiEnv, D1DatabaseBinding, D1StatementBinding } from '../env';
 import {
+  freeLimitReached,
+  freePracticeLimits,
+  freeQuotaAvailable,
   getRemainingQuota,
-  quotaBalanceStatement,
-  remainingQuotaFromBalance,
-  type QuotaBalanceRow,
+  quotaScope,
+  quotaUsageStatement,
+  recordQuotaUsage,
+  remainingQuotaFromUsage,
+  type QuotaLimits,
+  type QuotaScope,
+  type QuotaUsageRow,
 } from '../quota/service';
 
 const PATH = '/v1/practices';
@@ -142,16 +150,6 @@ function requestMaterial(input: CreatePracticeRequest): unknown {
   };
 }
 
-function freePracticeLimit(env: ApiEnv): number {
-  const raw = (env as ApiEnv & { FREE_PRACTICE_LIMIT?: string | number }).FREE_PRACTICE_LIMIT;
-  if (raw === undefined) return 3;
-  const limit = Number(raw);
-  if (!Number.isSafeInteger(limit) || limit <= 0) {
-    throw new AppError('INTERNAL_ERROR', '练习额度配置无效', 500, true);
-  }
-  return limit;
-}
-
 function generationDeadlineMs(env: ApiEnv): number {
   if (env.GENERATION_DEADLINE_MS === undefined) return 120_000;
   const duration = Number(env.GENERATION_DEADLINE_MS);
@@ -172,11 +170,12 @@ async function loadRecord(db: D1DatabaseBinding, userId: string, key: string): P
 
 async function acceptedForRecord(
   db: D1DatabaseBinding,
-  userId: string,
+  scope: QuotaScope,
   record: RecordRow,
   hash: string,
-  freeLimit: number,
+  limits: QuotaLimits,
 ): Promise<Response> {
+  const { userId } = scope;
   if (record.requestHash !== hash) {
     throw new AppError('IDEMPOTENCY_KEY_REUSED', '幂等键已用于不同请求', 409);
   }
@@ -187,7 +186,7 @@ async function acceptedForRecord(
     SELECT status FROM practice_sessions WHERE id = ? AND user_id = ? LIMIT 1
   `).bind(record.resourceId, userId).first<PracticeRow>();
   if (!practice) throw new AppError('NOT_FOUND', '练习不存在', 404);
-  const remainingFreePractices = await getRemainingQuota(db, userId, freeLimit);
+  const remainingFreePractices = await getRemainingQuota(db, scope, limits);
   return acceptedResponse(record.resourceId, practice.status, remainingFreePractices);
 }
 
@@ -407,16 +406,38 @@ async function resolveFromItems(
   };
 }
 
-function targetInsert(
+/**
+ * Rows per target INSERT. Each row binds five values and the statement three more, and D1
+ * accepts at most 100 bound parameters per statement: a single statement for a long
+ * vocabulary practice (20 or more targets) was rejected and the practice never created.
+ */
+const TARGET_ROWS_PER_STATEMENT = 15;
+
+function targetInserts(
   db: D1DatabaseBinding,
   userId: string,
   recordId: string,
   member: Member,
-): D1StatementBinding {
+): D1StatementBinding[] {
   const rows = member.targets.map((target, position) => ({
     id: crypto.randomUUID(), practiceId: member.id,
     fingerprint: target.fingerprint, position, expectedState: target.expectedState,
   }));
+  const statements: D1StatementBinding[] = [];
+  for (let start = 0; start < rows.length; start += TARGET_ROWS_PER_STATEMENT) {
+    statements.push(targetInsert(db, userId, recordId, rows.slice(start, start + TARGET_ROWS_PER_STATEMENT)));
+  }
+  return statements;
+}
+
+function targetInsert(
+  db: D1DatabaseBinding,
+  userId: string,
+  recordId: string,
+  rows: ReadonlyArray<{
+    id: string; practiceId: string; fingerprint: string; position: number; expectedState: string | null;
+  }>,
+): D1StatementBinding {
   const values = rows.map(() => '(?, ?, ?, ?, ?)').join(', ');
   const bindings = rows.flatMap((row) => [
     row.id, row.practiceId, row.fingerprint, row.position, row.expectedState,
@@ -454,12 +475,12 @@ function targetInsert(
 function buildBatch(
   db: D1DatabaseBinding,
   input: {
-    userId: string;
+    scope: QuotaScope;
     key: string;
     hash: string;
     recordId: string;
     practiceId: string;
-    freeLimit: number;
+    limits: QuotaLimits;
     now: string;
     expiresAt: string;
     deadlineAt: string;
@@ -468,9 +489,11 @@ function buildBatch(
   },
 ): D1StatementBinding[] {
   const {
-    userId, key, hash, recordId, practiceId, freeLimit, now,
+    scope, key, hash, recordId, practiceId, limits, now,
     expiresAt, deadlineAt, resolved, members,
   } = input;
+  const { userId } = scope;
+  const available = freeQuotaAvailable(scope, limits, new Date(now));
   const statements: D1StatementBinding[] = [db.prepare(`
     INSERT INTO idempotency_records
       (id, user_id, operation, idempotency_key, request_hash,
@@ -503,13 +526,14 @@ function buildBatch(
       AND (
         EXISTS (SELECT 1 FROM user_practice_access AS access
                 WHERE access.user_id = user.id AND access.unlimited_practices = 1)
-        OR ? + (SELECT COALESCE(SUM(amount), 0) FROM usage_ledger
-                WHERE user_id = ?) > 0
+        OR ${available.sql}
       )
     ON CONFLICT(operation_key) DO NOTHING
     RETURNING id
   `).bind(crypto.randomUUID(), `${practiceId}:reserve`, now, practiceId, userId,
-    recordId, freeLimit, userId));
+    recordId, ...available.values));
+  // Charges the device and network in the same transaction as the reservation.
+  statements.push(recordQuotaUsage(db, practiceId, scope, new Date(now)));
 
   if (resolved.vocabulary.length > 0) {
     const emptyState = JSON.stringify(replayReviews([], new Date(now)));
@@ -567,7 +591,7 @@ function buildBatch(
     `).bind(userId, ...terms, recordId));
   }
 
-  for (const member of members) statements.push(targetInsert(db, userId, recordId, member));
+  for (const member of members) statements.push(...targetInserts(db, userId, recordId, member));
   for (const member of members) {
     statements.push(db.prepare(`
       INSERT INTO jobs
@@ -603,7 +627,7 @@ function buildBatch(
   `).bind(`${practiceId}:reserve`, practiceId,
     ...memberIds, expectedTargets, ...memberIds, members.length,
     practiceId, recordId, userId, OPERATION));
-  statements.push(quotaBalanceStatement(db, userId));
+  statements.push(quotaUsageStatement(db, scope, new Date(now)));
   return statements;
 }
 
@@ -624,18 +648,18 @@ export async function handlePracticeCreateRoute(
   }
   const input = parsed.data;
   if ('items' in input) rejectDuplicateInputs(input.items);
-  const freeLimit = freePracticeLimit(env);
+  const limits = freePracticeLimits(env);
+  const scope = await quotaScope(request, env, userId);
   const hash = await requestHash(requestMaterial(input));
   const existing = await loadRecord(env.DB, userId, key);
-  if (existing) return acceptedForRecord(env.DB, userId, existing, hash, freeLimit);
+  if (existing) return acceptedForRecord(env.DB, scope, existing, hash, limits);
 
   if (!capability.generationHandlerReady || !capability.scheduledRecoveryReady ||
       !env.JOB_QUEUE || !env.EVOLINK_API_KEY) {
     throw unavailable();
   }
-  if (await getRemainingQuota(env.DB, userId, freeLimit) <= 0) {
-    throw new AppError('FREE_LIMIT_REACHED', '免费练习额度已用完', 403);
-  }
+  if (await getRemainingQuota(env.DB, scope, limits) <= 0) throw freeLimitReached();
+  await assertAiAvailable(env);
 
   const now = new Date();
   const practiceId = crypto.randomUUID();
@@ -650,7 +674,7 @@ export async function handlePracticeCreateRoute(
     throw new AppError('INTERNAL_ERROR', '练习生成配置无效', 500, true);
   }
   const batch = buildBatch(env.DB, {
-    userId, key, hash, recordId, practiceId, freeLimit,
+    scope, key, hash, recordId, practiceId, limits,
     now: now.toISOString(),
     expiresAt: new Date(now.getTime() + IDEMPOTENCY_TTL_MS).toISOString(),
     deadlineAt: deadline.toISOString(),
@@ -663,10 +687,8 @@ export async function handlePracticeCreateRoute(
     // A concurrent same-key call may have won. Check it before classifying a
     // failed quota or target guard; no partial writes survived a failed batch.
     const raced = await loadRecord(env.DB, userId, key);
-    if (raced) return acceptedForRecord(env.DB, userId, raced, hash, freeLimit);
-    if (await getRemainingQuota(env.DB, userId, freeLimit) <= 0) {
-      throw new AppError('FREE_LIMIT_REACHED', '免费练习额度已用完', 403);
-    }
+    if (raced) return acceptedForRecord(env.DB, scope, raced, hash, limits);
+    if (await getRemainingQuota(env.DB, scope, limits) <= 0) throw freeLimitReached();
     throw new AppError('DATABASE_UNAVAILABLE', '练习创建暂时不可用，请重试', 503, true);
   }
   if (results.length !== batch.length) {
@@ -676,20 +698,20 @@ export async function handlePracticeCreateRoute(
   if (claimed.length === 0) {
     const raced = await loadRecord(env.DB, userId, key);
     if (!raced) throw new AppError('STATE_CONFLICT', '练习创建状态正在更新，请重试', 409, true);
-    return acceptedForRecord(env.DB, userId, raced, hash, freeLimit);
+    return acceptedForRecord(env.DB, scope, raced, hash, limits);
   }
   if (claimed.length !== 1 || claimed[0]?.id !== recordId) {
     throw new AppError('INTERNAL_ERROR', '练习创建状态无效', 500, true);
   }
   const finalized = batchRows<{ resourceId: string }>(results[results.length - 2]);
-  const balance = batchRows<QuotaBalanceRow>(results[results.length - 1])[0];
-  if (finalized[0]?.resourceId !== practiceId || !balance) {
+  const usage = batchRows<QuotaUsageRow>(results[results.length - 1])[0];
+  if (finalized[0]?.resourceId !== practiceId || !usage) {
     throw new AppError('INTERNAL_ERROR', '练习创建状态无效', 500, true);
   }
 
   // D1 jobs are durable. The scheduled recovery handler retries delivery if
   // a Queue send fails after commit.
   await Promise.allSettled(members.map((member) => env.JOB_QUEUE!.send({ jobId: member.jobId })));
-  const remaining = remainingQuotaFromBalance(balance, freeLimit);
+  const remaining = remainingQuotaFromUsage(usage, limits);
   return acceptedResponse(practiceId, 'queued', remaining);
 }

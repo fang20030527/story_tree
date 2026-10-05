@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -10,6 +9,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { confirmAction } from '@/components/confirm';
 
 import { fonts, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
@@ -95,16 +96,11 @@ export function RecentListScreen({
 
   const confirmClear = () => {
     if (entries.length === 0) return;
-    Alert.alert('清空最近观看', '确定要清空全部最近观看记录吗？', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '清空',
-        style: 'destructive',
-        onPress: () => {
-          void clear().then(reload).catch(() => undefined);
-        },
-      },
-    ]);
+    confirmAction({
+      title: '清空最近观看', message: '确定要清空全部最近观看记录吗？', confirmLabel: '清空', destructive: true,
+    }, () => {
+      void clear().then(reload).catch(() => undefined);
+    });
   };
 
   return (

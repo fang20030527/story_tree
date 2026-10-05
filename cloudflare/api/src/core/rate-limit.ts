@@ -43,11 +43,25 @@ export async function enforceRateLimit(
   }
 }
 
+/**
+ * The per-IP request ceiling runs on every API call. Counted in D1 it cost one write (and a
+ * round trip to the database's primary) before any route ran, so the Workers rate-limit
+ * binding is used when bound: it counts per Cloudflare location without a database write.
+ */
+async function enforceGlobalIpLimit(env: ApiEnv, ip: string): Promise<void> {
+  if (!env.IP_RATE_LIMITER) {
+    await enforceRateLimit(env, 'global-ip', ip, 600);
+    return;
+  }
+  const { success } = await env.IP_RATE_LIMITER.limit({ key: `global-ip:${ip}` });
+  if (!success) throw new RateLimitError(60);
+}
+
 export async function enforceRequestLimits(request: Request, env: ApiEnv): Promise<void> {
   const pathname = new URL(request.url).pathname;
   if (pathname === '/health/live' || pathname === '/health/ready') return;
   const ip = await getClientIp(request, env);
-  await enforceRateLimit(env, 'global-ip', ip, 600);
+  await enforceGlobalIpLimit(env, ip);
 
   if (pathname === '/v1/auth/password-reset/request' ||
       pathname === '/v1/auth/password-reset/confirm') {

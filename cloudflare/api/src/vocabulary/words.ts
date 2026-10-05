@@ -26,31 +26,6 @@ const CursorSchema = z.object({
   lastWordId: UuidSchema,
 }).strict();
 
-const finiteNumber = z.number().finite();
-const ReviewStateSchema = z.object({
-  version: z.literal(REVIEW_MODEL_VERSION),
-  answerCount: z.number().int().nonnegative(),
-  card: z.object({
-    due: z.iso.datetime(),
-    last_review: z.iso.datetime().optional(),
-    stability: finiteNumber,
-    difficulty: finiteNumber,
-    elapsed_days: finiteNumber,
-    scheduled_days: finiteNumber,
-    reps: z.number().int().nonnegative(),
-    lapses: z.number().int().nonnegative(),
-    learning_steps: z.number().int().nonnegative(),
-    state: z.number().int().nonnegative(),
-  }).passthrough(),
-  nextReviewAt: z.iso.datetime(),
-  practiceCount: z.number().int().nonnegative(),
-  independentCorrectCount: z.number().int().nonnegative(),
-  assistedCount: z.number().int().nonnegative(),
-  lastPracticedAt: z.iso.datetime().nullable(),
-  lastOutcome: z.enum(['independent', 'failed', 'translated']).nullable(),
-  lastFailedContextId: UuidSchema.nullable(),
-}).strict();
-
 interface WordRow {
   id: string;
   normalizedTerm: string;
@@ -69,11 +44,6 @@ interface ContextRow {
   deletedAt: string | null;
 }
 
-interface CountRow {
-  wordId: string;
-  answerCount: number;
-}
-
 interface Context {
   id: string;
   term: string;
@@ -85,6 +55,8 @@ interface Context {
 interface RankedWord {
   word: { id: string; createdAt: Date; masteredAt: Date | null };
   state: WordReviewState;
+  /** The stored JSON, which the page revision digests instead of re-serializing the state. */
+  rawState: string;
   contexts: Context[];
   priority: ReturnType<typeof reviewPriority>;
 }
@@ -153,7 +125,19 @@ function parseDate(value: string): Date {
   return date;
 }
 
-function parseReviewState(raw: string | null, answerCount: number): WordReviewState {
+const count = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
+const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const instant = (value: unknown): value is string =>
+  typeof value === 'string' && Number.isFinite(Date.parse(value));
+const OUTCOMES = new Set<unknown>([null, 'independent', 'failed', 'translated']);
+
+/**
+ * Hand-written structural check of a stored review state: a schema parse of every word cost
+ * more CPU than the 10 ms a free-plan request has once a vocabulary reaches a few hundred words.
+ * Every answer rewrites the state in the same D1 batch, guarded by the answer count, so the
+ * read no longer recounts the user's whole answer history to compare against it.
+ */
+function parseReviewState(raw: string | null): WordReviewState {
   if (raw === null) throw invalidProjection();
   let input: unknown;
   try {
@@ -161,15 +145,28 @@ function parseReviewState(raw: string | null, answerCount: number): WordReviewSt
   } catch {
     throw invalidProjection();
   }
-  const parsed = ReviewStateSchema.safeParse(input);
-  if (!parsed.success || parsed.data.answerCount !== answerCount ||
-      parsed.data.practiceCount > parsed.data.answerCount ||
-      parsed.data.independentCorrectCount > parsed.data.practiceCount ||
-      parsed.data.assistedCount > parsed.data.practiceCount) {
+  if (!input || typeof input !== 'object') throw invalidProjection();
+  const state = input as Record<string, unknown>;
+  const card = state.card as Record<string, unknown> | null | undefined;
+  if (state.version !== REVIEW_MODEL_VERSION || !count(state.answerCount) ||
+      !count(state.practiceCount) || !count(state.independentCorrectCount) || !count(state.assistedCount) ||
+      state.practiceCount > state.answerCount ||
+      state.independentCorrectCount > state.practiceCount || state.assistedCount > state.practiceCount ||
+      !instant(state.nextReviewAt) || !(state.lastPracticedAt === null || instant(state.lastPracticedAt)) ||
+      !OUTCOMES.has(state.lastOutcome) ||
+      !(state.lastFailedContextId === null || UuidSchema.safeParse(state.lastFailedContextId).success) ||
+      !card || typeof card !== 'object' || !instant(card.due) ||
+      !(card.last_review === undefined || instant(card.last_review)) ||
+      !finite(card.stability) || !finite(card.difficulty) ||
+      !finite(card.elapsed_days) || !finite(card.scheduled_days) ||
+      !count(card.reps) || !count(card.lapses) || !count(card.learning_steps) || !count(card.state)) {
     throw invalidProjection();
   }
-  return parsed.data as WordReviewState;
+  return input as WordReviewState;
 }
+
+/** Code-unit order: ids are lowercase ASCII, and localeCompare is costly in a long sort. */
+const byText = (left: string, right: string) => left < right ? -1 : left > right ? 1 : 0;
 
 function batchRows<T>(result: unknown): T[] {
   if (!result || typeof result !== 'object' || !('results' in result) ||
@@ -184,9 +181,7 @@ async function loadRankedWords(
   userId: string,
   evaluatedAt: Date,
 ): Promise<RankedWord[]> {
-  // D1 batch runs these reads inside one transaction. The answer count is
-  // grouped by normalized term, matching the old read-time word-link repair
-  // without modifying migrated data during this GET request.
+  // D1 batch runs these reads inside one transaction.
   const batch = await env.DB.batch([
     env.DB.prepare(`
       SELECT id, normalized_term AS normalizedTerm, review_state AS reviewState,
@@ -199,22 +194,9 @@ async function loadRankedWords(
              created_at AS createdAt, deleted_at AS deletedAt
       FROM vocabulary_items WHERE user_id = ?
     `).bind(userId),
-    env.DB.prepare(`
-      SELECT w.id AS wordId, COUNT(*) AS answerCount
-      FROM answer_attempts AS answer
-      JOIN practice_questions AS question ON question.id = answer.practice_question_id
-      JOIN practice_targets AS target ON target.id = question.practice_target_id
-      JOIN vocabulary_items AS item ON item.id = target.vocabulary_item_id
-      JOIN vocabulary_words AS w
-        ON w.user_id = item.user_id AND w.normalized_term = item.normalized_term
-      WHERE answer.user_id = ? AND item.user_id = ?
-      GROUP BY w.id
-    `).bind(userId, userId),
   ]);
   const words = batchRows<WordRow>(batch[0]);
   const contextRows = batchRows<ContextRow>(batch[1]);
-  const counts = batchRows<CountRow>(batch[2]);
-  const answerCounts = new Map(counts.map((row) => [row.wordId, row.answerCount]));
   const byTerm = new Map(words.map((word) => [word.normalizedTerm, word]));
   const contextsByTerm = new Map<string, Context[]>();
   for (const row of contextRows) {
@@ -231,14 +213,14 @@ async function loadRankedWords(
     contextsByTerm.set(row.normalizedTerm, contexts);
   }
   for (const contexts of contextsByTerm.values()) {
-    contexts.sort((a, b) => +b.createdAt - +a.createdAt || b.id.localeCompare(a.id));
+    contexts.sort((a, b) => +b.createdAt - +a.createdAt || byText(b.id, a.id));
   }
 
   const ranked: RankedWord[] = [];
   for (const row of words) {
-    const state = parseReviewState(row.reviewState, answerCounts.get(row.id) ?? 0);
     const active = contextsByTerm.get(row.normalizedTerm);
     if (!active?.length) continue;
+    const state = parseReviewState(row.reviewState);
     let priority: ReturnType<typeof reviewPriority>;
     try {
       priority = reviewPriority(state, evaluatedAt);
@@ -256,42 +238,30 @@ async function loadRankedWords(
         masteredAt: row.masteredAt === null ? null : parseDate(row.masteredAt),
       },
       state,
+      rawState: row.reviewState!,
       contexts: active,
       priority,
     });
   }
   return ranked.sort((a, b) => a.priority.group - b.priority.group ||
     (a.priority.group === 1 ? a.priority.retrievability - b.priority.retrievability : 0) ||
-    a.priority.due - b.priority.due || a.word.id.localeCompare(b.word.id));
-}
-
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, entry]) => [key, canonicalize(entry)]),
-    );
-  }
-  return value;
+    a.priority.due - b.priority.due || byText(a.word.id, b.word.id));
 }
 
 async function revisionOf(entries: RankedWord[]): Promise<string> {
   // Clock-derived priority is excluded, so waiting alone does not invalidate
-  // an in-progress page. This structure matches the original SHA-256 input.
-  const canonical = canonicalize([...entries]
-    .sort((a, b) => a.word.id.localeCompare(b.word.id))
-    .map((entry) => ({
-      id: entry.word.id,
-      state: entry.state,
-      masteredAt: entry.word.masteredAt?.toISOString() ?? null,
-      contexts: entry.contexts.map(({ id, term, meaningZh, sourceSentence }) => ({
-        id, term, meaningZh, sourceSentence,
-      })),
-    })));
+  // an in-progress page. The stored state text changes whenever the state does.
+  const material = [...entries]
+    .sort((a, b) => byText(a.word.id, b.word.id))
+    .map((entry) => [
+      entry.word.id,
+      entry.rawState,
+      entry.word.masteredAt?.toISOString() ?? null,
+      entry.contexts.map(({ id, term, meaningZh, sourceSentence }) => [id, term, meaningZh, sourceSentence]),
+    ]);
   const digest = await crypto.subtle.digest(
     'SHA-256',
-    new TextEncoder().encode(JSON.stringify(canonical)),
+    new TextEncoder().encode(JSON.stringify(material)),
   );
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }

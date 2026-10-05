@@ -27,29 +27,42 @@ const installationSelect = `
   LIMIT 1
 `;
 
+/**
+ * last_seen_at is informational (nothing reads it). Writing it on every call cost one D1 row
+ * write per authenticated request, so it is refreshed at most this often.
+ */
+export const LAST_SEEN_REFRESH_MS = 15 * 60_000;
+
 export async function requireAuth(request: Request, env: ApiEnv): Promise<AuthContext> {
   const token = parseBearerToken(request.headers.get('authorization'));
   const tokenHash = await hashInstallationToken(token);
-  const now = new Date().toISOString();
 
-  // The conditional write prevents a token revoked during this request from
-  // being accepted after an earlier read.
-  const active = await env.DB.prepare(`
-    UPDATE installations
-    SET last_seen_at = ?
-    WHERE token_hash = ? AND revoked_at IS NULL
-      AND EXISTS (
-        SELECT 1 FROM users
-        WHERE users.id = installations.user_id AND users.deleted_at IS NULL
-      )
-    RETURNING id AS installationId, user_id AS userId
-  `).bind(now, tokenHash).first<AuthContext>();
-  if (active) return active;
+  // One read decides validity: a revocation committed before it is rejected, exactly as the
+  // former UPDATE ... RETURNING did; one committed after it is not seen by either.
+  const installation = await env.DB.prepare(`
+    SELECT i.id AS installationId, i.user_id AS userId, i.revoked_at AS revokedAt,
+           u.deleted_at AS userDeletedAt, i.last_seen_at AS lastSeenAt
+    FROM installations AS i
+    JOIN users AS u ON u.id = i.user_id
+    WHERE i.token_hash = ?
+    LIMIT 1
+  `).bind(tokenHash).first<InstallationRow & { lastSeenAt: string | null }>();
+  if (!installation) throw new AppError('UNAUTHORIZED', '身份凭据无效', 401);
+  if (installation.revokedAt || installation.userDeletedAt) {
+    throw new AppError('TOKEN_REVOKED', '身份凭据已失效', 401);
+  }
 
-  const existing = await env.DB.prepare(installationSelect)
-    .bind(tokenHash).first<InstallationRow>();
-  if (existing) throw new AppError('TOKEN_REVOKED', '身份凭据已失效', 401);
-  throw new AppError('UNAUTHORIZED', '身份凭据无效', 401);
+  const now = Date.now();
+  const lastSeen = installation.lastSeenAt === null ? Number.NaN : Date.parse(installation.lastSeenAt);
+  if (!(now - lastSeen < LAST_SEEN_REFRESH_MS)) {
+    try {
+      await env.DB.prepare('UPDATE installations SET last_seen_at = ? WHERE id = ? AND revoked_at IS NULL')
+        .bind(new Date(now).toISOString(), installation.installationId).run();
+    } catch {
+      // Bookkeeping only: it must not fail an authenticated request.
+    }
+  }
+  return { installationId: installation.installationId, userId: installation.userId };
 }
 
 export async function registerAnonymous(

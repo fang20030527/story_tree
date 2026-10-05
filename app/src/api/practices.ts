@@ -34,12 +34,20 @@ import {
   type VocabularyWordContexts,
   VocabularyWordMasterySchema,
   type VocabularyWordMastery,
+  VocabularyTermsSchema,
+  type VocabularyTerms,
+  RenamedVocabularyWordSchema,
+  type RenamedVocabularyWord,
+  UpdateVocabularyContextRequestSchema,
+  type UpdateVocabularyContextRequest,
+  VocabularyContextSchema,
+  type VocabularyContext,
 } from '@context-reader/contracts';
 import type { ZodType } from 'zod';
 
 import { lookupLocalWord } from '@/features/dictionary/lookup';
 
-import { apiRequest } from './client';
+import { apiRequest, apiRequestNoContent } from './client';
 
 function postIdempotentJson<T>(
   path: string,
@@ -229,6 +237,34 @@ export function restoreVocabularyWord(
     {},
     idempotencyKey,
   );
+}
+
+/** Deletes a saved word with all of its meanings. Earlier practices keep showing them. */
+export function deleteVocabularyWord(wordId: string): Promise<void> {
+  return apiRequestNoContent(`/v1/vocabulary-words/${encodeURIComponent(wordId)}`, { method: 'DELETE' });
+}
+
+/** Corrects a word's spelling; every meaning moves to the corrected word. */
+export function renameVocabularyWord(wordId: string, term: string, idempotencyKey: string): Promise<RenamedVocabularyWord> {
+  return apiRequest(`/v1/vocabulary-words/${encodeURIComponent(wordId)}`, RenamedVocabularyWordSchema, {
+    method: 'PATCH', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ term }),
+  });
+}
+
+/** Corrects one saved meaning and its example sentence. */
+export function updateVocabularyContext(itemId: string, input: UpdateVocabularyContextRequest): Promise<VocabularyContext> {
+  return apiRequest(`/v1/vocabulary-items/${encodeURIComponent(itemId)}`, VocabularyContextSchema, {
+    method: 'PATCH', body: JSON.stringify(UpdateVocabularyContextRequestSchema.parse(input)),
+  });
+}
+
+export function deleteVocabularyContext(itemId: string): Promise<void> {
+  return apiRequestNoContent(`/v1/vocabulary-items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+}
+
+/** Every saved term, for highlighting saved words while reading. */
+export function getVocabularyTerms(): Promise<VocabularyTerms> {
+  return apiRequest('/v1/vocabulary-terms', VocabularyTermsSchema);
 }
 
 export function getVocabularyWordContexts(

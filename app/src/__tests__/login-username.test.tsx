@@ -34,7 +34,7 @@ const registered = {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(registerAnonymous).mockResolvedValue({} as never);
-  jest.mocked(loginWithEmail).mockResolvedValue(registered);
+  jest.mocked(loginWithEmail).mockResolvedValue({ ...registered, created: false });
 });
 
 async function fillCredentials(view: Awaited<ReturnType<typeof render>>, username?: string) {

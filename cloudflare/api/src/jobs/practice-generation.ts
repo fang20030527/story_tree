@@ -390,6 +390,8 @@ function publicFailure(error: AppError): { code: ErrorCode; message: string } {
       return { code: error.code, message: '生成的内容无法使用，请重试' };
     case 'AI_UNAVAILABLE':
       return { code: error.code, message: 'AI 服务暂时不可用，请稍后重试' };
+    case 'AI_DAILY_LIMIT_REACHED':
+      return { code: error.code, message: '今天的 AI 服务用量已达上限，请明天再试' };
     default:
       return { code: 'INTERNAL_ERROR', message: '练习暂时无法生成，请稍后重试' };
   }

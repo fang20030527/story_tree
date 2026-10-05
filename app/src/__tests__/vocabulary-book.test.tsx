@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { ApiError } from '@/api/client';
 import { createIdempotencyKey } from '@/api/installation';
 import {
+  deleteVocabularyWord,
   getVocabularyWordContexts,
   getVocabularyWords,
   markVocabularyWordMastered,
@@ -30,7 +31,12 @@ jest.mock('expo-router', () => ({
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
+jest.mock('@/components/confirm', () => ({
+  confirmAction: (_options: unknown, onConfirm: () => void) => onConfirm(),
+  notify: jest.fn(),
+}));
 jest.mock('@/api/practices', () => ({
+  deleteVocabularyWord: jest.fn(),
   getVocabularyWords: jest.fn(),
   getVocabularyWordContexts: jest.fn(),
   markVocabularyWordMastered: jest.fn(),
@@ -356,4 +362,20 @@ it('keeps the word and shows a Chinese error when the mastery update fails', asy
   await view.findByText('网络连接失败');
   expect(view.getByText('bank')).toBeTruthy();
   expect(mockedGetWords).toHaveBeenCalledTimes(1);
+});
+
+it('deletes a word after confirmation and reloads the list', async () => {
+  mockedGetWords.mockResolvedValueOnce(page([word('bank')])).mockResolvedValue(page());
+  jest.mocked(deleteVocabularyWord).mockResolvedValue();
+  const view = await render(<VocabularyBookScreen />);
+  await fireEvent.press(await view.findByLabelText('删除 bank'));
+  await waitFor(() => expect(deleteVocabularyWord).toHaveBeenCalledWith('bank'));
+  await view.findByText('还没有云端生词');
+});
+
+it('opens the editor for a word', async () => {
+  mockedGetWords.mockResolvedValue(page([word('bank')]));
+  const view = await render(<VocabularyBookScreen />);
+  await fireEvent.press(await view.findByLabelText('修改 bank'));
+  expect(router.push).toHaveBeenCalledWith({ pathname: '/vocabulary/edit', params: { wordId: 'bank', term: 'bank' } });
 });

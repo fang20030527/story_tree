@@ -18,7 +18,10 @@ import {
   prepareCreatePracticeOperation, saveActivePracticeId,
 } from '@/features/practice/practiceStorage';
 
-type CandidateStats = { dueLearningCount: number; unlearnedCount: number };
+type CandidateStats = { dueLearningCount: number; unlearnedCount: number; remainingFreePractices: number };
+
+/** The server reports an account without a practice limit as Number.MAX_SAFE_INTEGER. */
+const UNLIMITED_PRACTICES = 1_000_000;
 
 function statsErrorMessage(error: unknown): string {
   return error instanceof ApiError ? error.message : '暂时无法加载可练习单词数量';
@@ -46,6 +49,7 @@ export default function VocabularyPracticeSetupScreen() {
       setStats({
         dueLearningCount: dashboard.dueLearningCount,
         unlearnedCount: dashboard.unlearnedCount,
+        remainingFreePractices: dashboard.remainingFreePractices,
       });
     } catch (error) {
       if (mounted.current && statsVersion.current === version) {
@@ -102,6 +106,9 @@ export default function VocabularyPracticeSetupScreen() {
   }, []);
 
   const candidates = stats ? stats.dueLearningCount + stats.unlearnedCount : null;
+  // Before this, the limit only showed up as an error after tapping start.
+  const remaining = stats && stats.remainingFreePractices < UNLIMITED_PRACTICES ? stats.remainingFreePractices : null;
+  const exhausted = remaining === 0;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -161,8 +168,21 @@ export default function VocabularyPracticeSetupScreen() {
             ) : null}
           </View>
         ) : null}
-        {candidates !== null && candidates > 0 ? (
+        {candidates !== null && candidates > 0 && exhausted ? (
+          <View style={styles.emptyCard}>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>今天的免费练习次数已用完</Text>
+            <Text style={[styles.emptyBody, { color: theme.textSecondary }]}>
+              北京时间每天 0 点恢复。生词本、已生成的文章和自测记录仍可随时查看。
+            </Text>
+          </View>
+        ) : null}
+        {candidates !== null && candidates > 0 && !exhausted ? (
           <PrimaryAction label="开始多情景阅读练习" accessibilityLabel={submitting ? '正在创建练习' : '开始多情景阅读练习'} busy={submitting} onPress={() => void start()} style={styles.primaryButton} arrow />
+        ) : null}
+        {remaining !== null && remaining > 0 ? (
+          <Text testID="remaining-free-practices" style={[styles.statsHint, { color: theme.textMuted }]}>
+            今天还可免费练习 {remaining} 次，每次生成四篇短文；北京时间每天 0 点恢复。
+          </Text>
         ) : null}
       </ScrollView>
     </View>

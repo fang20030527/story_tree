@@ -239,29 +239,33 @@ export function validateGeneratedPractice(
     };
   });
   const questions: ValidatedQuestion[] = [];
+  const asked = new Map<string, number>();
   const rounds = Math.max(1, ...[...questionsByAlias.values()].map((list) => list.length));
   for (let round = 0; round < rounds; round += 1) {
     targets.forEach((target, position) => {
       const raw = questionsByAlias.get(target.alias)?.[round];
       // Only the first question is ever built; a missing extra one is simply not asked.
       if (round > 0 && raw === undefined) return;
-      questions.push({
-        ...repairQuestion({
-          target,
-          position,
-          tag: round === 0 ? target.alias : `${target.alias}#${round + 1}`,
-          raw,
-          located: { ...placed.get(target.alias)!, paragraph: infos[placed.get(target.alias)!.paragraph.index]! },
-          surfaces,
-          notes,
-        }),
-        round,
+      const repaired = repairQuestion({
+        target,
+        position,
+        tag: round === 0 ? target.alias : `${target.alias}#${round + 1}`,
+        raw,
+        // An extra question whose prompt cannot be made a cloze is dropped, not rebuilt: the
+        // article sentence already serves as the fallback of the first question.
+        rebuildFromArticle: round === 0,
+        located: { ...placed.get(target.alias)!, paragraph: infos[placed.get(target.alias)!.paragraph.index]! },
+        surfaces,
+        notes,
       });
+      if (repaired === null) return;
+      questions.push({ ...repaired, round });
+      asked.set(target.alias, (asked.get(target.alias) ?? 0) + 1);
     });
   }
   for (const target of targets) {
-    const asked = questionsByAlias.get(target.alias)?.length ?? 1;
-    if (asked < plannedQuestions(target)) notes.push(`QUESTIONS_SHORT:${target.alias}:${asked}/${plannedQuestions(target)}`);
+    const count = asked.get(target.alias) ?? 1;
+    if (count < plannedQuestions(target)) notes.push(`QUESTIONS_SHORT:${target.alias}:${count}/${plannedQuestions(target)}`);
   }
 
   return {
@@ -665,32 +669,62 @@ interface QuestionRepair {
   /** Names the question in `notes`: the alias, or the alias and round for an extra question. */
   tag: string;
   raw: RawQuestion | undefined;
+  /** Whether a prompt that cannot be made a cloze is rebuilt from the article (else: dropped). */
+  rebuildFromArticle: boolean;
   located: Located;
   surfaces: ReadonlyMap<string, string>;
   notes: string[];
 }
 
+const HAN = /\p{Script=Han}/u;
+
+/**
+ * Drop Chinese from text shown in the English self-test: a bracketed gloss goes with its
+ * brackets, other Chinese characters are removed. The client tells an English cloze question
+ * from a historical meaning question by the absence of Chinese, and for the latter it shows
+ * the target word itself, which is the answer.
+ */
+function withoutChinese(text: string): string {
+  if (!HAN.test(text)) return text;
+  return text
+    // A gloss holding the blank is kept: only its Chinese characters go below.
+    .replace(/\s*[（(][^（）()_]*\p{Script=Han}[^（）()_]*[）)]/gu, '')
+    // Curly quotes stay: English uses them too, as in "doesn’t".
+    .replace(/[\p{Script=Han}，。；：！？、（）【】《》]+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .replace(/\s+([.,;:!?])/gu, '$1')
+    .trim();
+}
+
+/** A cloze prompt needs some English around its blank to be answerable. */
+const MIN_PROMPT_WORDS = 3;
+
 /**
  * Make a question valid for storage and for the client contract, whatever the model wrote:
- * exactly four options, the target word as the answer, a blank in the prompt and an
- * explanation for every option. A target without a usable question gets a cloze question
- * built from its own sentence. Wording quality is not judged here.
+ * exactly four English options, the target word as the answer, one blank in an English prompt
+ * and an explanation for every option. A target without a usable question gets a cloze question
+ * built from its own sentence. Wording quality is not judged here. Returns null only for an
+ * extra question (`rebuildFromArticle` false) whose prompt cannot be turned into a cloze.
  */
-function repairQuestion({ target, position, tag, raw, located, surfaces, notes }: QuestionRepair): Omit<ValidatedQuestion, 'round'> {
+function repairQuestion({
+  target, position, tag, raw, rebuildFromArticle, located, surfaces, notes,
+}: QuestionRepair): Omit<ValidatedQuestion, 'round'> | null {
   const surface = surfaces.get(target.alias)!;
   const answerForms = new Set([bareWord(surface), ...(target.term ? termForms(target.term) : [])]);
   const siblings = [...surfaces.entries()].filter(([alias]) => alias !== target.alias).map(([, text]) => text);
 
   let entries: OptionEntry[] = raw
     ? raw.optionsEn.map((label, index) => ({
-      label,
+      label: withoutChinese(label),
       zh: raw.optionExplanationsZh[index] || undefined,
       en: raw.optionExplanationsEn[index] || undefined,
       correct: false,
     })).filter((entry) => entry.label !== '')
     : [];
+  const modelOptions = entries.length;
+  if (raw && raw.optionsEn.some((label) => HAN.test(label))) notes.push(`OPTIONS_CLEANED:${tag}`);
   const reportedIndex = raw && Number.isInteger(raw.correctOptionIndex) ? raw.correctOptionIndex : -1;
-  const reportedLabel = raw?.optionsEn[reportedIndex];
+  const reportedLabel = raw?.optionsEn[reportedIndex] === undefined ? undefined : withoutChinese(raw.optionsEn[reportedIndex]!);
 
   // The answer is the target word; trust the model's index only when no option is the target.
   let answer = entries.findIndex((entry) => answerForms.has(bareWord(entry.label)));
@@ -719,7 +753,7 @@ function repairQuestion({ target, position, tag, raw, located, surfaces, notes }
     entries.push({ label: candidate, zh: undefined, en: undefined, correct: false });
   }
   if (raw !== undefined && entries.length > optionCount) notes.push(`OPTIONS_PADDED:${tag}`);
-  if (raw === undefined || raw.optionsEn.every((label) => label === '')) {
+  if (modelOptions === 0) {
     // A question built here: vary where the answer sits instead of always putting it first.
     const from = entries.findIndex((entry) => entry.correct);
     const to = position % 4;
@@ -729,6 +763,15 @@ function repairQuestion({ target, position, tag, raw, located, surfaces, notes }
   if (raw === undefined) notes.push(`QUESTION_BUILT:${tag}`);
 
   const correct = entries.findIndex((entry) => entry.correct);
+  let prompt = raw === undefined ? null : clozePrompt(raw.prompt, entries[correct]!.label, target.term, notes, tag);
+  if (prompt === null) {
+    if (raw !== undefined && !rebuildFromArticle) {
+      notes.push(`QUESTION_DROPPED:${tag}`);
+      return null;
+    }
+    if (raw !== undefined) notes.push(`PROMPT_REBUILT:${tag}`);
+    prompt = articleCloze(located);
+  }
   const fallbackZh = (entry: OptionEntry) => entry.correct
     ? `正确答案：${entry.label}${target.meaningZh ? `（${target.meaningZh}）` : ''}`
     : '这个词放进句子后意思不通。';
@@ -738,7 +781,7 @@ function repairQuestion({ target, position, tag, raw, located, surfaces, notes }
   return {
     targetId: target.id,
     targetAlias: target.alias,
-    prompt: questionPrompt(raw?.prompt ?? '', entries[correct]!.label, located, notes, tag),
+    prompt,
     optionsEn: entries.map((entry) => entry.label),
     correctOptionIndex: correct,
     meaningEn: raw?.meaningEn || `The word "${target.term ?? surface}" as used in the article.`,
@@ -748,21 +791,29 @@ function repairQuestion({ target, position, tag, raw, located, surfaces, notes }
   };
 }
 
-/** The model's prompt with its blank, or one made from the article sentence of the target. */
-function questionPrompt(raw: string, answer: string, located: Located, notes: string[], alias: string): string {
-  if (raw !== '') {
-    if (raw.includes('____')) return raw;
-    // No blank: if the sentence spells out the answer, that spot is where the blank belongs.
-    const spelled = surfaceOccurrences({ key: '', text: raw, index: 0 }, answer, true)[0];
-    if (!spelled) return raw;
-    notes.push(`BLANK_ADDED:${alias}`);
-    return `${raw.slice(0, spelled.start)}____${raw.slice(spelled.end)}`;
-  }
-  const { paragraph, start, end } = located;
+/**
+ * The model's prompt as an English cloze with a blank, or null when it cannot be made one.
+ * Chinese is removed, and a prompt without a blank gets one where it spells out the answer.
+ */
+function clozePrompt(raw: string, answer: string, term: string | undefined, notes: string[], tag: string): string | null {
+  const prompt = withoutChinese(raw);
+  if (prompt !== raw) notes.push(`PROMPT_CLEANED:${tag}`);
+  if (countEnglishWords(prompt) < MIN_PROMPT_WORDS) return null;
+  if (prompt.includes('____')) return prompt;
+  // No blank: if the sentence spells out the answer, that spot is where the blank belongs.
+  const text = { key: '', text: prompt, index: 0 };
+  const spelled = surfaceOccurrences(text, answer, true)[0] ?? (term ? termOccurrences([text], term)[0] : undefined);
+  if (!spelled) return null;
+  notes.push(`BLANK_ADDED:${tag}`);
+  return `${prompt.slice(0, spelled.start)}____${prompt.slice(spelled.end)}`;
+}
+
+/** A cloze made from the article sentence of the target. */
+function articleCloze({ paragraph, start, end }: Located): string {
   const sentence = sentenceContaining(paragraph.text, start);
   const sentenceStart = sentence === null ? -1 : paragraph.text.indexOf(sentence);
   if (sentence !== null && sentenceStart !== -1 && end <= sentenceStart + sentence.length) {
-    return `${sentence.slice(0, start - sentenceStart)}____${sentence.slice(end - sentenceStart)}`;
+    return withoutChinese(`${sentence.slice(0, start - sentenceStart)}____${sentence.slice(end - sentenceStart)}`);
   }
-  return `${paragraph.text.slice(Math.max(0, start - 60), start)}____${paragraph.text.slice(end, end + 60)}`.trim();
+  return withoutChinese(`${paragraph.text.slice(Math.max(0, start - 60), start)}____${paragraph.text.slice(end, end + 60)}`.trim());
 }

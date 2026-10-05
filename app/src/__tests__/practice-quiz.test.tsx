@@ -175,6 +175,28 @@ it('still submits first attempts to the server and navigates to results after co
   await waitFor(() => expect(router.replace).toHaveBeenCalledWith({ pathname: '/practice/[id]/result', params: { id: practice.id } }));
 });
 
+it('moves to the next first-attempt question from the answer result, without reloading the practice', async () => {
+  const twoQuestions = JSON.parse(JSON.stringify(practice)) as PracticeDto;
+  twoQuestions.questions.push({ ...twoQuestions.questions[0]!, id: '99999999-9999-4999-8999-999999999999', prompt: '第二题' });
+  jest.mocked(getPractice).mockResolvedValue(twoQuestions);
+  const answered = completedPractice().questions[0]!.submittedAnswer!;
+  jest.mocked(submitAnswer).mockResolvedValue(answered);
+  const view = await render(<PracticeQuizScreen />);
+
+  await fireEvent.press(await view.findByText('含糊的'));
+  await fireEvent.press(view.getByLabelText('提交答案'));
+  await fireEvent.press(await view.findByText('继续'));
+  expect(await view.findByText('第二题')).toBeTruthy();
+  expect(view.getByText('2/2')).toBeTruthy();
+  expect(getPractice).toHaveBeenCalledTimes(1);
+
+  await fireEvent.press(view.getByText('我不知道'));
+  await fireEvent.press(await view.findByText('继续'));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith({ pathname: '/practice/[id]/result', params: { id: practice.id } }));
+  expect(getPractice).toHaveBeenCalledTimes(1);
+  expect(submitAnswer).toHaveBeenCalledTimes(2);
+});
+
 it('can retry a failed load and then review a completed practice', async () => {
   jest.mocked(getPractice).mockRejectedValueOnce(new Error('offline')).mockResolvedValue(completedPractice());
   const view = await render(<PracticeQuizScreen />);

@@ -52,6 +52,14 @@ D1 迁移 `0009_usernames.sql` 只为已注册账号回填 `users.username`（�
 
 部署顺序：先 `npm run cloudflare:d1:migrate:api`，再 `npm run cloudflare:deploy:api`。新版 API 不能在没有 `round` 列的库上运行；旧版 API 在迁移后仍可使用。客户端不需要重新发布。
 
+## 每日额度、AI 上限与留言审核
+
+D1 迁移 `0011_daily_quota.sql` 新增设备/网络额度事件表 `quota_usage_events`、全站 AI 调用计数表 `ai_usage_daily` 和账本索引；`0012_message_moderation.sql` 为留言增加 `status`，新增举报、屏蔽和禁言表。两份迁移只增不改，旧版 API 在迁移后仍可运行。
+
+`wrangler.jsonc` 的 `vars` 里有 `FREE_PRACTICE_LIMIT`、`FREE_PRACTICE_IP_DAILY_LIMIT`、`AI_DAILY_CALL_LIMIT` 和 `MESSAGE_BOTTLE_REVIEW`，按需调整后重新发布。`ratelimits` 绑定 `IP_RATE_LIMITER` 取代每个请求一次的 D1 限流写入；如果部署时账户不支持该绑定，删除这一节即可，代码会退回 D1 计数。审核后台用 Worker secret `ADMIN_TOKEN`（至少 24 位）启用，可选 `MODERATION_NOTIFY_EMAIL` 接收待审提醒，两者都只用 `wrangler secret put` 配置。
+
+部署顺序：先 `npm run cloudflare:d1:migrate:api`，再设置 secret、`npm run cloudflare:deploy:api`，最后发布 Web 和原生客户端。新客户端依赖新接口，不能先于 API 发布。详见 [账号合规、每日额度、留言审核与加载速度](../docs/2026-10-05-account-quota-moderation.md)。
+
 ## 准备与上传
 
 根目录执行 `npm ci`。把 `cloudflare/.env.example` 复制为被 Git 忽略的 `cloudflare/.env.local`，填写只对 `waikan-2026-audio` 桶有 Object Read & Write 权限的限时 R2 S3 凭证。**不要提交或打印凭证**。

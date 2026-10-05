@@ -1,15 +1,19 @@
-import type { CreateMessageBottle, MessageBottleDto, MessageBottleProfile } from '@context-reader/contracts';
+import type {
+  CreateMessageBottle, MessageBottleProfile, MessageBottleReportReason, MessageBottleReviewedDto,
+} from '@context-reader/contracts';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
-import { createMessageBottle, getMessageBottleProfile, getMessageBottles } from '@/api/messageBottles';
+import {
+  blockMessageBottleAuthor, createMessageBottle, getMessageBottleProfile, getMessageBottles, reportMessageBottle,
+} from '@/api/messageBottles';
 import { registerAnonymous } from '@/api/practices';
 
 export function messageBottleError(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback;
 }
 export function useMessageBottles() {
-  const [items, setItems] = useState<MessageBottleDto[]>([]);
+  const [items, setItems] = useState<MessageBottleReviewedDto[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [profile, setProfile] = useState<MessageBottleProfile | null>(null);
   const [refreshing, setRefreshing] = useState(true);
@@ -84,5 +88,17 @@ export function useMessageBottles() {
     return message;
   }, []);
 
-  return { items, nextCursor, profile, refreshing, loadingMore, error, profileError, moreError, refresh, loadMore, post };
+  // A reported bottle, and every bottle by a blocked author, leave the list at once.
+  const report = useCallback(async (item: MessageBottleReviewedDto, reason: MessageBottleReportReason) => {
+    await reportMessageBottle(item.id, { reason });
+    setItems(previous => previous.filter(entry => entry.id !== item.id));
+  }, []);
+  const block = useCallback(async (item: MessageBottleReviewedDto) => {
+    await blockMessageBottleAuthor(item.id);
+    // The name hides the author's bottles at once; the reload filters by account on the server.
+    setItems(previous => previous.filter(entry => entry.isMine || entry.username !== item.username));
+    void refresh();
+  }, [refresh]);
+
+  return { items, nextCursor, profile, refreshing, loadingMore, error, profileError, moreError, refresh, loadMore, post, report, block };
 }

@@ -24,17 +24,21 @@ import { handleJobQueue, handleJobScheduled, type JobQueueBatch } from './jobs/d
 import { handlePracticeReadRoute } from './practice/read';
 import { handlePracticeCreateRoute } from './practice/create';
 import { handlePracticeMutationRoute } from './practice/mutations';
+import { handlePracticeRetryFailedRoute } from './practice/retry-failed';
 import { handleReadRoute } from './read';
 import { handleTranslationReadRoute } from './translation/read';
 import { handleTranslationRequestRoute } from './translation/request';
 import { handleSynchronousTranslationRoute } from './translation/sync';
 import { handleVocabularyReadRoute } from './vocabulary/items';
 import { handleVocabularyCreateRoute } from './vocabulary/create';
+import { handleVocabularyManageRoute } from './vocabulary/manage';
 import { handleVocabularyMasteryRoute } from './vocabulary/mastery';
 import { handleVocabularyWordRoute } from './vocabulary/words';
 import { sweepSpeakingAssets } from './speaking/assets';
 import { handleSpeakingOnCpuBoundary } from './speaking/cpu';
 import { handleMessageBottleRoute } from './message-bottles/routes';
+import { handleAccountDeleteRoute } from './account/delete';
+import { handleModerationRoute } from './admin/moderation';
 import { handleAccountRoute } from './account/routes';
 
 export { CpuBoundary } from './cpu/object';
@@ -57,6 +61,12 @@ function unavailable(requestId: string): Response {
       retryable: true,
     },
   }, { status: 503 });
+}
+
+function notFound(requestId: string): Response {
+  return Response.json({
+    error: { code: 'NOT_FOUND', message: '资源不存在', requestId, retryable: false },
+  }, { status: 404 });
 }
 
 async function ready(env: ApiEnv): Promise<boolean> {
@@ -92,11 +102,7 @@ async function dispatch(request: Request, env: ApiEnv, requestId: string): Promi
     return (await ready(env)) ? Response.json({ status: 'ok' }) : unavailable(requestId);
   }
 
-  if (pathname !== '/v1' && !pathname.startsWith('/v1/')) {
-    return Response.json({
-      error: { code: 'NOT_FOUND', message: '资源不存在', requestId, retryable: false },
-    }, { status: 404 });
-  }
+  if (pathname !== '/v1' && !pathname.startsWith('/v1/')) return notFound(requestId);
 
   // The staging workers.dev address must not create fresh identities or jobs
   // before the final D1 snapshot and the complete API are ready for cutover.
@@ -108,6 +114,9 @@ async function dispatch(request: Request, env: ApiEnv, requestId: string): Promi
   if (/^\/v1\/speaking\/catalog(?:\/[^/]+(?:\/playback)?)?$/u.test(pathname)) {
     return handleSpeakingOnCpuBoundary(request, env, null);
   }
+  // The moderation console has its own secret instead of an installation token.
+  const moderationResponse = await handleModerationRoute(request, env);
+  if (moderationResponse) return moderationResponse;
   const authResponse = await handleAuthRoute(request, env);
   if (authResponse) return authResponse;
 
@@ -116,6 +125,8 @@ async function dispatch(request: Request, env: ApiEnv, requestId: string): Promi
   if (messageBottleResponse) return messageBottleResponse;
   const accountResponse = await handleAccountRoute(request, env, userId);
   if (accountResponse) return accountResponse;
+  const accountDeleteResponse = await handleAccountDeleteRoute(request, env, userId);
+  if (accountDeleteResponse) return accountDeleteResponse;
   if (pathname.startsWith('/v1/speaking/')) {
     return handleSpeakingOnCpuBoundary(request, env, userId);
   }
@@ -140,6 +151,8 @@ async function dispatch(request: Request, env: ApiEnv, requestId: string): Promi
     scheduledRecoveryReady: true,
   });
   if (practiceCreateResponse) return practiceCreateResponse;
+  const retryFailedResponse = await handlePracticeRetryFailedRoute(request, env, userId);
+  if (retryFailedResponse) return retryFailedResponse;
   const practiceMutationResponse = await handlePracticeMutationRoute(request, env, userId);
   if (practiceMutationResponse) return practiceMutationResponse;
   const vocabularyResponse = await handleVocabularyReadRoute(request, env, userId);
@@ -150,6 +163,8 @@ async function dispatch(request: Request, env: ApiEnv, requestId: string): Promi
   if (wordsResponse) return wordsResponse;
   const masteryResponse = await handleVocabularyMasteryRoute(request, env, userId);
   if (masteryResponse) return masteryResponse;
+  const manageResponse = await handleVocabularyManageRoute(request, env, userId);
+  if (manageResponse) return manageResponse;
   const importAssetResponse = await handleImportAssetRoute(request, env, userId);
   if (importAssetResponse) return importAssetResponse;
   const importPasteResponse = await handleImportPasteRoute(request, env, userId);
@@ -164,7 +179,9 @@ async function dispatch(request: Request, env: ApiEnv, requestId: string): Promi
   if (importMutationResponse) return importMutationResponse;
   const importConfirmResponse = await handleImportConfirmRoute(request, env, userId);
   if (importConfirmResponse) return importConfirmResponse;
-  return unavailable(requestId);
+  // An unknown route is a permanent miss. A retryable 503 here made clients retry forever
+  // and hid routes that were never ported (POST /v1/practices/:id/retry-failed).
+  return notFound(requestId);
 }
 
 export default {

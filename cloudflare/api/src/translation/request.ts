@@ -2,6 +2,7 @@ import { TranslationRequestSchema, UuidSchema, type TranslationRequest } from '@
 
 import { AppError } from '../../../../server/src/core/errors';
 import { createTranslationSourceHash } from '../../../../server/src/modules/translation/validation';
+import { assertAiAvailable } from '../ai/budget';
 import { generationDeadlineMs } from '../ai/provider';
 import { readJsonBody } from '../core/http';
 import type { ApiEnv, D1DatabaseBinding } from '../env';
@@ -137,6 +138,7 @@ export async function handleTranslationRequestRoute(
     return acceptedResponse(env, userId, existing.resourceId, article);
   }
 
+  await assertAiAvailable(env);
   const source = await loadSource(env.DB, userId, resourceId, parsed.data, article);
   const paragraphId = parsed.data.scope === 'paragraph' ? parsed.data.paragraphId : null;
   const sourceHash = createTranslationSourceHash(resourceId, parsed.data.scope, paragraphId, source);

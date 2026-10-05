@@ -2,12 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useLayoutWidth } from '@/components/useLayoutWidth';
 import React, { useCallback, useState } from 'react';
-import { Alert, AppState, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { VocabularyWordPage } from '@context-reader/contracts';
 import { getAccountProfile } from '@/api/account';
 import { getVocabularyWords } from '@/api/practices';
 import { StatRow, TouchCard } from '@/components/brand';
+import { notify } from '@/components/confirm';
 import { Moon, OrbitProgress, PlanetHorizon, RingedPlanet } from '@/components/cosmos';
 import { PressFeedback } from '@/components/motion';
 import { ListGroup, SectionHeading } from '@/components/subpage';
@@ -98,7 +99,7 @@ export default function ProfileScreen() {
   const streak = activeError ? 0 : studyStreak(activeTotals, now);
   const logout = async () => {
     try { await authStorage.clearAuthUser(); setIsRegistered(false); setAuthEmail(null); setUsername(null); setStudyTotals({}); setSummary(null); router.push('/login'); }
-    catch { Alert.alert('退出登录失败', '请稍后重试'); }
+    catch { notify('退出登录失败', '请稍后重试'); }
   };
   const stats = speaking
     ? [{ label: '已练素材', value: activeError ? '—' : new Set(oral.store.history.map(item => item.materialId)).size },

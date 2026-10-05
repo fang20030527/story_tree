@@ -41,6 +41,9 @@ function QuizContent({ practiceId }: { practiceId: string }) {
   const [retryAnswers, setRetryAnswers] = useState<Record<string, AnswerResult>>({});
   const [retryScore, setRetryScore] = useState<number | null>(null);
   const advancingFirstAttempt = useRef(false);
+  // The server's answer result carries everything the next question and the result page need,
+  // so moving on does not wait for a full reload of the practice.
+  const lastFirstAnswer = useRef<{ questionId: string; result: AnswerResult } | null>(null);
   const [loading, setLoading] = useState(true);
   useStudyTimer(practice !== null && !loading);
   const [error, setError] = useState<string | null>(null);
@@ -127,7 +130,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
       setRetryAnswers((answers) => ({ ...answers, [question.id]: result }));
       return result;
     }
-    return answer.answerKind === 'option'
+    const result = await (answer.answerKind === 'option'
       ? submitAnswer(
           practiceId,
           {
@@ -146,7 +149,30 @@ function QuizContent({ practiceId }: { practiceId: string }) {
             elapsedMs,
           },
           idempotencyKey,
-        );
+        ));
+    lastFirstAnswer.current = { questionId: question.id, result };
+    return result;
+  };
+
+  const advanceFirstAttempt = () => {
+    const answered = lastFirstAnswer.current;
+    lastFirstAnswer.current = null;
+    if (!answered || answered.questionId !== question?.id) {
+      advancingFirstAttempt.current = true;
+      reloadPractice();
+      return;
+    }
+    const next = {
+      ...practice!,
+      questions: practice!.questions.map((candidate) => candidate.id === answered.questionId
+        ? { ...candidate, submittedAnswer: answered.result }
+        : candidate),
+    };
+    if (next.questions.every((candidate) => candidate.submittedAnswer !== null)) {
+      allowNavigation(() => router.replace({ pathname: '/practice/[id]/result', params: { id: practiceId } }));
+      return;
+    }
+    setPractice(next);
   };
 
   if (loading && !practice) {
@@ -248,10 +274,7 @@ function QuizContent({ practiceId }: { practiceId: string }) {
                 ? (questionIndex < practice.questions.length - 1 ? '下一题' : mode === 'retry' ? '完成本轮' : '查看结果')
                 : undefined}
               onContinue={() => {
-                if (!completed) {
-                  advancingFirstAttempt.current = true;
-                  return reloadPractice();
-                }
+                if (!completed) return advanceFirstAttempt();
                 if (questionIndex < practice.questions.length - 1) {
                   setQuestionIndex((index) => index + 1);
                 } else if (mode === 'retry') {

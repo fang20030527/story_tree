@@ -85,6 +85,11 @@ function expectStorable(validated: ValidatedGeneratedPractice) {
     expect(question.optionsEn.every((label) => label.trim() !== '')).toBe(true);
     expect(Number.isInteger(question.correctOptionIndex) && question.correctOptionIndex >= 0 && question.correctOptionIndex < 4).toBe(true);
     expect(question.prompt.trim()).not.toBe('');
+    // The client takes a question with a blank and no Chinese for an English cloze; anything
+    // else is shown as a historical meaning question, with the target word (the answer) on top.
+    expect(question.prompt).toContain('____');
+    expect(/\p{Script=Han}/u.test(question.prompt)).toBe(false);
+    expect(question.optionsEn.some((label) => /\p{Script=Han}/u.test(label))).toBe(false);
   }
   readBack(validated);
 }
@@ -350,23 +355,61 @@ describe('questions are repaired, not judged', () => {
     }
   });
 
-  it('puts the blank where the sentence spells out the answer, and leaves a prompt it cannot fix alone', () => {
+  it('puts the blank where the sentence spells out the answer, and rebuilds a prompt it cannot fix', () => {
     const added = question(5, (item) => { item.prompt = 'After the flood, the resilient town rebuilt its bridge within a month.'; });
     expect(added.question.prompt).toBe('After the flood, the ____ town rebuilt its bridge within a month.');
     expect(added.result.notes).toEqual(['BLANK_ADDED:t6']);
-    expect(question(5, (item) => { item.prompt = 'Which word best completes the sentence?'; }).question.prompt).toBe('Which word best completes the sentence?');
+    // Another form of the term counts as spelling out the answer.
+    const inflected = question(2, (item) => { item.prompt = 'Many doctors advocated walking every day.'; });
+    expect(inflected.question.prompt).toBe('Many doctors ____ walking every day.');
+    expect(inflected.result.notes).toEqual(['BLANK_ADDED:t3']);
+    // Without a blank the client would show the target word itself, so the article sentence is used.
+    const rebuilt = question(5, (item) => { item.prompt = 'Which word best completes the sentence?'; });
+    expect(rebuilt.question.prompt).toBe(validate((draft) => { draft.questions[5]!.prompt = ''; }).questions[5]!.prompt);
+    expect(rebuilt.question.prompt).toContain('____');
+    expect(rebuilt.result.notes).toEqual(['PROMPT_REBUILT:t6']);
     expect(question(5, (item) => { item.prompt = 'A ____ town stays ____ in a crisis.'; }).question.prompt).toBe('A ____ town stays ____ in a crisis.');
+    expect(question(5, (item) => { item.prompt = 'Be ____.'; }).result.notes).toEqual(['PROMPT_REBUILT:t6']);
   });
 
-  it('lets wording problems through: leaked answers, copied sentences, mixed languages, duplicate options', () => {
+  it('keeps the self-test in English, which the client needs to hide the answer word', () => {
+    // The client shows a question with Chinese, or without a blank, as a historical meaning
+    // question with the target word on top: the answer would be on the screen.
+    const chinese = question(2, (item) => { item.optionsEn = ['反对', '忘记', '提倡', '道歉']; item.correctOptionIndex = 2; item.prompt = '许多医生____每天散步。'; });
+    expect(chinese.question.optionsEn).toHaveLength(4);
+    expect(chinese.question.optionsEn[chinese.question.correctOptionIndex]).toBe('advocate');
+    expect(chinese.question.optionsEn.some((label) => /\p{Script=Han}/u.test(label))).toBe(false);
+    expect(chinese.question.prompt).toContain('____');
+    expect(/\p{Script=Han}/u.test(chinese.question.prompt)).toBe(false);
+    expect(chinese.result.notes).toEqual(['OPTIONS_CLEANED:t3', 'ANSWER_ADDED:t3', 'OPTIONS_PADDED:t3', 'PROMPT_CLEANED:t3', 'PROMPT_REBUILT:t3']);
+
+    // A gloss is dropped and the English kept, together with the explanation of each option.
+    const glossed = question(2, (item) => {
+      item.optionsEn = ['object（反对）', 'forget', 'advocate (提倡)', 'apologize'];
+      item.prompt = 'Many doctors ____ (提倡) walking every day.';
+    });
+    expect(glossed.question.optionsEn).toEqual(['object', 'forget', 'advocate', 'apologize']);
+    expect(glossed.question.optionExplanationsEn).toEqual(article().questions[2]!.optionExplanationsEn);
+    expect(glossed.question.prompt).toBe('Many doctors ____ walking every day.');
+    expect(glossed.result.notes).toEqual(['OPTIONS_CLEANED:t3', 'PROMPT_CLEANED:t3']);
+
+    // The article may keep a Chinese gloss; a cloze built from its sentence does not.
+    const fromArticle = validate((draft) => {
+      draft.paragraphs[1]!.text = draft.paragraphs[1]!.text.replace('scarce', 'scarce (稀缺的)');
+      draft.questions[3]!.prompt = '';
+    });
+    expect(fromArticle.paragraphs[1]!.text).toContain('(稀缺的)');
+    expect(fromArticle.questions[3]!.prompt).toContain('increasingly ____ in regions');
+    expect(/\p{Script=Han}/u.test(fromArticle.questions[3]!.prompt)).toBe(false);
+  });
+
+  it('lets wording problems through: leaked answers, copied sentences, English summaries, duplicate options', () => {
     const leaked = question(3, (item) => { item.prompt = 'Fresh fruit that was scarce ____ in the village during the winter.'; });
     expect(leaked.question.prompt).toContain('scarce ____');
     const copied = question(0, (item) => { item.prompt = 'Climate change is one of the most pressing challenges of our time, and governments around the world are searching for ways to ____ its worst effects.'; });
     expect(copied.question.prompt).toContain('searching for ways to ____');
     const english = question(1, (item) => { item.explanationZh = 'This word is correct for the sentence in every situation.'; });
     expect(english.question.explanationZh).toBe('This word is correct for the sentence in every situation.');
-    const chinese = question(2, (item) => { item.optionsEn = ['反对', '忘记', '提倡', '道歉']; item.correctOptionIndex = 2; item.prompt = '许多医生____每天散步。'; });
-    expect(chinese.question.optionsEn).toContain('提倡');
     const duplicate = question(2, (item) => { item.optionsEn[1] = item.optionsEn[0]!; });
     expect(duplicate.question.optionsEn.slice(0, 2)).toEqual(['object', 'object']);
     expect(duplicate.result.notes).toBeUndefined();

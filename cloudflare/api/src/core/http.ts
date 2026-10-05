@@ -50,7 +50,7 @@ export function corsPreflight(request: Request, env: ApiEnv): Response {
     headers: {
       'access-control-allow-origin': origin,
       'access-control-allow-methods': 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS',
-      'access-control-allow-headers': 'Authorization, Content-Type, Idempotency-Key',
+      'access-control-allow-headers': 'Authorization, Content-Type, Idempotency-Key, X-Device-Id',
       'access-control-max-age': '86400',
       vary: 'Origin',
       'cache-control': 'no-store',

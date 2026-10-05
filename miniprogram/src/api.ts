@@ -28,6 +28,17 @@ export function randomHex(length = 16): Promise<string> {
     fail: () => reject(new ApiError('设备无法生成安全凭据，请更新微信后重试')),
   }));
 }
+const DEVICE_KEY = 'bhe:device:v1';
+let device: Promise<string | null> | null = null;
+/** 设备编号：退出登录也不清除，同一台手机上的账号共用每天的免费练习次数；服务端只保存摘要。 */
+function deviceId(): Promise<string | null> {
+  device ??= (async () => {
+    const stored: unknown = wx.getStorageSync(DEVICE_KEY);
+    if (typeof stored === 'string' && /^[0-9a-f]{32}$/u.test(stored)) return stored;
+    const created = await randomHex(16); wx.setStorageSync(DEVICE_KEY, created); return created;
+  })().catch(() => { device = null; return null; });
+  return device;
+}
 let credential: Promise<string> | null = null;
 let sessionGeneration = 0;
 function assertSession(generation: number) {
@@ -51,7 +62,12 @@ type Options = { method?: 'GET' | 'POST' | 'PUT'; body?: unknown; public?: boole
 export async function request<T>(path: string, schema: ZodType<T>, options: Options = {}): Promise<T> {
   const generation = sessionGeneration;
   const header: Record<string, string> = { 'Content-Type': options.contentType ?? 'application/json' };
-  if (!options.public) { header.Authorization = `Bearer ${await installationToken()}`; assertSession(generation); }
+  if (!options.public) {
+    header.Authorization = `Bearer ${await installationToken()}`;
+    const id = await deviceId();
+    if (id) header['X-Device-Id'] = id;
+    assertSession(generation);
+  }
   if (options.key) header['Idempotency-Key'] = options.key;
   return new Promise((resolve, reject) => {
     wx.request({ url: apiOrigin + path, method: options.method ?? 'GET', data: options.body as WechatMiniprogram.IAnyObject,
@@ -102,7 +118,7 @@ export const services = {
   catalog: () => request('/v1/editorial/articles', PublishedEditorialCatalogSchema, { public: true }),
   article: (id: string) => request(`/v1/editorial/articles/${encodeURIComponent(id)}`, PublishedEditorialArticleSchema, { public: true }),
   dashboard: () => request('/v1/dashboard?timeZone=Asia%2FShanghai', DashboardDtoSchema),
-  words: (filter: VocabularyWordFilter = 'all', cursor = '') => request(`/v1/vocabulary-words?filter=${filter}&limit=100&timeZone=Asia%2FShanghai${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, VocabularyWordPageSchema),
+  words: (filter: VocabularyWordFilter = 'all', cursor = '') => request(`/v1/vocabulary-words?filter=${filter}&limit=50&timeZone=Asia%2FShanghai${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, VocabularyWordPageSchema),
   imported: (cursor = '') => request(`/v1/articles?limit=30&includeCover=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, ImportedArticlePageSchema),
   importedArticle: (id: string) => request(`/v1/articles/${encodeURIComponent(id)}`, ImportedArticleDtoSchema),
   async login(email: string, password: string) {

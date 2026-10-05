@@ -2,6 +2,7 @@ import { PublicErrorSchema } from '@context-reader/contracts';
 import Constants from 'expo-constants';
 import type { ZodType } from 'zod';
 
+import { getDeviceId } from './deviceId';
 import { getInstallationToken } from './installation';
 
 export class ApiError extends Error {
@@ -160,11 +161,12 @@ async function sendAuthenticatedRequest(
   init: RequestInit,
 ): Promise<{ response: Response; token: string }> {
   const baseUrl = getApiBaseUrl();
-  const token = await getInstallationToken();
+  const [token, deviceId] = await Promise.all([getInstallationToken(), getDeviceId()]);
   if (init.signal?.aborted) throw new ApiError('NETWORK_ERROR', '网络连接失败', true);
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
   headers.set('Authorization', `Bearer ${token}`);
+  if (deviceId) headers.set('X-Device-Id', deviceId);
 
   const response = await sendRequest(`${baseUrl}${path}`, {
     ...init,
@@ -210,13 +212,23 @@ export async function apiRequest<T>(
   init: RequestInit = {},
   timeoutMs = API_REQUEST_TIMEOUT_MS,
 ): Promise<T> {
+  return (await apiRequestWithStatus(path, schema, init, timeoutMs)).data;
+}
+
+/** Like apiRequest, and also reports the HTTP status, for example 201 when the server created the resource. */
+export async function apiRequestWithStatus<T>(
+  path: string,
+  schema: ZodType<T>,
+  init: RequestInit = {},
+  timeoutMs = API_REQUEST_TIMEOUT_MS,
+): Promise<{ data: T; status: number }> {
   return withRequestDeadline(init, async (request) => {
     const { response, token } = await sendAuthenticatedRequest(path, request);
     if (!response.ok) return throwPublicResponseError(response, token);
     const json = await readJson(response);
     const parsed = schema.safeParse(json);
     if (!parsed.success) throw invalidServerResponse();
-    return parsed.data;
+    return { data: parsed.data, status: response.status };
   }, timeoutMs);
 }
 

@@ -2,7 +2,7 @@ import type { PracticeDto } from '@context-reader/contracts';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
-import { createVocabularyItem, recordAssistance, requestWordTranslation, getPractice, getVocabularyWords } from '@/api/practices';
+import { createVocabularyItem, recordAssistance, requestWordTranslation, getPractice, getVocabularyTerms } from '@/api/practices';
 import PracticeReaderScreen from '@/app/practice/[id]/read';
 import PracticeResultScreen from '@/app/practice/[id]/result';
 import { createIdempotencyKey } from '@/api/installation';
@@ -26,7 +26,7 @@ jest.mock('@/context/ThemeContext', () => ({
 jest.mock('@/api/practices', () => ({
   getPractice: jest.fn(), createVocabularyItem: jest.fn(),
   recordAssistance: jest.fn(), requestWordTranslation: jest.fn(),
-  getVocabularyWords: jest.fn(),
+  getVocabularyTerms: jest.fn(),
 }));
 jest.mock('@/api/installation', () => ({ createIdempotencyKey: jest.fn().mockResolvedValue('practice-word-key') }));
 jest.mock('expo-speech', () => ({ speak: jest.fn(), stop: jest.fn(), getAvailableVoicesAsync: jest.fn() }));
@@ -77,10 +77,7 @@ beforeEach(() => {
   jest.mocked(getPractice).mockResolvedValue(first);
   jest.mocked(saveReadingPosition).mockResolvedValue();
   jest.mocked(loadReadingPosition).mockResolvedValue(0);
-  jest.mocked(getVocabularyWords).mockResolvedValue({
-    items: [], nextCursor: null, evaluatedAt: '2026-09-22T00:00:00Z', nextRefreshAt: null,
-    summary: { totalCount: 0, todayCount: 0, learningCount: 0, dueLearningCount: 0, unlearnedCount: 0, masteredCount: 0 },
-  });
+  jest.mocked(getVocabularyTerms).mockResolvedValue({ terms: [] });
 });
 
 it('clears the previous error immediately and shows loading while retrying', async () => {
@@ -271,12 +268,7 @@ it('restores the saved paragraph when reopening the reader', async () => {
 
 it('restores cloud vocabulary highlights when reopening a completed article', async () => {
   jest.mocked(getPractice).mockResolvedValue({ ...first, status: 'completed' });
-  const empty = await getVocabularyWords();
-  jest.mocked(getVocabularyWords).mockResolvedValue({ ...empty, items: [{
-    wordId: FIRST_ID, term: 'Reader', meaningZh: '读者', sourceSentence: null, contextCount: 1,
-    reviewReason: 'new', nextReviewAt: '2026-09-22T00:00:00Z', practiceCount: 0,
-    independentCorrectCount: 0, assistedCount: 0, lastPracticedAt: null, masteredAt: null,
-  }] });
+  jest.mocked(getVocabularyTerms).mockResolvedValue({ terms: ['Reader'] });
   const view = await render(<PracticeReaderScreen />);
   await waitFor(() => expect(view.getByText('reader')).toHaveStyle({ backgroundColor: jest.requireActual('@/constants/theme').themes.light.marker }));
   await view.unmount();

@@ -48,6 +48,11 @@
   "triggers": {
     "crons": ["* * * * *"]
   },
+  // 每个客户端 IP 每分钟最多 600 个请求。限流绑定在各节点内存里计数，
+  // 不再为每个 API 请求写一次 D1；未绑定时代码退回 D1 计数。
+  "ratelimits": [
+    { "name": "IP_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 600, "period": 60 } }
+  ],
   // 保留 console.log 输出（含练习生成的 practice_generation 诊断事件：只有任务编号、阶段、
   // 结果、次数和问题代码，不含文章或词汇），方便事后用 Workers Logs 或 `wrangler tail` 排查。
   "observability": {
@@ -65,8 +70,18 @@
     "API_STAGE_OPEN": "true",
     // HK 中转（cn.blackholeenglish.com）出口 IP；仅当请求同时带正确的 X-Relay-Secret 时，
     // 才采用其 X-Relay-Client-IP 作为限流用的客户端 IP。多个地址用英文逗号分隔。
-    "RELAY_IPS": "43.161.240.244"
+    "RELAY_IPS": "43.161.240.244",
+    // 免费练习按北京时间每天重置：每个账号、每台设备每天 3 次，同一网络每天最多 10 次。
+    "FREE_PRACTICE_LIMIT": "3",
+    "FREE_PRACTICE_IP_DAILY_LIMIT": "10",
+    // 全站每天最多调用 EvoLink 的次数（练习生成、翻译、图片识别、口语点评合计）。
+    // 达到后不再接受新的 AI 任务；已开始的任务还能再用 25% 余量完成。按预算调整。
+    "AI_DAILY_CALL_LIMIT": "2000",
+    // pre：新留言审核通过后才公开；post：立即公开，被举报后进入审核。
+    "MESSAGE_BOTTLE_REVIEW": "pre"
   }
+  // ADMIN_TOKEN（审核后台口令）只用 `wrangler secret put ADMIN_TOKEN` 配置；未配置时审核后台关闭。
+  // MODERATION_NOTIFY_EMAIL 可选：有留言等待审核时发邮件提醒到这个地址（最多 30 分钟一封）。
   // RELAY_SHARED_SECRET 与中转服务器 Caddy 的同名环境变量相同，只用 `wrangler secret put` 配置；
   // 未配置时完全忽略 X-Relay-* 请求头，行为与以前一致。
   // EVOLINK_API_KEY、RESEND_API_KEY 均通过加密 Worker secret 配置；音频点评复用 EvoLink 密钥。

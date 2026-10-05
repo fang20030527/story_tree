@@ -21,6 +21,7 @@ import { ApiError } from '@/api/client';
 import { confirmPasswordReset, loginWithEmail, requestPasswordReset } from '@/api/email';
 import { registerAnonymous } from '@/api/practices';
 import { BrandLogo } from '@/components/brand';
+import { confirmAction, notify } from '@/components/confirm';
 import { radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { clearAuthUser, saveAuthUserEmail } from '@/features/auth/authStorage';
@@ -113,9 +114,19 @@ export default function LoginScreen() {
       newUsername = checked.username;
     }
 
+    await signIn(normalizedEmail, newUsername, false);
+  };
+
+  /**
+   * Bind this device to the email account. `startOver` first replaces the local guest identity
+   * with an empty one: the server refuses to bind a guest that already has study data to an
+   * existing account, and there is no merge.
+   */
+  const signIn = async (normalizedEmail: string, newUsername: string | undefined, startOver: boolean) => {
     setLoading(true);
     setMessage(null);
     try {
+      if (startOver) await clearAuthUser();
       try {
         await registerAnonymous(true);
       } catch (error) {
@@ -123,14 +134,27 @@ export default function LoginScreen() {
         await clearAuthUser();
         await registerAnonymous(true);
       }
-      await loginWithEmail(normalizedEmail, password, newUsername);
+      const result = await loginWithEmail(normalizedEmail, password, newUsername);
       try {
         await saveAuthUserEmail(normalizedEmail);
       } catch {
         // The login response is authoritative; the display-only email is best effort.
       }
+      if (result.created) {
+        // Login and sign-up share one form, so a mistyped address silently opens a new, empty account.
+        notify('已创建新账号', `已用 ${normalizedEmail} 创建新账号。如果你之前注册过，请检查邮箱是否输入正确。`);
+      }
       router.back();
     } catch (error) {
+      if (!startOver && error instanceof ApiError && error.code === 'AUTH_ACCOUNT_CONFLICT') {
+        confirmAction({
+          title: '这台设备上有游客学习记录',
+          message: '游客记录（生词、练习等）无法合并到已有账号。继续登录后，这台设备将改用该账号的数据，游客记录不再显示。',
+          confirmLabel: '继续登录',
+          destructive: true,
+        }, () => { void signIn(normalizedEmail, newUsername, true); });
+        return;
+      }
       showError(messageFor(error, '邮箱登录暂时无法使用，请稍后重试'));
     } finally {
       setLoading(false);
@@ -359,6 +383,11 @@ export default function LoginScreen() {
           {message ? (
             <Text style={[styles.message, { color: messageTone === 'error' ? theme.danger : theme.textSecondary }]}>{message}</Text>
           ) : null}
+          <Text style={[styles.message, { color: theme.textMuted }]}>
+            登录即表示你已阅读并同意
+            <Text accessibilityRole="link" onPress={() => router.push('/privacy')} style={{ color: theme.accent }}>《隐私政策》</Text>
+            ，你的账号和学习数据保存在中国大陆以外的服务器。
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -111,7 +111,9 @@ describe('one practice', () => {
     for (const question of validated!.questions) expect(question.optionsEn).toHaveLength(4);
     const logged = events.find((event) => event.stage === 'validate');
     expect(logged).toMatchObject({ outcome: 'ok' });
-    expect(logged!.notes).toEqual(['WORD_COUNT_LOW:165', 'OPTIONS_PADDED:t3', 'QUESTION_BUILT:t6']);
+    // The prompt without a blank is rebuilt as a cloze from the article.
+    expect(logged!.notes).toEqual(['WORD_COUNT_LOW:165', 'OPTIONS_PADDED:t3', 'PROMPT_REBUILT:t4', 'QUESTION_BUILT:t6']);
+    for (const question of validated!.questions) expect(question.prompt).toContain('____');
   });
 
   it('rewrites an unusable draft once, sending back the previous draft and the missing targets', async () => {

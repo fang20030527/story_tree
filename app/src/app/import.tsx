@@ -30,7 +30,7 @@ import {
   uploadImportAsset,
 } from '@/api/imports';
 import { createIdempotencyKey } from '@/api/installation';
-import { importSources } from '@/data/mock';
+import { importSources } from '@/features/imports/importSources';
 import { ListRow } from '@/components/subpage';
 import { useAppTheme } from '@/context/ThemeContext';
 import {

@@ -53,7 +53,7 @@ async function setup(topic?: { terms: ReadonlyArray<{ term: string; meaningZh: s
   }));
   instances.push(mf);
   const db = await mf.getD1Database('DB');
-  for (const name of ['0001_initial.sql', '0002_transaction_guards.sql', '0003_import_media.sql', '0004_user_practice_access.sql', '0010_question_rounds.sql']) {
+  for (const name of ['0001_initial.sql', '0002_transaction_guards.sql', '0003_import_media.sql', '0004_user_practice_access.sql', '0010_question_rounds.sql', '0011_daily_quota.sql']) {
     const sql = readFileSync(resolve('cloudflare/api/migrations', name), 'utf8')
       .split(/\r?\n/u).filter((line) => !/^\s*--/u.test(line)).join('\n');
     for (const statement of sql.split(';').map((part) => part.trim()).filter(Boolean)) {

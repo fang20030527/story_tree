@@ -2,6 +2,7 @@ import { UuidSchema } from '@context-reader/contracts';
 
 import { AppError } from '../../../../server/src/core/errors';
 import { deleteExpiredRateLimits } from '../core/rate-limit';
+import { deleteExpiredQuotaUsage } from '../quota/service';
 import { isApiConfigured, type ApiEnv } from '../env';
 import {
   sweepExpiredImportAssets,
@@ -318,6 +319,7 @@ export async function handleJobScheduled(env: ApiEnv): Promise<void> {
   const outcomes = await Promise.allSettled([
     enqueueDueJobs(env, now),
     deleteExpiredRateLimits(env, now),
+    deleteExpiredQuotaUsage(env.DB, now),
     sweepImportStorage(env, now),
   ]);
   if (outcomes.some((result) => result.status === 'rejected')) {

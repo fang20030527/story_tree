@@ -1,7 +1,7 @@
 import { DashboardDtoSchema, VocabularyTimeZoneSchema } from '@context-reader/contracts';
 
 import { AppError } from '../../../../server/src/core/errors';
-import { getRemainingQuota } from '../quota/service';
+import { freePracticeLimits, getRemainingQuota, quotaScope } from '../quota/service';
 import {
   REVIEW_MODEL_VERSION,
   reviewPriority,
@@ -20,11 +20,6 @@ interface CountRow {
   count: number;
 }
 
-interface AnswerCountRow {
-  wordId: string | null;
-  answerCount: number;
-}
-
 interface PracticeIdRow {
   id: string;
 }
@@ -33,7 +28,12 @@ function staleVocabulary(): AppError {
   return new AppError('INTERNAL_ERROR', '复习状态暂时无法读取', 500, true);
 }
 
-function parseReviewState(raw: string | null, expectedAnswerCount: number): WordReviewState {
+/**
+ * Structural check only. Every answer updates the word's review state in the same D1 batch,
+ * guarded by its answer count, so the state cannot fall behind the answers; recounting the
+ * user's whole answer history on each dashboard read only cost D1 rows and time.
+ */
+function parseReviewState(raw: string | null): WordReviewState {
   if (raw === null) throw staleVocabulary();
   let state: unknown;
   try {
@@ -45,7 +45,7 @@ function parseReviewState(raw: string | null, expectedAnswerCount: number): Word
   const candidate = state as Partial<WordReviewState>;
   if (
     candidate.version !== REVIEW_MODEL_VERSION ||
-    candidate.answerCount !== expectedAnswerCount ||
+    !Number.isInteger(candidate.answerCount) || candidate.answerCount! < 0 ||
     !Number.isInteger(candidate.practiceCount) || candidate.practiceCount! < 0 ||
     typeof candidate.nextReviewAt !== 'string' ||
     !Number.isFinite(Date.parse(candidate.nextReviewAt)) ||
@@ -103,16 +103,6 @@ function parseTimeZone(query: URLSearchParams): string {
   return parsed.data;
 }
 
-function freePracticeLimit(env: ApiEnv): number {
-  const raw = (env as ApiEnv & { FREE_PRACTICE_LIMIT?: string | number }).FREE_PRACTICE_LIMIT;
-  if (raw === undefined) return 3;
-  const limit = Number(raw);
-  if (!Number.isSafeInteger(limit) || limit <= 0) {
-    throw new Error('Invalid FREE_PRACTICE_LIMIT configuration');
-  }
-  return limit;
-}
-
 export async function handleDashboardRoute(
   request: Request,
   env: ApiEnv,
@@ -123,9 +113,10 @@ export async function handleDashboardRoute(
   if (url.pathname !== '/v1/dashboard') return null;
 
   const timeZone = parseTimeZone(url.searchParams);
-  const freeLimit = freePracticeLimit(env);
+  const limits = freePracticeLimits(env);
+  const scope = await quotaScope(request, env, userId);
   const now = new Date();
-  const [incomplete, words, unmatchedContexts, answerCounts, completed, remainingFreePractices] = await Promise.all([
+  const [incomplete, words, unmatchedContexts, completed, remainingFreePractices] = await Promise.all([
     env.DB.prepare(`
       SELECT id FROM practice_sessions
       WHERE user_id = ?1 AND status IN ('queued', 'generating', 'validating', 'ready', 'in_progress')
@@ -151,29 +142,19 @@ export async function handleDashboardRoute(
         AND (w.id IS NULL OR w.normalized_term <> v.normalized_term)
     `).bind(userId).first<CountRow>(),
     env.DB.prepare(`
-      SELECT v.word_id AS wordId, COUNT(*) AS answerCount
-      FROM answer_attempts AS a
-      JOIN practice_questions AS q ON q.id = a.practice_question_id
-      JOIN practice_targets AS t ON t.id = q.practice_target_id
-      JOIN vocabulary_items AS v ON v.id = t.vocabulary_item_id
-      WHERE a.user_id = ?1 AND v.user_id = ?1
-      GROUP BY v.word_id
-    `).bind(userId).all<AnswerCountRow>(),
-    env.DB.prepare(`
       SELECT COUNT(*) AS count FROM practice_sessions
       WHERE user_id = ?1 AND status = 'completed'
     `).bind(userId).first<CountRow>(),
-    getRemainingQuota(env.DB, userId, freeLimit),
+    getRemainingQuota(env.DB, scope, limits),
   ]);
 
   if ((unmatchedContexts?.count ?? 0) !== 0) throw staleVocabulary();
-  const answerCountByWord = new Map(answerCounts.results.map((row) => [row.wordId, row.answerCount]));
   const day = localDayRange(timeZone, now);
   let dueLearningCount = 0;
   let unlearnedCount = 0;
   let todayAddedCount = 0;
   for (const word of words.results) {
-    const state = parseReviewState(word.reviewState, answerCountByWord.get(word.id) ?? 0);
+    const state = parseReviewState(word.reviewState);
     const createdAt = Date.parse(word.createdAt);
     if (!Number.isFinite(createdAt)) throw staleVocabulary();
     if (createdAt >= +day.start && createdAt < +day.end) todayAddedCount += 1;

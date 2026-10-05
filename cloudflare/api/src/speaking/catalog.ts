@@ -41,16 +41,55 @@ const ReleaseCatalogSchema = z.object({
 }).strict();
 type ReleaseCatalog = z.infer<typeof ReleaseCatalogSchema>;
 
+/**
+ * Released catalogs and captions are immutable per revision, yet every request used to read
+ * them from R2 again and re-validate up to 2 MB of captions, inside the Durable Object that all
+ * of one user's speaking requests share. The object keeps the validated copies in memory: the
+ * catalog for a minute (a new release appears within that), captions per material revision.
+ */
+const CATALOG_TTL_MS = 60_000;
+const MATERIAL_CACHE_SIZE = 6;
+interface CachedCatalog { catalog: ReleaseCatalog; dto: SpeakingCatalogDto; expiresAt: number }
+interface ReleaseCache { catalog: CachedCatalog | null; materials: Map<string, SpeakingMaterialDto> }
+// Keyed by the bucket binding, which a Durable Object keeps for its lifetime.
+const releaseCaches = new WeakMap<object, ReleaseCache>();
+
+function releaseCache(env: ApiEnv): ReleaseCache {
+  if (!env.SPEAKING_BUCKET) return { catalog: null, materials: new Map() };
+  let cache = releaseCaches.get(env.SPEAKING_BUCKET);
+  if (!cache) {
+    cache = { catalog: null, materials: new Map() };
+    releaseCaches.set(env.SPEAKING_BUCKET, cache);
+  }
+  return cache;
+}
+
+async function cachedCatalog(env: ApiEnv): Promise<CachedCatalog> {
+  const cache = releaseCache(env);
+  const now = Date.now();
+  if (cache.catalog && cache.catalog.expiresAt > now) return cache.catalog;
+  const catalog = await readCatalog(env);
+  const dto = SpeakingCatalogDtoSchema.parse({ materials: catalog.materials.map(item => item.material) });
+  cache.catalog = { catalog, dto, expiresAt: now + CATALOG_TTL_MS };
+  return cache.catalog;
+}
+
 /** 目录只解析摘要；整片字幕按需从独立对象读取。 */
 export async function getPlatformCatalog(env: ApiEnv): Promise<SpeakingCatalogDto> {
-  const catalog = await readCatalog(env);
-  return SpeakingCatalogDtoSchema.parse({ materials: catalog.materials.map(item => item.material) });
+  return (await cachedCatalog(env)).dto;
 }
 
 export async function getPlatformMaterial(env: ApiEnv, id: string): Promise<SpeakingMaterialDto> {
   assertMaterialId(id);
-  const catalog = await readCatalog(env);
-  const entry = findEntry(catalog, id);
+  const entry = findEntry((await cachedCatalog(env)).catalog, id);
+  const materials = releaseCache(env).materials;
+  const cacheKey = `${id}:${entry.material.revision}`;
+  const cached = materials.get(cacheKey);
+  if (cached) {
+    materials.delete(cacheKey);
+    materials.set(cacheKey, cached);
+    return cached;
+  }
   const raw = await readReleaseJson(env, `${RELEASE_PREFIX}/${id}/material.json`, MATERIAL_MAX_BYTES);
   const parsed = SpeakingMaterialDtoSchema.safeParse(raw);
   if (!parsed.success) throw invalidRelease();
@@ -60,13 +99,15 @@ export async function getPlatformMaterial(env: ApiEnv, id: string): Promise<Spea
   if (Object.entries(entry.material).some(([key, value]) =>
     actualSummary[key as keyof typeof actualSummary] !== value,
   ) || cues.some(cue => cue.end > material.duration + 0.1)) throw invalidRelease();
+  materials.set(cacheKey, material);
+  while (materials.size > MATERIAL_CACHE_SIZE) materials.delete(materials.keys().next().value!);
   // 公开接口只读发布字幕；账号的覆盖字幕由私有路由读取。
   return material;
 }
 
 export async function getPlatformPlayback(env: ApiEnv, id: string) {
   assertMaterialId(id);
-  const entry = findEntry(await readCatalog(env), id);
+  const entry = findEntry((await cachedCatalog(env)).catalog, id);
   if (!entry.media) throw new AppError('NOT_FOUND', '此示范素材没有云端视频', 404);
   const expiresAt = new Date(Date.now() + SPEAKING_CATALOG_PLAYBACK_SECONDS * 1000).toISOString();
   const url = await signSpeakingObject(env, entry.media.storageKey, 'GET', undefined, undefined, SPEAKING_CATALOG_PLAYBACK_SECONDS);

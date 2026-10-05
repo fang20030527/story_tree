@@ -67,6 +67,11 @@ export interface AiBinding extends MarkdownBinding {
   run(model: string, input: Record<string, unknown>): Promise<unknown>;
 }
 
+/** Workers Rate Limiting binding: per-location counters, no D1 write per request. */
+export interface RateLimitBinding {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 export interface ApiEnv {
   DB: D1DatabaseBinding;
   IMPORT_BUCKET: R2BucketBinding;
@@ -77,6 +82,8 @@ export interface ApiEnv {
   IMAGES: ImagesBinding;
   // Deliberately optional until the free-plan CPU boundary is verified.
   CPU_BOUNDARY?: CpuBoundaryNamespace;
+  /** 600 requests per minute per client IP; without it the limit is counted in D1. */
+  IP_RATE_LIMITER?: RateLimitBinding;
 
   EVOLINK_API_KEY?: string;
   EVOLINK_BASE_URL?: string;
@@ -88,6 +95,18 @@ export interface ApiEnv {
   EVOLINK_AUDIO_TIMEOUT_MS?: string;
   SPEAKING_COACH_DAILY_LIMIT?: string;
   GENERATION_DEADLINE_MS?: string;
+  /** Free practices per account and per device each Beijing day (default 3). */
+  FREE_PRACTICE_LIMIT?: string;
+  /** Free practices per network each Beijing day (default 10). */
+  FREE_PRACTICE_IP_DAILY_LIMIT?: string;
+  /** Paid AI calls the whole site may make each Beijing day (default 2000). */
+  AI_DAILY_CALL_LIMIT?: string;
+  /** 'pre' holds new message bottles for review; 'post' publishes them at once (default 'pre'). */
+  MESSAGE_BOTTLE_REVIEW?: string;
+  /** Worker secret for the moderation console; unset disables it. */
+  ADMIN_TOKEN?: string;
+  /** Optional address that receives a note when bottles wait for review. */
+  MODERATION_NOTIFY_EMAIL?: string;
   RESEND_API_KEY?: string;
   WECHAT_APP_ID?: string;
   WECHAT_APP_SECRET?: string;

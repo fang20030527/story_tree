@@ -11,6 +11,7 @@ import { useSpeakingLibrary } from './useSpeakingLibrary';
 import { ShadowingScreen } from './ShadowingScreen';
 import { exportSpeakingTranscript } from './transcriptExport';
 import { saveSpeakingMaterialState } from './cloudSync';
+import { clearPlaybackPrefetch } from './playbackPrefetch';
 
 let mockReport: ((state: ShadowingPlaybackState) => void) | undefined;
 let mockPlayerState: ShadowingPlaybackState;
@@ -66,7 +67,7 @@ const material: SpeakingMaterial = {
   duration: 7200, cues: [{ id: 'line-one', start: 0, end: 3, en: 'Hello there.', zh: '' }],
 };
 beforeEach(async () => {
-  jest.useFakeTimers(); jest.setSystemTime(new Date('2026-10-01T00:00:00Z')); jest.clearAllMocks();
+  jest.useFakeTimers(); jest.setSystemTime(new Date('2026-10-01T00:00:00Z')); jest.clearAllMocks(); clearPlaybackPrefetch();
   await AsyncStorage.clear();
   jest.mocked(registerAnonymous).mockResolvedValue({ userId: '11111111-1111-4111-8111-111111111111', kind: 'guest', remainingFreePractices: 3 });
   jest.mocked(requestSentenceTranslation).mockResolvedValue('你好。');

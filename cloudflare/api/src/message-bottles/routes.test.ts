@@ -43,7 +43,8 @@ function setup() {
   for (const id of [owner, other, guest]) sqlite.prepare('INSERT INTO users(id, kind, age_confirmed_at) VALUES (?, ?, ?)')
     .run(id, id === guest ? 'guest' : 'registered', new Date().toISOString());
   const db = new Database(sqlite);
-  return { sqlite, db, env: { DB: db } as unknown as ApiEnv };
+  // These tests cover publishing at once; review-first mode has its own tests below.
+  return { sqlite, db, env: { DB: db, MESSAGE_BOTTLE_REVIEW: 'post' } as unknown as ApiEnv };
 }
 async function call(env: ApiEnv, userId = owner, method = 'GET', body?: unknown, key = crypto.randomUUID(), query = '') {
   const request = new Request(`https://example.com/v1/message-bottles${query}`, {

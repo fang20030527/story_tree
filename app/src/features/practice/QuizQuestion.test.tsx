@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import type { AnswerResult, PublicQuestion } from '@context-reader/contracts';
 
-import { createVocabularyItem, getVocabularyWords, requestWordTranslation } from '@/api/practices';
+import { createVocabularyItem, getVocabularyTerms, requestWordTranslation } from '@/api/practices';
 
 import { ApiError } from '@/api/client';
 import { createIdempotencyKey } from '@/api/installation';
@@ -15,7 +15,7 @@ jest.mock('expo-speech', () => ({
 }));
 jest.mock('@/api/practices', () => ({
   createVocabularyItem: jest.fn(),
-  getVocabularyWords: jest.fn().mockResolvedValue({ items: [], nextCursor: null }),
+  getVocabularyTerms: jest.fn().mockResolvedValue({ terms: [] }),
   requestWordTranslation: jest.fn(),
 }));
 
@@ -80,7 +80,7 @@ function feedback(answerKind: 'option' | 'dont_know'): AnswerResult {
 describe('QuizQuestion', () => {
   beforeEach(() => {
     jest.resetAllMocks();
-    jest.mocked(getVocabularyWords).mockResolvedValue({ items: [], nextCursor: null } as never);
+    jest.mocked(getVocabularyTerms).mockResolvedValue({ terms: [] });
     mockedCreateIdempotencyKey.mockResolvedValue('answer_key_123456789');
   });
 
@@ -198,7 +198,7 @@ describe('QuizQuestion', () => {
  });
 
  it('opens word cards only after submission and saves words from the question', async () => {
-  jest.mocked(getVocabularyWords).mockResolvedValue({ items: [], nextCursor: null } as never);
+  jest.mocked(getVocabularyTerms).mockResolvedValue({ terms: [] });
   jest.mocked(requestWordTranslation).mockResolvedValue({
     term: 'setbacks', partOfSpeech: 'n.', meaningZh: '挫折',
   });

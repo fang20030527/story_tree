@@ -7,8 +7,13 @@ import {
   type PasswordResetRequestResponse,
 } from '@context-reader/contracts';
 
-import { apiRequest, publicApiRequest } from './client';
+import { apiRequestWithStatus, publicApiRequest } from './client';
 import { saveAuthUser } from '@/features/auth/authStorage';
+
+export interface EmailLoginResult extends EmailAuthResponse {
+  /** 服务端以 201 表示这次请求新建了账号（邮箱此前未注册）。 */
+  created: boolean;
+}
 
 /**
  * 邮箱登录；邮箱未注册时自动创建账号。`username` 只在创建新账号时使用，
@@ -18,17 +23,17 @@ export async function loginWithEmail(
   email: string,
   password: string,
   username?: string,
-): Promise<EmailAuthResponse> {
-  const response = await apiRequest('/v1/auth/email', EmailAuthResponseSchema, {
+): Promise<EmailLoginResult> {
+  const { data, status } = await apiRequestWithStatus('/v1/auth/email', EmailAuthResponseSchema, {
     method: 'POST',
     body: JSON.stringify(username ? { email, password, username } : { email, password }),
   });
   try {
-    await saveAuthUser(response);
+    await saveAuthUser(data);
   } catch {
     // Best-effort local persistence only; the server response is authoritative.
   }
-  return response;
+  return { ...data, created: status === 201 };
 }
 
 export function requestPasswordReset(email: string): Promise<PasswordResetRequestResponse> {

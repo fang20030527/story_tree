@@ -7,6 +7,7 @@ import {
 } from '@context-reader/contracts';
 
 import { AppError } from '../../../../server/src/core/errors';
+import { assertAiAvailable, consumeAiCall } from '../ai/budget';
 import { EvolinkPronunciationProvider } from '../../../../server/src/infrastructure/speech/evolink';
 import type { PronunciationProvider } from '../../../../server/src/infrastructure/speech/provider';
 import {
@@ -202,6 +203,7 @@ export async function createSpeakingPronunciationAssessment(env: ApiEnv, userId:
   if (!provider && !settings.apiKey) {
     throw new AppError('PRONUNCIATION_NOT_CONFIGURED', 'AI 口语点评服务尚未配置，请稍后再试', 503);
   }
+  if (!provider) await assertAiAvailable(env);
   const asset = await getSpeakingAsset(env, userId, request.assetId);
   assertPronunciationAsset({ status: asset.status, purpose: asset.purpose,
     byteSize: asset.byte_size, contentType: asset.content_type, duration: asset.duration });
@@ -260,6 +262,8 @@ export async function createSpeakingPronunciationAssessment(env: ApiEnv, userId:
     if (active?.status !== 'processing' || !(Date.parse(active.deadline_at) > Date.now())) {
       return getSpeakingPronunciationAssessment(env, userId, id);
     }
+    // The injected provider is a test double; only real upstream calls count against the cap.
+    if (!provider) await consumeAiCall(env);
     const assessor = provider ?? new EvolinkPronunciationProvider({ apiKey: settings.apiKey!,
       baseUrl: settings.baseUrl, model: settings.model, timeoutMs: settings.timeoutMs });
     const output = await assessor.assess({ audio, contentType: asset.content_type,

@@ -9,13 +9,14 @@ import {
 import { AppError } from '../../../../server/src/core/errors';
 import { segmentParagraph } from '../../../../server/src/modules/practice/generation-validator';
 import type { ApiEnv } from '../env';
-import { getRemainingQuota } from '../quota/service';
+import { freePracticeLimits, getRemainingQuota, quotaScope } from '../quota/service';
 
 const PRACTICE_PATH = /^\/v1\/practices\/([^/]+)$/u;
-const RETRYABLE_GENERATION_CODES = new Set([
+/** Failures a topic group may refill once; shared with the retry-failed route. */
+export const RETRYABLE_GENERATION_CODES: ReadonlySet<string> = new Set([
   'AI_UNAVAILABLE', 'AI_INVALID_OUTPUT', 'GENERATION_DEADLINE_EXCEEDED',
 ]);
-const SUCCESSFUL_STATUSES = new Set(['ready', 'in_progress', 'completed']);
+export const SUCCESSFUL_STATUSES: ReadonlySet<string> = new Set(['ready', 'in_progress', 'completed']);
 
 interface PracticeRow {
   id: string;
@@ -76,16 +77,6 @@ interface IdRow { id: string }
 
 function unreadablePractice(): AppError {
   return new AppError('INTERNAL_ERROR', '练习内容暂时无法读取', 500, true);
-}
-
-function freePracticeLimit(env: ApiEnv): number {
-  const raw = (env as ApiEnv & { FREE_PRACTICE_LIMIT?: string | number }).FREE_PRACTICE_LIMIT;
-  if (raw === undefined) return 3;
-  const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error('Invalid FREE_PRACTICE_LIMIT configuration');
-  }
-  return value;
 }
 
 function parseJson(value: string): unknown {
@@ -295,7 +286,7 @@ export async function handlePracticeReadRoute(
 
   const [group, remainingFreePractices] = await Promise.all([
     loadGroup(env, userId, practice.topicGroupId),
-    getRemainingQuota(env.DB, userId, freePracticeLimit(env)),
+    quotaScope(request, env, userId).then((scope) => getRemainingQuota(env.DB, scope, freePracticeLimits(env))),
   ]);
   let paragraphs: ParagraphRow[] = [];
   let targets: TargetRow[] = [];

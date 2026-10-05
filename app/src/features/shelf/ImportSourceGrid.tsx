@@ -6,7 +6,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
-import { importSources } from '@/data/mock';
+import { importSources } from '@/features/imports/importSources';
 
 export function ImportSourceGrid() {
   const { theme } = useAppTheme();

@@ -28,6 +28,8 @@ function setup() {
   insert(guest, 'guest');
   const row = (id: string) => sqlite.prepare('SELECT kind, username, username_key FROM users WHERE id = ?')
     .get(id) as { kind: string; username: string | null; username_key: string | null };
+  // Bottles publish at once here: these tests are about names, not review.
+  Object.assign(context.env, { MESSAGE_BOTTLE_REVIEW: 'post' });
   return { ...context, insert, row };
 }
 

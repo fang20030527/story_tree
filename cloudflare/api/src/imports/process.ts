@@ -4,6 +4,7 @@ import { UuidSchema } from '@context-reader/contracts';
 import { z } from 'zod';
 
 import { AppError } from '../../../../server/src/core/errors';
+import { assertAiAvailable } from '../ai/budget';
 import { readJsonBody } from '../core/http';
 import type { ApiEnv, D1StatementBinding } from '../env';
 import { handleImportReadRoute } from './read';
@@ -108,6 +109,8 @@ async function launch(
     ? row.status !== 'awaiting_upload' ||
       (row.source_kind !== 'album' && row.source_kind !== 'local_file')
     : row.status !== 'retryable') throw conflict();
+  // Pictures and image files are read by the AI vision model.
+  await assertAiAvailable(env);
 
   const guardId = crypto.randomUUID();
   const recordId = crypto.randomUUID();

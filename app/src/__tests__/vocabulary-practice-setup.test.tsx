@@ -54,7 +54,7 @@ const mockedLoadOperation = jest.mocked(loadCreatePracticeOperation);
 const mockedPrepareOperation = jest.mocked(prepareCreatePracticeOperation);
 const mockedSaveActivePracticeId = jest.mocked(saveActivePracticeId);
 
-function dashboard(dueLearningCount = 5, unlearnedCount = 7) {
+function dashboard(dueLearningCount = 5, unlearnedCount = 7, remainingFreePractices = 3) {
   return {
     incompletePracticeId: null,
     vocabularyCount: 60,
@@ -63,7 +63,7 @@ function dashboard(dueLearningCount = 5, unlearnedCount = 7) {
     unlearnedCount,
     todayAddedCount: 2,
     completedPracticeCount: 1,
-    remainingFreePractices: 3,
+    remainingFreePractices,
   };
 }
 
@@ -113,6 +113,25 @@ it('creates the practice with the saved count only after tapping start', async (
   expect(router.replace).toHaveBeenCalledWith({ pathname: '/practice/[id]/generating', params: {
     id: '22222222-2222-4222-8222-222222222222', origin: 'vocabulary',
   } });
+});
+
+it('shows how many free practices remain, and none for an account without a limit', async () => {
+  const view = await render(<VocabularyPracticeSetupScreen />);
+  expect((await view.findByTestId('remaining-free-practices')).props.children).toEqual(['今天还可免费练习 ', 3, ' 次，每次生成四篇短文；北京时间每天 0 点恢复。']);
+  await view.unmount();
+
+  mockedGetDashboard.mockResolvedValue(dashboard(5, 7, Number.MAX_SAFE_INTEGER));
+  const unlimited = await render(<VocabularyPracticeSetupScreen />);
+  await unlimited.findByText('开始多情景阅读练习');
+  expect(unlimited.queryByTestId('remaining-free-practices')).toBeNull();
+});
+
+it('explains a used-up free quota instead of offering a start that can only fail', async () => {
+  mockedGetDashboard.mockResolvedValue(dashboard(5, 7, 0));
+  const view = await render(<VocabularyPracticeSetupScreen />);
+  await view.findByText('今天的免费练习次数已用完');
+  expect(view.queryByText('开始多情景阅读练习')).toBeNull();
+  expect(mockedCreatePractice).not.toHaveBeenCalled();
 });
 
 it('shows an empty state without any request when no word can be selected', async () => {

@@ -70,6 +70,11 @@ export const AccountProfileSchema = z.object({
 export const UpdateUsernameRequestSchema = z.object({
   username: UsernameInputSchema,
 }).strict();
+/** Email accounts confirm with their password; guest and WeChat accounts send an empty object. */
+export const DeleteAccountRequestSchema = z.object({
+  password: z.string().min(1).max(128).optional(),
+}).strict();
+export type DeleteAccountRequest = z.infer<typeof DeleteAccountRequestSchema>;
 export type AccountProfile = z.infer<typeof AccountProfileSchema>;
 export type UpdateUsernameRequest = z.infer<typeof UpdateUsernameRequestSchema>;
 
@@ -84,6 +89,8 @@ export const MessageBottleCursorSchema = z.string().max(80).refine(value => {
 export const MessageBottleListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   cursor: MessageBottleCursorSchema.optional(),
+  /** Newer clients ask for each bottle's review status (MessageBottleReviewedPageSchema). */
+  includeStatus: z.literal('1').optional(),
 }).strict();
 export const MessageBottleDtoSchema = z.object({
   id: UuidSchema,
@@ -96,6 +103,32 @@ export const MessageBottlePageSchema = z.object({
   items: z.array(MessageBottleDtoSchema).max(50),
   nextCursor: MessageBottleCursorSchema.nullable(),
 }).strict();
+/** visible: public; pending: waiting for review; hidden: removed by review. Only authors see the last two. */
+export const MessageBottleStatusSchema = z.enum(['visible', 'pending', 'hidden']);
+export const MessageBottleReviewedDtoSchema = MessageBottleDtoSchema.extend({
+  status: MessageBottleStatusSchema,
+}).strict();
+export const MessageBottleReviewedPageSchema = z.object({
+  items: z.array(MessageBottleReviewedDtoSchema).max(50),
+  nextCursor: MessageBottleCursorSchema.nullable(),
+}).strict();
+export const MessageBottleReportReasonSchema = z.enum(['spam', 'abuse', 'sexual', 'illegal', 'other']);
+export const ReportMessageBottleRequestSchema = z.object({
+  reason: MessageBottleReportReasonSchema,
+  detail: z.string().trim().min(1).max(200).optional(),
+}).strict();
+export const BlockedUserSchema = z.object({
+  userId: UuidSchema,
+  username: UsernameSchema.nullable(),
+  blockedAt: z.iso.datetime(),
+}).strict();
+export const BlockedUsersSchema = z.object({ users: z.array(BlockedUserSchema).max(500) }).strict();
+export type MessageBottleStatus = z.infer<typeof MessageBottleStatusSchema>;
+export type MessageBottleReviewedDto = z.infer<typeof MessageBottleReviewedDtoSchema>;
+export type MessageBottleReviewedPage = z.infer<typeof MessageBottleReviewedPageSchema>;
+export type MessageBottleReportReason = z.infer<typeof MessageBottleReportReasonSchema>;
+export type ReportMessageBottleRequest = z.infer<typeof ReportMessageBottleRequestSchema>;
+export type BlockedUser = z.infer<typeof BlockedUserSchema>;
 export const MessageBottleProfileSchema = z.object({
   username: MessageBottleUsernameSchema.nullable(),
   canPost: z.boolean(),
@@ -932,6 +965,32 @@ export const VocabularyWordMasterySchema = z.object({
   wordId: UuidSchema,
   masteredAt: z.iso.datetime().nullable(),
 }).strict();
+/** Corrects one saved meaning and its example sentence; the term itself is renamed per word. */
+export const UpdateVocabularyContextRequestSchema = z.object({
+  meaningZh: VocabularyInputSchema.shape.meaningZh,
+  sourceSentence: z.string().trim().min(1).max(10_000).nullable(),
+}).strict();
+export const VocabularyContextSchema = z.object({
+  id: UuidSchema,
+  meaningZh: z.string(),
+  sourceSentence: z.string().nullable(),
+}).strict();
+/** Moves every meaning of a word to a corrected spelling. */
+export const RenameVocabularyWordRequestSchema = z.object({
+  term: VocabularyInputSchema.shape.term,
+}).strict();
+export const RenamedVocabularyWordSchema = z.object({
+  wordId: UuidSchema,
+  term: z.string(),
+}).strict();
+export type UpdateVocabularyContextRequest = z.infer<typeof UpdateVocabularyContextRequestSchema>;
+export type VocabularyContext = z.infer<typeof VocabularyContextSchema>;
+export type RenamedVocabularyWord = z.infer<typeof RenamedVocabularyWordSchema>;
+/** Every saved term, for highlighting saved words while reading; one short query. */
+export const VocabularyTermsSchema = z.object({
+  terms: z.array(z.string().min(1).max(200)),
+}).strict();
+export type VocabularyTerms = z.infer<typeof VocabularyTermsSchema>;
 export type VocabularyWordFilter = z.infer<typeof VocabularyWordFilterSchema>;
 export type VocabularyWord = z.infer<typeof VocabularyWordSchema>;
 export type VocabularyWordPage = z.infer<typeof VocabularyWordPageSchema>;

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { SpeakingLibraryDto, SpeakingMaterialDto, SpeakingStateDto } from '@context-reader/contracts';
 import { getSpeakingCatalog, getSpeakingCatalogMaterial, getSpeakingLibrary, getSpeakingMaterial, getSpeakingState } from '@/api/speaking';
 import { loadAuthUser } from '@/features/auth/authStorage';
+import { cacheSpeakingPublicDetails } from './cloudSync';
 import { updateSpeakingStore } from './speakingStorage';
 import { useSpeakingLibrary } from './useSpeakingLibrary';
 
@@ -123,4 +124,29 @@ it('keeps real cached videos offline and hides retired examples from older insta
   expect(library.result.current.materials.map(item => item.id)).toEqual([shared.id]);
   expect(library.result.current.materials[0]?.cues).toEqual(shared.cues);
   expect(getSpeakingCatalogMaterial).not.toHaveBeenCalled();
+});
+it('shows a film with cached captions before the network answers and keeps it if the refresh fails', async () => {
+  jest.mocked(loadAuthUser).mockResolvedValue(null);
+  await updateSpeakingStore(store => { cacheSpeakingPublicDetails(store, shared); });
+  let failCatalog!: (reason: Error) => void;
+  jest.mocked(getSpeakingCatalog).mockImplementationOnce(() => new Promise((_, reject) => { failCatalog = reject; }));
+  let failDetails!: (reason: Error) => void;
+  jest.mocked(getSpeakingCatalogMaterial).mockImplementationOnce(() => new Promise((_, reject) => { failDetails = reject; }));
+  const view = await renderHook(() => useSpeakingLibrary(shared.id));
+  await waitFor(() => expect(view.result.current.loading).toBe(false));
+  expect(view.result.current.materials.find(item => item.id === shared.id)?.cues).toHaveLength(sharedLines.length);
+  await act(async () => { failCatalog(new Error('offline')); failDetails(new Error('offline')); });
+  expect(view.result.current.error).toBe('');
+  expect(view.result.current.materials.find(item => item.id === shared.id)?.cues).toHaveLength(sharedLines.length);
+});
+it('requests a film\'s captions together with the catalog instead of after it', async () => {
+  jest.mocked(loadAuthUser).mockResolvedValue(null);
+  let resolveCatalog!: (value: { materials: typeof catalogSummaries }) => void;
+  jest.mocked(getSpeakingCatalog).mockImplementationOnce(() => new Promise(resolve => { resolveCatalog = resolve; }));
+  const view = await renderHook(() => useSpeakingLibrary(shared.id));
+  await waitFor(() => expect(getSpeakingCatalogMaterial).toHaveBeenCalledWith(shared.id));
+  expect(view.result.current.loading).toBe(true);
+  await act(async () => resolveCatalog({ materials: catalogSummaries }));
+  await waitFor(() => expect(view.result.current.loading).toBe(false));
+  expect(view.result.current.materials.find(item => item.id === shared.id)?.cues).toHaveLength(sharedLines.length);
 });

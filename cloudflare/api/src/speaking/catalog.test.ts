@@ -162,3 +162,31 @@ describe('生产固定口语目录', () => {
     expect(get).not.toHaveBeenCalled();
   });
 });
+
+describe('固定素材的内存缓存', () => {
+  it('同一个 Durable Object 再次打开同一素材时不再读取 R2，也不再校验字幕', async () => {
+    const { env, get } = fixture();
+    await getPlatformMaterial(env, 'forrest-gump');
+    await getPlatformMaterial(env, 'forrest-gump');
+    await getPlatformCatalog(env);
+    expect(get.mock.calls).toEqual([[`${PREFIX}/catalog.json`], [`${PREFIX}/forrest-gump/material.json`]]);
+  });
+
+  it('目录缓存一分钟后重新读取，发布新版本的字幕后读取新版本', async () => {
+    vi.useFakeTimers();
+    try {
+      const { env, get, objects, entries, details } = fixture();
+      await getPlatformMaterial(env, 'titanic');
+      const updated = { ...details[4]!, revision: 2, cues: [{ ...details[4]!.cues[0]!, en: 'A new line.' }] };
+      objects.set(`${PREFIX}/titanic/material.json`, JSON.stringify(updated));
+      objects.set(`${PREFIX}/catalog.json`, JSON.stringify({ materials: entries.map(entry =>
+        entry.material.id === 'titanic' ? { ...entry, material: { ...entry.material, revision: 2 } } : entry) }));
+      expect((await getPlatformMaterial(env, 'titanic')).revision).toBe(1);
+      vi.advanceTimersByTime(61_000);
+      expect((await getPlatformMaterial(env, 'titanic')).cues[0]!.en).toBe('A new line.');
+      expect(get).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

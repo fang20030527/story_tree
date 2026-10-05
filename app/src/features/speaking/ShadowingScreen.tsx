@@ -28,7 +28,8 @@ import { useShadowingPlayback } from './useShadowingPlayback';
 import { ShadowingCue, type ShadowingBlock } from './ShadowingCue';
 import { ShadowingDictionary } from './ShadowingDictionary';
 import { saveSpeakingMaterialState } from './cloudSync';
-import { getSpeakingCatalogPlayback, getSpeakingPlayback } from '@/api/speaking';
+import { getSpeakingPlayback } from '@/api/speaking';
+import { catalogPlayback, prefetchCatalogPlayback } from './playbackPrefetch';
 import { initialShadowingState } from './playback';
 import { observeRenderedSubtitles, scrollToRenderedSubtitle } from './subtitleScrolling';
 import { SpeakingTranscriptExport } from './SpeakingTranscriptExport';
@@ -40,6 +41,10 @@ export function ShadowingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const library = useSpeakingLibrary(id);
   const material = library.materials.find(item => item.id === id);
+  // A cached summary already says whether this is a released film: sign its link while captions
+  // load. Once the player is shown it requests the link itself (child effects run first).
+  const prefetchId = library.loading && material?.origin === 'platform' && material.mediaType === 'video' ? material.id : null;
+  useEffect(() => { if (prefetchId) prefetchCatalogPlayback(prefetchId); }, [prefetchId]);
   if (library.loading || library.error || !material || !library.scope) return <View style={[speakingStyles.page, { backgroundColor: theme.bg }]}><SpeakingHeader title="影子跟读" /><View style={speakingStyles.content}><SpeakingStatus loading={library.loading} error={library.error} retry={library.refresh} />{!library.loading && !library.error && !material ? <Text style={{ color: theme.textMuted }}>素材不存在，请返回素材页。</Text> : null}</View></View>;
   return <ShadowingPractice key={`${library.scope}:${material.id}`} material={material} library={library} scope={library.scope} />;
 }
@@ -131,7 +136,7 @@ function ShadowingPractice({ material, library, scope }: { material: SpeakingMat
       // 签名链接有效期 1 小时，只有播放器报错或加载超时且链接已过期时才续签。
       void (async () => {
         const media = material.origin === 'platform'
-          ? await getSpeakingCatalogPlayback(material.id) : await getSpeakingPlayback(material.assetId!);
+          ? await catalogPlayback(material.id) : await getSpeakingPlayback(material.assetId!);
         if (!active) return;
         const expiresAt = Date.parse(media.expiresAt);
         linkExpiresAt.current = Number.isFinite(expiresAt) ? expiresAt : 0;

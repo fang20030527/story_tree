@@ -13,9 +13,12 @@ import { handleDashboardRoute } from '../read/dashboard';
 import {
   commitQuota,
   getRemainingQuota,
+  quotaDayStart,
+  quotaScope,
   releaseQuota,
   reserveQuota,
   UNLIMITED_PRACTICES_REMAINING,
+  type QuotaScope,
 } from './service';
 
 const userId = '11111111-1111-4111-8111-111111111111';
@@ -71,10 +74,13 @@ async function grant(db: D1DatabaseBinding): Promise<void> {
     .bind(userId).run();
 }
 
-function createRequest(key: string, topicSet = false): Request {
+function createRequest(key: string, topicSet = false, deviceId?: string): Request {
   return new Request('https://blackholeenglish.com/v1/practices', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'idempotency-key': key },
+    headers: {
+      'content-type': 'application/json', 'idempotency-key': key,
+      ...(deviceId ? { 'x-device-id': deviceId } : {}),
+    },
     body: JSON.stringify({
       items: [
         { term: 'orbit', meaningZh: '轨道' },
@@ -169,4 +175,127 @@ describe('账号级无限练习额度', () => {
     expect(await db.prepare('SELECT SUM(amount) AS total FROM usage_ledger WHERE user_id = ?')
       .bind(userId).first()).toEqual({ total: -4 });
   }, 30_000);
+});
+
+describe('每日额度与设备共享', () => {
+  const thirdUserId = '33333333-3333-4333-8333-333333333333';
+  const scope = (owner: string, deviceHash: string | null, ipHash: string | null = null): QuotaScope =>
+    ({ userId: owner, deviceHash, ipHash });
+
+  async function addUser(db: D1DatabaseBinding, id: string): Promise<void> {
+    await db.prepare('INSERT INTO users (id, kind, age_confirmed_at) VALUES (?, ?, ?)')
+      .bind(id, 'guest', new Date().toISOString()).run();
+  }
+
+  it('按北京时间每天恢复：昨天用掉的次数不占今天的额度', async () => {
+    const { db } = await setup();
+    const yesterday = new Date(Date.parse(quotaDayStart()) - 60_000).toISOString();
+    for (let index = 0; index < 3; index += 1) {
+      const id = await practice(db);
+      await db.prepare(`INSERT INTO usage_ledger (id, user_id, practice_session_id, kind, amount, operation_key, created_at)
+        VALUES (?, ?, ?, 'reserve', -1, ?, ?)`).bind(crypto.randomUUID(), userId, id, `${id}:reserve`, yesterday).run();
+    }
+    expect(await getRemainingQuota(db, userId, 3)).toBe(3);
+    await exhaust(db);
+    expect(await getRemainingQuota(db, userId, 3)).toBe(0);
+  });
+
+  it('北京时间零点为一天的开始', () => {
+    expect(quotaDayStart(new Date('2026-10-05T15:59:59.000Z'))).toBe('2026-10-04T16:00:00.000Z');
+    expect(quotaDayStart(new Date('2026-10-05T16:00:00.000Z'))).toBe('2026-10-05T16:00:00.000Z');
+  });
+
+  it('同一设备换账号仍共用当天额度，换一台设备则不受影响', async () => {
+    const { db } = await setup();
+    await addUser(db, thirdUserId);
+    for (let index = 0; index < 3; index += 1) {
+      await reserveQuota(db, scope(userId, 'device-a'), await practice(db), 3);
+    }
+    expect(await getRemainingQuota(db, scope(otherUserId, 'device-a'), 3)).toBe(0);
+    await expect(reserveQuota(db, scope(otherUserId, 'device-a'), await practice(db, otherUserId), 3))
+      .rejects.toMatchObject({ code: 'FREE_LIMIT_REACHED' });
+    expect(await getRemainingQuota(db, scope(thirdUserId, 'device-b'), 3)).toBe(3);
+  });
+
+  it('生成失败释放额度后，设备的次数也一起恢复', async () => {
+    const { db } = await setup();
+    const ids = [];
+    for (let index = 0; index < 3; index += 1) {
+      const id = await practice(db);
+      ids.push(id);
+      await reserveQuota(db, scope(userId, 'device-a'), id, 3);
+    }
+    expect(await getRemainingQuota(db, scope(otherUserId, 'device-a'), 3)).toBe(0);
+    expect(await releaseQuota(db, ids[0]!)).toBe('applied');
+    expect(await getRemainingQuota(db, scope(otherUserId, 'device-a'), 3)).toBe(1);
+  });
+
+  it('同一网络的当天次数有单独上限', async () => {
+    const { db } = await setup();
+    const limits = { daily: 3, ipDaily: 4 };
+    for (let index = 0; index < 3; index += 1) {
+      await reserveQuota(db, scope(userId, 'device-a', 'net-1'), await practice(db), limits);
+    }
+    await reserveQuota(db, scope(otherUserId, 'device-b', 'net-1'), await practice(db, otherUserId), limits);
+    expect(await getRemainingQuota(db, scope(otherUserId, 'device-b', 'net-1'), limits)).toBe(0);
+    await expect(reserveQuota(db, scope(otherUserId, 'device-b', 'net-1'), await practice(db, otherUserId), limits))
+      .rejects.toMatchObject({ code: 'FREE_LIMIT_REACHED' });
+    expect(await getRemainingQuota(db, scope(otherUserId, 'device-b', 'net-2'), limits)).toBe(2);
+  });
+
+  it('无限练习账号不占用设备的免费次数', async () => {
+    const { db } = await setup();
+    await grant(db);
+    for (let index = 0; index < 4; index += 1) {
+      await reserveQuota(db, scope(userId, 'device-a'), await practice(db), 3);
+    }
+    expect(await getRemainingQuota(db, scope(otherUserId, 'device-a'), 3)).toBe(3);
+  });
+
+  it('设备编号和网络地址只保存摘要，中转服务器的地址不计入网络额度', async () => {
+    const env = { RELAY_IPS: '43.161.240.244' } as ApiEnv;
+    const request = (headers: Record<string, string>) =>
+      new Request('https://blackholeenglish.com/v1/dashboard', { headers });
+    const direct = await quotaScope(request({ 'x-device-id': 'device-id-1234567890', 'cf-connecting-ip': '203.0.113.9' }), env, userId);
+    expect(direct.deviceHash).toMatch(/^[a-f0-9]{64}$/u);
+    expect(direct.ipHash).toMatch(/^[a-f0-9]{64}$/u);
+    expect(direct.deviceHash).not.toContain('device-id');
+    const relayed = await quotaScope(request({ 'cf-connecting-ip': '43.161.240.244' }), env, userId);
+    expect(relayed).toEqual({ userId, deviceHash: null, ipHash: null });
+    expect((await quotaScope(request({ 'x-device-id': 'short' }), env, userId)).deviceHash).toBeNull();
+    const first = await quotaScope(request({ 'cf-connecting-ip': '2001:db8:1:2::10' }), env, userId);
+    const sameNetwork = await quotaScope(request({ 'cf-connecting-ip': '2001:db8:1:2:aaaa::1' }), env, userId);
+    const otherNetwork = await quotaScope(request({ 'cf-connecting-ip': '2001:db8:1:3::10' }), env, userId);
+    expect(sameNetwork.ipHash).toBe(first.ipHash);
+    expect(otherNetwork.ipHash).not.toBe(first.ipHash);
+  });
+
+  it('创建练习时按请求头的设备编号扣次数，同一设备的新账号会被拒绝', async () => {
+    const { env } = await setup();
+    for (let index = 0; index < 3; index += 1) {
+      const response = await handlePracticeCreateRoute(
+        createRequest(`device-request-${index}`, false, 'shared-device-0001'), env, userId, capability);
+      expect(CreatePracticeAcceptedSchema.parse(await response!.json()).remainingFreePractices).toBe(2 - index);
+    }
+    await expect(handlePracticeCreateRoute(
+      createRequest('device-request-other', false, 'shared-device-0001'), env, otherUserId, capability))
+      .rejects.toMatchObject({ code: 'FREE_LIMIT_REACHED' });
+    const dashboard = await handleDashboardRoute(new Request('https://blackholeenglish.com/v1/dashboard', {
+      headers: { 'x-device-id': 'shared-device-0001' },
+    }), env, otherUserId);
+    expect(DashboardDtoSchema.parse(await dashboard!.json()).remainingFreePractices).toBe(0);
+    const elsewhere = await handlePracticeCreateRoute(
+      createRequest('device-request-elsewhere', false, 'another-device-0002'), env, otherUserId, capability);
+    expect(elsewhere?.status).toBe(202);
+  }, 30_000);
+
+  it('全站 AI 用量达到上限时不再创建练习', async () => {
+    const { db, env } = await setup();
+    const day = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+    await db.prepare('INSERT INTO ai_usage_daily (day, calls) VALUES (?, ?)').bind(day, 5).run();
+    const capped = { ...env, AI_DAILY_CALL_LIMIT: '5' } as ApiEnv;
+    await expect(handlePracticeCreateRoute(createRequest('ai-capped-request-0001'), capped, userId, capability))
+      .rejects.toMatchObject({ code: 'AI_DAILY_LIMIT_REACHED' });
+    expect(await getRemainingQuota(db, userId, 3)).toBe(3);
+  });
 });
