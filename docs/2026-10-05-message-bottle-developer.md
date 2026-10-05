@@ -46,6 +46,8 @@ npx wrangler secret delete DEVELOPER_USER_IDS --config cloudflare/api/wrangler.j
 
 `0013` 只新增回复表；前置审核迁移 `0012` 也保留历史留言的公开状态。线上请求走 Worker + D1，Render 兼容代理透传 `/v1/*`。独立旧 Fastify 服务不提供该审核功能；开发此页面请连接 Worker。
 
+本次迁移、部署及 TestFlight 执行结果见 [发布记录](2026-10-05-message-bottle-release.md)。
+
 ## 接口兼容与清理
 
 - 能力：`GET /v1/developer/access` 返回 `{ canModerate }`。
