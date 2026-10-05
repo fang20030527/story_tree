@@ -66,4 +66,10 @@ npm run update:production --workspace=app -- --message "说明本次更新"
 
 隐私政策已补充 Expo 更新请求涉及的 IP 地址、随机安装标识、平台、兼容版本与更新运行信息。应用不向更新服务提供账号登录凭据或学习正文。
 
+## Windows 构建指纹修复
+
+首次云构建发现 `@expo/fingerprint@0.20.12` 在 Windows npm workspaces 中没有先规范化 `..\\node_modules` 路径，错误地把 204 个构建工具文件计入指纹，导致本机与 EAS macOS 的运行时不一致。仓库的 `patches/@expo+fingerprint+0.20.12.patch` 回移 [Expo 上游修复](https://github.com/expo/expo/pull/46816)，通过现有 `postinstall` 自动应用。只统一路径分隔符，保留依赖、原生配置和本地配置插件的兼容性校验。
+
+修复后本机指纹与失败构建日志记录的云端指纹完全相同；生成的 `ios` 目录只有空哈希，不影响结果。以后升级 SDK 或 `@expo/fingerprint` 时，需核对上游是否已包含此修复，再移除补丁并重新比较构建与更新指纹。
+
 参考：[SDK 57 expo-updates](https://docs.expo.dev/versions/v57.0.0/sdk/updates/)、[EAS Update 接入](https://docs.expo.dev/eas-update/getting-started/)、[EAS 环境变量](https://docs.expo.dev/eas/environment-variables/usage/)、[运行时兼容规则](https://docs.expo.dev/eas-update/runtime-versions/)。
