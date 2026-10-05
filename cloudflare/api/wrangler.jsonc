@@ -81,6 +81,8 @@
     "MESSAGE_BOTTLE_REVIEW": "pre"
   }
   // ADMIN_TOKEN（审核后台口令）只用 `wrangler secret put ADMIN_TOKEN` 配置；未配置时审核后台关闭。
+  // DEVELOPER_USER_IDS（可审核和回复的注册账号 UUID，英文逗号分隔）只用 Worker secret 配置。
+  // 不配置时应用内开发者模式关闭；不要填写邮箱、用户名或 EXPO_PUBLIC_ 变量。
   // MODERATION_NOTIFY_EMAIL 可选：有留言等待审核时发邮件提醒到这个地址（最多 30 分钟一封）。
   // RELAY_SHARED_SECRET 与中转服务器 Caddy 的同名环境变量相同，只用 `wrangler secret put` 配置；
   // 未配置时完全忽略 X-Relay-* 请求头，行为与以前一致。

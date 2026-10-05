@@ -2,6 +2,7 @@ import {
   BlockedUsersSchema, CreateMessageBottleSchema, MessageBottleDtoSchema, MessageBottleListQuerySchema,
   MessageBottlePageSchema, MessageBottleProfileSchema, MessageBottleReviewedDtoSchema,
   MessageBottleReviewedPageSchema, ReportMessageBottleRequestSchema, UuidSchema, type CreateMessageBottle,
+  MessageBottleThreadDtoSchema, MessageBottleThreadPageSchema,
 } from '@context-reader/contracts';
 import { AppError } from '../../../../server/src/core/errors';
 import {
@@ -12,6 +13,7 @@ import {
 import { notifyModerators } from '../admin/notify';
 import { readJsonBody } from '../core/http';
 import type { ApiEnv } from '../env';
+import { readMessageBottleReplies } from './replies';
 
 const PATH = '/v1/message-bottles';
 const BLOCKED_PATH = '/v1/blocked-users';
@@ -127,7 +129,7 @@ async function list(url: URL, env: ApiEnv, userId: string): Promise<Response> {
   }
   const parsed = MessageBottleListQuerySchema.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) throw new AppError('VALIDATION_ERROR', '留言分页参数无效', 400);
-  const { limit, includeStatus } = parsed.data;
+  const { limit, includeStatus, includeReply } = parsed.data;
   const cursor = parsed.data.cursor ? decodeMessageBottleCursor(parsed.data.cursor) : null;
   // Everyone sees public bottles; authors also see their own while under review. Bottles by
   // people the viewer blocked, and bottles the viewer reported, disappear for the viewer at once.
@@ -139,9 +141,15 @@ async function list(url: URL, env: ApiEnv, userId: string): Promise<Response> {
     ORDER BY bottle.created_at DESC, bottle.id DESC LIMIT ?`)
     .bind(userId, userId, userId, ...(cursor ? [cursor.createdAt, cursor.createdAt, cursor.id] : []), limit + 1)
     .all<MessageRow>();
-  const withStatus = includeStatus === '1';
+  const withStatus = includeStatus === '1' || includeReply === '1';
   const items = rows.results.slice(0, limit).map(row => dto(row, userId, withStatus)); const last = items.at(-1);
   const page = { items, nextCursor: rows.results.length > limit && last ? encodeMessageBottleCursor(last.createdAt, last.id) : null };
+  if (includeReply === '1') {
+    const replies = await readMessageBottleReplies(env, items.map(item => item.id));
+    return json(MessageBottleThreadPageSchema.parse({
+      ...page, items: items.map(item => ({ ...item, reply: replies.get(item.id) ?? null })),
+    }));
+  }
   return json(withStatus ? MessageBottleReviewedPageSchema.parse(page) : MessageBottlePageSchema.parse(page));
 }
 
@@ -218,7 +226,13 @@ export async function handleMessageBottleRoute(request: Request, env: ApiEnv, us
     if (!key || !/^[A-Za-z0-9_-]{16,128}$/u.test(key)) throw new AppError('VALIDATION_ERROR', '幂等键格式无效', 400);
     const parsed = CreateMessageBottleSchema.safeParse(await readJsonBody(request));
     if (!parsed.success) throw new AppError('VALIDATION_ERROR', '请填写 2–24 字的用户名和 1–1000 字的留言', 400);
-    return json(await create(env, userId, parsed.data, key, url.searchParams.get('includeStatus') === '1', consoleUrl), 201);
+    const withReply = url.searchParams.get('includeReply') === '1';
+    const message = await create(env, userId, parsed.data, key, withReply || url.searchParams.get('includeStatus') === '1', consoleUrl);
+    if (withReply) {
+      const replies = await readMessageBottleReplies(env, [message.id]);
+      return json(MessageBottleThreadDtoSchema.parse({ ...message, reply: replies.get(message.id) ?? null }), 201);
+    }
+    return json(message, 201);
   }
   if (request.method !== 'GET') throw new AppError('VALIDATION_ERROR', '不支持此请求方式', 405);
   return list(url, env, userId);

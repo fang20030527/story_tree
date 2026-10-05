@@ -91,6 +91,8 @@ export const MessageBottleListQuerySchema = z.object({
   cursor: MessageBottleCursorSchema.optional(),
   /** Newer clients ask for each bottle's review status (MessageBottleReviewedPageSchema). */
   includeStatus: z.literal('1').optional(),
+  /** Explicit opt-in to developer replies and review status; older response shapes stay unchanged. */
+  includeReply: z.literal('1').optional(),
 }).strict();
 export const MessageBottleDtoSchema = z.object({
   id: UuidSchema,
@@ -117,6 +119,54 @@ export const ReportMessageBottleRequestSchema = z.object({
   reason: MessageBottleReportReasonSchema,
   detail: z.string().trim().min(1).max(200).optional(),
 }).strict();
+export const MessageBottleReplyInputSchema = z.object({
+  content: z.string().trim().min(1).max(MESSAGE_BOTTLE_CONTENT_LIMIT),
+}).strict();
+export const MessageBottleReplySchema = z.object({
+  content: z.string().min(1).max(MESSAGE_BOTTLE_CONTENT_LIMIT),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+}).strict();
+export const MessageBottleReplyResultSchema = z.object({ reply: MessageBottleReplySchema.nullable() }).strict();
+export const MessageBottleThreadDtoSchema = MessageBottleReviewedDtoSchema.extend({
+  reply: MessageBottleReplySchema.nullable(),
+}).strict();
+export const MessageBottleThreadPageSchema = z.object({
+  items: z.array(MessageBottleThreadDtoSchema).max(50),
+  nextCursor: MessageBottleCursorSchema.nullable(),
+}).strict();
+export const MessageBottleDeveloperAccessSchema = z.object({ canModerate: z.boolean() }).strict();
+export const MessageBottleModerationViewSchema = z.enum(['pending', 'reported', 'hidden', 'recent']);
+export const MessageBottleModerationQuerySchema = MessageBottleListQuerySchema.omit({
+  includeStatus: true, includeReply: true,
+}).extend({ view: MessageBottleModerationViewSchema.default('pending') }).strict();
+export const MessageBottleModerationItemSchema = z.object({
+  id: UuidSchema,
+  username: MessageBottleUsernameSchema,
+  content: z.string().min(1).max(MESSAGE_BOTTLE_CONTENT_LIMIT),
+  createdAt: z.iso.datetime(),
+  status: MessageBottleStatusSchema,
+  reviewedAt: z.iso.datetime().nullable(),
+  author: z.object({ id: UuidSchema, username: UsernameSchema.nullable(), banned: z.boolean() }).strict(),
+  reports: z.array(z.object({
+    reason: MessageBottleReportReasonSchema,
+    detail: z.string().max(200).nullable(),
+    createdAt: z.iso.datetime(),
+  }).strict()),
+  reply: MessageBottleReplySchema.nullable(),
+}).strict();
+export const MessageBottleModerationPageSchema = z.object({
+  view: MessageBottleModerationViewSchema,
+  items: z.array(MessageBottleModerationItemSchema).max(50),
+  nextCursor: MessageBottleCursorSchema.nullable(),
+}).strict();
+export const MessageBottleModerationResultSchema = z.object({ ok: z.literal(true) }).strict();
+export type MessageBottleReply = z.infer<typeof MessageBottleReplySchema>;
+export type MessageBottleThreadDto = z.infer<typeof MessageBottleThreadDtoSchema>;
+export type MessageBottleThreadPage = z.infer<typeof MessageBottleThreadPageSchema>;
+export type MessageBottleModerationView = z.infer<typeof MessageBottleModerationViewSchema>;
+export type MessageBottleModerationItem = z.infer<typeof MessageBottleModerationItemSchema>;
+export type MessageBottleModerationPage = z.infer<typeof MessageBottleModerationPageSchema>;
 export const BlockedUserSchema = z.object({
   userId: UuidSchema,
   username: UsernameSchema.nullable(),

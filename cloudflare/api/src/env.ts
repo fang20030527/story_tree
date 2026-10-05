@@ -105,6 +105,8 @@ export interface ApiEnv {
   MESSAGE_BOTTLE_REVIEW?: string;
   /** Worker secret for the moderation console; unset disables it. */
   ADMIN_TOKEN?: string;
+  /** Server-only allowlist of registered account UUIDs, comma-separated. */
+  DEVELOPER_USER_IDS?: string;
   /** Optional address that receives a note when bottles wait for review. */
   MODERATION_NOTIFY_EMAIL?: string;
   RESEND_API_KEY?: string;

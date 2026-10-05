@@ -8,6 +8,14 @@
     "icon": "./assets/images/icon.png",
     "scheme": "app",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/bee39c4a-ad90-44af-a2f1-32c168dc395a",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "ios": {
       "icon": "./assets/images/icon.png",
       "supportsTablet": true,

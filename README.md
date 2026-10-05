@@ -22,6 +22,10 @@
 
 真机调试时，手机和开发电脑必须在可互相访问的同一局域网。`EXPO_PUBLIC_API_BASE_URL` 和 `PUBLIC_SERVER_ORIGIN` 都应使用开发电脑当前的局域网 IP，不能使用手机视角下的 `localhost`。例如两者都设为 `http://192.168.1.20:3000`。切换 Wi-Fi 后 IP 可能改变，需同时更新两个变量，然后重启 API 和 Expo。
 
+## 手机版热更新
+
+iOS 已配置 `expo-updates` 和 EAS Update，使用原生指纹匹配兼容安装包。首次需要构建并安装包含热更新模块的新包，之后页面、文案及兼容的 JavaScript 改动可分别通过 `npm run update:preview --workspace=app -- --message "更新说明"` 和 `npm run update:production --workspace=app -- --message "更新说明"` 发布。更新在启动时后台下载、下次启动生效；新增原生模块或升级 SDK 仍需新构建。频道、正式环境配置、测试和回退步骤见 [手机版热更新](docs/2026-10-05-eas-update.md)。
+
 ## 精选外刊日常发布
 
 精选外刊支持在服务端新增文章文件并部署。服务端自动选择最新已发布的文章放在「精选外刊」顶部，其他文章仍可按刊物和日期浏览。客户端打开外刊页或下拉刷新时读取最新目录；正文和素材按需加载。完整格式、校验命令和发布步骤见 [每日外刊发布](docs/editorial-publishing.md)。首次启用需要发布一次包含此功能的客户端版本，后续新增文章无需重新构建客户端。

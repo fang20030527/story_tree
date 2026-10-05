@@ -60,6 +60,12 @@ D1 迁移 `0011_daily_quota.sql` 新增设备/网络额度事件表 `quota_usage
 
 部署顺序：先 `npm run cloudflare:d1:migrate:api`，再设置 secret、`npm run cloudflare:deploy:api`，最后发布 Web 和原生客户端。新客户端依赖新接口，不能先于 API 发布。详见 [账号合规、每日额度、留言审核与加载速度](../docs/2026-10-05-account-quota-moderation.md)。
 
+## 留言瓶开发者模式
+
+应用内审核使用正常登录账号，Worker secret `DEVELOPER_USER_IDS` 为已注册账号的 UUID 白名单（英文逗号分隔）。登录后在「留言瓶 → 开发者模式」查看待审核、被举报、已隐藏和全部留言，支持审核、禁言及开发者回复。权限每次由服务端校验；不填写白名单时入口关闭。
+
+先应用 D1 迁移 `0013_message_bottle_replies.sql`，再配置 secret、发布 API，最后发布 Web/原生客户端。已有 `ADMIN_TOKEN` 审核网页保持可用。开发者回复按留言保存，跟随留言可见性，账号注销或留言删除时级联清理。账号查询、授权、撤销与接口兼容说明见 [留言瓶开发者模式](../docs/2026-10-05-message-bottle-developer.md)。
+
 ## 准备与上传
 
 根目录执行 `npm ci`。把 `cloudflare/.env.example` 复制为被 Git 忽略的 `cloudflare/.env.local`，填写只对 `waikan-2026-audio` 桶有 Object Read & Write 权限的限时 R2 S3 凭证。**不要提交或打印凭证**。

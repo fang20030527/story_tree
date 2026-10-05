@@ -92,7 +92,7 @@ async function listBottles(url: URL, env: ApiEnv): Promise<Response> {
   });
 }
 
-async function bottleAction(env: ApiEnv, id: string, action: 'approve' | 'hide' | 'delete'): Promise<Response> {
+export async function bottleAction(env: ApiEnv, id: string, action: 'approve' | 'hide' | 'delete'): Promise<Response> {
   const exists = await env.DB.prepare('SELECT id FROM message_bottles WHERE id = ?').bind(id).first();
   if (!exists) throw new AppError('NOT_FOUND', '留言不存在', 404);
   const now = new Date().toISOString();
@@ -109,7 +109,7 @@ async function bottleAction(env: ApiEnv, id: string, action: 'approve' | 'hide' 
   return json({ ok: true });
 }
 
-async function userAction(env: ApiEnv, id: string, action: 'ban' | 'unban'): Promise<Response> {
+export async function userAction(env: ApiEnv, id: string, action: 'ban' | 'unban'): Promise<Response> {
   const exists = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(id).first();
   if (!exists) throw new AppError('NOT_FOUND', '账号不存在', 404);
   const now = new Date().toISOString();

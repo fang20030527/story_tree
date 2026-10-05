@@ -7,6 +7,12 @@ import {
   blockMessageBottleAuthor, createMessageBottle, getMessageBottleProfile, getMessageBottles, reportMessageBottle,
 } from '@/api/messageBottles';
 import { MessageBottleScreen } from './MessageBottleScreen';
+import { getMessageBottleDeveloperAccess } from '@/api/messageBottleDeveloper';
+
+jest.mock('@/api/messageBottleDeveloper', () => ({
+  getMessageBottleDeveloperAccess: jest.fn(),
+  getModerationBottles: jest.fn().mockResolvedValue({ view: 'pending', items: [], nextCursor: null }),
+}));
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn() },
@@ -23,16 +29,20 @@ jest.mock('@/components/confirm', () => ({
 }));
 jest.mock('@/context/ThemeContext', () => ({ useAppTheme: () => ({ theme: jest.requireActual('@/constants/theme').themes.light }) }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
+jest.mock('@/components/cosmos', () => ({
+  Bottle: () => null, BlackHoleLoader: () => null, EnterOnce: ({ children }: { children: React.ReactNode }) => children,
+}));
 jest.mock('@/components/brand', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
   return { BrandHeader: () => null, PageHeading: ({ title }: { title: string }) => React.createElement(Text, null, title) };
 });
 
-const message = { id: '11111111-1111-4111-8111-111111111111', username: '小张', content: '希望增加阅读统计。', createdAt: '2026-10-03T01:00:00.000Z', isMine: false, status: 'visible' as const };
+const message = { id: '11111111-1111-4111-8111-111111111111', username: '小张', content: '希望增加阅读统计。', createdAt: '2026-10-03T01:00:00.000Z', isMine: false, status: 'visible' as const, reply: null };
 const own = { ...message, id: '22222222-2222-4222-8222-222222222222', username: '小林', content: '希望增加听力练习。', isMine: true };
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.mocked(getMessageBottleDeveloperAccess).mockResolvedValue({ canModerate: false });
   jest.mocked(getMessageBottles).mockReset().mockResolvedValue({ items: [message], nextCursor: null });
   jest.mocked(getMessageBottleProfile).mockReset().mockResolvedValue({ username: '小林', canPost: true });
   jest.mocked(createMessageBottle).mockReset().mockResolvedValue(own);
@@ -47,6 +57,25 @@ it('游客查看所有实名留言，并通过入口登录后投递', async () =
   await fireEvent.press(screen.getByRole('button', { name: '登录后投递留言' }));
   expect(router.push).toHaveBeenCalledWith('/login');
   expect(createMessageBottle).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: '开发者模式' })).toBeNull();
+});
+
+it('只有服务端授权的账号显示开发者入口', async () => {
+  jest.mocked(getMessageBottleDeveloperAccess).mockResolvedValue({ canModerate: true });
+  const screen = await render(<MessageBottleScreen />);
+  await waitFor(() => expect(screen.getByRole('button', { name: '开发者模式' })).toBeTruthy());
+  await fireEvent.press(screen.getByRole('button', { name: '开发者模式' }));
+  await waitFor(() => expect(screen.getByText('待审核')).toBeTruthy());
+  expect(screen.getByRole('button', { name: '返回所有留言' })).toBeTruthy();
+});
+it('公开留言展示开发者回复，不暴露审核操作', async () => {
+  jest.mocked(getMessageBottles).mockResolvedValue({ items: [{ ...message, reply: {
+    content: '统计功能已经安排。', createdAt: message.createdAt, updatedAt: message.createdAt,
+  } }], nextCursor: null });
+  const screen = await render(<MessageBottleScreen />);
+  await waitFor(() => expect(screen.getByText('统计功能已经安排。')).toBeTruthy());
+  expect(screen.getByText('开发者回复')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: '通过并公开' })).toBeNull();
 });
 it('已有署名时显示公开署名，并可进入修改用户名页', async () => {
   const screen = await render(<MessageBottleScreen />);

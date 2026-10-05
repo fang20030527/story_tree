@@ -37,6 +37,7 @@ import { handleVocabularyWordRoute } from './vocabulary/words';
 import { sweepSpeakingAssets } from './speaking/assets';
 import { handleSpeakingOnCpuBoundary } from './speaking/cpu';
 import { handleMessageBottleRoute } from './message-bottles/routes';
+import { handleDeveloperMessageBottleRoute } from './message-bottles/developer';
 import { handleAccountDeleteRoute } from './account/delete';
 import { handleModerationRoute } from './admin/moderation';
 import { handleAccountRoute } from './account/routes';
@@ -121,6 +122,8 @@ async function dispatch(request: Request, env: ApiEnv, requestId: string): Promi
   if (authResponse) return authResponse;
 
   const { userId } = await requireAuth(request, env);
+  const developerResponse = await handleDeveloperMessageBottleRoute(request, env, userId);
+  if (developerResponse) return developerResponse;
   const messageBottleResponse = await handleMessageBottleRoute(request, env, userId);
   if (messageBottleResponse) return messageBottleResponse;
   const accountResponse = await handleAccountRoute(request, env, userId);

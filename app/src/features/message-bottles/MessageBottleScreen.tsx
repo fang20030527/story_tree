@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  CreateMessageBottleSchema, MESSAGE_BOTTLE_CONTENT_LIMIT, type MessageBottleReportReason, type MessageBottleReviewedDto,
+  CreateMessageBottleSchema, MESSAGE_BOTTLE_CONTENT_LIMIT, type MessageBottleReportReason, type MessageBottleThreadDto,
 } from '@context-reader/contracts';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
@@ -16,6 +16,8 @@ import { pageContent } from '@/components/ResponsiveFrame';
 import { motion, radius, weight } from '@/constants/theme';
 import { useAppTheme } from '@/context/ThemeContext';
 import { messageBottleError, useMessageBottles } from './useMessageBottles';
+import { DeveloperReply } from './DeveloperReply';
+import { MessageBottleModeration } from './MessageBottleModeration';
 
 const REPORT_REASONS: { reason: MessageBottleReportReason; label: string }[] = [
   { reason: 'spam', label: '垃圾广告' }, { reason: 'abuse', label: '辱骂骚扰' }, { reason: 'sexual', label: '色情低俗' },
@@ -26,19 +28,20 @@ export function MessageBottleScreen() {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const feed = useMessageBottles();
+  const [developerMode, setDeveloperMode] = useState(false);
   const [username, setUsername] = useState('');
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const pending = useRef<{ signature: string; key: string } | null>(null);
-  const [menu, setMenu] = useState<{ item: MessageBottleReviewedDto; step: 'menu' | 'report' } | null>(null);
+  const [menu, setMenu] = useState<{ item: MessageBottleThreadDto; step: 'menu' | 'report' } | null>(null);
   const [acting, setActing] = useState(false);
   const sendingRef = useRef(false);
   const scope = useRef(0);
   const active = useRef(false);
   useFocusEffect(useCallback(() => {
-    active.current = true; ++scope.current; sendingRef.current = false; setSending(false);
+    active.current = true; ++scope.current; sendingRef.current = false; setSending(false); setDeveloperMode(false); setMenu(null);
     return () => { active.current = false; ++scope.current; };
   }, []));
   // 投递成功：标题旁的漂流瓶沿虚线轨道漂出画面（820ms 加速），再淡入回到原处。
@@ -84,6 +87,8 @@ export function MessageBottleScreen() {
   </Pressable>;
 
   const header = <>
+    {feed.canModerate ? <View style={{ marginBottom: 12 }}>{action('开发者模式', () => setDeveloperMode(true))}</View> : null}
+    {feed.accessError ? <Text style={[styles.hint, { color: theme.textMuted }]}>{feed.accessError}</Text> : null}
     <View style={styles.headingRow}>
       <View style={styles.headingCopy}><PageHeading title="留言瓶" description="把想法装进瓶子，让黑洞英语变得更好。" /></View>
       <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.bottleArt, {
@@ -136,14 +141,14 @@ export function MessageBottleScreen() {
       .catch(cause => notify('操作没有完成', messageBottleError(cause, '请稍后重试')))
       .finally(() => setActing(false));
   };
-  const report = (item: MessageBottleReviewedDto, reason: MessageBottleReportReason) =>
+  const report = (item: MessageBottleThreadDto, reason: MessageBottleReportReason) =>
     finish(() => feed.report(item, reason), '已收到举报，我们会尽快处理。这条留言已对你隐藏。');
-  const block = (item: MessageBottleReviewedDto) => confirmAction({
+  const block = (item: MessageBottleThreadDto) => confirmAction({
     title: `屏蔽「${item.username}」？`, message: '屏蔽后你将看不到对方的任何留言，可以在「设置 → 已屏蔽的用户」里解除。',
     confirmLabel: '屏蔽', destructive: true,
   }, () => finish(() => feed.block(item), '已屏蔽，对方的留言不会再出现在你的列表里。'));
 
-  const renderMessage = ({ item }: { item: MessageBottleReviewedDto }) => <View style={[styles.message, { backgroundColor: theme.surfaceAlt }]}>
+  const renderMessage = ({ item }: { item: MessageBottleThreadDto }) => <View style={[styles.message, { backgroundColor: theme.surfaceAlt }]}>
     <View style={styles.messageMeta}><View style={styles.messageAuthor}><Text style={[styles.author, { color: theme.text }]}>{item.username}</Text>
       {item.isMine ? <Text style={[styles.mine, { color: theme.accent, backgroundColor: theme.accentSoft }]}>我</Text> : null}
       {item.isMine && item.status !== 'visible' ? <Text style={[styles.mine, { color: theme.textSecondary, backgroundColor: theme.bg }]}>
@@ -155,7 +160,13 @@ export function MessageBottleScreen() {
       </View>
     </View>
     <Text selectable style={[styles.messageContent, { color: theme.textSecondary }]}>{item.content}</Text>
+    {item.reply ? <DeveloperReply reply={item.reply} /> : null}
   </View>;
+
+  if (developerMode && feed.canModerate) return <KeyboardAvoidingView style={[styles.screen, { backgroundColor: theme.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <BrandHeader />
+    <MessageBottleModeration onRevoke={feed.revokeModeration} onExit={() => { setDeveloperMode(false); void feed.refresh(); }} />
+  </KeyboardAvoidingView>;
 
   return <KeyboardAvoidingView style={[styles.screen, { backgroundColor: theme.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <BrandHeader />

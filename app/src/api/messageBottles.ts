@@ -1,21 +1,21 @@
 import {
-  BlockedUsersSchema, CreateMessageBottleSchema, MessageBottleProfileSchema, MessageBottleReviewedDtoSchema,
-  MessageBottleReviewedPageSchema, ReportMessageBottleRequestSchema,
-  type BlockedUser, type CreateMessageBottle, type MessageBottleProfile, type MessageBottleReviewedDto,
-  type MessageBottleReviewedPage, type ReportMessageBottleRequest,
+  BlockedUsersSchema, CreateMessageBottleSchema, MessageBottleProfileSchema, MessageBottleThreadDtoSchema,
+  MessageBottleThreadPageSchema, ReportMessageBottleRequestSchema,
+  type BlockedUser, type CreateMessageBottle, type MessageBottleProfile, type MessageBottleThreadDto,
+  type MessageBottleThreadPage, type ReportMessageBottleRequest,
 } from '@context-reader/contracts';
 import { apiRequest, apiRequestNoContent } from './client';
 
 /** Includes each bottle's review status, so authors can see which of theirs wait for review. */
-export function getMessageBottles(cursor?: string): Promise<MessageBottleReviewedPage> {
-  const query = new URLSearchParams({ includeStatus: '1', ...(cursor ? { cursor } : {}) });
-  return apiRequest(`/v1/message-bottles?${query}`, MessageBottleReviewedPageSchema);
+export function getMessageBottles(cursor?: string): Promise<MessageBottleThreadPage> {
+  const query = new URLSearchParams({ includeStatus: '1', includeReply: '1', ...(cursor ? { cursor } : {}) });
+  return apiRequest(`/v1/message-bottles?${query}`, MessageBottleThreadPageSchema);
 }
 export function getMessageBottleProfile(): Promise<MessageBottleProfile> {
   return apiRequest('/v1/message-bottles/profile', MessageBottleProfileSchema);
 }
-export function createMessageBottle(input: CreateMessageBottle, key: string): Promise<MessageBottleReviewedDto> {
-  return apiRequest('/v1/message-bottles?includeStatus=1', MessageBottleReviewedDtoSchema, {
+export function createMessageBottle(input: CreateMessageBottle, key: string): Promise<MessageBottleThreadDto> {
+  return apiRequest('/v1/message-bottles?includeStatus=1&includeReply=1', MessageBottleThreadDtoSchema, {
     method: 'POST', headers: { 'Idempotency-Key': key }, body: JSON.stringify(CreateMessageBottleSchema.parse(input)),
   });
 }

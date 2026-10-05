@@ -1,9 +1,10 @@
 import type {
-  CreateMessageBottle, MessageBottleProfile, MessageBottleReportReason, MessageBottleReviewedDto,
+  CreateMessageBottle, MessageBottleProfile, MessageBottleReportReason, MessageBottleThreadDto,
 } from '@context-reader/contracts';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
+import { getMessageBottleDeveloperAccess } from '@/api/messageBottleDeveloper';
 import {
   blockMessageBottleAuthor, createMessageBottle, getMessageBottleProfile, getMessageBottles, reportMessageBottle,
 } from '@/api/messageBottles';
@@ -13,7 +14,9 @@ export function messageBottleError(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message : fallback;
 }
 export function useMessageBottles() {
-  const [items, setItems] = useState<MessageBottleReviewedDto[]>([]);
+  const [items, setItems] = useState<MessageBottleThreadDto[]>([]);
+  const [canModerate, setCanModerate] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [profile, setProfile] = useState<MessageBottleProfile | null>(null);
   const [refreshing, setRefreshing] = useState(true);
@@ -35,16 +38,18 @@ export function useMessageBottles() {
     try {
       await registerAnonymous(true);
       if (!active.current || version.current !== requestVersion) return;
-      const [page, account] = await Promise.allSettled([getMessageBottles(), getMessageBottleProfile()]);
+      const [page, account, access] = await Promise.allSettled([getMessageBottles(), getMessageBottleProfile(), getMessageBottleDeveloperAccess()]);
       if (!active.current || version.current !== requestVersion) return;
       if (page.status === 'fulfilled') { setItems(page.value.items); setNextCursor(page.value.nextCursor); }
       else setError(messageBottleError(page.reason, '留言暂时无法读取，请重试'));
       if (account.status === 'fulfilled') setProfile(account.value);
       else { setProfile(null); setProfileError(messageBottleError(account.reason, '账号信息暂时无法读取，请重试')); }
+      setCanModerate(access.status === 'fulfilled' && access.value.canModerate);
+      setAccessError(access.status === 'rejected' ? '开发者权限暂时无法读取，请刷新重试' : null);
     } catch (cause) {
       if (active.current && version.current === requestVersion) {
         const message = messageBottleError(cause, '留言暂时无法读取，请重试');
-        setError(message); setProfileError(message); setProfile(null);
+        setError(message); setProfileError(message); setProfile(null); setCanModerate(false);
       }
     } finally {
       if (active.current && version.current === requestVersion) { refreshingRef.current = false; setRefreshing(false); }
@@ -52,9 +57,10 @@ export function useMessageBottles() {
   }, []);
 
   useFocusEffect(useCallback(() => {
-    active.current = true; ++scope.current; setProfile(null);
+    active.current = true; ++scope.current; setProfile(null); setCanModerate(false); setAccessError(null); setItems([]); setNextCursor(null);
     void refresh();
-    return () => { active.current = false; ++scope.current; ++version.current; refreshingRef.current = false; moreRef.current = false; };
+    return () => { active.current = false; ++scope.current; ++version.current; refreshingRef.current = false; moreRef.current = false;
+      setCanModerate(false); setItems([]); setProfile(null); setNextCursor(null); };
   }, [refresh]));
 
   const loadMore = useCallback(async () => {
@@ -89,16 +95,24 @@ export function useMessageBottles() {
   }, []);
 
   // A reported bottle, and every bottle by a blocked author, leave the list at once.
-  const report = useCallback(async (item: MessageBottleReviewedDto, reason: MessageBottleReportReason) => {
+  const report = useCallback(async (item: MessageBottleThreadDto, reason: MessageBottleReportReason) => {
+    const currentScope = scope.current;
     await reportMessageBottle(item.id, { reason });
-    setItems(previous => previous.filter(entry => entry.id !== item.id));
+    if (active.current && currentScope === scope.current) setItems(previous => previous.filter(entry => entry.id !== item.id));
   }, []);
-  const block = useCallback(async (item: MessageBottleReviewedDto) => {
+  const block = useCallback(async (item: MessageBottleThreadDto) => {
+    const currentScope = scope.current;
     await blockMessageBottleAuthor(item.id);
+    if (!active.current || currentScope !== scope.current) return;
     // The name hides the author's bottles at once; the reload filters by account on the server.
     setItems(previous => previous.filter(entry => entry.isMine || entry.username !== item.username));
     void refresh();
   }, [refresh]);
 
-  return { items, nextCursor, profile, refreshing, loadingMore, error, profileError, moreError, refresh, loadMore, post, report, block };
+  const revokeModeration = useCallback(() => {
+    ++version.current; refreshingRef.current = false; setRefreshing(false); setCanModerate(false);
+    setAccessError('开发者权限已失效，请确认登录账号后刷新');
+  }, []);
+  return { items, nextCursor, profile, refreshing, loadingMore, error, profileError, moreError, refresh, loadMore, post, report, block,
+    canModerate, accessError, revokeModeration };
 }
